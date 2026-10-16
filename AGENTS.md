@@ -22,6 +22,15 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
 - [UI e Componentes em React 19](.agents/skills/principios/references/ui-componentes.md)
 - [UX e Fluxos Operacionais (FSPH / SVO)](.agents/skills/principios/references/ux-fluxo.md)
 
+### Skills Operacionais do Fluxo SDD (`.agents/skills/`)
+> **Regra de Subordinação Obrigatória:** Ao executar qualquer uma das skills abaixo, o agente é **obrigado** a carregar e obedecer integralmente à skill canônica **[`principios`](.agents/skills/principios/SKILL.md)** e às suas referências (`Passo 0` bloqueante).
+
+- **[`buscar-tarefa`](.agents/skills/buscar-tarefa/SKILL.md)** (`/buscar-tarefa`): Coleta dados da issue no Jira via `node scripts/jira-fetch.mjs` e estrutura o contexto Git da branch do desenvolvedor (`dev-<nome>`).
+- **[`plano`](.agents/skills/plano/SKILL.md)** (`/plano`): Planeja a tarefa aplicando a Regra da Dúvida e gera o SDD em `plans/<chave-tarefa>-<slug>.html` a partir de `plans/EXEMPLO_PLANO.html`.
+- **[`testar`](.agents/skills/testar/SKILL.md)** (`/testar`): Executa a bateria de testes funcionais (API REST, UI React 19, PostgreSQL 18, RBAC e WCAG 2.2 AA).
+- **[`revisar`](.agents/skills/revisar/SKILL.md)** (`/revisar`): Realiza a revisão automatizada do diff da branch `dev-<nome>` validando camadas, segurança SQL, concorrência, WCAG 2.2 AA e LGPD/SVO.
+- **[`documentar-modulo`](.agents/skills/documentar-modulo/SKILL.md)** (`/documentar-modulo`): Gera ou atualiza a documentação HTML do módulo em `docs/modulos/<MODULO>.html`.
+
 ---
 
 ## 2. A Regra Inegociável da Dúvida
@@ -48,12 +57,14 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
 
 ---
 
-## 4. Gitflow e Commits
+## 4. Fluxo Git (Branch por Desenvolvedor) e Commits
 
-- **Branches:** Baseadas sempre a partir de `develop`.
-  - `feature/<modulo>-<funcionalidade>`
-  - `fix/<modulo>-<defeito>`
-- **Commits:** Padrão Conventional Commits (`tipo(escopo): descrição curta`):
+- **Branches e Promoção (`dev-<nome>` → `develop` (QA) → `main`):**
+  - Todo o trabalho permanece sempre na branch fixa do desenvolvedor (`dev-<nome>`, ex: `dev-eliakim`, `dev-arthur`). **Não crie branches `feature/...` ou `fix/...` separadas.**
+  - A branch `dev-<nome>` é **somente atualizada a partir da `main`** (`git pull origin main`).
+  - Ao concluir uma entrega, a branch `dev-<nome>` envia um **Pull Request para `develop`**, onde passa pelo **QA** e, após validação, segue da `develop` para a `main`.
+- **Commits:** Padrão Conventional Commits identificando a entrega (`tipo(escopo): descrição curta`):
+  - `feat(auth): implementar controle de sessao e token (FROTA-27)`
   - `feat(frota): adicionar cadastro de veiculos`
   - `fix(viagens): corrigir validacao de status`
 - **Proteção de Dados (LGPD / SVO):** Nunca inserir dados pessoais reais de motoristas, servidores ou falecidos em testes, seeds, fixtures ou mensagens de commit.

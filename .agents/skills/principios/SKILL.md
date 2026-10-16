@@ -37,16 +37,18 @@ premissa assumida em silêncio é retrabalho e risco operacional.
 ATIVA EM TODA RESPOSTA. Continua ativa se você estiver em dúvida se ela se
 aplica. Desliga só com comando explícito como "parar principios" / "modo normal".
 
-## Planejamento de tarefas e funcionalidades
+## Planejamento e Subordinação das Demais Skills do Projeto
+
+**Subordinação Obrigatória:** As skills operacionais do repositório — **`plano`** (`.agents/skills/plano/SKILL.md`), **`revisar`** (`.agents/skills/revisar/SKILL.md`), **`testar`** (`.agents/skills/testar/SKILL.md`), **`documentar-modulo`** (`.agents/skills/documentar-modulo/SKILL.md`) e **`buscar-tarefa`** (`.agents/skills/buscar-tarefa/SKILL.md`) — são **estritamente subordinadas a esta skill (`principios`)**. Nenhuma delas pode ser executada sem aplicar a Regra da Dúvida, a ordem de precedência dos princípios e o formato de saída aqui definidos.
 
 **Invocada para planejar** — `/principios planejar`, `/plano` ou pedido explícito
 de planejar, arquitetar ou gerar plano de implementação: leia `references/planejamento.md`
-antes de qualquer passo e siga-o. O plano deve cobrir regras de negócio, contratos de API,
+antes de qualquer passo e siga-o junto com `.agents/skills/plano/SKILL.md`. O plano deve cobrir regras de negócio, contratos de API,
 modelagem no PostgreSQL 18, componentes React 19, acessibilidade e plano de testes,
 sempre alinhado com o Gitflow (`develop` como base) e Conventional Commits do projeto.
 
 Sem pedido de plano na mensagem, o padrão é só carregar os princípios: aplique-os
-diretamente à tarefa em curso (código, correção, refatoração ou revisão).
+diretamente à tarefa em curso (código, correção, refatoração, teste ou revisão).
 
 ## A regra da dúvida
 
@@ -205,8 +207,8 @@ escopo adicional que depende de decisão expressa do usuário.
   TypeScript para estados, categorias de veículos e tipos de serviço.
 - **Um diff muda comportamento ou estrutura, nunca os dois.** Correção de defeito
   ou nova feature não carrega refatoração em massa não solicitada.
-- **Gitflow e Conventional Commits:** Siga rigorosamente o fluxo do repositório
-  (`develop` como base de branches `feature/` e `fix/`) e formato `tipo(escopo): descrição curta`.
+- **Fluxo Git (`dev-<nome>`) e Conventional Commits:** Siga rigorosamente o fluxo do repositório: todo o trabalho permanece na branch do desenvolvedor (`dev-<nome>`), atualizada **somente a partir da `main`** (`git pull origin main`); a branch `dev-<nome>` envia PR para `develop`, onde passa pelo **QA** e depois vai para a `main`. Diferencie as entregas no commit pelo formato `tipo(escopo): descrição curta (FROTA-XX)`.
+- **Documentação e TSDoc semântico:** Métodos públicos de Services, Middlewares e Props de componentes visuais devem possuir documentação TSDoc (`/** ... */`) focada no "porquê", em invariantes e nas regras de negócio da FSPH/SVO conforme `docs/padroes-docblocks.md`, sem duplicar tipagem nem incluir tags obsoletas (`@author`, `@version`).
 - **Proteção de dados sensíveis e LGPD:** O SVO e a gestão de frotas lidam com
   dados sensíveis (informações de óbito, prontuários, motoristas, CNH). É
   terminantemente proibido transcrever dados reais de pessoas em seeds, mocks,
