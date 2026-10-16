@@ -11,17 +11,20 @@ em total conformidade com o processo da Squad 24 no projeto Aratu.
 
 ## O Fluxo de Trabalho do Projeto Aratu
 
-O projeto adota Gitflow, Conventional Commits e Pull Requests estruturados conforme o `README.md`:
+O projeto adota **Branch por Desenvolvedor (`dev-<nome>`)**, estágio de **QA em `develop`**, **Conventional Commits** e Pull Requests estruturados:
 
-1. **Branch base:** Sempre atualizada a partir de `develop`.
-2. **Nomenclatura de branch:**
-   - `feature/<modulo>-<funcionalidade>` (ex: `feature/fleet-management`, `feature/viagens-solicitacao`)
-   - `fix/<modulo>-<defeito>` (ex: `fix/veiculo-validacao`, `fix/svo-status`)
-   - `hotfix/<urgencia>` (correção urgente vinda de `main`)
-3. **Padrão de commits:** `tipo(escopo): descrição curta`
+1. **Branch de trabalho fixa por desenvolvedor (`dev-<nome>`):**
+   - Cada desenvolvedor trabalha continuamente em sua própria branch (ex: `dev-eliakim`, `dev-arthur`). **Não se criam branches `feature/...` ou `fix/...` separadas.**
+   - A branch `dev-<nome>` é **somente atualizada a partir da `main`** (`git pull origin main`).
+2. **Rastreabilidade por Commit (Conventional Commits):**
+   - O que diferencia cada tarefa entregue na branch `dev-<nome>` é a mensagem do commit: `tipo(escopo): descrição curta (FROTA-XX)`
    - Tipos: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `style`.
-   - Exemplos: `feat(frota): adicionar cadastro de veiculos`, `fix(viagens): corrigir validacao de status`.
-4. **Pull Request para `develop`:**
+   - Exemplos: `feat(auth): implementar controle de sessao e token (FROTA-27)`, `feat(frota): adicionar cadastro de veiculos`, `fix(viagens): corrigir validacao de status`.
+3. **Promoção e QA (`dev-<nome>` → `develop` → `main`):**
+   - A branch `dev-<nome>` abre Pull Request para a `develop` (`dev-<nome>` → `develop`).
+   - Na `develop`, a entrega passa pelo **QA (Homologação)**.
+   - Após aprovação do QA, a `develop` segue via PR para a `main` (`develop` → `main`).
+4. **Estrutura do Pull Request (`dev-<nome>` → `develop`):**
    - Título claro e objetivo;
    - Descrição da tarefa / história de usuário atendida;
    - Explicação técnica do que foi implementado;
@@ -100,7 +103,7 @@ A implementação deste plano segue estritamente a ordem de precedência:
 5. YAGNI (sem requisitos especulativos);
 6. DRY (reuso de services, helpers e componentes);
 7. SOLID e KISS (soluções diretas, modulares e manuteníveis);
-8. Clean Code e TypeScript estrito (sem 'any', nomes claros de domínio).
+8. Clean Code e TypeScript estrito (sem 'any', nomes claros de domínio e TSDoc semântico conforme `docs/padroes-docblocks.md`).
 
 - **Regra da Dúvida na Implementação:** Qualquer divergência encontrada entre este plano
   e a base de código real para o trabalho e vira pergunta ao usuário. Proibido improvisar

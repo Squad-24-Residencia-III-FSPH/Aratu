@@ -65,10 +65,13 @@ web_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variable files
+# dotenv environment variable files and local Jira credentials
 .env
 .env.*
 !.env.example
+.credentials
+!.credentials.example
+.tmp/
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
