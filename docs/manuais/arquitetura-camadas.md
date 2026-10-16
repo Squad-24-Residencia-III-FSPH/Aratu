@@ -204,7 +204,7 @@ export async function requisicaoApi<T>(caminho: string, opcoes?: RequestInit): P
 
 ### 2.2 Componentes UI Acessíveis (`frontend/src/components/ui/`)
 
-Todo componente de formulário ou ação deve ser construído em `src/components/ui/` seguindo a **WCAG 2.2 Nível AA** (uso de `useId()`, `aria-invalid`, `aria-describedby`, `role="alert"` e alvo mínimo de 44×44px). Consulte `docs/padroes-frontend.md`.
+Todo componente de formulário ou ação deve ser construído em `src/components/ui/` seguindo a **WCAG 2.2 Nível AA** (uso de `useId()`, `aria-invalid`, `aria-describedby`, `role="alert"` e alvo mínimo de 44×44px). Consulte `docs/manuais/padroes-frontend.md`.
 
 ### 2.3 Páginas (`frontend/src/pages/`)
 
@@ -214,3 +214,12 @@ As páginas compõem componentes de `src/components/`, conectam-se aos serviços
 3. **Vazio** (orientação clara quando não há registros)
 4. **Erro** (mensagem orientadora + opção de tentar novamente)
 5. **Parcial** (feedback detalhado em ações de lote)
+
+---
+
+## 3. Padrões de Projeto (Design Patterns)
+
+A divisão de camadas do Aratu implementa formalmente os padrões **Layered Architecture com Inversão Leve**, **Repository Pattern**, **State Pattern (FSM)**, **Strategy**, **Chain of Responsibility** e **Compound Components**.
+Consulte o guia canônico completo em:
+👉 **[`docs/manuais/padroes-projeto.md`](padroes-projeto.md)**
+

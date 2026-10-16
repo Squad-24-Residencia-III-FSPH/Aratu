@@ -2,11 +2,12 @@
 name: buscar-tarefa
 description: >
   Coleta e estrutura todos os dados de uma tarefa ou história de usuário do Jira
-  (via API REST v3 com scripts/jira-fetch.mjs) ou do contexto local Gitflow para
-  o Sistema Aratu (Squad 24 — FSPH / SVO). Use quando o usuário pedir para
-  buscar, consultar ou listar tarefas do Jira (/buscar-tarefa), informar uma
-  chave ou URL de issue (ex: FROTA-27 ou https://squad24.atlassian.net/browse/FROTA-27)
-  ou como etapa inicial das skills plano, revisar e testar.
+  (via API REST v3 com docs/scripts/jira-fetch.mjs) ou do contexto local da
+  branch do desenvolvedor para o Sistema Aratu (Squad 24 — FSPH / SVO). Use
+  quando o usuário pedir para buscar, consultar ou listar tarefas do Jira
+  (/buscar-tarefa), informar uma chave ou URL de issue (ex: FROTA-27 ou
+  https://squad24.atlassian.net/browse/FROTA-27) ou como etapa inicial das
+  skills plano, revisar e testar.
 argument-hint: "[chave ou URL da issue no Jira, ex: FROTA-27 ou https://squad24.atlassian.net/browse/FROTA-27]"
 license: MIT
 ---
@@ -66,17 +67,17 @@ JIRA_API_TOKEN="seu-token-jira"
 
 ---
 
-### Passo 2 — Obter Dados da Issue no Jira (`scripts/jira-fetch.mjs`)
+### Passo 2 — Obter Dados da Issue no Jira (`docs/scripts/jira-fetch.mjs`)
 
-Utilize o utilitário multiplataforma em Node.js (`scripts/jira-fetch.mjs`), que lê `.credentials` sem expor o token no terminal, consulta a API REST v3 do Jira (`/rest/api/3/issue/{ISSUE_KEY}`), converte os blocos ADF (*Atlassian Document Format*) para Markdown limpo e salva o artefato em `.tmp/task-<ISSUE_KEY>/`:
+Utilize o utilitário multiplataforma em Node.js (`docs/scripts/jira-fetch.mjs`), que lê `.credentials` sem expor o token no terminal, consulta a API REST v3 do Jira (`/rest/api/3/issue/{ISSUE_KEY}`), converte os blocos ADF (*Atlassian Document Format*) para Markdown limpo e salva o artefato em `.tmp/task-<ISSUE_KEY>/`:
 
 1. **Para buscar uma issue específica (por chave, URL ou detectando pela branch atual):**
    ```bash
-   node scripts/jira-fetch.mjs <ISSUE_KEY> --save
+   node docs/scripts/jira-fetch.mjs <ISSUE_KEY> --save
    ```
 2. **Para listar as tarefas abertas atribuídas ao desenvolvedor no Jira (quando a chave não foi informada):**
    ```bash
-   node scripts/jira-fetch.mjs --mine
+   node docs/scripts/jira-fetch.mjs --mine
    ```
 
 - **Tratamento de retorno do script:**
@@ -88,7 +89,7 @@ Utilize o utilitário multiplataforma em Node.js (`scripts/jira-fetch.mjs`), que
 
 ### Passo 3 — Identificar o Módulo e Perfis RBAC Relacionados
 
-Cruze o título e a descrição da tarefa com o mapa oficial em `docs/modulos.md`:
+Cruze o título e a descrição da tarefa com o mapa oficial em `docs/manuais/modulos.md`:
 - **Módulos do Aratu:** `AUTENTICACAO_RBAC`, `FROTA`, `MOTORISTAS`, `VIAGENS`, `SVO`, `MANUTENCOES`.
 - **Perfis RBAC:** `ADMIN`, `GESTOR_FROTA`, `SOLICITANTE`, `MOTORISTA`, `OPERADOR_SVO`.
 
@@ -120,7 +121,7 @@ Apresente a saída padronizada abaixo (utilizada pelas skills `plano`, `revisar`
 - **Branch atual do desenvolvedor:** `{branch_atual (ex: dev-eliakim)}` (atualizada somente via `main`)
 - **Fluxo de entrega:** `dev-<nome>` → PR para `develop` (QA) → `main`
 - **Sugestão de Commit:** `{tipo(escopo): descrição curta (FROTA-XX)}`
-- **Plano SDD (`plans/<chave-tarefa>-<slug>.html`):** `{encontrado | ainda não gerado}`
+- **Plano SDD (`docs/plans/<chave-tarefa>-<slug>.html`):** `{encontrado | ainda não gerado}`
 ```
 
 > **Proteção de Dados (LGPD / SVO):** Se a descrição ou anexo de uma tarefa contiver qualquer dado pessoal real de servidor, motorista ou registro do SVO, anonimize imediatamente antes de transcrever para planos, testes ou commits.
