@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EXEMPLO_MODULO — Template de Documentação de Módulo (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #075985;
+      --brand: #0369a1;
+      --brand-surface: #f0f9ff;
+      --brand-border: #bae6fd;
+      --brand-hover: #e0f2fe;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>[NOME_DO_MODULO] — Documentação Técnica e Funcional (Template Aratu)</h1>
+
+<div class="notice-block">
+  <strong>Arquivo de Exemplo / Template:</strong> Este documento serve como modelo padronizado para a documentação dos módulos do <strong>Sistema Aratu — Gestão de Frota e Operações (Squad 24 — FSPH &amp; SVO)</strong>. Ao documentar um módulo real (ex: <code>FROTA.html</code>, <code>VIAGENS.html</code>, <code>SVO.html</code>), copie esta estrutura e preencha com os dados reais do código e do PostgreSQL 18.
+</div>
+
+<div class="meta-block">
+  <p><strong>Módulo (chave):</strong> <code>EXEMPLO_MODULO</code> (ex: <code>FROTA</code>, <code>VIAGENS</code>, <code>SVO</code>)</p>
+  <p><strong>Índice de referência:</strong> <code>docs/modulos.md</code></p>
+  <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/</code>, <code>backend/src/controllers/</code>, <code>backend/src/services/</code>, <code>backend/src/repositories/</code></p>
+  <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/</code>, <code>frontend/src/components/</code>, <code>frontend/src/services/</code></p>
+  <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (container <code>db</code> — database <code>meubanco</code>)</p>
+  <p><strong>Versão da documentação:</strong> YYYY-MM-DD</p>
+</div>
+
+<hr>
+
+<h2>1. Visão Geral</h2>
+<p>Descreva em linguagem clara de domínio o propósito operacional deste módulo para a <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e/ou para o <strong>Serviço de Verificação de Óbito (SVO)</strong>. Explique qual problema real ele resolve, quais fluxos operacionais sustenta e como substitui controles manuais.</p>
+
+<hr>
+
+<h2>2. Regras de Negócio e Transições de Estado</h2>
+<p>Liste todas as invariantes de domínio, validações obrigatórias, cálculos e controles de concorrência implementados na camada de serviço (<code>backend/src/services/</code>), citando a classe e o método responsável:</p>
+<ul>
+  <li><strong>Transição de status controlada:</strong> O registro inicia no status <span class="badge-status">pendente</span> e só pode avançar para <span class="badge-status">aprovada</span> ou <span class="badge-status">cancelada</span> mediante validação do perfil e disponibilidade (<code>ExemploService::atualizarStatus</code>).</li>
+  <li><strong>Prevenção de concorrência (Lock Pessimista):</strong> A alocação de viatura e motorista ocorre dentro de transação <code>BEGIN ... COMMIT</code> utilizando <code>SELECT ... FOR UPDATE</code> na linha do veículo para impedir dupla alocação no mesmo horário (<code>ExemploRepository::buscarComTrava</code>).</li>
+  <li><strong>Validação de integridade no domínio:</strong> A quilometragem de retorno nunca pode ser inferior à quilometragem de saída registrada para a viagem (<code>ExemploService::registrarRetorno</code>).</li>
+</ul>
+
+<hr>
+
+<h2>3. Escopo de Impacto e Matriz de Acesso (RBAC)</h2>
+<p>O módulo condiciona permissões por perfil de acesso validado via middleware no backend Express e refletido na interface React:</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Perfil RBAC</th>
+      <th scope="col">Ações Permitidas no Módulo</th>
+      <th scope="col">Restrições de Escopo / Visibilidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-rbac">ADMIN</span></td>
+      <td>Consulta global, cadastro, edição, parametrização e auditoria</td>
+      <td>Acesso completo a todas as unidades da FSPH e SVO</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">GESTOR_FROTA</span></td>
+      <td>Listar solicitações, aprovar/recusar, alocar viatura e motorista</td>
+      <td>Opera sobre toda a frota ativa e solicitações pendentes</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td>Criar solicitação de viagem, consultar andamento e cancelar pedido próprio ainda pendente</td>
+      <td>Visualiza exclusivamente solicitações da sua unidade/setor; sem acesso a dados do SVO</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">MOTORISTA</span></td>
+      <td>Visualizar viagens escaladas, preencher checklist e registrar km de saída/chegada</td>
+      <td>Restrito às viagens atribuídas ao próprio condutor</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">OPERADOR_SVO</span></td>
+      <td>Registrar chamado de óbito, despachar remoção, registrar custódia e liberação formal</td>
+      <td>Acesso exclusivo aos fluxos sigilosos do SVO (protegidos pela LGPD)</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>4. Tabelas do Banco de Dados (PostgreSQL 18)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Tabela</th>
+      <th scope="col">Descrição Funcional (Grão da Linha)</th>
+      <th scope="col">Colunas-Chave e Tipos</th>
+      <th scope="col">Constraints e Índices</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-tabela">exemplo_entidades</span></td>
+      <td>Cada linha representa um registro operacional único do módulo</td>
+      <td><code>id</code> (UUID PK), <code>veiculo_id</code> (UUID FK), <code>status</code> (TEXT), <code>data_saida</code> (TIMESTAMPTZ), <code>created_at</code> (TIMESTAMPTZ), <code>updated_at</code> (TIMESTAMPTZ)</td>
+      <td>FK <code>veiculo_id</code> → <code>veiculos(id) ON DELETE RESTRICT</code>; Índice B-tree em <code>veiculo_id</code>; Índice parcial para registros ativos</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>5. Contratos de API REST (Backend Express 5)</h2>
+<p>Rota base: <code>/api/exemplo</code> — protegida por middleware de autenticação e validação de perfil RBAC.</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Método</th>
+      <th scope="col">Endpoint</th>
+      <th scope="col">Controller / Método</th>
+      <th scope="col">Perfis Autorizados</th>
+      <th scope="col">Resumo do Contrato (Entrada → Saída)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/api/exemplo</code></td>
+      <td><code>ExemploController::listar</code></td>
+      <td>Todos os perfis autenticados (filtrado por escopo)</td>
+      <td>Query params de filtro e paginação → <code>200 OK</code> com lista paginada</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/api/exemplo</code></td>
+      <td><code>ExemploController::criar</code></td>
+      <td><code>SOLICITANTE</code>, <code>GESTOR_FROTA</code>, <code>ADMIN</code></td>
+      <td>Body JSON validado → <code>201 Created</code> com entidade criada ou <code>400/422</code> com erro orientador</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">PATCH</span></td>
+      <td><code>/api/exemplo/:id/status</code></td>
+      <td><code>ExemploController::atualizarStatus</code></td>
+      <td><code>GESTOR_FROTA</code>, <code>ADMIN</code></td>
+      <td>Body <code>{ status }</code> → <code>200 OK</code> ou <code>409 Conflict</code> em caso de concorrência</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>6. Camadas de Negócio e Persistência (Backend)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Classe / Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Responsabilidade Principal</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>ExemploService</code></td>
+      <td>Service (<code>backend/src/services/</code>)</td>
+      <td>Regras de negócio puras, validações de domínio e coordenação de transações</td>
+    </tr>
+    <tr>
+      <td><code>ExemploRepository</code></td>
+      <td>Repository (<code>backend/src/repositories/</code>)</td>
+      <td>Consultas SQL parametrizadas (<code>$1, $2</code>) sem <code>SELECT *</code> e locks <code>FOR UPDATE</code> no PostgreSQL 18</td>
+    </tr>
+    <tr>
+      <td><code>exemplo.types.ts</code></td>
+      <td>Types / DTOs (<code>backend/src/types/</code>)</td>
+      <td>Interfaces TypeScript estritas, union types de status e contratos de entrada/saída</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>7. Interface e Acessibilidade (Frontend React 19 + WCAG 2.2 AA)</h2>
+<ul>
+  <li><strong>Páginas (<code>frontend/src/pages/</code>):</strong> Descreva as telas do módulo e como cada uma implementa os <strong>5 estados visuais obrigatórios</strong> (<em>Ideal</em>, <em>Carregando com <code>aria-busy="true"</code></em>, <em>Vazio</em>, <em>Erro com ação de tentar novamente</em> e <em>Parcial</em>).</li>
+  <li><strong>Componentes Reutilizados (<code>frontend/src/components/ui/</code>):</strong> Uso de <code>TextInput</code> com <code>useId()</code>, <code>Button</code> com <code>isLoading</code>, <code>StatusBadge</code> sem depender exclusivamente de cor e <code>Modal</code> acessível via teclado (<code>Esc</code>).</li>
+  <li><strong>Requisitos WCAG 2.2 Nível AA atendidos:</strong> Navegação completa por teclado (<code>Tab</code>), foco visível e não obscurecido (2.4.7 e 2.4.11), alvos de toque de no mínimo <strong>44×44px</strong> para operação móvel em campo e anúncios dinâmicos via <code>role="status"</code> / <code>aria-live="polite"</code>.</li>
+</ul>
+
+<hr>
+
+<h2>8. Arquivos Principais (Referência Rápida)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Caminho do Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Responsabilidade (Resumo)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/routes/exemplo.routes.ts</code></td>
+      <td>Route</td>
+      <td>Mapeamento de endpoints REST e middlewares RBAC</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/exemplo.controller.ts</code></td>
+      <td>Controller</td>
+      <td>Tradução HTTP Request/Response e códigos de status</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/exemplo.service.ts</code></td>
+      <td>Service</td>
+      <td>Validações de domínio e regras de negócio</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/exemplo.repository.ts</code></td>
+      <td>Repository</td>
+      <td>Persistência e consultas parametrizadas no PostgreSQL 18</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/ExemploPage.tsx</code></td>
+      <td>Page (React 19)</td>
+      <td>Tela operacional principal com tratamento dos 5 estados visuais</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/services/exemplo.api.ts</code></td>
+      <td>API Client</td>
+      <td>Comunicação tipada com os endpoints do módulo</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>9. Dependências, Integrações e Proteção de Dados (LGPD)</h2>
+<ul>
+  <li><strong>Integrações Internas:</strong> Liste quais outros módulos do Aratu interagem com este (ex: o módulo de <code>VIAGENS</code> consulta a disponibilidade em <code>FROTA</code> e a validade da CNH em <code>MOTORISTAS</code>).</li>
+  <li><strong>Proteção de Dados (LGPD e Sigilo SVO):</strong> Especifique quais campos contêm dados pessoais ou sensíveis, como são protegidos por RBAC e reforce a proibição de uso de dados reais em seeds, testes e exemplos.</li>
+</ul>
+
+</body>
+</html>
