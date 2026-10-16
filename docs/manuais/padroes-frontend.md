@@ -128,3 +128,11 @@ Toda tela ou listagem que consome dados assíncronos da API deve implementar exp
 - **Tamanho do Alvo (2.5.8):** mínimo absoluto de **24×24px** em desktop e **44×44px** em telas móveis operacionais (motoristas e pátio).
 - **Anúncio de Mensagens de Status (4.1.3):** feedbacks assíncronos (toast/alerta de sucesso ou despacho) devem utilizar `role="status"` ou `aria-live="polite"`.
 - **Autenticação Acessível (3.3.8) e Entrada Não Redundante (3.3.7):** nunca bloquear colar senha nos campos de login e não exigir que o usuário redigite dados já informados no mesmo passo a passo.
+
+---
+
+## 6. Padrões de Projeto no Frontend (React 19)
+
+A interface adota formalmente os padrões **Custom Hooks** (para isolamento de efeitos assíncronos e I/O de rede) e **Compound Components** (para componentes visuais acessíveis e compostos com Context). Consulte os exemplos em:
+👉 **[`docs/manuais/padroes-projeto.md`](padroes-projeto.md)**
+

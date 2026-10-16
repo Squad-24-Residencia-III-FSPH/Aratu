@@ -21,8 +21,8 @@ Gera ou atualiza o arquivo `docs/modulos/<CHAVE_MODULO>.html` com a documentaç�
 ## Argumentos
 
 `$ARGUMENTS` pode ser:
-- A chave ou o nome do módulo listado em `docs/modulos.md` (ex: `FROTA`, `VIAGENS`, `SVO`, `MOTORISTAS`, `MANUTENCOES`, `AUTENTICACAO_RBAC`).
-- Vazio: consulte `docs/modulos.md` e pergunte ao desenvolvedor qual módulo deseja documentar.
+- A chave ou o nome do módulo listado em `docs/manuais/modulos.md` (ex: `FROTA`, `VIAGENS`, `SVO`, `MOTORISTAS`, `MANUTENCOES`, `AUTENTICACAO_RBAC`).
+- Vazio: consulte `docs/manuais/modulos.md` e pergunte ao desenvolvedor qual módulo deseja documentar.
 
 ---
 
@@ -36,7 +36,7 @@ Gera ou atualiza o arquivo `docs/modulos/<CHAVE_MODULO>.html` com a documentaç�
 
 ### Passo 1 — Identificar o módulo no índice oficial
 
-1. Leia `docs/modulos.md` e `docs/modulos/EXEMPLO_MODULO.html`.
+1. Leia `docs/manuais/modulos.md` e `docs/modulos/EXEMPLO_MODULO.html`.
 2. Identifique a chave oficial do módulo correspondente a `$ARGUMENTS`.
 3. Caso o argumento seja ambíguo ou não corresponda a um módulo mapeado, aplique a **Regra da Dúvida** e confirme com o desenvolvedor antes de prosseguir.
 
@@ -98,7 +98,7 @@ Explore os arquivos do frontend React 19 + TypeScript associados ao módulo:
 
 Utilize exatamente a folha de estilos CSS e a estrutura de seções definidas em `docs/modulos/EXEMPLO_MODULO.html`:
 
-1. **Bloco de Metadados (`.meta-block`):** Módulo (chave), índice de referência (`docs/modulos.md`), camadas Backend, camadas Frontend, banco de dados (`PostgreSQL 18`) e data de atualização (`YYYY-MM-DD`).
+1. **Bloco de Metadados (`.meta-block`):** Módulo (chave), índice de referência (`docs/manuais/modulos.md`), camadas Backend, camadas Frontend, banco de dados (`PostgreSQL 18`) e data de atualização (`YYYY-MM-DD`).
 2. **Seção 1 — Visão Geral:** propósito operacional para a FSPH e/ou SVO.
 3. **Seção 2 — Regras de Negócio e Transições de Estado:** invariantes de domínio e concorrência citando `Classe::metodo`.
 4. **Seção 3 — Escopo de Impacto e Matriz de Acesso (RBAC):** tabela detalhando as ações e restrições para `ADMIN`, `GESTOR_FROTA`, `SOLICITANTE`, `MOTORISTA` e `OPERADOR_SVO`.

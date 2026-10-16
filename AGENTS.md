@@ -25,8 +25,8 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
 ### Skills Operacionais do Fluxo SDD (`.agents/skills/`)
 > **Regra de Subordinação Obrigatória:** Ao executar qualquer uma das skills abaixo, o agente é **obrigado** a carregar e obedecer integralmente à skill canônica **[`principios`](.agents/skills/principios/SKILL.md)** e às suas referências (`Passo 0` bloqueante).
 
-- **[`buscar-tarefa`](.agents/skills/buscar-tarefa/SKILL.md)** (`/buscar-tarefa`): Coleta dados da issue no Jira via `node scripts/jira-fetch.mjs` e estrutura o contexto Git da branch do desenvolvedor (`dev-<nome>`).
-- **[`plano`](.agents/skills/plano/SKILL.md)** (`/plano`): Planeja a tarefa aplicando a Regra da Dúvida e gera o SDD em `plans/<chave-tarefa>-<slug>.html` a partir de `plans/EXEMPLO_PLANO.html`.
+- **[`buscar-tarefa`](.agents/skills/buscar-tarefa/SKILL.md)** (`/buscar-tarefa`): Coleta dados da issue no Jira via `node docs/scripts/jira-fetch.mjs` e estrutura o contexto Git da branch do desenvolvedor (`dev-<nome>`).
+- **[`plano`](.agents/skills/plano/SKILL.md)** (`/plano`): Planeja a tarefa aplicando a Regra da Dúvida e gera o SDD em `docs/plans/<chave-tarefa>-<slug>.html` a partir de `docs/plans/EXEMPLO_PLANO.html`.
 - **[`testar`](.agents/skills/testar/SKILL.md)** (`/testar`): Executa a bateria de testes funcionais (API REST, UI React 19, PostgreSQL 18, RBAC e WCAG 2.2 AA).
 - **[`revisar`](.agents/skills/revisar/SKILL.md)** (`/revisar`): Realiza a revisão automatizada do diff da branch `dev-<nome>` validando camadas, segurança SQL, concorrência, WCAG 2.2 AA e LGPD/SVO.
 - **[`documentar-modulo`](.agents/skills/documentar-modulo/SKILL.md)** (`/documentar-modulo`): Gera ou atualiza a documentação HTML do módulo em `docs/modulos/<MODULO>.html`.
@@ -53,6 +53,7 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
   - `src/pages/`: Telas e fluxos de navegação.
   - `src/services/`: Cliente de API centralizado.
 - **Banco de Dados:** PostgreSQL 18 via Docker (`postgres:18-alpine`).
+- **Padrões de Projeto:** Consulte [`docs/manuais/padroes-projeto.md`](docs/manuais/padroes-projeto.md) para aplicação obrigatória de Repository, State Pattern (FSM), Strategy, Chain of Responsibility e Compound Components.
 - **Containers:** Docker & Docker Compose (`docker-compose.yml` com `db`, `backend`, `frontend`).
 
 ---

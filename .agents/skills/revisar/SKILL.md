@@ -17,7 +17,7 @@ license: MIT
 Executa uma revisão técnica e funcional completa da branch atual (ou especificada) contra a branch base **`develop`**, verificando a conformidade com a skill canônica **`.agents/skills/principios/SKILL.md`** e com toda a documentação em `docs/`.
 
 A revisão:
-1. Avalia aderência ao requisito/SDD (`plans/`), arquitetura em camadas (Express 5 e React 19), modelagem e segurança SQL no **PostgreSQL 18**, concorrência, tipagem estrita TypeScript, **WCAG 2.2 Nível AA** e proteção de dados (**LGPD / Sigilo SVO**);
+1. Avalia aderência ao requisito/SDD (`docs/plans/`), arquitetura em camadas (Express 5 e React 19), modelagem e segurança SQL no **PostgreSQL 18**, concorrência, tipagem estrita TypeScript, **WCAG 2.2 Nível AA** e proteção de dados (**LGPD / Sigilo SVO**);
 2. Executa as ferramentas automatizadas de QA (`tsc`, `eslint` e testes) nos containers `backend` e `frontend`;
 3. Emite relatório estruturado com veredito claro e oferece correção assistida para desvios puramente mecânicos.
 
@@ -44,8 +44,8 @@ A revisão:
    - `.agents/skills/principios/references/escopo-impacto.md` (perfis RBAC e proibição de feature flags não autorizadas);
    - `.agents/skills/principios/references/dados.md` e `.agents/skills/principios/references/consultas.md` (modelagem, transações `SELECT ... FOR UPDATE`, índices sargáveis e prevenção de SQL Injection no PostgreSQL 18);
    - `.agents/skills/principios/references/ux-fluxo.md`, `.agents/skills/principios/references/ui-componentes.md` e `.agents/skills/principios/references/acessibilidade.md` (5 estados visuais, reuso de componentes e WCAG 2.2 Nível AA).
-2. **Carregue os guias operacionais complementares em `docs/`:**
-   - `docs/revisao-codigo.md`, `docs/erros-comuns.md`, `docs/padroes-codigo.md`, `docs/padroes-docblocks.md`, `docs/padroes-backend.md` e `docs/padroes-frontend.md`.
+2. **Carregue os guias operacionais complementares em `docs/manuais/`:**
+   - `docs/manuais/revisao-codigo.md`, `docs/manuais/erros-comuns.md`, `docs/manuais/padroes-codigo.md`, `docs/manuais/padroes-docblocks.md`, `docs/manuais/padroes-backend.md`, `docs/manuais/padroes-frontend.md`, `docs/manuais/padroes-projeto.md` e `docs/manuais/escalabilidade-extensibilidade.md`.
 3. **Subordinação à Regra da Dúvida na Revisão:** Se um trecho do diff parecer ambíguo quanto à regra de negócio da FSPH/SVO, não assuma premissas nem reescreva a regra por conta própria — aponte a dúvida objetivamente ao desenvolvedor. Encerre sempre a resposta com a assinatura exigida por `principios/SKILL.md` (`[código/plano] → [princípio que guiou] · dúvidas: ...`).
 
 ---
@@ -57,7 +57,7 @@ A revisão:
    git branch --show-current
    git status --short
    ```
-2. Caso exista chave do Jira ou plano em `plans/`, carregue o contexto via `.agents/skills/buscar-tarefa/SKILL.md` e leia o arquivo SDD correspondente em `plans/`.
+2. Caso exista chave do Jira ou plano em `docs/plans/`, carregue o contexto via `.agents/skills/buscar-tarefa/SKILL.md` e leia o arquivo SDD correspondente em `docs/plans/`.
 
 ---
 
@@ -102,7 +102,7 @@ Classifique cada critério como:
 
 #### Eixo 4 — Clean Code e Tipagem TypeScript Estrita
 - **C13 (Tipagem Estrita):** Zero uso de `any` ou `@ts-ignore`? Parâmetros, retornos e payloads possuem interfaces/types explícitos em `src/types/`?
-- **C14 (Sem Valores Mágicos, Código Limpo e TSDoc):** Status, tipos de veículo e perfis usam union types/constantes nomeadas? Nomes seguem `camelCase` / `PascalCase` / `UPPER_SNAKE_CASE`? Métodos públicos de Services/Middlewares possuem TSDoc conforme `docs/padroes-docblocks.md`? Não há `console.log` de debug nem código morto?
+- **C14 (Sem Valores Mágicos, Código Limpo e TSDoc):** Status, tipos de veículo e perfis usam union types/constantes nomeadas? Nomes seguem `camelCase` / `PascalCase` / `UPPER_SNAKE_CASE`? Métodos públicos de Services/Middlewares possuem TSDoc conforme `docs/manuais/padroes-docblocks.md`? Não há `console.log` de debug nem código morto?
 
 #### Eixo 5 — Interface React 19, UX e Acessibilidade (WCAG 2.2 Nível AA)
 - **C15 (Os 5 Estados Visuais):** Toda tela/listagem assíncrona trata explicitamente os estados *Ideal*, *Carregando (`aria-busy="true"`)*, *Vazio*, *Erro* e *Parcial*?
@@ -111,7 +111,7 @@ Classifique cada critério como:
 
 ---
 
-### Passo 4 — Executar Verificações Automatizadas de QA (`docs/testes.md`)
+### Passo 4 — Executar Verificações Automatizadas de QA (`docs/manuais/testes.md`)
 
 Verifique se os containers estão ativos (`docker compose ps`) ou execute localmente:
 

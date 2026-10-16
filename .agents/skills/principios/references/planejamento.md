@@ -103,7 +103,7 @@ A implementação deste plano segue estritamente a ordem de precedência:
 5. YAGNI (sem requisitos especulativos);
 6. DRY (reuso de services, helpers e componentes);
 7. SOLID e KISS (soluções diretas, modulares e manuteníveis);
-8. Clean Code e TypeScript estrito (sem 'any', nomes claros de domínio e TSDoc semântico conforme `docs/padroes-docblocks.md`).
+8. Clean Code e TypeScript estrito (sem 'any', nomes claros de domínio e TSDoc semântico conforme `docs/manuais/padroes-docblocks.md`).
 
 - **Regra da Dúvida na Implementação:** Qualquer divergência encontrada entre este plano
   e a base de código real para o trabalho e vira pergunta ao usuário. Proibido improvisar

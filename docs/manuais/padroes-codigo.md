@@ -58,8 +58,8 @@ Não utilizamos notação húngara (prefixos de tipo como `sNome` ou `iIdade`), 
 
 ## 4. Comentários e Documentação no Código (TSDoc)
 
-- **Guia oficial de DocBlocks:** siga rigorosamente as diretrizes e exemplos de [`docs/padroes-docblocks.md`](padroes-docblocks.md).
+- **Guia oficial de DocBlocks:** siga rigorosamente as diretrizes e exemplos de [`docs/manuais/padroes-docblocks.md`](padroes-docblocks.md).
 - **Código autoexplicativo primeiro:** se você precisa de um comentário para explicar *o que* uma variável ou função faz, renomeie a variável ou extraia uma função com nome melhor.
 - **Comente o "porquê", não o "o quê":** use blocos TSDoc (`/** ... */`) para registrar regras de negócio não óbvias da FSPH/SVO, restrições de concorrência (ex: motivo de um `SELECT ... FOR UPDATE`), exceções lançadas (`@throws`) e critérios de acessibilidade em componentes React.
 - **Não duplique tipagem:** é proibido usar `@param {tipo}` ou `@author` / `@since` (o Git já rastreia histórico e autoria).
-- **Regra do Escoteiro:** ao alterar um arquivo existente, deixe-o mais limpo, bem tipado e documentado conforme [`docs/padroes-docblocks.md`](padroes-docblocks.md).
+- **Regra do Escoteiro:** ao alterar um arquivo existente, deixe-o mais limpo, bem tipado e documentado conforme [`docs/manuais/padroes-docblocks.md`](padroes-docblocks.md).

@@ -23,8 +23,11 @@ Aratu/
 │   ├── Dockerfile              # Imagem do container frontend
 │   ├── package.json            # Dependências e scripts do frontend
 │   └── vite.config.ts          # Configuração do bundler Vite
-├── docs/                       # Documentação técnica, padrões de engenharia e módulos
-│   └── modulos/                # Documentação HTML detalhada por módulo de negócio
+├── docs/                       # Documentação técnica, manuais, módulos, planos e scripts unificados
+│   ├── manuais/                # Manuais de engenharia, arquitetura e convenções (.md)
+│   ├── modulos/                # Documentação HTML detalhada por módulo de negócio
+│   ├── plans/                  # Planos Técnicos de Implementação (SDDs em HTML)
+│   └── scripts/                # Scripts utilitários de automação e integração (ex: jira-fetch.mjs)
 ├── docker-compose.yml          # Orquestração dos serviços: db (PostgreSQL 18), backend e frontend
 ├── AGENTS.md                   # Diretrizes obrigatórias para Agentes de IA
 └── README.md                   # Apresentação do projeto, stack, Gitflow e Conventional Commits

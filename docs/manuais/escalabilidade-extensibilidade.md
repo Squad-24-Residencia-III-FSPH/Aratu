@@ -1,0 +1,258 @@
+# Escalabilidade, Parametrização Dinâmica e Extensibilidade — Sistema Aratu
+
+Este documento define a arquitetura oficial do **Sistema Aratu** para **parametrização dinâmica de regras de negócio**, **escalabilidade operacional** e **estratégia de extensibilidade para criação de novos módulos** (Squad 24 — FSPH & SVO).
+
+---
+
+## 1. Visão Geral da Arquitetura
+
+O Sistema Aratu adota um modelo de **Monolito Modular em Camadas**. Esse modelo foi escolhido para equilibrar alta performance, simplicidade operacional e fácil manutenção pela equipe de residentes:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                          APLICAÇÃO REACT 19                            │
+│           (Pages · Custom Hooks · Componentes UI Acessíveis)           │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ HTTPS / REST (JSON)
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                    API STATELESS NODE.JS / EXPRESS 5                   │
+│   ┌────────────────────────────────────────────────────────────────┐   │
+│   │         Middlewares Globais (Auth JWT, RBAC, Validação)        │   │
+│   └───────────────────────────────┬────────────────────────────────┘   │
+│                                   │                                    │
+│   ┌───────────────────────────────▼────────────────────────────────┐   │
+│   │                      MÓDULOS DE DOMÍNIO                        │   │
+│   │  [AUTENTICACAO_RBAC] [FROTA] [VIAGENS] [SVO] [MANUTENCOES] ... │   │
+│   │   Controllers  ──►  Services (Regras Puras)  ──►  Repositories │   │
+│   └───────────────────────────────┬────────────────────────────────┘   │
+│                                   │                                    │
+│   ┌───────────────────────────────▼────────────────────────────────┐   │
+│   │         MÓDULO TRANSVERSAL: PARAMETRIZAÇÃO DO SISTEMA          │   │
+│   │        (Cache em Memória + Tabela `parametros_sistema`)        │   │
+│   └───────────────────────────────┬────────────────────────────────┘   │
+└───────────────────────────────────┼────────────────────────────────────┘
+                                    │ Pool pg ($1, $2, FOR UPDATE)
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                         POSTGRESQL 18 (ALPINE)                         │
+│       (Tabelas Plurais · DDL Transacional · Índices Sargáveis)         │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Parametrização Dinâmica do Sistema (`parametros_sistema`)
+
+### 2.1 Problema que Resolve
+Determinadas regras operacionais da **Fundação de Saúde Parreiras Horta (FSPH)** e do **Serviço de Verificação de Óbito (SVO)** variam conforme portarias, decretos ou mudanças sazonais de demanda. 
+
+Se esses limites forem gravados como constantes fixas no código, qualquer mudança exige que um desenvolvedor altere código, faça commit, execute testes e suba um novo deploy. Com a **parametrização dinâmica**, gestores e administradores autorizados alteram essas regras diretamente na interface administrativa, surtindo efeito imediato e seguro no sistema.
+
+### 2.2 Modelagem no PostgreSQL 18
+
+A tabela `parametros_sistema` armazena configurações tipadas em formato JSONB, com auditoria completa de quem alterou e quando:
+
+```sql
+CREATE TABLE parametros_sistema (
+    chave VARCHAR(100) PRIMARY KEY,
+    modulo VARCHAR(50) NOT NULL,
+    valor JSONB NOT NULL,
+    tipo_dado VARCHAR(20) NOT NULL CHECK (tipo_dado IN ('numero', 'texto', 'booleano', 'json')),
+    descricao TEXT NOT NULL,
+    editavel_por_perfil VARCHAR(30) NOT NULL DEFAULT 'ADMINISTRADOR',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    updated_by_usuario_id UUID NULL REFERENCES usuario(id) ON DELETE SET NULL
+);
+
+-- Índice para consultas agrupadas por módulo
+CREATE INDEX idx_parametros_modulo ON parametros_sistema (modulo);
+```
+
+### 2.3 Catálogo de Parâmetros Oficiais de Domínio
+
+| Chave | Módulo | Tipo | Valor Inicial | Descrição Operacional |
+|---|---|---|---|---|
+| `viagens.antecedencia_minima_solicitacao_horas` | `VIAGENS` | `numero` | `24` | Tempo mínimo em horas para envio de pedido de viagem comum pela FSPH. |
+| `viagens.raio_maximo_sem_pernoite_km` | `VIAGENS` | `numero` | `150` | Distância máxima de ida e volta que não exige justificativa de diária/pernoite. |
+| `viagens.tolerancia_atraso_retorno_minutos` | `VIAGENS` | `numero` | `30` | Tolerância para registro de retorno antes de sinalizar atraso na frota. |
+| `frota.quilometragem_alerta_revisao` | `FROTA` | `numero` | `500` | Quilômetros de antecedência para disparar aviso preventivo de revisão. |
+| `svo.prazo_maximo_permanencia_corpo_horas` | `SVO` | `numero` | `72` | Limite de permanência de corpo sem identificação antes do protocolo social. |
+| `sistema.tempo_expiracao_sessao_minutos` | `AUTENTICACAO_RBAC` | `numero` | `480` | Tempo de vida padrão da sessão do token JWT (8 horas). |
+
+### 2.4 Camada de Serviço e Cache em Memória com Invalidação
+
+Para não sobrecarregar o PostgreSQL com consultas repetitivas de parâmetros a cada requisição HTTP, o serviço `ParametroService` mantém um cache em memória com recarga automática ou invalidação imediata após atualização:
+
+```typescript
+// backend/src/services/parametroService.ts
+import { Pool } from 'pg';
+
+export class ParametroService {
+  private cache = new Map<string, any>();
+  private ultimoCarregamento = 0;
+  private readonly TTL_MS = 5 * 60 * 1000; // 5 minutos de TTL
+
+  constructor(private readonly pool: Pool) {}
+
+  /**
+   * Obtém o valor tipado de um parâmetro de sistema.
+   * Consulta primeiro o cache em memória; em caso de miss ou expiração, busca no PostgreSQL.
+   */
+  async get<T>(chave: string, valorPadrao: T): Promise<T> {
+    const agora = Date.now();
+    if (this.cache.has(chave) && agora - this.ultimoCarregamento < this.TTL_MS) {
+      return this.cache.get(chave) as T;
+    }
+
+    const { rows } = await this.pool.query<{ valor: T }>(
+      'SELECT valor FROM parametros_sistema WHERE chave = $1 LIMIT 1;',
+      [chave]
+    );
+
+    if (rows.length === 0) {
+      return valorPadrao;
+    }
+
+    const valor = rows[0].valor;
+    this.cache.set(chave, valor);
+    return valor;
+  }
+
+  /**
+   * Atualiza o valor de um parâmetro (restrito a administradores) e invalida o cache.
+   */
+  async atualizarParametro(
+    chave: string,
+    novoValor: any,
+    usuarioId: string
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE parametros_sistema
+       SET valor = $1::jsonb, updated_at = clock_timestamp(), updated_by_usuario_id = $2
+       WHERE chave = $3;`,
+      [JSON.stringify(novoValor), usuarioId, chave]
+    );
+
+    // Invalidação imediata do cache local
+    this.cache.delete(chave);
+  }
+}
+```
+
+### 2.5 Exemplo de Uso no Serviço de Negócio
+
+No `ViagemService`, a regra de antecedência passa a consumir o parâmetro de forma desacoplada:
+
+```typescript
+// backend/src/services/viagemService.ts
+export class ViagemService {
+  constructor(
+    private readonly viagemRepository: ViagemRepository,
+    private readonly parametroService: ParametroService
+  ) {}
+
+  async validarAntecedencia(dataSaida: Date): Promise<void> {
+    const horasMinimas = await this.parametroService.get<number>(
+      'viagens.antecedencia_minima_solicitacao_horas',
+      24
+    );
+
+    const diferencaHoras = (dataSaida.getTime() - Date.now()) / (1000 * 60 * 60);
+
+    if (diferencaHoras < horasMinimas) {
+      throw new Error(
+        `Solicitações de viagem devem ser realizadas com no mínimo ${horasMinimas} horas de antecedência.`
+      );
+    }
+  }
+}
+```
+
+---
+
+## 3. Estratégia de Extensibilidade de Novos Módulos
+
+Quando a FSPH ou o SVO demandar uma nova frente de trabalho (ex: módulo `ABASTECIMENTO`, `MULTAS` ou `REGULACAO`), a equipe deve seguir rigorosamente o roteiro abaixo. Cada módulo opera como um contexto delimitado (*Bounded Context*) dentro do monolito.
+
+### 3.1 Roteiro de 7 Passos para Criação de Novo Módulo
+
+```
+1. Mapeamento & SDD      ──► 2. Migração PostgreSQL ──► 3. Camadas Backend (TS)
+   (docs/manuais/modulos.md +  (DDL Transacional +         (Routes + Controllers +
+    /plano <CHAVE>)             Rollback Obrigatório)       Services + Repositories)
+                                                                    │
+                                                                    ▼
+7. Pull Request & QA     ◄── 6. Documentação HTML   ◄── 4. Telas React 19 (UI)
+   (dev-<nome> -> develop      (docs/modulos/<CHAVE>.html  (5 Estados Visuais +
+    após /revisar)              via /documentar-modulo)     WCAG 2.2 AA)
+                                        ▲
+                                        │
+                                5. Bateria de Testes
+                                  (Unitários + Integração
+                                   via /testar com dados fictícios)
+```
+
+#### Passo 1 — Mapeamento no Índice e Planejamento SDD
+1. Adicione a chave do novo módulo em [`docs/manuais/modulos.md`](modulos.md) com sua descrição e entidades principais.
+2. Execute o comando `/plano <CHAVE_TAREFA>` para gerar o Plano Técnico em `docs/plans/<chave-tarefa>-<slug>.html`.
+
+#### Passo 2 — Banco de Dados e Migrações (PostgreSQL 18)
+1. Crie a migration em bloco transacional com rollback testado:
+   ```sql
+   BEGIN;
+   CREATE TABLE abastecimentos (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       veiculo_id UUID NOT NULL REFERENCES veiculos(id) ON DELETE RESTRICT,
+       motorista_id UUID NOT NULL REFERENCES motoristas(id) ON DELETE RESTRICT,
+       litros NUMERIC(8, 2) NOT NULL CHECK (litros > 0),
+       quilometragem_odometro INTEGER NOT NULL CHECK (quilometragem_odometro > 0),
+       created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+   );
+   CREATE INDEX idx_abastecimentos_veiculo ON abastecimentos (veiculo_id);
+   COMMIT;
+   ```
+
+#### Passo 3 — Implementação das Camadas Backend (Express 5)
+1. Crie os arquivos em `backend/src/`:
+   - `types/<modulo>.types.ts` (interfaces e DTOs explícitos, zero `any`);
+   - `repositories/<modulo>.repository.ts` (queries com `$1, $2`, projeções explícitas, sem `SELECT *`);
+   - `services/<modulo>.service.ts` (regras puras de negócio com TSDoc semântico conforme [`docs/manuais/padroes-docblocks.md`](padroes-docblocks.md));
+   - `controllers/<modulo>.controller.ts` (validação de I/O HTTP e tratamento semântico de erros);
+   - `routes/<modulo>.routes.ts` (endpoints REST protegidos com middlewares de autenticação e RBAC).
+2. Conecte a nova rota no arquivo principal de roteamento (`app.ts`):
+   ```typescript
+   app.use('/api/abastecimentos', autenticar, abastecimentoRouter);
+   ```
+
+#### Passo 4 — Implementação das Camadas Frontend (React 19)
+1. Crie o cliente de API tipado em `frontend/src/services/<modulo>Service.ts`.
+2. Construa a tela em `frontend/src/pages/<Modulo>/` garantindo:
+   - Reuso dos componentes acessíveis de `frontend/src/components/ui/`;
+   - Associação de formulários com `useId()`;
+   - Alvos mínimos de toque de **44×44px** e `:focus-visible`;
+   - Tratamento explícito dos **5 estados visuais** (*Ideal*, *Carregando com `aria-busy="true"`*, *Vazio*, *Erro com ação orientadora* e *Parcial*).
+
+#### Passo 5 — Bateria de Testes Funcionais (`/testar`)
+1. Escreva testes automatizados para o `Service` cobrindo cenários felizes e de erro (com dados 100% sintéticos — LGPD).
+2. Valide o comportamento dos endpoints e telas via comando `/testar`.
+
+#### Passo 6 — Documentação Técnica do Módulo (`/documentar-modulo`)
+1. Execute `/documentar-modulo <CHAVE_MODULO>` para gerar o arquivo autocontido `docs/modulos/<CHAVE_MODULO>.html` a partir de `docs/modulos/EXEMPLO_MODULO.html`.
+
+#### Passo 7 — Revisão Automatizada e Pull Request (`/revisar`)
+1. Mantenha as alterações na branch fixa `dev-<nome>`.
+2. Execute `/revisar` para auditar conformidade de camadas, SQL injection, WCAG 2.2 AA e ausência de dados pessoais.
+3. Abra o Pull Request para `develop` (onde passará pela homologação do **QA** antes da promoção para a `main`).
+
+---
+
+## 4. Diretrizes de Escalabilidade Concorrente
+
+Para suportar aumentos de escala de demanda sem alterações estruturais no código:
+
+1. **Escalabilidade Horizontal do Backend (Stateless):**
+   - Como os tokens de sessão JWT são stateless e assinados criptograficamente, instâncias adicionais do container `backend` podem ser adicionadas instantaneamente atrás de um balanceador Nginx (`docker compose up --scale backend=3`) sem necessidade de replicação de sessão em memória.
+2. **Escalabilidade Concorrente no PostgreSQL 18:**
+   - Todo processo de alocação de frota ou despacho de equipe SVO deve utilizar **lock pessimista** (`SELECT ... FOR UPDATE`), evitando deadlocks mantendo a ordem alfabética ou de ID ao travar mais de uma tabela.
+3. **Escalabilidade de Dados Históricos:**
+   - Tabelas operacionais com alto volume de inserção diária (ex: `solicitacoes_viagem`, `registros_svo`) devem utilizar **Keyset Pagination** em vez de `OFFSET` para manter tempos de resposta constantes (< 50ms) mesmo após anos de registros hospitalares acumulados.
