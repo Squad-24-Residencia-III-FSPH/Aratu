@@ -3,11 +3,11 @@
  * Utilitário de integração com a Jira Cloud REST API v3 — Sistema Aratu (Squad 24)
  *
  * Uso:
- *   node scripts/jira-fetch.mjs FROTA-27
- *   node scripts/jira-fetch.mjs 27
- *   node scripts/jira-fetch.mjs https://squad24.atlassian.net/browse/FROTA-27
- *   node scripts/jira-fetch.mjs --mine
- *   node scripts/jira-fetch.mjs FROTA-27 --save
+ *   node docs/scripts/jira-fetch.mjs FROTA-27
+ *   node docs/scripts/jira-fetch.mjs 27
+ *   node docs/scripts/jira-fetch.mjs https://squad24.atlassian.net/browse/FROTA-27
+ *   node docs/scripts/jira-fetch.mjs --mine
+ *   node docs/scripts/jira-fetch.mjs FROTA-27 --save
  *
  * Requisitos:
  *   Node.js 20+ (usa fetch nativo, zero dependências externas).
@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, '..');
+const REPO_ROOT = path.resolve(__dirname, '../..');
 
 /**
  * Carrega variáveis de ambiente de um arquivo .credentials ou .env sem expor segredos.
@@ -421,9 +421,9 @@ async function main() {
         `Branch atual: ${currentBranch}`,
         '',
         'Uso:',
-        '  node scripts/jira-fetch.mjs FROTA-27',
-        '  node scripts/jira-fetch.mjs https://squad24.atlassian.net/browse/FROTA-27',
-        '  node scripts/jira-fetch.mjs --mine   (lista suas tarefas abertas no Jira)',
+        '  node docs/scripts/jira-fetch.mjs FROTA-27',
+        '  node docs/scripts/jira-fetch.mjs https://squad24.atlassian.net/browse/FROTA-27',
+        '  node docs/scripts/jira-fetch.mjs --mine   (lista suas tarefas abertas no Jira)',
       ].join('\n')
     );
     process.exit(1);
@@ -522,7 +522,7 @@ async function main() {
   const moduloSlug = modulo.toLowerCase().replace(/_/g, '-');
   const suggestedCommit = `${commitType}(${moduloSlug}): ${slugify(summary).replace(/-/g, ' ')} (${issue.key})`;
   const planFileName = `${issue.key.toLowerCase()}-${slugify(summary)}.html`;
-  const planExists = fs.existsSync(path.join(REPO_ROOT, 'plans', planFileName));
+  const planExists = fs.existsSync(path.join(REPO_ROOT, 'docs', 'plans', planFileName));
 
   const markdownOutput = [
     `## Contexto da Tarefa — ${issue.key}`,
@@ -551,7 +551,7 @@ async function main() {
     `- **Branch atual do desenvolvedor:** \`${currentBranch}\` (atualizada somente via \`main\`)`,
     '- **Fluxo de entrega:** `dev-<nome>` → PR para `develop` (QA) → `main`',
     `- **Commit sugerido:** \`${suggestedCommit}\``,
-    `- **Plano SDD (\`plans/${planFileName}\`):** ${planExists ? 'encontrado' : 'ainda não gerado'}`,
+    `- **Plano SDD (\`docs/plans/${planFileName}\`):** ${planExists ? 'encontrado' : 'ainda não gerado'}`,
   ].join('\n');
 
   if (saveFlag) {

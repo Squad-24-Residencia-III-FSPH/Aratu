@@ -12,7 +12,7 @@ license: MIT
 
 # Testar Tarefa no Ambiente Local — Sistema Aratu
 
-Obtém o contexto da tarefa (plano SDD em `plans/` ou dados do Jira via `.agents/skills/buscar-tarefa/SKILL.md`), verifica a saúde dos containers Docker (`db`, `backend`, `frontend`), executa os cenários de teste de ponta a ponta (interface React 19 em `http://localhost:5173`, API Express 5 em `http://localhost:3000` e persistência no **PostgreSQL 18**) e audita os critérios de acessibilidade (**WCAG 2.2 Nível AA**) e controle de acesso (**RBAC**).
+Obtém o contexto da tarefa (plano SDD em `docs/plans/` ou dados do Jira via `.agents/skills/buscar-tarefa/SKILL.md`), verifica a saúde dos containers Docker (`db`, `backend`, `frontend`), executa os cenários de teste de ponta a ponta (interface React 19 em `http://localhost:5173`, API Express 5 em `http://localhost:3000` e persistência no **PostgreSQL 18**) e audita os critérios de acessibilidade (**WCAG 2.2 Nível AA**) e controle de acesso (**RBAC**).
 
 ---
 
@@ -40,7 +40,7 @@ Obtém o contexto da tarefa (plano SDD em `plans/` ou dados do Jira via `.agents
    git branch --show-current
    git diff --name-only develop...HEAD
    ```
-2. Se existir plano técnico em `plans/<nome-do-plano>.html`, leia as seções **2 (Requisitos)**, **5 (Contratos REST)**, **6 (Front-end e 5 Estados Visuais)**, **7 (Acessibilidade WCAG 2.2 AA)** e **9 (Casos de Teste)**.
+2. Se existir plano técnico em `docs/plans/<nome-do-plano>.html`, leia as seções **2 (Requisitos)**, **5 (Contratos REST)**, **6 (Front-end e 5 Estados Visuais)**, **7 (Acessibilidade WCAG 2.2 AA)** e **9 (Casos de Teste)**.
 3. Caso não haja plano local e tenha sido informada uma chave do Jira, execute `.agents/skills/buscar-tarefa/SKILL.md`.
 
 ---

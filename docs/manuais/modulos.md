@@ -23,7 +23,7 @@ A documentação técnica e funcional aprofundada de cada módulo é mantida em 
 
 Atualmente, o repositório dispõe de um **documento genérico de referência e template** que deve ser utilizado como base sempre que um módulo do Aratu for documentado:
 
-- 📄 **[`docs/modulos/EXEMPLO_MODULO.html`](modulos/EXEMPLO_MODULO.html)** — Template padrão de documentação de módulo do Sistema Aratu.
+- 📄 **[`docs/modulos/EXEMPLO_MODULO.html`](../modulos/EXEMPLO_MODULO.html)** — Template padrão de documentação de módulo do Sistema Aratu.
 
 ### O que a documentação HTML de cada módulo deve cobrir
 
@@ -35,3 +35,11 @@ Atualmente, o repositório dispõe de um **documento genérico de referência e 
 6. **Contratos de API REST (Backend Express 5):** endpoints, métodos HTTP, payloads e códigos de resposta.
 7. **Interface e Acessibilidade (Frontend React 19):** páginas, componentes reutilizados, tratamento dos 5 estados visuais e critérios da **WCAG 2.2 Nível AA**.
 8. **Dependências, Integrações e Proteção de Dados (LGPD / Sigilo SVO).**
+
+---
+
+## 3. Criação e Extensibilidade de Novos Módulos
+
+Para adicionar um novo módulo ao Sistema Aratu (ex: `ABASTECIMENTO`, `MULTAS`, `REGULACAO`), siga o roteiro de 7 passos e os padrões de escalabilidade e parametrização dinâmica documentados em:
+
+👉 **[`docs/manuais/escalabilidade-extensibilidade.md`](escalabilidade-extensibilidade.md)**

@@ -120,3 +120,19 @@ As respostas de erro originadas no backend são lidas por pessoas na interface e
   - `409 Conflict` (conflito de estado ou concorrência, ex: veículo já alocado no horário)
   - `422 Unprocessable Entity` (violação de regra de negócio, ex: CNH vencida)
 - **Mensagens orientadoras:** nunca exponha stack traces ou erros internos do PostgreSQL na resposta JSON. Retorne uma mensagem em português claro dizendo o que ocorreu e como o usuário pode resolver.
+
+---
+
+## 5. Parametrização Dinâmica e Escalabilidade
+
+- **Regras Operacionais Editáveis (`parametros_sistema`):** Prazos de antecedência de viagem, tolerâncias de quilometragem e limites de permanência do SVO devem ser obtidos dinamicamente via `ParametroService` (com cache em memória e invalidação) em vez de hardcoded no código.
+- **Diretrizes Completas:** Consulte a modelagem da tabela, estratégia de cache e o roteiro de extensibilidade em:
+  👉 **[`docs/manuais/escalabilidade-extensibilidade.md`](escalabilidade-extensibilidade.md)**
+
+---
+
+## 6. Padrões de Projeto (Design Patterns)
+
+A camada backend adota formalmente os padrões **Repository**, **State Pattern (FSM)**, **Strategy** e **Chain of Responsibility**. Consulte o catálogo completo com exemplos práticos de código em:
+👉 **[`docs/manuais/padroes-projeto.md`](padroes-projeto.md)**
+

@@ -72,7 +72,7 @@
 <h1>SDD — [Título da Tarefa ou História de Usuário]</h1>
 
 <div class="notice-block">
-  <strong>Arquivo de Exemplo / Template (Sistema Aratu):</strong> Este documento define o padrão oficial de Especificação e Plano Técnico de Implementação (SDD) da <strong>Squad 24</strong> para o <strong>Sistema Aratu — Gestão de Frota e Operações (FSPH &amp; SVO)</strong>. Ao planejar uma tarefa real, gere <code>plans/&lt;chave-tarefa&gt;-&lt;slug&gt;.html</code> seguindo esta estrutura.
+  <strong>Arquivo de Exemplo / Template (Sistema Aratu):</strong> Este documento define o padrão oficial de Especificação e Plano Técnico de Implementação (SDD) da <strong>Squad 24</strong> para o <strong>Sistema Aratu — Gestão de Frota e Operações (FSPH &amp; SVO)</strong>. Ao planejar uma tarefa real, gere <code>docs/plans/&lt;chave-tarefa&gt;-&lt;slug&gt;.html</code> seguindo esta estrutura.
 </div>
 
 <div class="meta-block">
@@ -168,7 +168,8 @@ docs/modulos/&lt;MODULO&gt;.html         ← atualização da documentação do 
 
 <h3>Arquivos de referência no projeto (padrão a seguir)</h3>
 <ul>
-  <li><strong>Camadas Backend e Frontend:</strong> <code>docs/arquitetura-camadas.md</code>, <code>docs/padroes-backend.md</code> e <code>docs/padroes-frontend.md</code>.</li>
+  <li><strong>Camadas Backend e Frontend:</strong> <code>docs/manuais/arquitetura-camadas.md</code>, <code>docs/manuais/padroes-backend.md</code> e <code>docs/manuais/padroes-frontend.md</code>.</li>
+  <li><strong>Padrões de Projeto (Design Patterns):</strong> <code>docs/manuais/padroes-projeto.md</code> (Repository, State/FSM, Strategy, Chain of Responsibility, Compound Components).</li>
   <li><strong>Componentes UI Acessíveis:</strong> <code>frontend/src/components/ui/</code>.</li>
 </ul>
 
@@ -383,7 +384,7 @@ COMMIT;</code></pre>
   <li><input type="checkbox"> Trabalho mantido na branch do desenvolvedor (<code>dev-&lt;nome&gt;</code>), atualizada somente a partir da <code>main</code> (<code>git pull origin main</code>), com PR direcionado para <code>develop</code> (QA)</li>
   <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-XX)</code>)</li>
   <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
-  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico conforme <code>docs/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico conforme <code>docs/manuais/padroes-docblocks.md</code></li>
   <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
   <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
   <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
@@ -413,14 +414,14 @@ COMMIT;</code></pre>
 
 <p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
 <ol>
-  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18.</li>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18.</li>
   <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>GESTOR_FROTA</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>OPERADOR_SVO</code>).</li>
   <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
   <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
   <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
   <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
   <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
-  <li><strong>Clean Code e TypeScript Estrito:</strong> zero <code>any</code>, zero valores mágicos, nomes claros no vocabulário da FSPH e do SVO e TSDoc semântico conforme <code>docs/padroes-docblocks.md</code>.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> zero <code>any</code>, zero valores mágicos, nomes claros no vocabulário da FSPH e do SVO e TSDoc semântico conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
 </ol>
 
 <ul>

@@ -19,7 +19,7 @@ Este documento serve como guia rápido para autores e revisores da **Squad 24** 
 - [ ] Não existem valores mágicos (strings/números soltos) para status de viagens, tipos de veículo ou perfis de usuário.
 - [ ] Nomes de variáveis, funções e classes refletem com clareza o domínio da **FSPH** e do **SVO**.
 - [ ] Funções são curtas, possuem responsabilidade única (**SRP**) e utilizam *early return* para evitar aninhamento profundo.
-- [ ] Métodos públicos de Services, Middlewares e Props de componentes visuais possuem documentação TSDoc semântica conforme [`docs/padroes-docblocks.md`](padroes-docblocks.md) (com foco no "porquê", `@throws` mapeados e sem duplicar tipos).
+- [ ] Métodos públicos de Services, Middlewares e Props de componentes visuais possuem documentação TSDoc semântica conforme [`docs/manuais/padroes-docblocks.md`](padroes-docblocks.md) (com foco no "porquê", `@throws` mapeados e sem duplicar tipos).
 - [ ] Não há código comentado (código morto) nem `console.log` de depuração esquecidos.
 
 ---
@@ -28,6 +28,7 @@ Este documento serve como guia rápido para autores e revisores da **Squad 24** 
 
 - [ ] **Regra de negócio mora no `Service`:** controllers do Express e componentes do React não contêm cálculos, validações de domínio complexas nem regras de transição de status.
 - [ ] **Fronteira de I/O respeitada:** apenas os `Repositories` executam queries no PostgreSQL 18; no frontend, apenas `frontend/src/services/` realiza chamadas `fetch` à API.
+- [ ] **Padrões de Projeto respeitados:** conformidade com [`docs/manuais/padroes-projeto.md`](padroes-projeto.md) (Repository, State/FSM para transições de status, Strategy para exportações e Chain of Responsibility em middlewares).
 - [ ] Não foram criados ciclos de importação entre módulos nem feature flags não solicitadas (**YAGNI**).
 
 ---
