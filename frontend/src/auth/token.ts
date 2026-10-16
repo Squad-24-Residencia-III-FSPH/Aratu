@@ -20,9 +20,13 @@ export function tokenExpiresAt(token: string, perfil: string): number | null {
   const header = decodePart(parts[0])
   const payload = decodePart(parts[1])
   const profile = resolveProfile(perfil)
+  const tokenProfile = payload && typeof payload.role === 'string'
+    ? resolveProfile(payload.role)
+    : payload && typeof payload.perfil === 'string'
+      ? resolveProfile(payload.perfil)
+      : null
   if (!header || typeof header.alg !== 'string' || header.alg.toLowerCase() === 'none'
-    || !payload || !profile || typeof payload.perfil !== 'string'
-    || resolveProfile(payload.perfil) !== profile
+    || !payload || !profile || tokenProfile !== profile
     || typeof payload.exp !== 'number' || !Number.isSafeInteger(payload.exp) || payload.exp <= 0
     || !((typeof payload.id === 'string' && payload.id.trim())
       || (typeof payload.id === 'number' && Number.isSafeInteger(payload.id) && payload.id > 0))) return null
