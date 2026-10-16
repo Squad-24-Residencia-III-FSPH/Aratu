@@ -1,23 +1,37 @@
-import express, { Request, Response } from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
+import dotenv from 'dotenv'
+import { log } from 'node:console'
+import process from 'node:process'
+import { createApp } from './app'
+import { createPool } from './database/pool'
+import { loadJwtConfig } from './services/jwt-config.service'
 
-// Carrega as variáveis de ambiente (como a do banco de dados)
-dotenv.config();
+dotenv.config({ path: '../.env' })
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT ?? 3000)
+const pool = createPool(process.env.DATABASE_URL ?? '')
+const jwtConfig = loadJwtConfig(process.env)
+const app = createApp({ pool, jwtConfig })
 
-// Middlewares essenciais
-app.use(cors()); // Permite que o front-end faça requisições para o back-end
-app.use(express.json()); // Permite que o back-end entenda requisições no formato JSON
+const server = app.listen(PORT, () => {
+  log(`Servidor rodando na porta ${PORT}`)
+})
 
-// Rota de teste
-app.get('/', (req: Request, res: Response) => {
-  res.json({ mensagem: 'Servidor Express rodando com sucesso no Docker!' });
-});
+function shutdown(): void {
+  server.close((serverError) => {
+    if (serverError) {
+      log('Falha ao encerrar o servidor HTTP:', serverError)
+      process.exit(1)
+      return
+    }
+    void pool.end().then(
+      () => process.exit(0),
+      (error: unknown) => {
+        log('Falha ao encerrar o pool PostgreSQL:', error)
+        process.exit(1)
+      },
+    )
+  })
+}
 
-// Iniciando o servidor
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-});
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
