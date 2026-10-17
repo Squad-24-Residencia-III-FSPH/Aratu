@@ -158,9 +158,14 @@ Nenhuma destas circunstâncias autoriza assumir:
    - *Atenção:* Não introduza camadas artificiais ou over-engineering em trechos simples.
 8. **KISS** — entre duas soluções corretas, adote a mais simples e óbvia.
    Código bom é aquele legível em manutenção sob pressão.
-9. **Clean Code** — nomes de domínio claros no vocabulário da saúde e frotas,
-   retorno explícito, tipagem TypeScript estrita (evite `any`), sem código morto,
-   sem logs de depuração temporários esquecidos.
+9. **Clean Code e Nomenclatura em Inglês** — todo o código (classes, métodos, funções,
+   interfaces/types, variáveis, constantes, hooks, componentes, arquivos `.ts`/`.tsx`,
+   endpoints REST e enums em `UPPER_SNAKE_CASE`) deve ser escrito em **inglês**, e o
+   banco PostgreSQL 18 segue o padrão de **prefixo de 3 letras em inglês** (`veh_vehicle`,
+   `trp_trip`, `req_request`, com `<pre>_id AS id` no `SELECT` do Repository e objetos
+   auxiliares sem `idx_`/`uq_`/`trg_`/`fn_`). Comentários TSDoc (`/** ... */`) e textos
+   de interface são em português. Retorno explícito, tipagem TypeScript estrita (zero `any`),
+   sem código morto, sem logs de depuração temporários esquecidos.
 
 ---
 

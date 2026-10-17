@@ -211,7 +211,8 @@ function generatePlano(targetKeyRaw, args) {
   <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
   <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (${escapeHtml(issueKey)})</code>)</li>
   <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
-  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas e colunas PostgreSQL no padrão de prefixo de 3 letras (<code>&lt;pre&gt;_id AS id</code> no Repository)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
   <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
   <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
   <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
@@ -235,14 +236,14 @@ function generatePlano(targetKeyRaw, args) {
 
 <p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
 <ol>
-  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18.</li>
-  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>GESTOR_FROTA</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>OPERADOR_SVO</code>).</li>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 com prefixo de 3 letras em inglês.</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
   <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
   <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
   <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
   <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
   <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
-  <li><strong>Clean Code e TypeScript Estrito:</strong> zero <code>any</code>, zero valores mágicos, nomes claros no vocabulário da FSPH e do SVO e TSDoc semântico conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
 </ol>
 
 <ul>
@@ -377,7 +378,7 @@ function generateModulo(moduloKeyRaw, args) {
     <tr>
       <td><span class="badge-http">GET</span></td>
       <td><code>/api/...</code></td>
-      <td><code>Controller::metodo</code></td>
+      <td><code>Controller::method</code></td>
       <td>[Perfis]</td>
       <td>[Contrato]</td>
     </tr>
@@ -456,17 +457,229 @@ function generateModulo(moduloKeyRaw, args) {
   );
 }
 
+function generateRevisao(targetKeyRaw, args) {
+  const forceFlag = args.includes('--force');
+  const issueKey = targetKeyRaw.toUpperCase().startsWith('FROTA-')
+    ? targetKeyRaw.toUpperCase()
+    : /^\d+$/.test(targetKeyRaw)
+      ? `FROTA-${targetKeyRaw}`
+      : targetKeyRaw.toUpperCase();
+
+  const cachedJsonPath = path.join(REPO_ROOT, '.tmp', `task-${issueKey}`, 'issue.json');
+  let cached = {};
+  if (fs.existsSync(cachedJsonPath)) {
+    try {
+      cached = JSON.parse(fs.readFileSync(cachedJsonPath, 'utf-8'));
+    } catch {
+      cached = {};
+    }
+  }
+
+  const summary = getArgValue(args, '--titulo') || cached.summary || 'Revisão da Tarefa';
+  const modulo = getArgValue(args, '--modulo') || cached.modulo || 'AUTENTICACAO_RBAC';
+  const perfis = getArgValue(args, '--perfis') || cached.perfis || 'ADMIN, MANAGER';
+  const branch =
+    getArgValue(args, '--branch') ||
+    cached.suggestedBranch ||
+    `feat/${slugify(summary) || issueKey.toLowerCase()}`;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const slug = slugify(summary) || 'revisao';
+  const fileName =
+    getArgValue(args, '--output') ||
+    `${issueKey.toLowerCase()}-${slug}.html`;
+  const outPath = path.join(REPO_ROOT, 'docs', 'reviews', fileName);
+
+  if (fs.existsSync(outPath) && !forceFlag) {
+    console.error(
+      `⚠️ O arquivo docs/reviews/${fileName} já existe. Use --force se desejar sobrescrevê-lo.`
+    );
+    process.exit(1);
+  }
+
+  const templatePath = path.join(REPO_ROOT, 'docs', 'reviews', 'EXEMPLO_REVISAO.html');
+  const styleBlock = extractStyleBlock(templatePath);
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — ${escapeHtml(issueKey)} — ${escapeHtml(summary)} (Sistema Aratu)</title>
+  ${styleBlock}
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — ${escapeHtml(issueKey)}: ${escapeHtml(summary)}</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>${escapeHtml(issueKey)}</code> — ${escapeHtml(summary)}</p>
+  <p><strong>Branch Revisada:</strong> <code>${escapeHtml(branch)}</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/${escapeHtml(fileName)}</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>${escapeHtml(modulo)}</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>${escapeHtml(perfis)}</code></p>
+  <p><strong>Data da Revisão:</strong> ${today}</p>
+</div>
+
+<!-- PREENCHER_VEREDITO: Use class="verdict-approved" para APROVADO_PARA_REVISAO_HUMANA ou class="verdict-blocked" para BLOQUEADO_POR_PENDENCIAS -->
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA
+</div>
+
+<!-- PREENCHER_CONTADORES: Atualize os contadores de Bloqueantes, Atenção, OK e N/A -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">0</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">17</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">0</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<!-- PREENCHER_REVISAO_SECAO_1: Tabela de arquivos criados/alterados no diff contra develop -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>[caminho]</code></td>
+      <td>[Camada]</td>
+      <td>[Novo / Modificado]</td>
+      <td>[Resumo]</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<!-- PREENCHER_REVISAO_SECAO_2: Status de cada critério C1 a C17 (badge-ok, badge-warn, badge-block, badge-na) -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeando <code>&lt;pre&gt;_id AS id</code>) e filtros sargáveis</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (prefixo de 3 letras <code>&lt;pre&gt;_&lt;entity&gt;</code>, PK <code>&lt;pre&gt;_id</code>, índices sem <code>idx_</code>/<code>uq_</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-ok">🟢 OK</span></td><td>[Evidência]</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<!-- PREENCHER_REVISAO_SECAO_3: Detalhar bloqueantes e pontos de atenção (arquivo:linha, impacto e como corrigir) -->
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado.</em></p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<p><em>Nenhum item de atenção identificado.</em></p>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<!-- PREENCHER_REVISAO_SECAO_4: Resultado de aratu-check.mjs, tsc, lint, build e testes -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática e Regras Aratu</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-ok">🟢 Passou</span></td>
+    </tr>
+    <tr>
+      <td>Testes Automatizados</td>
+      <td><code>npm test</code></td>
+      <td><span class="badge-ok">🟢 Passou</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<!-- PREENCHER_REVISAO_SECAO_5: Pontos específicos que o par humano da Squad 24 deve validar -->
+<ul class="check">
+  <li><input type="checkbox"> Validar funcionalmente a regra de negócio no navegador (<code>http://localhost:5173</code>) com os perfis RBAC impactados.</li>
+  <li><input type="checkbox"> Confirmar a navegação por teclado (<code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Esc</code>) e a clareza das mensagens em português.</li>
+</ul>
+
+</body>
+</html>
+`;
+
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, html, 'utf-8');
+  console.log(`✅ Esqueleto de Revisão (Code Review) gerado com sucesso em: docs/reviews/${fileName}`);
+  console.log(
+    '📌 Edite os blocos <!-- PREENCHER_... --> com replace_file_content (sem precisar ler EXEMPLO_REVISAO.html).'
+  );
+}
+
 function main() {
   const args = process.argv.slice(2);
   const tipo = (args[0] || '').toLowerCase();
   const alvo = args[1];
 
-  if (!tipo || !alvo || !['plano', 'modulo'].includes(tipo)) {
+  if (!tipo || !alvo || !['plano', 'modulo', 'revisao'].includes(tipo)) {
     console.error(
       [
         'Uso:',
         '  node docs/scripts/gerar-esqueleto.mjs plano <CHAVE_JIRA> [--titulo "..."] [--modulo "..."] [--perfis "..."] [--force]',
         '  node docs/scripts/gerar-esqueleto.mjs modulo <CHAVE_MODULO> [--titulo "..."] [--force]',
+        '  node docs/scripts/gerar-esqueleto.mjs revisao <CHAVE_JIRA> [--titulo "..."] [--modulo "..."] [--perfis "..."] [--force]',
       ].join('\n')
     );
     process.exit(1);
@@ -474,8 +687,10 @@ function main() {
 
   if (tipo === 'plano') {
     generatePlano(alvo, args.slice(2));
-  } else {
+  } else if (tipo === 'modulo') {
     generateModulo(alvo, args.slice(2));
+  } else {
+    generateRevisao(alvo, args.slice(2));
   }
 }
 

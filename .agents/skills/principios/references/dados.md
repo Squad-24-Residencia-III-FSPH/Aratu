@@ -12,33 +12,33 @@ A segunda é específica do **PostgreSQL 18** no ecossistema do Aratu.
 
 ## Antes de criar tabela ou coluna
 
-1. **Escreva a frase da linha.** "Uma linha desta tabela registra que o veículo V
-   foi alocado para a viagem X com o motorista M no período de A até B." Se não sai
+1. **Escreva a frase da linha.** "Uma linha desta tabela registra que a solicitação S
+   foi alocada para a viagem V na versão X pelo usuário U." Se não sai
    uma frase clara, a tabela mistura dois grãos distintos. Um significado por tabela
    (Date 9.6; Kimball p.39).
 2. **Uma informação, um lugar.** Evite flags paralelas que possam se contradizer
-   (ex: `em_viagem` e `disponivel` simultâneos). O estado do ciclo de vida deve ser
-   expresso em **uma** coluna de status com valores controlados via enum ou constraint `CHECK`.
-3. **Tipo é regra de negócio.** Quilometragem, placa de veículo, CPF, CNH e status
+   (ex: `IN_PROGRESS` e `PLANNED` simultâneos). O estado do ciclo de vida deve ser
+   expresso em **uma** coluna de estado (`<pre>_state`) com valores controlados em inglês (`UPPER_SNAKE_CASE`) via constraint `CHECK`.
+3. **Tipo é regra de negócio.** Hodômetro, identificação de veículo, login, papéis e estados
    não são simples strings ou inteiros genéricos: são tipos de domínio. Use constraints
-   declarativas no banco e types/enums no TypeScript.
+   declarativas no banco e types/enums em inglês no TypeScript.
 4. **Histórico e auditoria:**
-   - Datas de eventos operacionais reais (saída da viatura, despacho do SVO, conclusão)
-     são dados de domínio; não confunda com `created_at` (carimbo de inserção técnica).
-   - O que muda com o tempo (status da viagem, hodômetro do veículo) exige registro histórico
-     ou tabela de eventos/intercorrências quando houver necessidade de rastreabilidade.
+   - Datas de eventos operacionais reais (`trp_planned_departure`, `tre_occurred_at`, `fve_occurred_at`)
+     são dados de domínio; não confunda com `<pre>_created_at` / `<pre>_registered_at` (carimbos de inserção técnica).
+   - O que muda com o tempo (versão de solicitação, eventos de viagem, eventos de atendimento) exige registro histórico
+     e controle de revisão (`<pre>_revision`).
 
 ---
 
 ## Tratamento de Nulos
 
 - **O nulo não diz por que falta.** Se uma coluna é anulável, o motivo deve ser único
-  (ex: `data_retorno` é nula enquanto a viagem está em andamento). Se puder faltar
-  por motivos diferentes, separe em campos explícitos ou status de domínio.
+  (ex: `trp_planned_end` é nulo quando o término ainda não foi estimado). Se puder faltar
+  por motivos diferentes, separe em campos explícitos ou estados de domínio.
 - **Medida numérica não informada é nula, não zero.** Zero distorce médias de
-  consumo de combustível e contagens de quilometragem.
+  consumo de combustível e contagens de quilometragem (`tre_odometer`).
 - **Armadilhas do nulo no SQL:**
-  - `col <> 'ativo'` descarta as linhas onde `col` é nula;
+  - `col <> 'ACTIVE'` descarta as linhas onde `col` é nula;
   - `UNIQUE` no PostgreSQL permite múltiplos nulos (salvo com `UNIQUE NULLS NOT DISTINCT` a partir do PG 15);
   - Funções de agregação como `SUM()` e `AVG()` ignoram nulos.
 
@@ -47,24 +47,30 @@ A segunda é específica do **PostgreSQL 18** no ecossistema do Aratu.
 ## Concorrência: Ler, Decidir, Gravar
 
 **O risco clássico no Aratu:** duas requisições simultâneas tentam alocar a mesma viatura
-ou o mesmo motorista para o mesmo horário. Um `SELECT` confere que o veículo está
-"disponível", o serviço aprova ambos e grava dois registros conflitantes.
+ou o mesmo motorista para o mesmo horário, ou alterar a mesma solicitação.
 
 No PostgreSQL, previna nesta ordem:
 
-1. **Transação com trava explícita (`SELECT ... FOR UPDATE`):**
-   Ao avaliar a disponibilidade de um veículo ou motorista dentro de uma transação no `pg`:
+1. **Transação com trava explícita (`SELECT ... FOR UPDATE`) e controle de revisão (`<pre>_revision`):**
+   Ao avaliar a disponibilidade ou atualizar estado dentro de uma transação no `pg`:
    ```sql
    BEGIN;
-   SELECT id, status FROM veiculos WHERE id = $1 FOR UPDATE;
-   -- Valida se o status é 'disponivel' e se não há viagens sobrepostas
-   INSERT INTO viagens (veiculo_id, ...) VALUES ($1, ...);
-   UPDATE veiculos SET status = 'em_viagem' WHERE id = $1;
+   SELECT trp_id AS id, trp_state AS state, trp_revision AS revision
+     FROM trp_trip
+    WHERE trp_id = $1
+      FOR UPDATE;
+   -- Valida se o estado aceita alocação e se a revisão confere
+   INSERT INTO ral_request_allocation (req_id, rqv_id, trp_id, usr_id, ral_actor_snapshot, ral_reason, ral_snapshot)
+   VALUES ($1, $2, $3, $4, $5, $6, $7);
+   UPDATE trp_trip SET trp_revision = trp_revision + 1 WHERE trp_id = $3;
    COMMIT;
    ```
-2. **Restrições de chave única ou exclusão (`EXCLUDE`):**
-   Quando a regra puder ser garantida declarativamente pelo PostgreSQL (ex: uma mesma placa
-   não pode ter duas viagens ativas simultâneas), utilize constraints no banco.
+2. **Restrições de chave única parcial ou exclusão:**
+   Quando a regra puder ser garantida declarativamente pelo PostgreSQL (ex: um mesmo veículo
+   não pode ter duas viagens `'IN_PROGRESS'` simultâneas), utilize unique index parcial:
+   ```sql
+   CREATE UNIQUE INDEX trp_vehicle_in_progress ON trp_trip (veh_id) WHERE trp_state = 'IN_PROGRESS';
+   ```
 3. **Transação curta e atômica:**
    Nunca coloque chamadas a APIs externas, envio de e-mails ou processamento pesado dentro
    da transação do banco. A transação deve ser aberta, executar os comandos SQL e fazer commit
@@ -72,7 +78,7 @@ No PostgreSQL, previna nesta ordem:
 
 ---
 
-## Aratu — convenções e práticas no PostgreSQL 18
+## Aratu — convenções e práticas no PostgreSQL 18 (Padrão `modelo.sql` em Inglês)
 
 O banco de dados oficial do projeto é o **PostgreSQL 18** (imagem Docker `postgres:18-alpine`).
 
@@ -81,25 +87,24 @@ O banco de dados oficial do projeto é o **PostgreSQL 18** (imagem Docker `postg
   `ADD COLUMN` rodam dentro de transações (`BEGIN; ... COMMIT;`). Se uma instrução falhar,
   a migração inteira sofre rollback de forma limpa.
 
-### 2. Nomenclatura Padrão
-- **Tabelas:** snake_case no plural (`veiculos`, `motoristas`, `solicitacoes_viagem`, `viagens`, `registros_svo`, `manutencoes`).
-- **Chaves Primárias:** `id UUID PRIMARY KEY DEFAULT gen_random_uuid()` ou `id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY`.
-- **Chaves Estrangeiras:** `<tabela_singular>_id` (ex: `veiculo_id`, `motorista_id`, `solicitante_id`) com constraint explícita e `ON DELETE RESTRICT` como proteção padrão contra deleções acidentais.
-- **Campos Booleanos:** tipo nativo `BOOLEAN DEFAULT true / false` (proibido usar 0/1 ou 1/2 numéricos).
-- **Campos Temporais:**
-  - `TIMESTAMPTZ` para instantes no tempo com fuso horário (ex: `data_saida`, `data_chegada`, `created_at`, `updated_at`).
-  - `DATE` para datas puras de calendário (ex: `validade_cnh`).
-- **Colunas Padrão de Auditoria:**
-  ```sql
-  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-  deleted_at TIMESTAMPTZ NULL -- Para soft delete quando expressamente requerido
-  ```
+### 2. Nomenclatura Padrão (Prefixo de 3 Letras em Inglês)
+- **Tabelas:** `<pre>_<singular_entity>` em `snake_case` singular com prefixo único de 3 letras (`sec_sector`, `usr_user`, `srv_service`, `veh_vehicle`, `drv_driver`, `vhs_vehicle_service`, `aud_audit`, `apo_approval_policy`, `ape_policy_event`, `req_request`, `rqv_request_version`, `rqe_request_event`, `trp_trip`, `tre_trip_event`, `ral_request_allocation`, `fve_fulfillment_event`, `rte_round_trip_event`, `par_system_parameter`, `mnt_maintenance`).
+- **Chave Primária na Tabela e no `SELECT`:**
+  - Na tabela (`CREATE TABLE`): `<pre>_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY` (ex: `veh_id`, `drv_id`, `trp_id`, `req_id`, `usr_id`).
+  - No `SELECT` do Repository: projeta-se `<pre>_id AS id` e remove-se o prefixo das demais colunas via alias `camelCase` (`veh_identification AS identification`, `trp_planned_departure AS "plannedDeparture"`).
+- **Colunas Próprias:** iniciam sempre pelo prefixo de 3 letras da própria tabela (`<pre>_<column_name>`, ex: `veh_identification`, `veh_seats`, `veh_active`, `veh_revision`).
+- **Chaves Estrangeiras:** mantêm o nome exato da PK da tabela referenciada `<ref_pre>_id` sem o prefixo da tabela filha (ex: `veh_id`, `drv_id`, `usr_id`), ou `<ref_pre>_id_<role>` quando houver múltiplas FKs para a mesma tabela (ex: `usr_id_requester`, `req_id_outbound`, `req_id_return`).
+- **Objetos Auxiliares (sem `idx_`, `uq_`, `trg_`, `fn_`):**
+  - **Índices e Unique Indexes:** iniciam diretamente com o prefixo de 3 letras da tabela `<pre>_<descriptive_name>` (ex: `rqe_unique_decision`, `trp_vehicle_in_progress`, `ral_by_request`, `aud_by_table`).
+  - **Triggers e Funções:** nomes em inglês sem `trg_` ou `fn_` (triggers: `preserve`, `prevent_delete`, `audit`; funções internas: `_barrier()`, `_actor()`, `_audit()`, `_validate_trip()`; funções públicas: `save_sector()`, `create_trip()`, `allocate_request()`).
+  - **Views:** `vw_<descriptive_name_in_english>` (ex: `vw_active_allocations`, `vw_round_trip_pairs`, `vw_active_policies`).
+- **Campos Booleanos:** tipo nativo `boolean NOT NULL DEFAULT true / false`.
+- **Campos Temporais:** `timestamptz` para instantes no tempo com fuso horário (`clock_timestamp()`).
 
 ### 3. Proteção e Sigilo de Dados (LGPD e SVO)
 - O Serviço de Verificação de Óbito (SVO) trata dados extremamente delicados (registros
   de falecidos, declarações de óbito, dados de familiares). A gestão de frota trata dados
-  de motoristas (CPF, CNH).
+  de motoristas e servidores.
 - **Proibição absoluta:** É terminantemente proibido inserir dados reais em migrações,
   scripts de seed, testes, fixtures ou commits. Utilize exclusivamente dados fictícios e
   geradores de dados sintéticos.
