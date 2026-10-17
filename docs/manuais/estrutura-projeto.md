@@ -68,16 +68,25 @@ Toda evolução na estrutura de pastas e arquivos deve respeitar quatro invarian
 
 ---
 
-## 4. Organização do Frontend (`frontend/src/`)
+## 4. Organização do Frontend (`frontend/src/` — React 19 + Material UI)
 
-| Camada | Diretório | Responsabilidade | O que NÃO deve conter |
+| Camada | Diretório / Arquivo | Responsabilidade | O que NÃO deve conter |
 |---|---|---|---|
-| **Componentes UI** | `src/components/ui/` | Componentes atômicos, acessíveis e reutilizáveis (`Button`, `TextInput` com `useId`, `Modal`, `StatusBadge`, `Table`) | Chamadas diretas à API ou regras exclusivas de uma página |
-| **Componentes de Domínio** | `src/components/` | Blocos visuais compostos reutilizados entre páginas de um mesmo fluxo (ex: cabeçalho operacional, filtros de frota) | Chamadas `fetch` descentralizadas |
-| **Páginas (Pages)** | `src/pages/` | Telas completas associadas às rotas de navegação e orquestração dos 5 estados visuais (Ideal, Loading, Vazio, Erro, Parcial) | Marcação bruta repetitiva que deveria ser componente em `components/ui/` |
+| **Tema Global (MUI)** | `src/theme.ts` | Fonte única de design tokens do Material UI (`@mui/material` v9): paleta institucional (`#FF6B00`), tipografia, `borderRadius` e tamanho mínimo de toque (`44px` — WCAG 2.2 AA) | Lógica de negócio ou estados de componentes |
+| **Layout e Estrutura** | `src/components/layout/` | Estrutura base das telas autenticadas (`AppShell` com navegação filtrada por perfil RBAC e `PageHeader` padronizado com `<h1>` e slot de ações) | Chamadas diretas a endpoints de domínio |
+| **Componentes UI** | `src/components/ui/` | Wrappers acessíveis e reutilizáveis sobre Material UI (`FormField` com `useId()`, `DataTable`, `FilterBar`, `EntityCard`, `StatCard`, `StatusChip`, `StateFeedback`, `ConfirmDialog`) | Chamadas diretas à API ou regras exclusivas de uma página |
+| **Componentes de Domínio** | `src/components/` | Blocos visuais compostos reutilizados entre páginas de um mesmo fluxo (ex: timeline de chamado SVO, resumo de alocação de frota) | Chamadas `fetch` descentralizadas |
+| **Páginas (Pages)** | `src/pages/` | Telas completas associadas às rotas de navegação e orquestração dos 5 estados visuais via `StateFeedback` (*Ideal, Loading, Empty, Error, Partial*) | Estrutura repetitiva de MUI crua (`FormControl`+`FormLabel`+`OutlinedInput` avulsos) ou seletores `:global(.Mui...)` |
 | **Serviços de API** | `src/services/` | Clientes HTTP tipados que encapsulam `fetch`, URL base, cabeçalhos de autenticação e tratamento de erros da API | Manipulação de estado visual do React |
 | **Hooks** | `src/hooks/` | Lógica reutilizável de ciclo de vida, estado de formulários, paginação e sincronização de dados | Marcação JSX |
 | **Types** | `src/types/` | Contratos TypeScript espelhados da API, entidades e estados de interface | Lógica executável |
+
+### Regras de Estilização e CSS no Frontend
+1. **Prioridade de Estilização:** `src/theme.ts` (tokens e overrides globais do MUI) → prop `sx` / `styled()` do `@mui/material` → `*.module.css` apenas para layouts estruturais específicos de página quando indispensável.
+2. **Proibição de `:global(.Mui...)`:** É proibido sobrescrever classes internas do Material UI via `:global(.Mui...)` em arquivos `.css`, garantindo que o tamanho mínimo de `44px` (WCAG 2.2 AA) e os tokens de `theme.ts` sejam respeitados em todo o sistema.
+3. **Nomenclatura no CSS (100% em Inglês):**
+   - Classes em `*.module.css`: **`camelCase` em inglês** (ex: `styles.pageContainer`, `styles.loginCard`, `styles.fieldGroup`, `styles.srOnly`).
+   - Variáveis CSS globais (`index.css`): **`--kebab-case` em inglês** (ex: `--brand-orange`, `--surface-muted`).
 
 ---
 

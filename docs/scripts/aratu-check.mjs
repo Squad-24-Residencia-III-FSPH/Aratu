@@ -171,19 +171,21 @@ function auditFile(relPath) {
     });
   }
 
-  // C16 & C17: Acessibilidade WCAG 2.2 AA
+  // C16 & C17: Acessibilidade WCAG 2.2 AA, Material UI e Padronização CSS
   if (isFrontend && relPath.endsWith('.tsx')) {
-    if (/<input\b/.test(content) && !/\buseId\s*\(/.test(content) && !/\bhtmlFor=/.test(content)) {
+    if (/<(input|OutlinedInput|TextField|Select)\b/.test(content) && !/\buseId\s*\(/.test(content) && !/\bFormField\b/.test(content)) {
       findings.push({
         severity: '🟡 Atenção',
-        rule: 'C16 (Formulário Acessível — WCAG 2.2 AA)',
+        rule: 'C16 (Formulário Acessível — useId / FormField)',
         file: relPath,
-        msg: 'Elemento `<input>` detectado sem `useId()` ou `<label htmlFor>`. Verifique associação acessível.',
+        msg: 'Campo de formulário detectado sem `useId()` ou sem o componente reutilizável `FormField` (`src/components/ui/`).',
       });
     }
   }
 
   if (isFrontend && isCss) {
+    const isCssModule = relPath.endsWith('.module.css');
+    const kebabClasses = new Set();
     lines.forEach((line, i) => {
       if (/outline\s*:\s*(none|0)\b/i.test(line) && !content.includes(':focus-visible')) {
         findings.push({
@@ -193,7 +195,27 @@ function auditFile(relPath) {
           msg: 'Remoção de `outline` sem estilo substituto explícito em `:focus-visible`.',
         });
       }
+      if (/:global\(\.Mui/.test(line)) {
+        findings.push({
+          severity: '🟡 Atenção',
+          rule: 'C5 (Proibido :global(.Mui...) em CSS)',
+          file: `${relPath}:${i + 1}`,
+          msg: 'Sobrescrita manual de classe interna do Material UI detectada. Centralize tokens em `src/theme.ts` ou use a prop `sx`.',
+        });
+      }
+      if (isCssModule && !line.includes(':global(')) {
+        const kebabClassMatch = line.match(/\.([a-zA-Z0-9]+-[a-zA-Z0-9-]+)\s*[,{:\s]/);
+        if (kebabClassMatch) kebabClasses.add(`.${kebabClassMatch[1]}`);
+      }
     });
+    if (kebabClasses.size > 0) {
+      findings.push({
+        severity: '🟡 Atenção',
+        rule: 'C14 (CSS Module fora do padrão camelCase em inglês)',
+        file: relPath,
+        msg: `Classes fora do padrão \`camelCase\` em inglês (${[...kebabClasses].slice(0, 5).join(', ')}${kebabClasses.size > 5 ? '...' : ''}).`,
+      });
+    }
   }
 
   return findings;
