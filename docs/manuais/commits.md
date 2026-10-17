@@ -1,46 +1,51 @@
 # Padrão de Commits, Branches e Pull Requests — Sistema Aratu
 
-O repositório do **Sistema Aratu** adota um fluxo de trabalho com **Branch por Desenvolvedor (`dev-<nome>`)**, **estágio de QA em `develop`** e **Conventional Commits**, garantindo histórico legível, rastreabilidade de entregas e revisões seguras pela **Squad 24**.
+O repositório do **Sistema Aratu** adota um fluxo de trabalho baseado em **Gitflow** (conforme `README.md`) e **Conventional Commits**, garantindo histórico legível, rastreabilidade de entregas e revisões seguras pela **Squad 24**.
 
 ---
 
-## 1. Fluxo de Branches (`dev-<nome>` → `develop` (QA) → `main`)
+## 1. Fluxo de Branches (Gitflow)
 
 ### Estrutura de Branches
 
-| Branch | Finalidade e Regra de Atualização |
-|---|---|
-| `main` | Versão estável e homologada. Recebe código exclusivamente da `develop` após aprovação do QA. |
-| `develop` | Ambiente de integração e **QA (Homologação)**. Recebe Pull Requests das branches `dev-<nome>` e, após validação no QA, é promovida para a `main`. |
-| `dev-<nome>` | Branch fixa individual de cada desenvolvedor (ex: `dev-eliakim`, `dev-arthur`). Todo o trabalho do dev permanece nesta branch, **atualizada somente a partir da `main`** (`git pull origin main`). |
+| Branch / Prefixo | Finalidade | Exemplo |
+|---|---|---|
+| `main` | Versões estáveis e entregas validadas. | `main` |
+| `develop` | Integração das funcionalidades em desenvolvimento. | `develop` |
+| `feat/` ou `feature/` | Nova funcionalidade criada a partir de `develop`. | `feat/controle-sessao-token`, `feature/login` |
+| `fix/` | Correção de defeito criada a partir de `develop`. | `fix/vehicle-validation` |
+| `hotfix/` | Correção urgente em produção ou versão estável. | `hotfix/auth-error` |
+| `release/` | Preparação de uma entrega. | `release/v1.0.0` |
 
 ### Ciclo completo de uma tarefa no dia a dia
 
-1. **Manter-se na branch do desenvolvedor (`dev-<nome>`) e atualizar somente da `main`:**
+1. **Atualizar a branch `develop` e criar uma branch específica para a tarefa:**
    ```bash
-   git switch dev-eliakim
-   git pull origin main
+   git switch develop
+   git pull origin develop
+   git switch -c feat/controle-sessao-token
    ```
-2. **Implementar, testar e diferenciar a tarefa pelo comentário do commit:**
+2. **Implementar, testar e registrar os commits seguindo Conventional Commits:**
    ```bash
    git add .
    git commit -m "feat(auth): implementar controle de sessao e token (FROTA-27)"
    ```
-3. **Publicar na branch do dev e abrir Pull Request para `develop` (QA):**
+3. **Enviar a branch para o GitHub e abrir Pull Request para `develop`:**
    ```bash
-   git push origin dev-eliakim
-   # Abrir PR: dev-eliakim -> develop
+   git push -u origin feat/controle-sessao-token
+   # Abrir PR: feat/controle-sessao-token -> develop
    ```
-4. **Homologação em QA e promoção para `main`:**
-   - A entrega é testada e validada pelo **QA** na branch `develop`.
-   - Após aprovação no QA, a `develop` é mesclada na `main` (`develop` → `main`).
-   - Os desenvolvedores atualizam suas branches `dev-<nome>` novamente a partir da `main` (`git pull origin main`).
+4. **Após a revisão e merge em `develop`, atualizar a branch local:**
+   ```bash
+   git switch develop
+   git pull origin develop
+   ```
 
 ### Regras inegociáveis de branch
 
-- **Sempre manter na branch `dev-<nome>`:** não criar branches `feature/...` ou `fix/...` avulsas; o que identifica cada tarefa entregue é a mensagem do commit.
-- **`dev-<nome>` só puxa da `main`:** nunca faça `git pull origin develop` para dentro da sua `dev-<nome>` (evitando trazer código ainda não aprovado pelo QA).
-- **Fluxo de PR obrigatório:** `dev-<nome>` abre PR para `develop` → passa pelo QA → vai para `main`. Nunca realizar commits diretos na `main` ou na `develop`.
+- **Não desenvolver diretamente em `main` ou `develop`:** toda tarefa deve ter sua própria branch (`feat/...`, `feature/...`, `fix/...`, `hotfix/...`).
+- **Escopo isolado por branch:** não trabalhar na mesma branch para funcionalidades sem relação entre si.
+- **Revisão obrigatória:** não realizar merge de uma funcionalidade sem revisão e sem resolver eventuais conflitos antes de concluir o Pull Request.
 - **Um diff muda comportamento ou estrutura, nunca os dois:** refatorações amplas devem vir em commit/PR separado de novas features ou correções de bugs.
 
 ---
@@ -55,7 +60,7 @@ tipo(escopo): descrição curta e objetiva (FROTA-XX)
 
 - **`tipo`**: natureza da alteração (ver tabela abaixo).
 - **`escopo`**: módulo ou camada afetada (ex: `frota`, `viagens`, `svo`, `motoristas`, `manutencoes`, `auth`, `db`, `ui`, `docs`, `docker`).
-- **`descrição curta`**: em letras minúsculas, no infinitivo ou imperativo, sem ponto final, com até 72 caracteres (incluindo opcionalmente a chave da issue no Jira para rastreabilidade direta na branch `dev-<nome>`).
+- **`descrição curta`**: em letras minúsculas, no infinitivo ou imperativo, sem ponto final, com até 72 caracteres (incluindo opcionalmente a chave da issue no Jira para rastreabilidade direta).
 
 ### Tipos permitidos
 

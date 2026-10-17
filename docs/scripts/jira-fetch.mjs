@@ -520,6 +520,7 @@ async function main() {
   const isBug = /bug|defeito|erro|fix|corre[cç][aã]o/i.test(issueType);
   const commitType = isBug ? 'fix' : 'feat';
   const moduloSlug = modulo.toLowerCase().replace(/_/g, '-');
+  const suggestedBranch = `${commitType}/${slugify(summary)}`;
   const suggestedCommit = `${commitType}(${moduloSlug}): ${slugify(summary).replace(/-/g, ' ')} (${issue.key})`;
   const planFileName = `${issue.key.toLowerCase()}-${slugify(summary)}.html`;
   const planExists = fs.existsSync(path.join(REPO_ROOT, 'docs', 'plans', planFileName));
@@ -547,9 +548,10 @@ async function main() {
     '### Comentários Recentes',
     commentsMd,
     '',
-    '### Situação no Git (`dev-<nome>` → `develop` (QA) → `main`) e SDD',
-    `- **Branch atual do desenvolvedor:** \`${currentBranch}\` (atualizada somente via \`main\`)`,
-    '- **Fluxo de entrega:** `dev-<nome>` → PR para `develop` (QA) → `main`',
+    '### Situação no Git (Gitflow) e SDD',
+    '- **Branch base:** `develop`',
+    `- **Branch atual:** \`${currentBranch}\``,
+    `- **Branch sugerida para a tarefa:** \`${suggestedBranch}\``,
     `- **Commit sugerido:** \`${suggestedCommit}\``,
     `- **Plano SDD (\`docs/plans/${planFileName}\`):** ${planExists ? 'encontrado' : 'ainda não gerado'}`,
   ].join('\n');
@@ -570,6 +572,7 @@ async function main() {
           modulo,
           perfis,
           currentBranch,
+          suggestedBranch,
           suggestedCommit,
           planFileName,
           descriptionMd,
