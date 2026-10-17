@@ -55,10 +55,12 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
   - `src/controllers/`: Validação de requisição e resposta HTTP JSON.
   - `src/services/`: Regras de negócio puras (sem dependência de Express ou HTTP).
   - `src/repositories/` / `src/database/`: Acesso a dados PostgreSQL com queries parametrizadas (`$1, $2`).
-- **Frontend:** React 19, TypeScript, Vite.
-  - `src/components/`: Componentes visuais acessíveis e reutilizáveis (usando `useId()` para formulários).
-  - `src/pages/`: Telas e fluxos de navegação.
-  - `src/services/`: Cliente de API centralizado.
+- **Frontend:** React 19, TypeScript, Vite, Material UI (`@mui/material` v9 + `@emotion`).
+  - `src/theme.ts`: Fonte única de design tokens do Material UI (paleta `#FF6B00`, tipografia e altura mínima `44px` para WCAG 2.2 AA).
+  - `src/components/layout/`: Estrutura padronizada de tela (`AppShell`, `PageHeader`).
+  - `src/components/ui/`: Componentes visuais acessíveis e reutilizáveis sobre Material UI (`FormField` com `useId()`, `DataTable`, `FilterBar`, `EntityCard`, `StatCard`, `StatusChip`, `StateFeedback`, `ConfirmDialog`).
+  - `src/pages/`: Telas e fluxos de navegação (estilização via `theme.ts`/`sx`; CSS Modules restritos a layout estrutural com classes em **inglês em `camelCase`**, proibido `:global(.Mui...)`).
+  - `src/hooks/` e `src/services/`: Hooks customizados de estado/ciclo de vida e cliente de API centralizado.
 - **Banco de Dados:** PostgreSQL 18 via Docker (`postgres:18-alpine`).
 - **Padrões de Projeto:** Consulte [`docs/manuais/padroes-projeto.md`](docs/manuais/padroes-projeto.md) para aplicação obrigatória de Repository, State Pattern (FSM), Strategy, Chain of Responsibility e Compound Components.
 - **Containers:** Docker & Docker Compose (`docker-compose.yml` com `db`, `backend`, `frontend`).

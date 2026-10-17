@@ -92,25 +92,25 @@ Combine o resultado de `node docs/scripts/aratu-check.mjs` com a análise semân
 
 #### Eixo 2 — Arquitetura em Camadas e Princípios (SOLID / DRY / KISS)
 - **C4 (Invariantes de Camada Backend):** Rotas (`routes/`) e Controllers (`controllers/`) estão livres de regras de negócio e de SQL? Services (`services/`) estão livres de objetos HTTP (`Request`/`Response`)? Repositories (`repositories/`) concentram todo o acesso ao `pg`?
-- **C5 (Invariantes de Camada Frontend):** Componentes UI reutilizáveis (`components/ui/`) foram reaproveitados em vez de HTML avulso duplicado? As chamadas `fetch` passam exclusivamente por `frontend/src/services/`?
+- **C5 (Invariantes de Camada Frontend e Material UI):** Componentes reutilizáveis sobre Material UI (`src/components/layout/` e `src/components/ui/`: `AppShell`, `PageHeader`, `FormField`, `DataTable`, `FilterBar`, `EntityCard`, `StatCard`, `StatusChip`, `StateFeedback`, `ConfirmDialog`) foram reaproveitados em vez de estrutura MUI crua repetida? As chamadas `fetch` passam exclusivamente por `frontend/src/services/`? Nenhum arquivo CSS usa `:global(.Mui...)` para sobrescrever o `src/theme.ts`?
 - **C6 (Ausência de Ciclos e Feature Flags):** Não há importação circular entre módulos nem criação de feature flags não autorizadas?
 
 #### Eixo 3 — Banco de Dados (PostgreSQL 18), Concorrência e Segurança
 - **C7 (Prevenção de SQL Injection):** 100% das queries usam parâmetros posicionais (`$1, $2, ...`) sem interpolação de strings (template literals)? → Violação é 🔴.
 - **C8 (Performance e Projeção SQL):** Nenhuma query utiliza `SELECT *`? Os filtros de data/texto são sargáveis (sem funções sobre a coluna no `WHERE`) e evitam N+1?
 - **C9 (Transações e Concorrência):** Operações compostas ou de alocação concorrente usam `BEGIN ... COMMIT / ROLLBACK` com `SELECT ... FOR UPDATE` e garantem `client.release()` no bloco `finally`? → Vazamento de conexão ou condição de corrida é 🔴.
-- **C10 (Migrações PostgreSQL 18):** Tabelas no padrão de prefixo de 3 letras em inglês (`<pre>_<singular_entity>`), PK `<pre>_id` (projetada como `<pre>_id AS id` no Repository), colunas próprias `<pre>_<col>`, FKs `<ref_pre>_id` com `ON DELETE RESTRICT`, índices `<pre>_<descriptive_name>` (sem `idx_`/`uq_`), `TIMESTAMPTZ` e DDL transacional com rollback?
-- **C11 (Autorização RBAC no Backend):** As rotas protegidas validam o perfil do usuário (`ADMIN`, `MANAGER`, `OPERATOR`, `REQUESTER`, `TRIAGE`, `DRIVER`) via middleware no Express? → Proteger apenas no React é 🔴.
+- **C10 (Migrações PostgreSQL 18):** Tabelas no padrão de prefixo de 3 letras em inglês (`<pre>_<singular_entity>`), PK `id` (projetada como `SELECT id AS <pre>_id` no Repository), colunas próprias `<pre>_<col>`, FKs `<ref_pre>_id` com `ON DELETE RESTRICT`, objetos auxiliares `<pre>_<descriptive_name>` (sem `idx_`, `uq_`, `trg_`, `fn_`), `TIMESTAMPTZ` e DDL transacional com rollback?
+- **C11 (Autorização RBAC no Backend):** As rotas protegidas validam o perfil do usuário via middleware no Express? → Proteger apenas no React é 🔴.
 - **C12 (Proteção de Dados — LGPD e Sigilo SVO):** Nenhum dado pessoal real (CPF, CNH, nomes reais, laudos/óbitos do SVO) consta em seeds, testes, logs ou commits, e nenhum segredo foi hardcoded? → Violação é 🔴.
 
 #### Eixo 4 — Clean Code, Nomenclatura em Inglês e Tipagem TypeScript Estrita
 - **C13 (Tipagem Estrita):** Zero uso de `any` ou `@ts-ignore`? Parâmetros, retornos e payloads possuem interfaces/types explícitos em `src/types/`?
-- **C14 (Nomenclatura em Inglês, Sem Valores Mágicos e TSDoc):** Classes, métodos, funções, variáveis, constantes, componentes, hooks, arquivos `.ts`/`.tsx` e endpoints estão em inglês? Estados e papéis usam union types em inglês (`UPPER_SNAKE_CASE`)? Métodos públicos de Services/Middlewares possuem TSDoc em português conforme `docs/manuais/padroes-docblocks.md`? Não há `console.log` de debug nem código morto?
+- **C14 (Nomenclatura em Inglês, CSS Modules `camelCase` e TSDoc):** Classes, métodos, funções, variáveis, constantes, componentes, hooks, arquivos `.ts`/`.tsx`, endpoints e classes de `*.module.css` (`camelCase`) estão em inglês? Estados e papéis usam union types em `UPPER_SNAKE_CASE`? Métodos públicos de Services/Middlewares possuem TSDoc em português conforme `docs/manuais/padroes-docblocks.md`? Não há `console.log` de debug nem código morto?
 
 #### Eixo 5 — Interface React 19, UX e Acessibilidade (WCAG 2.2 Nível AA)
-- **C15 (Os 5 Estados Visuais):** Toda tela/listagem assíncrona trata explicitamente os estados *Ideal*, *Carregando (`aria-busy="true"`)*, *Vazio*, *Erro* e *Parcial*?
-- **C16 (Formulários e Controles Acessíveis):** Todos os inputs usam `useId()` vinculando `<label htmlFor>` ao `<input id>`, `aria-invalid` e `role="alert"`? Botões com ícone possuem `aria-label` contextualizado?
-- **C17 (Teclado, Foco e Alvos de Toque):** Nenhum CSS remove `:focus-visible` sem substituto? Modais fecham com `Esc`? Os alvos interativos respeitam o mínimo de **44×44px** para operação móvel e os badges não dependem apenas de cor?
+- **C15 (Os 5 Estados Visuais):** Toda tela/listagem assíncrona trata explicitamente os estados *Ideal*, *Carregando (`aria-busy="true"`)*, *Vazio*, *Erro* e *Parcial* (via `StateFeedback`)?
+- **C16 (Formulários e Controles Acessíveis):** Todos os campos usam `FormField` ou `useId()` vinculando `FormLabel`/`<label htmlFor>` ao `id` do input, `aria-invalid` e `aria-describedby`? Botões com ícone possuem `aria-label` contextualizado?
+- **C17 (Teclado, Foco e Alvos de Toque):** Nenhum CSS remove `:focus-visible` sem substituto? Modais (`ConfirmDialog`) fecham com `Esc`? Os alvos interativos respeitam o mínimo de **44×44px** (`theme.ts`) para operação móvel e os `StatusChip` não dependem apenas de cor?
 
 ---
 

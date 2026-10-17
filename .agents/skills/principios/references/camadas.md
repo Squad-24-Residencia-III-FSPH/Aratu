@@ -66,12 +66,14 @@ acoplamento que sempre custa:
 
 ### Frontend (`frontend/src/`)
 
-| Camada | Diretório | Responsabilidade | O que NÃO faz |
+| Camada | Diretório / Arquivo | Responsabilidade | O que NÃO faz |
 |---|---|---|---|
-| **Componentes UI** | `src/components/ui/` | Componentes atômicos e reutilizáveis (botões, inputs acessíveis, modais, tabelas, tags de status) | Não consome APIs diretamente nem acopla regras de páginas específicas |
-| **Páginas (Pages)** | `src/pages/` | Telas principais (Dashboard, Solicitação de Viagem, Gestão de Frota, Operações SVO, etc.) | Não monta requisições HTTP manuais sem passar pela camada de API |
-| **Serviços de API** | `src/services/` ou `src/api/` | Comunicação com o backend Express via `fetch` tipado, centralizando base URL e cabeçalhos | Não gerencia estado visual de telas |
-| **Hooks** | `src/hooks/` | Encapsulamento de lógicas reutilizáveis de estado, formulários ou consultas | Não substitui componentes visuais |
+| **Tema Global (MUI)** | `src/theme.ts` | Fonte única de design tokens do Material UI (`@mui/material`), paleta (`#FF6B00`), tipografia e altura mínima `44px` (WCAG 2.2 AA) | Não contém lógica de negócio ou estado de sessão |
+| **Layout e Estrutura** | `src/components/layout/` | Estrutura base de tela (`AppShell` com menu RBAC e `PageHeader` padronizado) | Não executa fetches de domínio específicos de uma página |
+| **Componentes UI** | `src/components/ui/` | Wrappers atômicos e reutilizáveis sobre Material UI (`FormField` com `useId()`, `DataTable`, `FilterBar`, `EntityCard`, `StatCard`, `StatusChip`, `StateFeedback`, `ConfirmDialog`) | Não consome APIs diretamente nem acopla regras de páginas específicas |
+| **Páginas (Pages)** | `src/pages/` | Telas principais que orquestram hooks e componentes de `layout/` e `ui/` (CSS Modules restritos a layout estrutural em inglês `camelCase`, sem `:global(.Mui...)`) | Não monta blocos repetitivos de MUI crus nem requisições HTTP manuais |
+| **Serviços de API** | `src/services/` | Comunicação com o backend Express via `fetch` tipado, centralizando base URL e cabeçalhos | Não gerencia estado visual de telas |
+| **Hooks** | `src/hooks/` | Encapsulamento de lógicas reutilizáveis de estado, formulários, autenticação ou consultas | Não substitui componentes visuais |
 | **Types** | `src/types/` | Tipagens TypeScript das entidades do sistema e contratos com as APIs | Não contém código de execução |
 
 ---
