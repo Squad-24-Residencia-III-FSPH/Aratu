@@ -13,30 +13,31 @@ Este documento serve como guia rápido para autores e revisores da **Squad 24** 
 
 ---
 
-## 2. Clean Code, SOLID e Tipagem TypeScript
+## 2. Clean Code, SOLID, Nomenclatura em Inglês e Tipagem TypeScript
 
+- [ ] **Código 100% em inglês:** classes, métodos, funções, interfaces, types, variáveis, constantes, componentes, hooks, arquivos `.ts`/`.tsx` e endpoints REST/rotas estão escritos em inglês.
+- [ ] **Enums e estados em `UPPER_SNAKE_CASE` em inglês:** valores literais (`'SUBMITTED'`, `'APPROVED'`, `'IN_PROGRESS'`, `'PASSENGER'`, `'BODY'`, `'REQUESTER'`, `'MANAGER'`) são mantidos em inglês no banco e código, e traduzidos para português apenas na UI.
 - [ ] Nenhum uso de `any` ou `@ts-ignore` foi introduzido; parâmetros, retornos e payloads possuem interfaces explícitas em `src/types/`.
-- [ ] Não existem valores mágicos (strings/números soltos) para status de viagens, tipos de veículo ou perfis de usuário.
-- [ ] Nomes de variáveis, funções e classes refletem com clareza o domínio da **FSPH** e do **SVO**.
 - [ ] Funções são curtas, possuem responsabilidade única (**SRP**) e utilizam *early return* para evitar aninhamento profundo.
-- [ ] Métodos públicos de Services, Middlewares e Props de componentes visuais possuem documentação TSDoc semântica conforme [`docs/manuais/padroes-docblocks.md`](padroes-docblocks.md) (com foco no "porquê", `@throws` mapeados e sem duplicar tipos).
+- [ ] Métodos públicos de Services, Middlewares e Props de componentes visuais possuem documentação TSDoc semântica em português conforme [`docs/manuais/padroes-docblocks.md`](padroes-docblocks.md) (com foco no "porquê", `@throws` mapeados e sem duplicar tipos).
 - [ ] Não há código comentado (código morto) nem `console.log` de depuração esquecidos.
 
 ---
 
 ## 3. Arquitetura em Camadas (Backend e Frontend)
 
-- [ ] **Regra de negócio mora no `Service`:** controllers do Express e componentes do React não contêm cálculos, validações de domínio complexas nem regras de transição de status.
+- [ ] **Regra de negócio mora no `Service`:** controllers do Express e componentes do React não contêm cálculos, validações de domínio complexas nem regras de transição de estado.
 - [ ] **Fronteira de I/O respeitada:** apenas os `Repositories` executam queries no PostgreSQL 18; no frontend, apenas `frontend/src/services/` realiza chamadas `fetch` à API.
-- [ ] **Padrões de Projeto respeitados:** conformidade com [`docs/manuais/padroes-projeto.md`](padroes-projeto.md) (Repository, State/FSM para transições de status, Strategy para exportações e Chain of Responsibility em middlewares).
+- [ ] **Padrões de Projeto respeitados:** conformidade com [`docs/manuais/padroes-projeto.md`](padroes-projeto.md) (Repository, State/FSM para transições de estado, Strategy para exportações e Chain of Responsibility em middlewares).
 - [ ] Não foram criados ciclos de importação entre módulos nem feature flags não solicitadas (**YAGNI**).
 
 ---
 
 ## 4. Banco de Dados (PostgreSQL 18) e Segurança
 
+- [ ] **Padrão SQL de prefixo de 3 letras em inglês (`modelo.sql`):** tabelas `<pre>_<singular_entity>` (`veh_vehicle`, `trp_trip`, `req_request`), PK `<pre>_id` na tabela (`veh_id`), colunas próprias `<pre>_<col>`, FKs `<ref_pre>_id` (ou `<ref_pre>_id_<role>`) e índices iniciando pelo prefixo da tabela `<pre>_<name>` (sem `idx_`, `uq_`, `trg_`, `fn_`).
+- [ ] **Projeção explícita para DTOs:** nenhuma consulta utiliza `SELECT *`; o Repository projeta `<pre>_id AS id` e aliases `camelCase` sem o prefixo de 3 letras.
 - [ ] Todas as queries SQL usam parâmetros posicionais (`$1, $2, ...`) — zero interpolação de strings.
-- [ ] Nenhuma consulta utiliza `SELECT *`.
 - [ ] Operações compostas ou de alocação concorrente usam transação (`BEGIN ... COMMIT / ROLLBACK`) com `SELECT ... FOR UPDATE` e liberam a conexão no bloco `finally { client.release(); }`.
 - [ ] Rotas restritas validam o perfil **RBAC** no middleware do backend (não apenas ocultando botões no frontend).
 - [ ] **LGPD e Sigilo SVO:** nenhum dado pessoal real consta em testes, seeds, mocks, commits ou logs.
@@ -49,4 +50,4 @@ Este documento serve como guia rápido para autores e revisores da **Squad 24** 
 - [ ] Todos os campos de formulário usam `useId()` vinculando `<label htmlFor>` ao `<input id>`, além de `aria-invalid` e `role="alert"` para erros.
 - [ ] A tela trata os **5 estados visuais**: *Ideal*, *Carregando (`aria-busy="true"`)*, *Vazio*, *Erro* e *Parcial*.
 - [ ] Toda interação funciona 100% via teclado (`Tab`, `Enter`, `Espaço`, `Esc`) com foco visível (`:focus-visible`) e alvos de toque mínimos de **44×44px** para fluxos móveis.
-- [ ] Status e alertas não dependem exclusivamente de cor.
+- [ ] Estados e alertas não dependem exclusivamente de cor.

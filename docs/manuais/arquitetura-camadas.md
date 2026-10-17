@@ -1,6 +1,6 @@
 # Estrutura e Padrões de `src/` — Sistema Aratu
 
-Este documento detalha como organizar arquivos, responsabilidades e contratos dentro de `backend/src/` e `frontend/src/` no **Sistema Aratu**, com exemplos práticos em TypeScript seguindo **Clean Code, SOLID e DRY**.
+Este documento detalha como organizar arquivos, responsabilidades e contratos dentro de `backend/src/` e `frontend/src/` no **Sistema Aratu**, com exemplos práticos em TypeScript seguindo **Clean Code, SOLID, DRY**, código em inglês e o padrão SQL de prefixo de 3 letras (`veh_vehicle`, `veh_id AS id`).
 
 ---
 
@@ -11,98 +11,99 @@ O fluxo de uma requisição no servidor segue estritamente a cadeia:
 
 ### 1.1 Types e DTOs (`backend/src/types/`)
 
-Definem entidades, enums de domínio e contratos de entrada/saída. Nunca use `any`.
+Definem entidades, union types em inglês (`UPPER_SNAKE_CASE`) e contratos de entrada/saída em `camelCase` sem o prefixo SQL de 3 letras. Nunca use `any`.
 
 ```typescript
-// backend/src/types/veiculo.types.ts
-export type StatusVeiculo = 'disponivel' | 'em_viagem' | 'manutencao' | 'inativo';
+// backend/src/types/vehicle.types.ts
+export type ServiceCategory = 'PASSENGER' | 'BODY' | 'OTHER';
 
-export type TipoVeiculo = 'administrativo' | 'ambulancia' | 'remocao_svo';
-
-export interface Veiculo {
-  id: string;
-  placa: string;
-  modelo: string;
-  tipoVeiculo: TipoVeiculo;
-  capacidadePassageiros: number;
-  quilometragemAtual: number;
-  status: StatusVeiculo;
-  createdAt: Date;
-  updatedAt: Date;
+export interface Vehicle {
+  id: number;
+  identification: string;
+  categories: ServiceCategory[];
+  seats: number;
+  bodyLimit: number;
+  weightLimit: number | null;
+  active: boolean;
+  revision: number;
 }
 
-export interface CriarVeiculoInput {
-  placa: string;
-  modelo: string;
-  tipoVeiculo: TipoVeiculo;
-  capacidadePassageiros: number;
-  quilometragemAtual: number;
+export interface CreateVehicleInput {
+  identification: string;
+  categories: ServiceCategory[];
+  seats: number;
+  bodyLimit: number;
+  weightLimit?: number | null;
 }
 ```
 
 ### 1.2 Repositories (`backend/src/repositories/`)
 
-Encapsulam o acesso ao PostgreSQL 18 via `pg.Pool`. Proibido usar `SELECT *` ou interpolar strings.
+Encapsulam o acesso ao PostgreSQL 18 via `pg.Pool`. As tabelas e colunas no banco usam o prefixo de 3 letras (`veh_vehicle`, `veh_id`, `veh_identification`), e o `SELECT` projeta aliases `camelCase` limpos (`veh_id AS id`) para o TypeScript. Proibido usar `SELECT *` ou interpolar strings.
 
 ```typescript
-// backend/src/repositories/veiculo.repository.ts
+// backend/src/repositories/vehicle.repository.ts
 import { Pool, PoolClient } from 'pg';
-import { CriarVeiculoInput, StatusVeiculo, Veiculo } from '../types/veiculo.types';
+import { CreateVehicleInput, Vehicle } from '../types/vehicle.types';
 
-const COLUNAS_VEICULO = `
-  id,
-  placa,
-  modelo,
-  tipo_veiculo AS "tipoVeiculo",
-  capacidade_passageiros AS "capacidadePassageiros",
-  quilometragem_atual AS "quilometragemAtual",
-  status,
-  created_at AS "createdAt",
-  updated_at AS "updatedAt"
+const VEHICLE_COLUMNS = `
+  veh_id AS id,
+  veh_identification AS identification,
+  veh_categories AS categories,
+  veh_seats AS seats,
+  veh_body_limit AS "bodyLimit",
+  veh_weight_limit AS "weightLimit",
+  veh_active AS active,
+  veh_revision AS revision
 `;
 
-export class VeiculoRepository {
+export class VehicleRepository {
   constructor(private readonly pool: Pool) {}
 
-  async buscarPorPlaca(placa: string): Promise<Veiculo | null> {
+  async findByIdentification(identification: string): Promise<Vehicle | null> {
     const query = `
-      SELECT ${COLUNAS_VEICULO}
-      FROM veiculos
-      WHERE placa = $1
+      SELECT ${VEHICLE_COLUMNS}
+      FROM veh_vehicle
+      WHERE veh_identification = $1
       LIMIT 1;
     `;
-    const resultado = await this.pool.query<Veiculo>(query, [placa]);
-    return resultado.rows[0] ?? null;
+    const result = await this.pool.query<Vehicle>(query, [identification]);
+    return result.rows[0] ?? null;
   }
 
-  async buscarPorIdComTrava(id: string, client: PoolClient): Promise<Veiculo | null> {
+  async findByIdForUpdate(id: number, client: PoolClient): Promise<Vehicle | null> {
     const query = `
-      SELECT ${COLUNAS_VEICULO}
-      FROM veiculos
-      WHERE id = $1
+      SELECT ${VEHICLE_COLUMNS}
+      FROM veh_vehicle
+      WHERE veh_id = $1
       FOR UPDATE;
     `;
-    const resultado = await client.query<Veiculo>(query, [id]);
-    return resultado.rows[0] ?? null;
+    const result = await client.query<Vehicle>(query, [id]);
+    return result.rows[0] ?? null;
   }
 
-  async criar(dados: CriarVeiculoInput): Promise<Veiculo> {
+  async create(input: CreateVehicleInput): Promise<Vehicle> {
     const query = `
-      INSERT INTO veiculos (placa, modelo, tipo_veiculo, capacidade_passageiros, quilometragem_atual, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING ${COLUNAS_VEICULO};
+      INSERT INTO veh_vehicle (
+        veh_identification,
+        veh_categories,
+        veh_seats,
+        veh_body_limit,
+        veh_weight_limit,
+        veh_active
+      )
+      VALUES ($1, $2, $3, $4, $5, true)
+      RETURNING ${VEHICLE_COLUMNS};
     `;
-    const statusInicial: StatusVeiculo = 'disponivel';
-    const valores = [
-      dados.placa,
-      dados.modelo,
-      dados.tipoVeiculo,
-      dados.capacidadePassageiros,
-      dados.quilometragemAtual,
-      statusInicial,
+    const values = [
+      input.identification,
+      input.categories,
+      input.seats,
+      input.bodyLimit,
+      input.weightLimit ?? null,
     ];
-    const resultado = await this.pool.query<Veiculo>(query, valores);
-    return resultado.rows[0];
+    const result = await this.pool.query<Vehicle>(query, values);
+    return result.rows[0];
   }
 }
 ```
@@ -112,34 +113,35 @@ export class VeiculoRepository {
 Concentram todas as regras de negócio, validações de domínio e orquestração de transações. Não importam `Request` nem `Response` do Express.
 
 ```typescript
-// backend/src/services/veiculo.service.ts
-import { VeiculoRepository } from '../repositories/veiculo.repository';
-import { CriarVeiculoInput, Veiculo } from '../types/veiculo.types';
+// backend/src/services/vehicle.service.ts
+import { VehicleRepository } from '../repositories/vehicle.repository';
+import { CreateVehicleInput, Vehicle } from '../types/vehicle.types';
 
-const REGEX_PLACA_BR = /^[A-Z]{3}-?[0-9][A-Z0-9][0-9]{2}$/;
+export class VehicleService {
+  constructor(private readonly vehicleRepository: VehicleRepository) {}
 
-export class VeiculoService {
-  constructor(private readonly veiculoRepository: VeiculoRepository) {}
+  /**
+   * Cadastra uma nova viatura garantindo unicidade de identificação e limites válidos.
+   */
+  async createVehicle(input: CreateVehicleInput): Promise<Vehicle> {
+    const normalizedIdentification = input.identification.trim().toUpperCase();
 
-  async cadastrarVeiculo(entrada: CriarVeiculoInput): Promise<Veiculo> {
-    const placaNormalizada = entrada.placa.trim().toUpperCase();
-
-    if (!REGEX_PLACA_BR.test(placaNormalizada)) {
-      throw new Error('Formato de placa inválido. Informe o padrão ABC-1234 ou Mercosul ABC1D23.');
+    if (!normalizedIdentification) {
+      throw new Error('A identificação da viatura é obrigatória.');
     }
 
-    if (entrada.quilometragemAtual < 0) {
-      throw new Error('A quilometragem atual não pode ser negativa.');
+    if (input.seats < 0 || input.bodyLimit < 0) {
+      throw new Error('Os limites de assentos e de corpos não podem ser negativos.');
     }
 
-    const existente = await this.veiculoRepository.buscarPorPlaca(placaNormalizada);
-    if (existente) {
-      throw new Error(`Já existe um veículo cadastrado com a placa ${placaNormalizada}.`);
+    const existing = await this.vehicleRepository.findByIdentification(normalizedIdentification);
+    if (existing) {
+      throw new Error(`Já existe um veículo cadastrado com a identificação ${normalizedIdentification}.`);
     }
 
-    return this.veiculoRepository.criar({
-      ...entrada,
-      placa: placaNormalizada,
+    return this.vehicleRepository.create({
+      ...input,
+      identification: normalizedIdentification,
     });
   }
 }
@@ -147,23 +149,23 @@ export class VeiculoService {
 
 ### 1.4 Controllers e Routes (`backend/src/controllers/` e `backend/src/routes/`)
 
-Traduzem requisições HTTP para chamadas ao Service e devolvem status HTTP semânticos.
+Traduzem requisições HTTP em endpoints em inglês (`/api/vehicles`) para chamadas ao Service e devolvem status HTTP semânticos com mensagens em português para a UI.
 
 ```typescript
-// backend/src/controllers/veiculo.controller.ts
+// backend/src/controllers/vehicle.controller.ts
 import { Request, Response } from 'express';
-import { VeiculoService } from '../services/veiculo.service';
+import { VehicleService } from '../services/vehicle.service';
 
-export class VeiculoController {
-  constructor(private readonly veiculoService: VeiculoService) {}
+export class VehicleController {
+  constructor(private readonly vehicleService: VehicleService) {}
 
-  cadastrar = async (req: Request, res: Response): Promise<void> => {
+  create = async (req: Request, res: Response): Promise<void> => {
     try {
-      const veiculo = await this.veiculoService.cadastrarVeiculo(req.body);
-      res.status(201).json(veiculo);
-    } catch (erro) {
-      const mensagem = erro instanceof Error ? erro.message : 'Erro inesperado ao cadastrar veículo.';
-      res.status(400).json({ erro: mensagem });
+      const vehicle = await this.vehicleService.createVehicle(req.body);
+      res.status(201).json(vehicle);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro inesperado ao cadastrar veículo.';
+      res.status(400).json({ error: message });
     }
   };
 }
@@ -174,37 +176,37 @@ export class VeiculoController {
 ## 2. Frontend (`frontend/src/`)
 
 O fluxo no frontend React 19 segue a separação:
-**`Page` → `Hook / Estado` → `Service de API` → `Componentes Reutilizáveis (components/ui/)`**.
+**`Page` → `Hook / State` → `API Service` → `Reusable Components (components/ui/)`**.
 
 ### 2.1 Serviços de API (`frontend/src/services/`)
 
-Centralizam a comunicação com o backend Express via `fetch` tipado. Nenhuma página deve montar URLs da API manualmente.
+Centralizam a comunicação com o backend Express via `fetch` tipado em inglês. Nenhuma página deve montar URLs da API manualmente.
 
 ```typescript
 // frontend/src/services/api.ts
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-export async function requisicaoApi<T>(caminho: string, opcoes?: RequestInit): Promise<T> {
-  const resposta = await fetch(`${API_BASE_URL}${caminho}`, {
+export async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       'Content-Type': 'application/json',
-      ...opcoes?.headers,
+      ...options?.headers,
     },
-    ...opcoes,
+    ...options,
   });
 
-  if (!resposta.ok) {
-    const corpoErro = await resposta.json().catch(() => ({}));
-    throw new Error(corpoErro.erro || 'Não foi possível concluir a operação. Tente novamente.');
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.error || 'Não foi possível concluir a operação. Tente novamente.');
   }
 
-  return resposta.json() as Promise<T>;
+  return response.json() as Promise<T>;
 }
 ```
 
 ### 2.2 Componentes UI Acessíveis (`frontend/src/components/ui/`)
 
-Todo componente de formulário ou ação deve ser construído em `src/components/ui/` seguindo a **WCAG 2.2 Nível AA** (uso de `useId()`, `aria-invalid`, `aria-describedby`, `role="alert"` e alvo mínimo de 44×44px). Consulte `docs/manuais/padroes-frontend.md`.
+Todo componente de formulário ou ação deve ser construído em `src/components/ui/` seguindo a **WCAG 2.2 Nível AA** (uso de `useId()`, `aria-invalid`, `aria-describedby`, `role="alert"` e alvo mínimo de 44×44px). Consulte [`docs/manuais/padroes-frontend.md`](padroes-frontend.md).
 
 ### 2.3 Páginas (`frontend/src/pages/`)
 
@@ -222,4 +224,3 @@ As páginas compõem componentes de `src/components/`, conectam-se aos serviços
 A divisão de camadas do Aratu implementa formalmente os padrões **Layered Architecture com Inversão Leve**, **Repository Pattern**, **State Pattern (FSM)**, **Strategy**, **Chain of Responsibility** e **Compound Components**.
 Consulte o guia canônico completo em:
 👉 **[`docs/manuais/padroes-projeto.md`](padroes-projeto.md)**
-

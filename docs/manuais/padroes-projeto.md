@@ -11,8 +11,8 @@ O objetivo deste guia é fornecer consistência arquitetural, desacoplamento e t
 | Camada do Sistema | Padrão Principal | Nome em Inglês | Papel e Responsabilidade no Sistema Aratu |
 |---|---|---|---|
 | **Arquitetura Geral** | Arquitetura em Camadas + Inversão Leve | *Layered Architecture + Dependency Inversion* | Separação estrita em pipeline unidirecional: `Routes` → `Controllers` → `Services` → `Repositories`. |
-| **Persistência / Dados** | Repositório | *Repository Pattern* | Encapsulamento de queries SQL parametrizadas (`$1, $2`), isolamento do `pg.Pool` e transações atômicas com `SELECT ... FOR UPDATE`. |
-| **Negócio / Domínio** | Máquina de Estados / Estado | *State Pattern (FSM)* | Controle do ciclo de vida imutável de viagens e óbitos, bloqueando transições ilegais em tempo de compilação e execução. |
+| **Persistência / Dados** | Repositório | *Repository Pattern* | Encapsulamento de queries SQL parametrizadas (`$1, $2`), projeção `<pre>_id AS id`, isolamento do `pg.Pool` e transações atômicas com `SELECT ... FOR UPDATE`. |
+| **Negócio / Domínio** | Máquina de Estados / Estado | *State Pattern (FSM)* | Controle do ciclo de vida imutável de solicitações e viagens, bloqueando transições ilegais em tempo de compilação e execução. |
 | **Algoritmos Variáveis** | Estratégia | *Strategy Pattern* | Variação dinâmica de algoritmos sem acoplamento nem `switch/case` extensos (ex: exportadores de relatórios em CSV, PDF e XLSX). |
 | **Segurança e HTTP** | Cadeia de Responsabilidade | *Chain of Responsibility* | Pipeline modular de middlewares Express 5: validação de token JWT → autorização RBAC → validação de schema → controller → tratamento global de erro. |
 | **Interface (React 19)** | Hooks Customizados + Componentes Compostos | *Custom Hooks + Compound Components* | Desacoplamento de efeitos assíncronos e I/O de rede (Hooks) e composição semântica acessível com estado compartilhado (WCAG 2.2 AA). |
@@ -28,7 +28,7 @@ No Aratu, a dependência aponta sempre para o centro (domínio). O fluxo de uma 
 [Cliente HTTP / React]
          │
          ▼
-[1. Routes]        (Declara endpoint, métodos e encadeia middlewares de autorização)
+[1. Routes]        (Declara endpoint em inglês, métodos e encadeia middlewares de autorização)
          │
          ▼
 [2. Controllers]   (Extrai params/body, valida tipos de borda, invoca Service, responde HTTP JSON)
@@ -37,7 +37,7 @@ No Aratu, a dependência aponta sempre para o centro (domínio). O fluxo de uma 
 [3. Services]      (Regras puras de negócio, invariantes, cálculos, sem Express/HTTP)
          │
          ▼
-[4. Repositories]  (Consultas SQL parametrizadas no PostgreSQL 18, sem lógica de negócio)
+[4. Repositories]  (Consultas SQL parametrizadas no PostgreSQL 18 com prefixo de 3 letras)
          │
          ▼
 [PostgreSQL 18]
@@ -50,26 +50,29 @@ No Aratu, a dependência aponta sempre para o centro (domínio). O fluxo de uma 
 ### 2.3 Exemplo Prático (TypeScript / Express 5)
 
 ```typescript
-// backend/src/services/viagem.service.ts
-import { IViagemRepository } from '../types/viagem.types';
-import { ViagemRepository } from '../repositories/viagem.repository';
+// backend/src/services/request.service.ts
+import { IRequestRepository } from '../types/request.types';
+import { RequestRepository } from '../repositories/request.repository';
 
-export class ViagemService {
+export class RequestService {
   constructor(
-    private readonly repository: IViagemRepository = new ViagemRepository()
+    private readonly repository: IRequestRepository = new RequestRepository()
   ) {}
 
-  public async aprovarSolicitacao(id: string, gestorId: string): Promise<void> {
-    const viagem = await this.repository.buscarPorId(id);
-    if (!viagem) {
-      throw new Error('Solicitação de viagem não encontrada.');
+  /**
+   * Aprova uma solicitação de transporte enviada, incrementando sua revisão.
+   */
+  public async approveRequest(id: number, managerId: number, reason: string): Promise<void> {
+    const request = await this.repository.findById(id);
+    if (!request) {
+      throw new Error('Solicitação de transporte não encontrada.');
     }
 
-    if (viagem.status !== 'pendente') {
-      throw new Error(`Não é possível aprovar viagem no status "${viagem.status}".`);
+    if (request.state !== 'SUBMITTED') {
+      throw new Error(`Não é possível aprovar solicitação no estado "${request.state}".`);
     }
 
-    await this.repository.atualizarStatus(id, 'aprovada', gestorId);
+    await this.repository.updateState(id, 'APPROVED', managerId, reason);
   }
 }
 ```
@@ -84,55 +87,63 @@ O padrão Repositório atua como uma coleção em memória de entidades de domí
 ### 3.2 Diretrizes Mandatórias
 - **Zero SQL fora de `repositories/`:** é terminantemente proibido executar consultas SQL dentro de controllers, middlewares ou services.
 - **Consultas parametrizadas:** nunca concatenar variáveis em strings SQL. Utilize sempre parâmetros posicionais (`$1, $2`).
-- **Projeções explícitas:** proibido o uso de `SELECT *`. Toda consulta deve explicitar as colunas necessárias.
+- **Projeções explícitas e mapeamento `<pre>_id AS id`:** proibido o uso de `SELECT *`. Toda consulta deve explicitar as colunas com prefixo de 3 letras e convertê-las via alias para `camelCase` sem o prefixo.
 - **Gerenciamento de transações:** o repositório deve suportar tanto o pool compartilhado (`pg.Pool`) quanto um cliente transacional dedicado (`pg.PoolClient`) para operações atômicas com `SELECT ... FOR UPDATE`.
 
 ### 3.3 Exemplo Prático
 
 ```typescript
-// backend/src/repositories/viagem.repository.ts
+// backend/src/repositories/trip.repository.ts
 import { Pool, PoolClient } from 'pg';
 import { pool } from '../database/connection';
-import { Viagem, IViagemRepository } from '../types/viagem.types';
+import { Trip, ITripRepository, TripState } from '../types/trip.types';
 
-export class ViagemRepository implements IViagemRepository {
+export class TripRepository implements ITripRepository {
   constructor(private readonly db: Pool = pool) {}
 
-  public async buscarPorId(id: string, client?: PoolClient): Promise<Viagem | null> {
+  public async findById(id: number, client?: PoolClient): Promise<Trip | null> {
     const executor = client ?? this.db;
     const query = `
-      SELECT id, veiculo_id AS "veiculoId", motorista_id AS "motoristaId",
-             status, data_saida AS "dataSaida", data_retorno AS "dataRetorno",
-             created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM viagens
-       WHERE id = $1
+      SELECT trp_id AS id,
+             veh_id AS "vehicleId",
+             drv_id AS "driverId",
+             trp_planned_departure AS "plannedDeparture",
+             trp_planned_end AS "plannedEnd",
+             trp_state AS state,
+             trp_revision AS revision,
+             trp_created_at AS "createdAt"
+        FROM trp_trip
+       WHERE trp_id = $1
        LIMIT 1;
     `;
-    const { rows } = await executor.query<Viagem>(query, [id]);
+    const { rows } = await executor.query<Trip>(query, [id]);
     return rows[0] ?? null;
   }
 
-  public async buscarComTrava(id: string, client: PoolClient): Promise<Viagem | null> {
+  public async findByIdForUpdate(id: number, client: PoolClient): Promise<Trip | null> {
     const query = `
-      SELECT id, veiculo_id AS "veiculoId", motorista_id AS "motoristaId", status
-        FROM viagens
-       WHERE id = $1
+      SELECT trp_id AS id,
+             veh_id AS "vehicleId",
+             drv_id AS "driverId",
+             trp_state AS state,
+             trp_revision AS revision
+        FROM trp_trip
+       WHERE trp_id = $1
          FOR UPDATE;
     `;
-    const { rows } = await client.query<Viagem>(query, [id]);
+    const { rows } = await client.query<Trip>(query, [id]);
     return rows[0] ?? null;
   }
 
-  public async atualizarStatus(id: string, status: string, usuarioId: string, client?: PoolClient): Promise<void> {
+  public async updateState(id: number, state: TripState, client?: PoolClient): Promise<void> {
     const executor = client ?? this.db;
     const query = `
-      UPDATE viagens
-         SET status = $2,
-             atualizado_por = $3,
-             updated_at = clock_timestamp()
-       WHERE id = $1;
+      UPDATE trp_trip
+         SET trp_state = $2,
+             trp_revision = trp_revision + 1
+       WHERE trp_id = $1;
     `;
-    await executor.query(query, [id, status, usuarioId]);
+    await executor.query(query, [id, state]);
   }
 }
 ```
@@ -142,53 +153,49 @@ export class ViagemRepository implements IViagemRepository {
 ## 4. Padrão Estado / Máquina de Estados Finitos (*State Pattern / FSM*)
 
 ### 4.1 Propósito no Aratu
-O Aratu gerencia fluxos operacionais críticos (solicitações de viagens da FSPH e chamados de óbito do SVO). Esses fluxos possuem ciclos de vida estritos que **nunca podem sofrer transições arbitrárias** ou inconsistentes.
+O Aratu gerencia fluxos operacionais críticos (solicitações de transporte da FSPH e atendimento do SVO). Esses fluxos possuem ciclos de vida estritos que **nunca podem sofrer transições arbitrárias** ou inconsistentes.
 
 ### 4.2 Grafo de Transições Válidas
 
-#### Ciclo de Vida da Viagem Institucional:
+#### Ciclo de Vida da Viagem (`trp_trip`):
 ```
-[pendente] ────► [aprovada] ────► [em_andamento] ────► [concluida]
-    │                │                   │
-    ▼                ▼                   ▼
-[cancelada]      [cancelada]         [interrompida]
+[PLANNED] ────► [IN_PROGRESS] ────► [COMPLETED]
+    │                 │
+    ▼                 ▼
+[CANCELED]       [CANCELED]
 ```
 
 ### 4.3 Implementação Tipada e Imutável
 
 ```typescript
-// backend/src/types/viagem-estados.types.ts
-export type ViagemStatus =
-  | 'pendente'
-  | 'aprovada'
-  | 'em_andamento'
-  | 'concluida'
-  | 'cancelada'
-  | 'interrompida';
+// backend/src/types/trip-state.types.ts
+export type TripState =
+  | 'PLANNED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELED';
 
 /**
- * Matriz estrita de transições válidas no domínio Aratu.
+ * Matriz estrita de transições válidas no domínio de Viagens do Aratu.
  */
-export const TRANSIÇÕES_PERMITIDAS: Record<ViagemStatus, readonly ViagemStatus[]> = {
-  pendente: ['aprovada', 'cancelada'],
-  aprovada: ['em_andamento', 'cancelada'],
-  em_andamento: ['concluida', 'interrompida'],
-  concluida: [],
-  cancelada: [],
-  interrompida: ['concluida'],
+export const ALLOWED_TRIP_TRANSITIONS: Record<TripState, readonly TripState[]> = {
+  PLANNED: ['IN_PROGRESS', 'CANCELED'],
+  IN_PROGRESS: ['COMPLETED', 'CANCELED'],
+  COMPLETED: [],
+  CANCELED: [],
 } as const;
 
-export class TransicaoInvalidaError extends Error {
-  constructor(statusAtual: ViagemStatus, novoStatus: ViagemStatus) {
-    super(`Transição de status inválida no domínio de Viagens: não é permitido mudar de "${statusAtual}" para "${novoStatus}".`);
-    this.name = 'TransicaoInvalidaError';
+export class InvalidTransitionError extends Error {
+  constructor(currentState: TripState, nextState: TripState) {
+    super(`Transição de estado inválida no domínio de Viagens: não é permitido mudar de "${currentState}" para "${nextState}".`);
+    this.name = 'InvalidTransitionError';
   }
 }
 
-export function validarTransicaoViagem(atual: ViagemStatus, destino: ViagemStatus): void {
-  const permitidos = TRANSIÇÕES_PERMITIDAS[atual];
-  if (!permitidos.includes(destino)) {
-    throw new TransicaoInvalidaError(atual, destino);
+export function validateTripTransition(currentState: TripState, targetState: TripState): void {
+  const allowed = ALLOWED_TRIP_TRANSITIONS[currentState];
+  if (!allowed.includes(targetState)) {
+    throw new InvalidTransitionError(currentState, targetState);
   }
 }
 ```
@@ -202,43 +209,43 @@ O padrão Strategy permite variar dinamicamente algoritmos e formatos de process
 
 Aplicações principais:
 1. **Exportação de relatórios gerenciais:** geração de dados em CSV, PDF e XLSX mantendo o mesmo conjunto de dados filtrados.
-2. **Cálculo de alocação de diárias:** regras específicas para deslocamentos na Grande Aracaju versus interior de Sergipe.
+2. **Cálculo de políticas de aprovação:** regras específicas para avaliação manual versus automática por setor e serviço.
 
 ### 5.2 Exemplo Prático: Exportação de Relatórios
 
 ```typescript
-// backend/src/services/exportacao/exportador.strategy.ts
-export interface FormatoExportacaoStrategy<T> {
-  readonly extensao: string;
+// backend/src/services/export/exporter.strategy.ts
+export interface ExportFormatStrategy<T> {
+  readonly extension: string;
   readonly contentType: string;
-  gerar(dados: readonly T[]): Promise<Buffer>;
+  generate(data: readonly T[]): Promise<Buffer>;
 }
 
-export class CsvExportadorStrategy<T extends Record<string, unknown>> implements FormatoExportacaoStrategy<T> {
-  public readonly extensao = 'csv';
+export class CsvExportStrategy<T extends Record<string, unknown>> implements ExportFormatStrategy<T> {
+  public readonly extension = 'csv';
   public readonly contentType = 'text/csv; charset=utf-8';
 
-  public async gerar(dados: readonly T[]): Promise<Buffer> {
-    if (dados.length === 0) return Buffer.from('');
-    const cabecalho = Object.keys(dados[0]).join(';');
-    const linhas = dados.map(item => Object.values(item).map(v => `"${String(v ?? '')}"`).join(';'));
-    return Buffer.from([cabecalho, ...linhas].join('\r\n'), 'utf-8');
+  public async generate(data: readonly T[]): Promise<Buffer> {
+    if (data.length === 0) return Buffer.from('');
+    const header = Object.keys(data[0]).join(';');
+    const lines = data.map(item => Object.values(item).map(v => `"${String(v ?? '')}"`).join(';'));
+    return Buffer.from([header, ...lines].join('\r\n'), 'utf-8');
   }
 }
 
-export class ExportadorContext<T extends Record<string, unknown>> {
-  constructor(private strategy: FormatoExportacaoStrategy<T>) {}
+export class ExporterContext<T extends Record<string, unknown>> {
+  constructor(private strategy: ExportFormatStrategy<T>) {}
 
-  public setStrategy(strategy: FormatoExportacaoStrategy<T>): void {
+  public setStrategy(strategy: ExportFormatStrategy<T>): void {
     this.strategy = strategy;
   }
 
-  public async exportar(dados: readonly T[]): Promise<{ buffer: Buffer; contentType: string; extensao: string }> {
-    const buffer = await this.strategy.gerar(dados);
+  public async export(data: readonly T[]): Promise<{ buffer: Buffer; contentType: string; extension: string }> {
+    const buffer = await this.strategy.generate(data);
     return {
       buffer,
       contentType: this.strategy.contentType,
-      extensao: this.strategy.extensao,
+      extension: this.strategy.extension,
     };
   }
 }
@@ -275,23 +282,23 @@ Requisição HTTP
 ### 6.3 Exemplo Prático de Encadeamento
 
 ```typescript
-// backend/src/routes/viagem.routes.ts
+// backend/src/routes/trip.routes.ts
 import { Router } from 'express';
-import { autenticarToken } from '../middlewares/auth.middleware';
-import { autorizarPerfis } from '../middlewares/rbac.middleware';
-import { validarSchema } from '../middlewares/validacao.middleware';
-import { criarViagemSchema } from '../schemas/viagem.schema';
-import { ViagemController } from '../controllers/viagem.controller';
+import { authenticateToken } from '../middlewares/auth.middleware';
+import { authorizeRoles } from '../middlewares/rbac.middleware';
+import { validateSchema } from '../middlewares/validation.middleware';
+import { createTripSchema } from '../schemas/trip.schema';
+import { TripController } from '../controllers/trip.controller';
 
 const router = Router();
-const controller = new ViagemController();
+const controller = new TripController();
 
 router.post(
   '/',
-  autenticarToken,
-  autorizarPerfis(['SOLICITANTE', 'GESTOR_FROTA', 'ADMIN']),
-  validarSchema(criarViagemSchema),
-  controller.criar.bind(controller)
+  authenticateToken,
+  authorizeRoles(['MANAGER', 'ADMIN']),
+  validateSchema(createTripSchema),
+  controller.create.bind(controller)
 );
 
 export default router;
@@ -305,32 +312,32 @@ export default router;
 Toda comunicação assíncrona, paginação e ciclo de vida devem ser encapsulados em Hooks Customizados (`frontend/src/hooks/`). A página (`Page`) e o componente visual apenas consomem os estados:
 
 ```typescript
-// frontend/src/hooks/useViagens.ts
+// frontend/src/hooks/useTrips.ts
 import { useState, useEffect, useCallback } from 'react';
-import { Viagem } from '../types/viagem';
-import { buscarViagensApi } from '../services/viagem.api';
+import { Trip } from '../types/trip.types';
+import { fetchTripsApi } from '../services/trip.api';
 
-export function useViagens() {
-  const [viagens, setViagens] = useState<Viagem[]>([]);
+export function useTrips() {
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const carregar = useCallback(async () => {
+  const load = useCallback(async () => {
     setIsLoading(true);
-    setErro(null);
+    setError(null);
     try {
-      const dados = await buscarViagensApi();
-      setViagens(dados);
+      const data = await fetchTripsApi();
+      setTrips(data);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Falha ao carregar viagens');
+      setError(e instanceof Error ? e.message : 'Falha ao carregar viagens');
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { load(); }, [load]);
 
-  return { viagens, isLoading, erro, recarregar: carregar };
+  return { trips, isLoading, error, reload: load };
 }
 ```
 
@@ -338,44 +345,44 @@ export function useViagens() {
 Para componentes com múltiplos elementos interdependentes (como cards operacionais, acordeões e modais), utiliza-se o padrão de Componentes Compostos via Context do React, garantindo **acessibilidade nativa (WCAG 2.2 AA)** e flexibilidade visual:
 
 ```typescript
-// frontend/src/components/ui/ViagemCard.tsx
+// frontend/src/components/ui/TripCard.tsx
 import React, { createContext, useContext, useId } from 'react';
 
-interface ViagemCardContextValue {
+interface TripCardContextValue {
   id: string;
   statusId: string;
 }
 
-const ViagemCardContext = createContext<ViagemCardContextValue | null>(null);
+const TripCardContext = createContext<TripCardContextValue | null>(null);
 
-export function ViagemCard({ children }: { children: React.ReactNode }) {
+export function TripCard({ children }: { children: React.ReactNode }) {
   const uniqueId = useId();
   const statusId = `status-${uniqueId}`;
 
   return (
-    <ViagemCardContext.Provider value={{ id: uniqueId, statusId }}>
+    <TripCardContext.Provider value={{ id: uniqueId, statusId }}>
       <article
         aria-labelledby={statusId}
         style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '16px', margin: '8px 0' }}
       >
         {children}
       </article>
-    </ViagemCardContext.Provider>
+    </TripCardContext.Provider>
   );
 }
 
-ViagemCard.Header = function ViagemCardHeader({ children }: { children: React.ReactNode }) {
-  const context = useContext(ViagemCardContext);
-  if (!context) throw new Error('ViagemCard.Header deve estar dentro de ViagemCard');
+TripCard.Header = function TripCardHeader({ children }: { children: React.ReactNode }) {
+  const context = useContext(TripCardContext);
+  if (!context) throw new Error('TripCard.Header deve estar dentro de TripCard');
   return <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>{children}</header>;
 };
 
-ViagemCard.Status = function ViagemCardStatus({ status }: { status: string }) {
-  const context = useContext(ViagemCardContext);
-  if (!context) throw new Error('ViagemCard.Status deve estar dentro de ViagemCard');
+TripCard.Status = function TripCardStatus({ label }: { label: string }) {
+  const context = useContext(TripCardContext);
+  if (!context) throw new Error('TripCard.Status deve estar dentro de TripCard');
   return (
     <span id={context.statusId} style={{ fontWeight: 600 }}>
-      Status: {status}
+      Estado: {label}
     </span>
   );
 };
@@ -389,7 +396,7 @@ ViagemCard.Status = function ViagemCardStatus({ status }: { status: string }) {
 |---|---|---|
 | **Fat Controller** | Acopla regras de negócio ao protocolo HTTP, impedindo testes isolados e reuso. | Mover todas as validações de domínio, cálculos e invariantes para a camada `Service`. |
 | **SQL em Controllers ou Services** | Viola a fronteira de persistência, gera duplicação de queries e risco de SQL Injection. | Centralizar todo acesso a dados em `repositories/` com queries parametrizadas (`$1, $2`). |
-| **God Service** | Um único serviço gerenciando múltiplos domínios (ex: `SistemaGeralService`). | Respeitar os limites dos domínios da FSPH/SVO (`FrotaService`, `ViagemService`, `SvoService`). |
+| **God Service** | Um único serviço gerenciando múltiplos domínios (ex: `GeneralSystemService`). | Respeitar os limites dos domínios da FSPH/SVO (`FleetService`, `TripService`, `RequestService`, `SvoService`). |
 | **Pular Camadas (*Bypass*)** | Fazer o `Controller` chamar diretamente o `Repository` sem passar pelo `Service`. | Toda requisição deve fluir obrigatoriamente por `Controller` → `Service` → `Repository`. |
 | **Regras de Negócio no Frontend** | Cria divergência de regras entre web e API, além de ser facilmente burlável. | O frontend apenas renderiza e reflete o estado; a validação final da invariante reside sempre no `Service`. |
 | **Abstrações Especulativas (Violação YAGNI)** | Criar dezenas de interfaces e fábricas genéricas para funcionalidades simples de CRUD. | Aplicar os padrões canônicos apenas onde agregam valor real, testabilidade ou segurança de concorrência. |

@@ -15,7 +15,7 @@ os mecanismos de impacto e os perfis do **Sistema Aratu** (FSPH e SVO).
    motoristas, equipe do SVO ou solicitantes? Se o pedido não disser, isso é
    **pergunta ao usuário**.
 2. **A diferença é de dado ou de regra?** Se o que separa os casos já está no
-   dado (tipo de veículo, status da solicitação, setor da FSPH), condicione pelo dado.
+   dado (categoria do serviço, estado da solicitação, setor da FSPH), condicione pelo dado.
    Não existe mecanismo de configuração melhor do que a informação já existente no domínio.
 3. **O projeto já tem mecanismo para essa diferença?** Use o que existe (ex: controle
    de acesso RBAC por perfis, variáveis de ambiente `.env`). Mecanismo novo para um
@@ -36,27 +36,28 @@ e do **Serviço de Verificação de Óbito (SVO)**.
 
 | Mecanismo | Onde reside | Para que serve |
 |---|---|---|
-| **Condição pelo Dado (Padrão)** | Colunas no PostgreSQL (`status`, `tipo_veiculo`, `unidade_solicitante`, `tipo_servico`) | Diferenciar comportamentos com base nas características reais da entidade (ex: ambulância exige checklist específico; veículo administrativo não) |
-| **Perfil de Acesso (RBAC)** | Middleware de autenticação/autorização no backend e proteção de rotas no React | Controlar quem pode criar, visualizar, aprovar ou despachar viagens e registros do SVO |
+| **Condição pelo Dado (Padrão)** | Colunas no PostgreSQL (`req_state`, `req_category`, `sec_id`, `srv_id`, `srv_requires_triage`) | Diferenciar comportamentos com base nas características reais da entidade (ex: serviço com `srv_requires_triage = true` exige confirmação de triagem antes de aprovar) |
+| **Perfil de Acesso (RBAC)** | Middleware de autenticação/autorização no backend (`usr_roles`) e proteção de rotas no React | Controlar quem pode criar, visualizar, aprovar ou despachar viagens e registros do SVO |
 | **Variáveis de Ambiente (`.env`)** | `backend/.env`, `docker-compose.yml` | Configurações de infraestrutura (conexão com o PostgreSQL, portas, segredos de tokens, URLs de serviços) |
 | **Feature Flags / Chaves** | Não usar sem autorização expressa | Feature flags só entram sob demanda explícita da Squad para isolar entregas parciais |
 
 ---
 
-### Os perfis de usuário do sistema
+### Os perfis de usuário do sistema (`usr_roles` em Inglês `UPPER_SNAKE_CASE`)
 
-1. **Administrador:** Acesso global para parametrização do sistema, cadastro de unidades e usuários.
-2. **Gestor de Frota / Aprovador:** Avalia solicitações de viagem, aprova/recusa, aloca veículos e motoristas, monitora manutenções e indicadores operacionais.
-3. **Solicitante de Viagem (FSPH):** Cria e acompanha pedidos de transporte institucional para sua respectiva unidade/setor.
-4. **Motorista:** Acessa escala de viagens atribuídas, registra quilometragem inicial/final, realiza checklists de saída/chegada e informa abastecimentos/intercorrências.
-5. **Operador / Equipe SVO:** Gerencia chamados de verificação de óbito, despacho de viaturas de remoção cadavérica, laudos e liberação de corpos com sigilo absoluto.
+1. **`ADMIN` (Administrador):** Acesso global para parametrização do sistema, cadastro de setores, serviços e usuários.
+2. **`MANAGER` / `FLEET_MANAGER` (Gestor de Frota / Aprovador):** Avalia solicitações de transporte, aprova/recusa, configura políticas de aprovação, cria viagens e aloca veículos e motoristas.
+3. **`REQUESTER` (Solicitante — FSPH):** Cria e acompanha pedidos de transporte institucional para sua respectiva unidade/setor.
+4. **`OPERATOR` / `SVO_OPERATOR` (Operador de Frota / Equipe SVO):** Opera atendimento de solicitações alocadas, coleta, entrega, devolução e fluxos do SVO com sigilo absoluto.
+5. **`TRIAGE` (Triagem):** Confirma triagem obrigatória em serviços que exigem validação prévia (`srv_requires_triage`).
+6. **`DRIVER` (Motorista):** Acessa escala de viagens atribuídas, registra início/conclusão de viagem e informa hodômetro.
 
 ---
 
 ### Árvore de decisão para o Aratu
 
 ```
-A diferença já está no dado que chega (status, tipo de veículo, setor)?
+A diferença já está no dado que chega (req_state, req_category, sec_id, srv_id)?
 ├─ SIM → Condicione pelo dado no Service. Fim. Nenhum mecanismo novo.
 └─ NÃO
    ├─ É uma restrição de quem pode executar a ação?
@@ -71,10 +72,9 @@ A diferença já está no dado que chega (status, tipo de veículo, setor)?
 
 ## Erros comuns já evitados
 
-- **Criar chaves de configuração para regras triviais de UI:** Se um campo precisa
-  de validação de CNH válida para motoristas, valide no domínio, não crie uma flag
-  `habilitar_validacao_cnh`.
+- **Criar chaves de configuração para regras triviais de UI:** Se um serviço exige triagem,
+  valide pela coluna `srv_requires_triage` no domínio, não crie uma flag `enable_triage_validation`.
 - **Esquecer de validar o perfil no backend:** Proteger apenas a rota visual no React
   é falha de segurança; a autorização deve ser conferida obrigatoriamente no middleware do Express.
-- **Assumir permissões de usuário:** Se a tarefa não deixa claro se um Solicitante
-  pode cancelar uma viagem após ser aprovada, pergunte antes de implementar.
+- **Assumir permissões de usuário:** Se a tarefa não deixa claro se um `REQUESTER`
+  pode cancelar uma solicitação após ser aprovada, pergunte antes de implementar.

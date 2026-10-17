@@ -3,9 +3,10 @@ name: revisar
 description: >
   Realiza a revisão automatizada de código e conformidade arquitetural da branch
   atual contra develop no Sistema Aratu, auditando camadas Express 5 / React 19,
-  segurança SQL no PostgreSQL 18, concorrência, WCAG 2.2 AA e LGPD/SVO. Use
-  quando o usuário pedir /revisar ou solicitar code review da tarefa antes do
-  Pull Request.
+  segurança SQL no PostgreSQL 18, concorrência, WCAG 2.2 AA e LGPD/SVO, e gera o
+  Relatório de Revisão autocontido em HTML em docs/reviews/<chave-tarefa>-<slug>.html
+  a partir de docs/reviews/EXEMPLO_REVISAO.html. Use quando o usuário pedir /revisar
+  ou solicitar code review da tarefa antes do Pull Request.
 argument-hint: "[nome da branch, chave da issue no Jira ou vazio para revisar a branch atual contra develop]"
 model: sonnet
 effort: high
@@ -14,12 +15,14 @@ license: MIT
 
 # Revisão Automatizada de Código — Sistema Aratu
 
-Executa uma revisão técnica e funcional completa da branch atual (ou especificada) contra a branch base **`develop`**, verificando a conformidade com a skill canônica **`.agents/skills/principios/SKILL.md`** e com toda a documentação em `docs/`.
+Executa uma revisão técnica e funcional completa da branch atual (ou especificada) contra a branch base **`develop`**, verificando a conformidade com a skill canônica **`.agents/skills/principios/SKILL.md`** e com toda a documentação em `docs/`, e gera o **Relatório de Revisão em HTML** em `docs/reviews/<chave-tarefa>-<slug>.html` seguindo o template `docs/reviews/EXEMPLO_REVISAO.html`.
+
+> **Formato de saída da revisão: HTML autocontido em `docs/reviews/<chave-tarefa>-<slug>.html` + resumo executivo no terminal.**
 
 A revisão:
 1. Avalia aderência ao requisito/SDD (`docs/plans/`), arquitetura em camadas (Express 5 e React 19), modelagem e segurança SQL no **PostgreSQL 18**, concorrência, tipagem estrita TypeScript, **WCAG 2.2 Nível AA** e proteção de dados (**LGPD / Sigilo SVO**);
-2. Executa as ferramentas automatizadas de QA (`tsc`, `eslint` e testes) nos containers `backend` e `frontend`;
-3. Emite relatório estruturado com veredito claro e oferece correção assistida para desvios puramente mecânicos.
+2. Executa a pré-auditoria estática (`node docs/scripts/aratu-check.mjs`) e as ferramentas automatizadas de QA (`tsc`, `eslint` e testes);
+3. Gera o documento HTML visual de Code Review em `docs/reviews/<chave-tarefa>-<slug>.html` (para leitura confortável no navegador) e apresenta um resumo objetivo no terminal.
 
 ---
 
@@ -96,13 +99,13 @@ Combine o resultado de `node docs/scripts/aratu-check.mjs` com a análise semân
 - **C7 (Prevenção de SQL Injection):** 100% das queries usam parâmetros posicionais (`$1, $2, ...`) sem interpolação de strings (template literals)? → Violação é 🔴.
 - **C8 (Performance e Projeção SQL):** Nenhuma query utiliza `SELECT *`? Os filtros de data/texto são sargáveis (sem funções sobre a coluna no `WHERE`) e evitam N+1?
 - **C9 (Transações e Concorrência):** Operações compostas ou de alocação concorrente usam `BEGIN ... COMMIT / ROLLBACK` com `SELECT ... FOR UPDATE` e garantem `client.release()` no bloco `finally`? → Vazamento de conexão ou condição de corrida é 🔴.
-- **C10 (Migrações PostgreSQL 18):** Tabelas em `snake_case` plural, FKs `<tabela_singular>_id` com `ON DELETE RESTRICT` (sem `CASCADE` indevido), `TIMESTAMPTZ` para instantes temporais e DDL transacional com rollback?
-- **C11 (Autorização RBAC no Backend):** As rotas protegidas validam o perfil do usuário (`ADMIN`, `GESTOR_FROTA`, `SOLICITANTE`, `MOTORISTA`, `OPERADOR_SVO`) via middleware no Express? → Proteger apenas no React é 🔴.
+- **C10 (Migrações PostgreSQL 18):** Tabelas no padrão de prefixo de 3 letras em inglês (`<pre>_<singular_entity>`), PK `<pre>_id` (projetada como `<pre>_id AS id` no Repository), colunas próprias `<pre>_<col>`, FKs `<ref_pre>_id` com `ON DELETE RESTRICT`, índices `<pre>_<descriptive_name>` (sem `idx_`/`uq_`), `TIMESTAMPTZ` e DDL transacional com rollback?
+- **C11 (Autorização RBAC no Backend):** As rotas protegidas validam o perfil do usuário (`ADMIN`, `MANAGER`, `OPERATOR`, `REQUESTER`, `TRIAGE`, `DRIVER`) via middleware no Express? → Proteger apenas no React é 🔴.
 - **C12 (Proteção de Dados — LGPD e Sigilo SVO):** Nenhum dado pessoal real (CPF, CNH, nomes reais, laudos/óbitos do SVO) consta em seeds, testes, logs ou commits, e nenhum segredo foi hardcoded? → Violação é 🔴.
 
-#### Eixo 4 — Clean Code e Tipagem TypeScript Estrita
+#### Eixo 4 — Clean Code, Nomenclatura em Inglês e Tipagem TypeScript Estrita
 - **C13 (Tipagem Estrita):** Zero uso de `any` ou `@ts-ignore`? Parâmetros, retornos e payloads possuem interfaces/types explícitos em `src/types/`?
-- **C14 (Sem Valores Mágicos, Código Limpo e TSDoc):** Status, tipos de veículo e perfis usam union types/constantes nomeadas? Nomes seguem `camelCase` / `PascalCase` / `UPPER_SNAKE_CASE`? Métodos públicos de Services/Middlewares possuem TSDoc conforme `docs/manuais/padroes-docblocks.md`? Não há `console.log` de debug nem código morto?
+- **C14 (Nomenclatura em Inglês, Sem Valores Mágicos e TSDoc):** Classes, métodos, funções, variáveis, constantes, componentes, hooks, arquivos `.ts`/`.tsx` e endpoints estão em inglês? Estados e papéis usam union types em inglês (`UPPER_SNAKE_CASE`)? Métodos públicos de Services/Middlewares possuem TSDoc em português conforme `docs/manuais/padroes-docblocks.md`? Não há `console.log` de debug nem código morto?
 
 #### Eixo 5 — Interface React 19, UX e Acessibilidade (WCAG 2.2 Nível AA)
 - **C15 (Os 5 Estados Visuais):** Toda tela/listagem assíncrona trata explicitamente os estados *Ideal*, *Carregando (`aria-busy="true"`)*, *Vazio*, *Erro* e *Parcial*?
@@ -129,38 +132,20 @@ Qualquer erro de compilação TypeScript, falha de lint ou teste quebrado pelo d
 
 ---
 
-### Passo 5 — Emitir Relatório Estruturado e Gate de Conclusão
+### Passo 5 — Gerar o Relatório HTML em `docs/reviews/<chave-tarefa>-<slug>.html` e Resumo no Terminal
 
-Apresente o relatório no formato abaixo:
-
-```markdown
-## Relatório de Revisão Automatizada — Sistema Aratu
-
-- **Branch revisada:** `{branch}` (base: `develop`)
-- **Módulo(s) Afetado(s):** `{FROTA | VIAGENS | SVO | MOTORISTAS | MANUTENCOES | AUTENTICACAO_RBAC}`
-
-| Gravidade | Quantidade |
-|---|---|
-| 🔴 Bloqueante | {N} |
-| 🟡 Atenção | {N} |
-| 🟢 OK | {N} |
-| ⚪ N/A | {N} |
-
-### 🔴 Itens Bloqueantes
-{Arquivo:linha, critério violado, impacto operacional na FSPH/SVO e como corrigir}
-
-### 🟡 Itens de Atenção
-{Arquivo:linha, observação e recomendação técnica}
-
-### 🧪 Resultado do QA Automatizado
-- **Backend (`tsc --noEmit` / testes):** {Passou / Falhou}
-- **Frontend (`eslint` / `vite build`):** {Passou / Falhou}
-
-### 👥 Foco Obrigatório do(s) Revisor(es) Humano(s)
-{O que o revisor humano da Squad 24 deve validar funcionalmente antes do merge em develop}
-
----
-**Veredito:** `{APROVADO_PARA_REVISAO_HUMANA | BLOQUEADO_POR_PENDENCIAS}`
-```
-
-Se houver pendências 🔴 puramente mecânicas (ex: remoção de `console.log`, substituição de `SELECT *` por colunas explícitas já conhecidas, ajuste de tipagem local sem alterar comportamento), verifique antes se a working tree está limpa (`git status --porcelain`) e ofereça aplicá-las mediante confirmação explícita do desenvolvedor.
+1. **Gere o esqueleto HTML pré-preenchido** (com o CSS oficial de `docs/reviews/EXEMPLO_REVISAO.html`, cards de contadores e tabela dos 17 critérios `C1`–`C17` pronta):
+   ```bash
+   node docs/scripts/gerar-esqueleto.mjs revisao <CHAVE_JIRA_OU_BRANCH> --modulo <MODULO> --force
+   ```
+   *(Economia de tokens: não é necessário ler `docs/reviews/EXEMPLO_REVISAO.html` inteiro, pois o script já injeta todo o CSS e a tabela base).*
+2. **Edite cirurgicamente o arquivo `docs/reviews/<chave-tarefa>-<slug>.html`** preenchendo os marcadores:
+   - `<!-- PREENCHER_VEREDITO -->`: `.verdict-approved` (`APROVADO_PARA_REVISAO_HUMANA`) ou `.verdict-blocked` (`BLOQUEADO_POR_PENDENCIAS`);
+   - `<!-- PREENCHER_CONTADORES -->`: quantidade de 🔴 Bloqueantes, 🟡 Atenção, 🟢 OK e ⚪ N/A;
+   - `<!-- PREENCHER_REVISAO_SECAO_1 -->`: tabela de arquivos criados/alterados no diff;
+   - `<!-- PREENCHER_REVISAO_SECAO_2 -->`: status (`badge-ok`, `badge-warn`, `badge-block`, `badge-na`) e evidência de cada critério `C1` a `C17`;
+   - `<!-- PREENCHER_REVISAO_SECAO_3 -->`: detalhamento de itens bloqueantes e de atenção (arquivo:linha, impacto na FSPH/SVO e como corrigir);
+   - `<!-- PREENCHER_REVISAO_SECAO_4 -->`: resultado de `aratu-check.mjs`, compilação TypeScript e testes;
+   - `<!-- PREENCHER_REVISAO_SECAO_5 -->`: checklist para o revisor humano da Squad 24.
+3. **Apresente no terminal um resumo conciso** com o link clicável para o arquivo `docs/reviews/<chave-tarefa>-<slug>.html`, o quadro de contadores (🔴/🟡/🟢/⚪) e o veredito final.
+4. Se houver pendências 🔴 puramente mecânicas (ex: remoção de `console.log`, substituição de `SELECT *` por colunas explícitas já conhecidas, ajuste de tipagem local sem alterar comportamento), verifique antes se a working tree está limpa (`git status --porcelain`) e ofereça aplicá-las mediante confirmação explícita do desenvolvedor.

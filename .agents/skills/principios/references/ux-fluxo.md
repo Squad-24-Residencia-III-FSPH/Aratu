@@ -42,7 +42,7 @@ partir da estrutura das tabelas do banco de dados:
 
 1. **O objetivo da pessoa usuária:** em uma frase clara no domínio da saúde e frotas.
    Exemplo: *"O solicitante quer pedir um transporte para levar medicamentos do Lacen ao HUSE às 14h."*
-   (Nunca: *"Inserir registro na tabela solicitacoes_viagem com status pendente"*).
+   (Nunca: *"Inserir registro na tabela req_request com estado SUBMITTED"*).
 2. **Os cenários de uso:** o caminho principal (fluxo feliz) e os desvios operacionais,
    no formato *Dado / Quando / Então*.
 3. **A tela e os passos:** o que aparece em cada etapa, os textos de orientação,
