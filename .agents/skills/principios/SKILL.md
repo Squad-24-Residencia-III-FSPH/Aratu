@@ -119,9 +119,7 @@ Nenhuma destas circunstâncias autoriza assumir:
      para tradução HTTP em `controllers/`, regras de negócio puras em `services/`,
      acesso a dados PostgreSQL em `repositories/` ou `database/`, e types explícitos.
      Regra de negócio não fica presa no controller nem na rota. Leia `references/camadas.md`.
-   - No **Frontend** (React 19/TypeScript/Vite): componentes reutilizáveis em `components/`,
-     telas em `pages/`, clientes de API em `services/`, hooks e types dedicados.
-     Regra de domínio não fica espalhada na view.
+   - No **Frontend** (React 19/TypeScript/Vite + Material UI `@mui/material` v9): tema centralizado em `theme.ts`, estrutura de tela em `components/layout/` (`AppShell`, `PageHeader`), componentes base reutilizáveis sobre Material UI em `components/ui/` (`FormField` com `useId()`, `DataTable`, `FilterBar`, `EntityCard`, `StatCard`, `StatusChip`, `StateFeedback`, `ConfirmDialog`), telas em `pages/`, clientes de API em `services/`, hooks e types dedicados. Regra de domínio não fica espalhada na view e é proibido usar `:global(.Mui...)` em CSS.
 2. **Escopo de impacto** — antes de alterar comportamento compartilhado,
    determine quem é afetado (quais perfis de usuário — Solicitante, Gestor de Frota,
    Motorista, Equipe SVO, Administrador) e por qual mecanismo a diferença deve ser
@@ -160,25 +158,27 @@ Nenhuma destas circunstâncias autoriza assumir:
    Código bom é aquele legível em manutenção sob pressão.
 9. **Clean Code e Nomenclatura em Inglês** — todo o código (classes, métodos, funções,
    interfaces/types, variáveis, constantes, hooks, componentes, arquivos `.ts`/`.tsx`,
-   endpoints REST e enums em `UPPER_SNAKE_CASE`) deve ser escrito em **inglês**, e o
-   banco PostgreSQL 18 segue o padrão de **prefixo de 3 letras em inglês** (`veh_vehicle`,
-   `trp_trip`, `req_request`, com `<pre>_id AS id` no `SELECT` do Repository e objetos
-   auxiliares sem `idx_`/`uq_`/`trg_`/`fn_`). Comentários TSDoc (`/** ... */`) e textos
-   de interface são em português. Retorno explícito, tipagem TypeScript estrita (zero `any`),
-   sem código morto, sem logs de depuração temporários esquecidos.
+   classes de CSS Modules `*.module.css` em `camelCase`, endpoints REST e enums em
+   `UPPER_SNAKE_CASE`) deve ser escrito em **inglês**, e o banco PostgreSQL 18 segue o
+   padrão de **prefixo de 3 letras em inglês** (`veh_vehicle`, `trp_trip`, `req_request`,
+   com PK `id` projetada como `SELECT id AS <pre>_id` no Repository e objetos auxiliares
+   sem `idx_`/`uq_`/`trg_`/`fn_`). Comentários TSDoc (`/** ... */`) e textos de interface
+   são em português. Retorno explícito, tipagem TypeScript estrita (zero `any`), sem
+   código morto, sem logs de depuração temporários esquecidos.
 
 ---
 
-### Quando o trabalho tem tela (Frontend)
+### Quando o trabalho tem tela (Frontend — React 19 + Material UI)
 
 Os princípios valem integralmente, com atenção especial a dois aspectos fundamentais:
 
 - **Fluxo, IHC e linguagem** (quem opera, ordem dos passos, affordance, prevenção de
   erros em despacho e viagens, o que confirma, clareza das mensagens): consulte
   `references/ux-fluxo.md` **antes de codar**.
-- **Componentes React e execução** (componentes reutilizáveis, formulários com `useId`,
-  estados de loading/vazio/erro, acessibilidade de botões e modais): consulte
-  `references/ui-componentes.md` **ao escrever ou alterar a tela**.
+- **Componentes React + Material UI e execução** (`theme.ts`, prop `sx`, wrappers reutilizáveis
+  em `src/components/layout/` e `src/components/ui/`, formulários com `FormField`/`useId`,
+  estados de loading/vazio/erro com `StateFeedback`, CSS Modules em inglês `camelCase` sem
+  `:global(.Mui...)`): consulte `references/ui-componentes.md` **ao escrever ou alterar a tela**.
 
 Em refatorações de interface, **paridade de fluxo e de comportamento é condição
 de aceite**. Mudança visual não solicitada é escopo novo.

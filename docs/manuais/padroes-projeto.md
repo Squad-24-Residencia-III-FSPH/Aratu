@@ -11,11 +11,11 @@ O objetivo deste guia é fornecer consistência arquitetural, desacoplamento e t
 | Camada do Sistema | Padrão Principal | Nome em Inglês | Papel e Responsabilidade no Sistema Aratu |
 |---|---|---|---|
 | **Arquitetura Geral** | Arquitetura em Camadas + Inversão Leve | *Layered Architecture + Dependency Inversion* | Separação estrita em pipeline unidirecional: `Routes` → `Controllers` → `Services` → `Repositories`. |
-| **Persistência / Dados** | Repositório | *Repository Pattern* | Encapsulamento de queries SQL parametrizadas (`$1, $2`), projeção `<pre>_id AS id`, isolamento do `pg.Pool` e transações atômicas com `SELECT ... FOR UPDATE`. |
+| **Persistência / Dados** | Repositório | *Repository Pattern* | Encapsulamento de queries SQL parametrizadas (`$1, $2`), projeção `SELECT id AS <pre>_id`, isolamento do `pg.Pool` e transações atômicas com `SELECT ... FOR UPDATE`. |
 | **Negócio / Domínio** | Máquina de Estados / Estado | *State Pattern (FSM)* | Controle do ciclo de vida imutável de solicitações e viagens, bloqueando transições ilegais em tempo de compilação e execução. |
 | **Algoritmos Variáveis** | Estratégia | *Strategy Pattern* | Variação dinâmica de algoritmos sem acoplamento nem `switch/case` extensos (ex: exportadores de relatórios em CSV, PDF e XLSX). |
 | **Segurança e HTTP** | Cadeia de Responsabilidade | *Chain of Responsibility* | Pipeline modular de middlewares Express 5: validação de token JWT → autorização RBAC → validação de schema → controller → tratamento global de erro. |
-| **Interface (React 19)** | Hooks Customizados + Componentes Compostos | *Custom Hooks + Compound Components* | Desacoplamento de efeitos assíncronos e I/O de rede (Hooks) e composição semântica acessível com estado compartilhado (WCAG 2.2 AA). |
+| **Interface (React 19 + MUI)** | Hooks Customizados + Componentes Compostos | *Custom Hooks + Compound Components* | Desacoplamento de efeitos assíncronos e I/O de rede (Hooks) e composição semântica sobre Material UI (`@mui/material`) com tema unificado (`theme.ts`) e estado compartilhado (WCAG 2.2 AA). |
 
 ---
 
@@ -87,7 +87,7 @@ O padrão Repositório atua como uma coleção em memória de entidades de domí
 ### 3.2 Diretrizes Mandatórias
 - **Zero SQL fora de `repositories/`:** é terminantemente proibido executar consultas SQL dentro de controllers, middlewares ou services.
 - **Consultas parametrizadas:** nunca concatenar variáveis em strings SQL. Utilize sempre parâmetros posicionais (`$1, $2`).
-- **Projeções explícitas e mapeamento `<pre>_id AS id`:** proibido o uso de `SELECT *`. Toda consulta deve explicitar as colunas com prefixo de 3 letras e convertê-las via alias para `camelCase` sem o prefixo.
+- **Projeções explícitas e mapeamento `SELECT id AS <pre>_id`:** proibido o uso de `SELECT *`. A chave primária física `id` deve ser projetada como `SELECT id AS <pre>_id` e as colunas com prefixo de 3 letras mapeadas para `camelCase` no modelo de domínio.
 - **Gerenciamento de transações:** o repositório deve suportar tanto o pool compartilhado (`pg.Pool`) quanto um cliente transacional dedicado (`pg.PoolClient`) para operações atômicas com `SELECT ... FOR UPDATE`.
 
 ### 3.3 Exemplo Prático
@@ -101,10 +101,10 @@ import { Trip, ITripRepository, TripState } from '../types/trip.types';
 export class TripRepository implements ITripRepository {
   constructor(private readonly db: Pool = pool) {}
 
-  public async findById(id: number, client?: PoolClient): Promise<Trip | null> {
+  public async findById(id: string, client?: PoolClient): Promise<Trip | null> {
     const executor = client ?? this.db;
     const query = `
-      SELECT trp_id AS id,
+      SELECT id AS trp_id,
              veh_id AS "vehicleId",
              drv_id AS "driverId",
              trp_planned_departure AS "plannedDeparture",
@@ -113,35 +113,35 @@ export class TripRepository implements ITripRepository {
              trp_revision AS revision,
              trp_created_at AS "createdAt"
         FROM trp_trip
-       WHERE trp_id = $1
+       WHERE id = $1
        LIMIT 1;
     `;
     const { rows } = await executor.query<Trip>(query, [id]);
     return rows[0] ?? null;
   }
 
-  public async findByIdForUpdate(id: number, client: PoolClient): Promise<Trip | null> {
+  public async findByIdForUpdate(id: string, client: PoolClient): Promise<Trip | null> {
     const query = `
-      SELECT trp_id AS id,
+      SELECT id AS trp_id,
              veh_id AS "vehicleId",
              drv_id AS "driverId",
              trp_state AS state,
              trp_revision AS revision
         FROM trp_trip
-       WHERE trp_id = $1
+       WHERE id = $1
          FOR UPDATE;
     `;
     const { rows } = await client.query<Trip>(query, [id]);
     return rows[0] ?? null;
   }
 
-  public async updateState(id: number, state: TripState, client?: PoolClient): Promise<void> {
+  public async updateState(id: string, state: TripState, client?: PoolClient): Promise<void> {
     const executor = client ?? this.db;
     const query = `
       UPDATE trp_trip
          SET trp_state = $2,
              trp_revision = trp_revision + 1
-       WHERE trp_id = $1;
+       WHERE id = $1;
     `;
     await executor.query(query, [id, state]);
   }
@@ -306,7 +306,7 @@ export default router;
 
 ---
 
-## 7. Hooks Customizados e Componentes Compostos (*React 19*)
+## 7. Hooks Customizados, Material UI e Componentes Compostos (*React 19 + `@mui/material`*)
 
 ### 7.1 Padrão Custom Hooks (Separação de I/O e Efeitos)
 Toda comunicação assíncrona, paginação e ciclo de vida devem ser encapsulados em Hooks Customizados (`frontend/src/hooks/`). A página (`Page`) e o componente visual apenas consomem os estados:
@@ -341,50 +341,71 @@ export function useTrips() {
 }
 ```
 
-### 7.2 Padrão Componentes Compostos (*Compound Components*)
-Para componentes com múltiplos elementos interdependentes (como cards operacionais, acordeões e modais), utiliza-se o padrão de Componentes Compostos via Context do React, garantindo **acessibilidade nativa (WCAG 2.2 AA)** e flexibilidade visual:
+### 7.2 Padrão Componentes Compostos (*Compound Components*) sobre Material UI
+Para componentes com múltiplos elementos interdependentes (como `EntityCard` para viaturas/viagens/chamados SVO, acordeões e modais), utiliza-se o padrão de Componentes Compostos sobre o `@mui/material` (`Card`, `CardContent`, `Box`, `Typography`) via Context do React, garantindo **acessibilidade nativa (WCAG 2.2 AA)**, respeito ao `frontend/src/theme.ts` e flexibilidade visual sem estilos inline avulsos:
 
-```typescript
-// frontend/src/components/ui/TripCard.tsx
+```tsx
+// frontend/src/components/ui/EntityCard.tsx
 import React, { createContext, useContext, useId } from 'react';
+import { Box, Card, CardActions, CardContent, Typography } from '@mui/material';
 
-interface TripCardContextValue {
+interface EntityCardContextValue {
   id: string;
+  titleId: string;
   statusId: string;
 }
 
-const TripCardContext = createContext<TripCardContextValue | null>(null);
+const EntityCardContext = createContext<EntityCardContextValue | null>(null);
 
-export function TripCard({ children }: { children: React.ReactNode }) {
+export function EntityCard({ children }: { children: React.ReactNode }) {
   const uniqueId = useId();
+  const titleId = `title-${uniqueId}`;
   const statusId = `status-${uniqueId}`;
 
   return (
-    <TripCardContext.Provider value={{ id: uniqueId, statusId }}>
-      <article
-        aria-labelledby={statusId}
-        style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '16px', margin: '8px 0' }}
+    <EntityCardContext.Provider value={{ id: uniqueId, titleId, statusId }}>
+      <Card
+        component="article"
+        variant="outlined"
+        aria-labelledby={titleId}
+        aria-describedby={statusId}
+        sx={{ mb: 1.5 }}
       >
         {children}
-      </article>
-    </TripCardContext.Provider>
+      </Card>
+    </EntityCardContext.Provider>
   );
 }
 
-TripCard.Header = function TripCardHeader({ children }: { children: React.ReactNode }) {
-  const context = useContext(TripCardContext);
-  if (!context) throw new Error('TripCard.Header deve estar dentro de TripCard');
-  return <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>{children}</header>;
+EntityCard.Header = function EntityCardHeader({ title, children }: { title: string; children?: React.ReactNode }) {
+  const context = useContext(EntityCardContext);
+  if (!context) throw new Error('EntityCard.Header must be used within EntityCard');
+  return (
+    <Box component="header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, pt: 2 }}>
+      <Typography id={context.titleId} component="h3" variant="subtitle1" fontWeight={600}>
+        {title}
+      </Typography>
+      {children}
+    </Box>
+  );
 };
 
-TripCard.Status = function TripCardStatus({ label }: { label: string }) {
-  const context = useContext(TripCardContext);
-  if (!context) throw new Error('TripCard.Status deve estar dentro de TripCard');
-  return (
-    <span id={context.statusId} style={{ fontWeight: 600 }}>
-      Estado: {label}
-    </span>
-  );
+EntityCard.Status = function EntityCardStatus({ children }: { children: React.ReactNode }) {
+  const context = useContext(EntityCardContext);
+  if (!context) throw new Error('EntityCard.Status must be used within EntityCard');
+  return <Box id={context.statusId}>{children}</Box>;
+};
+
+EntityCard.Body = function EntityCardBody({ children }: { children: React.ReactNode }) {
+  const context = useContext(EntityCardContext);
+  if (!context) throw new Error('EntityCard.Body must be used within EntityCard');
+  return <CardContent sx={{ py: 1.5 }}>{children}</CardContent>;
+};
+
+EntityCard.Actions = function EntityCardActions({ children }: { children: React.ReactNode }) {
+  const context = useContext(EntityCardContext);
+  if (!context) throw new Error('EntityCard.Actions must be used within EntityCard');
+  return <CardActions sx={{ px: 2, pb: 2, pt: 0, justifyContent: 'flex-end' }}>{children}</CardActions>;
 };
 ```
 
@@ -399,4 +420,7 @@ TripCard.Status = function TripCardStatus({ label }: { label: string }) {
 | **God Service** | Um único serviço gerenciando múltiplos domínios (ex: `GeneralSystemService`). | Respeitar os limites dos domínios da FSPH/SVO (`FleetService`, `TripService`, `RequestService`, `SvoService`). |
 | **Pular Camadas (*Bypass*)** | Fazer o `Controller` chamar diretamente o `Repository` sem passar pelo `Service`. | Toda requisição deve fluir obrigatoriamente por `Controller` → `Service` → `Repository`. |
 | **Regras de Negócio no Frontend** | Cria divergência de regras entre web e API, além de ser facilmente burlável. | O frontend apenas renderiza e reflete o estado; a validação final da invariante reside sempre no `Service`. |
+| **Repetição de MUI Cru nas Pages** | Repetir `FormControl`+`FormLabel`+`OutlinedInput` ou tabelas/cards do zero em cada página gera inconsistência e falhas de WCAG (`useId`). | Consumir os componentes padronizados de `src/components/layout/` (`AppShell`, `PageHeader`) e `src/components/ui/` (`FormField`, `DataTable`, `EntityCard`, `StatusChip`, `StateFeedback`). |
+| **Overrides `:global(.Mui...)` e CSS em PT-BR** | Quebra o tema central (`theme.ts`), viola o tamanho mínimo `44px` da WCAG 2.2 AA e polui o TypeScript com `styles['classe-pt']`. | Estilizar via `theme.ts` e prop `sx`/`styled`; em `*.module.css`, usar apenas classes em **inglês em `camelCase`** (`styles.pageContainer`). |
 | **Abstrações Especulativas (Violação YAGNI)** | Criar dezenas de interfaces e fábricas genéricas para funcionalidades simples de CRUD. | Aplicar os padrões canônicos apenas onde agregam valor real, testabilidade ou segurança de concorrência. |
+
