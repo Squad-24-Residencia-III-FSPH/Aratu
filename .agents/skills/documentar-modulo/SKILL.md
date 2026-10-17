@@ -54,12 +54,12 @@ A partir do índice retornado por `mapa-codigo.mjs`, leia os arquivos do backend
 2. **Controllers (`backend/src/controllers/`):**
    - Registre os métodos expostos, validações de parâmetros/payloads e códigos de status HTTP retornados (`200`, `201`, `204`, `400`, `401`, `403`, `404`, `409`, `422`).
 3. **Services (`backend/src/services/`):**
-   - Extraia todas as **regras de negócio puras**: validações de domínio, transições de status permitidas, cálculos (ex: quilometragem), bloqueios operacionais e orquestração de transações.
-   - Anote o nome da classe e do método onde cada regra mora (ex: `ViagemService::alocarViatura`).
+   - Extraia todas as **regras de negócio puras**: validações de domínio, transições de estado permitidas, cálculos (ex: hodômetro), bloqueios operacionais e orquestração de transações.
+   - Anote o nome da classe e do método em inglês onde cada regra mora (ex: `TripService::allocateRequest`).
 4. **Repositories (`backend/src/repositories/` e `backend/src/database/`):**
-   - Identifique todas as tabelas consultadas ou alteradas, verificando o uso de queries parametrizadas (`$1, $2`), projeções explícitas (sem `SELECT *`) e travas de concorrência (`SELECT ... FOR UPDATE`).
+   - Identifique todas as tabelas consultadas ou alteradas (padrão `<pre>_<singular_entity>`), verificando o uso de queries parametrizadas (`$1, $2`), projeções explícitas (`<pre>_id AS id`, sem `SELECT *`) e travas de concorrência (`SELECT ... FOR UPDATE`).
 5. **Types e DTOs (`backend/src/types/`):**
-   - Mapeie as interfaces TypeScript, union types de status e contratos de entrada/saída.
+   - Mapeie as interfaces TypeScript, union types de estados (`UPPER_SNAKE_CASE`) e contratos de entrada/saída.
 
 ---
 
@@ -87,12 +87,12 @@ Explore os arquivos do frontend React 19 + TypeScript associados ao módulo:
    Se o container não estiver rodando, avise o desenvolvedor e documente a estrutura a partir das migrations/repositórios, registrando a observação.
 2. **Inspecionar tabelas, colunas, constraints e índices (somente leitura):**
    ```bash
-   docker compose exec db psql -U admin -d meubanco -c "\d+ <nome_tabela>"
+   docker compose exec db psql -U admin -d meubanco -c "\d+ <table_name>"
    ```
    Para cada tabela do módulo, levante:
    - Grão funcional (o que uma linha representa);
-   - Colunas-chave e tipos (`UUID`, `TEXT`, `TIMESTAMPTZ`, `DATE`, `BOOLEAN`, `INTEGER`);
-   - Chaves estrangeiras (`<tabela_singular>_id` e regra `ON DELETE RESTRICT`), `CHECK` constraints e índices B-tree ou parciais.
+   - Colunas-chave com prefixo de 3 letras (`<pre>_id`, `<pre>_<col>`) e tipos (`BIGINT`, `TEXT`, `TIMESTAMPTZ`, `DATE`, `BOOLEAN`, `INTEGER`);
+   - Chaves estrangeiras (`<ref_pre>_id` e regra `ON DELETE RESTRICT`), `CHECK` constraints e índices (`<pre>_<descriptive_name>` sem `idx_`/`uq_`).
 3. **Proibição de DDL/DML:** execute apenas comandos de inspeção (`\dt`, `\d+`, consultas a `information_schema`). Nunca altere dados ou estrutura durante a documentação.
 
 ---
@@ -107,8 +107,8 @@ Explore os arquivos do frontend React 19 + TypeScript associados ao módulo:
 
 1. **Bloco de Metadados (`.meta-block`):** Módulo (chave), índice de referência (`docs/manuais/modulos.md`), camadas Backend, camadas Frontend, banco de dados (`PostgreSQL 18`) e data de atualização (`YYYY-MM-DD`).
 2. **Seção 1 — Visão Geral:** propósito operacional para a FSPH e/ou SVO.
-3. **Seção 2 — Regras de Negócio e Transições de Estado:** invariantes de domínio e concorrência citando `Classe::metodo`.
-4. **Seção 3 — Escopo de Impacto e Matriz de Acesso (RBAC):** tabela detalhando as ações e restrições para `ADMIN`, `GESTOR_FROTA`, `SOLICITANTE`, `MOTORISTA` e `OPERADOR_SVO`.
+3. **Seção 2 — Regras de Negócio e Transições de Estado:** invariantes de domínio e concorrência citando `ClassName::methodName`.
+4. **Seção 3 — Escopo de Impacto e Matriz de Acesso (RBAC):** tabela detalhando as ações e restrições para `ADMIN`, `MANAGER`, `OPERATOR`, `REQUESTER`, `TRIAGE` e `DRIVER`.
 5. **Seção 4 — Tabelas do Banco de Dados (PostgreSQL 18):** tabela com nome, grão funcional, colunas-chave e constraints/índices.
 6. **Seção 5 — Contratos de API REST (Backend Express 5):** tabela com método HTTP, endpoint, controller, perfis autorizados e resumo do contrato.
 7. **Seção 6 — Camadas de Negócio e Persistência (Backend):** `Services`, `Repositories` e `Types/DTOs`.

@@ -82,26 +82,26 @@ Implemente os artefatos previstos no SDD respeitando a direção das dependênci
 
 #### 3.1 Banco de Dados e Migrações (`PostgreSQL 18` — Seção 4 do SDD)
 - Escreva a migration SQL dentro de transação explícita (`BEGIN; ... COMMIT;`);
-- Garanta nomes de tabelas em `snake_case` plural, chaves estrangeiras `<tabela_singular>_id` com `ON DELETE RESTRICT` (nunca `CASCADE` não aprovado), colunas temporais `TIMESTAMPTZ` e índices sargáveis;
-- Mantenha medidas ainda não conhecidas (ex: `quilometragem_final` antes do retorno) como `NULL`, nunca zero.
+- Garanta nomes de tabelas no padrão de prefixo de 3 letras em inglês (`<pre>_<singular_entity>`), PK `<pre>_id`, colunas próprias `<pre>_<col>`, chaves estrangeiras `<ref_pre>_id` com `ON DELETE RESTRICT`, colunas temporais `TIMESTAMPTZ` e índices iniciando pelo prefixo da tabela (`<pre>_<descriptive_name>` sem `idx_`/`uq_`);
+- Mantenha medidas ainda não conhecidas (ex: `tre_odometer` quando não aplicável) como `NULL`, nunca zero.
 
 #### 3.2 Contratos e Tipagem Estrita (`backend/src/types/` — Seção 5 do SDD)
-- Crie/atualize interfaces, DTOs de entrada/saída, union types e matriz de transição de estados (**State Pattern / FSM**);
+- Crie/atualize interfaces, DTOs de entrada/saída em `camelCase` em inglês (sem o prefixo SQL de 3 letras), union types em `UPPER_SNAKE_CASE` em inglês e matriz de transição de estados (**State Pattern / FSM**);
 - Proibido o uso de `any`, `@ts-ignore` ou valores mágicos soltos no código.
 
 #### 3.3 Persistência (`backend/src/repositories/` — Repository Pattern)
-- Concentre 100% do acesso ao `pg` na camada de repositório;
+- Concentre 100% do acesso ao `pg` na camada de repositório, com nomes de classes e métodos em inglês;
 - Utilize exclusivamente queries parametrizadas (`$1, $2, ...`) — zero interpolação de strings;
-- Declare projeções explícitas de colunas (proibido `SELECT *`);
+- Declare projeções explícitas de colunas mapeando `<pre>_id AS id` e aliases `camelCase` limpos (proibido `SELECT *`);
 - Em alocações concorrentes de veículos/motoristas ou operações multi-etapa, utilize `PoolClient` com `BEGIN ... COMMIT / ROLLBACK`, `SELECT ... FOR UPDATE` e liberação garantida em `finally { client.release(); }`.
 
 #### 3.4 Regras de Negócio (`backend/src/services/` — Service Puro)
-- Implemente todas as validações de domínio, cálculos, verificação de parâmetros dinâmicos (`parametros_sistema`) e transições de status;
+- Implemente todas as validações de domínio, cálculos, verificação de parâmetros dinâmicos (`par_system_parameter`) e transições de estado com classes e métodos em inglês;
 - A camada `Service` nunca importa `Request`, `Response` ou status HTTP do Express;
-- Documente métodos públicos com TSDoc semântico conforme `docs/manuais/padroes-docblocks.md` (explicando regras da FSPH/SVO e mapeando `@throws`).
+- Documente métodos públicos com TSDoc semântico em português conforme `docs/manuais/padroes-docblocks.md` (explicando regras da FSPH/SVO e mapeando `@throws`).
 
 #### 3.5 Borda HTTP e Segurança (`backend/src/middlewares/`, `controllers/`, `routes/` — Express 5)
-- Encadeie os middlewares segundo o padrão **Chain of Responsibility**: autenticação JWT → autorização de perfis **RBAC** (`ADMIN`, `GESTOR_FROTA`, `SOLICITANTE`, `MOTORISTA`, `OPERADOR_SVO`) → validação de payload → método do `Controller`;
+- Encadeie os middlewares segundo o padrão **Chain of Responsibility**: autenticação JWT → autorização de perfis **RBAC** (`ADMIN`, `MANAGER`, `OPERATOR`, `REQUESTER`, `TRIAGE`, `DRIVER`) → validação de payload → método do `Controller`;
 - No `Controller`, extraia dados da requisição, acione o `Service` e retorne status HTTP semânticos (`200`, `201`, `204`, `400`, `401`, `403`, `404`, `409`, `422`) com mensagens orientadoras em português claro (sem expor stack traces ou detalhes internos do banco).
 
 #### 3.6 Interface Web e Acessibilidade (`frontend/src/` — React 19 + WCAG 2.2 AA — Seções 6 e 7 do SDD)

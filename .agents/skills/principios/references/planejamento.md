@@ -45,22 +45,23 @@ Todo plano de implementação desenvolvido no Aratu deve cobrir os seguintes tó
 
 ### 2. Regras de Negócio e Casos de Borda
 - Cenários principais e caminhos alternativos no formato *Dado / Quando / Então*.
-- Transições de estado permitidas (ex: status da solicitação de viagem: `pendente` → `aprovada` → `em_andamento` → `concluida` ou `cancelada`).
+- Transições de estado permitidas em inglês (`UPPER_SNAKE_CASE`, ex: `DRAFT` → `SUBMITTED` → `APPROVED` → `IN_EXECUTION` → `COMPLETED` ou `CANCELED`; viagem: `PLANNED` → `IN_PROGRESS` → `COMPLETED` ou `CANCELED`).
 - Validações de domínio: regras de disponibilidade de veículo e motorista, conflitos de agenda,
-  validação de CNH e protocolos operacionais do SVO.
+  capacidade de assentos/corpos e protocolos operacionais do SVO.
 - Resolução antecipada de dúvidas: se houver pontos ambíguos, pergunte ao usuário antes de redigir o plano definitivo.
 
 ### 3. Contrato de API REST (Backend Express / Node.js)
-- Mapeamento das rotas em `backend/src/routes/` e métodos HTTP (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
-- Payload de requisição (JSON) com tipagem TypeScript e validação de schema.
+- Mapeamento das rotas em inglês no plural (`kebab-case`) em `backend/src/routes/` e métodos HTTP (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
+- Payload de requisição (JSON) com tipagem TypeScript em inglês (`camelCase` sem prefixo SQL) e validação de schema.
 - Resposta de sucesso (status code semântico `200`, `201`, `204`) e estrutura JSON.
 - Códigos e mensagens de erro esperados (`400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `409 Conflict`, `422 Unprocessable Entity`).
 
-### 4. Modelo de Dados e PostgreSQL 18
-- Tabelas novas ou modificadas, seguindo convenções do projeto (snake_case, plural).
-- Tipos de colunas explícitos (`UUID`, `TEXT`, `TIMESTAMPTZ`, `BOOLEAN`, `INTEGER`).
+### 4. Modelo de Dados e PostgreSQL 18 (Padrão `modelo.sql` em Inglês)
+- Tabelas novas ou modificadas, seguindo o padrão de prefixo único de 3 letras em inglês (`<pre>_<singular_entity>`, ex: `veh_vehicle`, `trp_trip`, `req_request`).
+- Chave primária `<pre>_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY` (projetada como `<pre>_id AS id` no Repository), colunas próprias `<pre>_<col>` e FKs `<ref_pre>_id` (ou `<ref_pre>_id_<role>`).
+- Tipos de colunas explícitos (`BIGINT`, `TEXT`, `TIMESTAMPTZ`, `BOOLEAN`, `INTEGER`, `NUMERIC`, `JSONB`).
 - Constraints declarativas: `PRIMARY KEY`, `FOREIGN KEY ... ON DELETE RESTRICT`, `CHECK`, `UNIQUE`.
-- Índices necessários justificados pelas consultas reais (leia `references/consultas.md` e `references/dados.md`).
+- Índices iniciando pelo prefixo de 3 letras da tabela (`<pre>_<descriptive_name>`, sem `idx_`/`uq_`), justificados pelas consultas reais (leia `references/consultas.md` e `references/dados.md`).
 - Script de migração DDL e como garantir transacionalidade.
 
 ### 5. Interface e Componentes React 19 (Frontend)

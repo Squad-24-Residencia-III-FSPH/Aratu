@@ -6,14 +6,14 @@ Este documento apresenta o índice dos módulos funcionais do **Aratu — Sistem
 
 ## 1. Mapa de Módulos Previstos
 
-| # | Chave do Módulo | Nome Funcional | Perfis Operadores (RBAC) | Responsabilidade Principal |
-|---|---|---|---|---|
-| 1 | `AUTENTICACAO_RBAC` | Autenticação, Usuários e Perfis | Administrador (gestão) / Todos os perfis (acesso) | Controle de sessão acessível, cadastro de servidores/setores e autorização baseada em perfis (RBAC). |
-| 2 | `FROTA` | Gestão de Frota e Veículos | Gestor de Frota, Administrador, Motorista (consulta) | Cadastro de viaturas administrativas, ambulâncias e veículos de remoção do SVO; controle de status, capacidade e hodômetro. |
-| 3 | `MOTORISTAS` | Gestão de Motoristas e Escalas | Gestor de Frota, Motorista, Administrador | Cadastro de condutores, validação de categoria e vencimento de CNH, controle de disponibilidade e escala operacional. |
-| 4 | `VIAGENS` | Solicitações e Viagens Institucionais | Solicitante FSPH, Gestor de Frota, Motorista | Fluxo completo de pedido de transporte institucional, aprovação, alocação concorrente de viatura/motorista, checklist e registro de quilometragem de saída/retorno. |
-| 5 | `SVO` | Operações do Serviço de Verificação de Óbito | Equipe SVO, Motorista (remoção), Administrador | Registro de chamados de óbito, despacho prioritário de viatura de remoção cadavérica, custódia, procedimentos/laudos e liberação formal com sigilo. |
-| 6 | `MANUTENCOES` | Manutenção Preventiva e Corretiva | Gestor de Frota, Administrador | Abertura e acompanhamento de ordens de serviço de manutenção, bloqueio automático de veículos indisponíveis e retorno à frota ativa. |
+| # | Chave do Módulo | Nome Funcional | Perfis Operadores (RBAC) | Tabelas Principais (PostgreSQL 18) | Responsabilidade Principal |
+|---|---|---|---|---|---|
+| 1 | `AUTENTICACAO_RBAC` | Autenticação, Usuários e Setores | `ADMIN` (gestão) / Todos os perfis (acesso) | `usr_user`, `sec_sector`, `aud_audit` | Controle de sessão acessível, cadastro de servidores/setores e autorização baseada em papéis (`REQUESTER`, `MANAGER`, `OPERATOR`, `ADMIN`, `TRIAGE`). |
+| 2 | `FROTA` | Gestão de Frota, Veículos e Serviços | `MANAGER`, `ADMIN`, `OPERATOR` | `veh_vehicle`, `srv_service`, `vhs_vehicle_service` | Cadastro de viaturas administrativas, ambulâncias e veículos de remoção do SVO; vínculo veículo × serviço, capacidade de assentos, limite de corpos e peso. |
+| 3 | `MOTORISTAS` | Gestão de Motoristas e Escalas | `MANAGER`, `DRIVER`, `ADMIN` | `drv_driver` | Cadastro de condutores, controle de ativação/revisão, disponibilidade e escala operacional. |
+| 4 | `VIAGENS` | Solicitações, Políticas e Viagens Institucionais | `REQUESTER`, `MANAGER`, `OPERATOR`, `DRIVER` | `req_request`, `rqv_request_version`, `rqe_request_event`, `apo_approval_policy`, `ape_policy_event`, `trp_trip`, `tre_trip_event`, `ral_request_allocation`, `rte_round_trip_event` | Fluxo completo de pedido de transporte institucional, versionamento, aprovação manual/automática, alocação concorrente em viagens, par ida e volta e registro de hodômetro. |
+| 5 | `SVO` | Operações do Serviço de Verificação de Óbito | `OPERATOR`, `TRIAGE`, `MANAGER`, `ADMIN` | `req_request` (`'BODY'`), `fve_fulfillment_event`, `ral_request_allocation` | Triagem obrigatória, despacho prioritário de viatura de remoção cadavérica, eventos de atendimento (coleta, entrega, devolução) e sigilo operacional. |
+| 6 | `MANUTENCOES` | Manutenção Preventiva e Corretiva | `MANAGER`, `ADMIN` | `mnt_maintenance`, `veh_vehicle` | Abertura e acompanhamento de ordens de serviço de manutenção, bloqueio automático de veículos indisponíveis e retorno à frota ativa. |
 
 ---
 
@@ -29,10 +29,10 @@ Atualmente, o repositório dispõe de um **documento genérico de referência e 
 
 1. **Metadados do Módulo:** chave, diretórios no backend (`routes`, `controllers`, `services`, `repositories`) e no frontend (`pages`, `components`), perfis RBAC envolvidos e banco de dados (`PostgreSQL 18`).
 2. **Visão Geral:** objetivo operacional no contexto da FSPH e do SVO.
-3. **Regras de Negócio e Transições de Estado:** validações de domínio, invariantes de concorrência e referência aos métodos de `Service`.
-4. **Escopo de Impacto e Matriz RBAC:** o que cada perfil pode visualizar ou executar no módulo.
-5. **Tabelas do Banco de Dados (PostgreSQL 18):** estrutura das tabelas (`snake_case` plural), chaves primárias, chaves estrangeiras (`ON DELETE RESTRICT`) e índices.
-6. **Contratos de API REST (Backend Express 5):** endpoints, métodos HTTP, payloads e códigos de resposta.
+3. **Regras de Negócio e Transições de Estado:** validações de domínio, invariantes de concorrência e referência aos métodos de `Service` em inglês (`ClassName::methodName`).
+4. **Escopo de Impacto e Matriz RBAC:** o que cada perfil (`ADMIN`, `MANAGER`, `OPERATOR`, `REQUESTER`, `TRIAGE`, `DRIVER`) pode visualizar ou executar no módulo.
+5. **Tabelas do Banco de Dados (PostgreSQL 18):** estrutura das tabelas no padrão de prefixo de 3 letras em inglês (`<pre>_<singular_entity>`), chaves primárias (`<pre>_id`), chaves estrangeiras (`<ref_pre>_id`) e índices (`<pre>_<descriptive_name>`).
+6. **Contratos de API REST (Backend Express 5):** endpoints em inglês (`/api/<entities>`), métodos HTTP, payloads (`camelCase` sem prefixo de 3 letras) e códigos de resposta.
 7. **Interface e Acessibilidade (Frontend React 19):** páginas, componentes reutilizados, tratamento dos 5 estados visuais e critérios da **WCAG 2.2 Nível AA**.
 8. **Dependências, Integrações e Proteção de Dados (LGPD / Sigilo SVO).**
 

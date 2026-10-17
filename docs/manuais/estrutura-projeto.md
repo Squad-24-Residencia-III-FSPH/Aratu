@@ -23,10 +23,11 @@ Aratu/
 │   ├── Dockerfile              # Imagem do container frontend
 │   ├── package.json            # Dependências e scripts do frontend
 │   └── vite.config.ts          # Configuração do bundler Vite
-├── docs/                       # Documentação técnica, manuais, módulos, planos e scripts unificados
+├── docs/                       # Documentação técnica, manuais, módulos, planos, revisões e scripts unificados
 │   ├── manuais/                # Manuais de engenharia, arquitetura e convenções (.md)
 │   ├── modulos/                # Documentação HTML detalhada por módulo de negócio
 │   ├── plans/                  # Planos Técnicos de Implementação (SDDs em HTML)
+│   ├── reviews/                # Relatórios Técnicos de Code Review (/revisar em HTML)
 │   └── scripts/                # Scripts utilitários (jira-fetch.mjs, mapa-codigo.mjs, gerar-esqueleto.mjs, aratu-check.mjs)
 ├── docker-compose.yml          # Orquestração dos serviços: db (PostgreSQL 18), backend e frontend
 ├── AGENTS.md                   # Diretrizes obrigatórias para Agentes de IA
@@ -82,11 +83,11 @@ Toda evolução na estrutura de pastas e arquivos deve respeitar quatro invarian
 
 ## 5. Domínios de Negócio do Sistema Aratu
 
-O código dentro de cada camada é organizado em torno dos domínios operacionais da **FSPH** e do **SVO**:
+O código dentro de cada camada é organizado em torno dos domínios operacionais da **FSPH** e do **SVO** (com identificadores técnicos em inglês):
 
-1. **Autenticação e Perfis (`auth` / `usuarios`):** controle de sessão e RBAC (Administrador, Gestor de Frota, Solicitante FSPH, Motorista, Equipe SVO).
-2. **Gestão de Frota (`frota` / `veiculos`):** cadastro de viaturas administrativas e de remoção, controle de capacidade, hodômetro e disponibilidade.
-3. **Motoristas (`motoristas`):** cadastro de condutores, controle de categoria e validade de CNH, escalas e disponibilidade.
-4. **Viagens Institucionais (`viagens` / `solicitacoes`):** solicitação de transporte por unidades da FSPH, aprovação, alocação de veículo/motorista, checklist e registro de saída/retorno.
-5. **Operações do SVO (`svo`):** acionamento de chamados de verificação de óbito, despacho de viatura de remoção cadavérica, custódia, laudos e liberação formal com sigilo.
-6. **Manutenções (`manutencoes`):** ordens de serviço preventivas e corretivas, bloqueio automático de veículos indisponíveis e histórico de intervenções.
+1. **Autenticação e Perfis (`auth` / `users`):** controle de sessão e RBAC (`ADMIN`, `FLEET_MANAGER`, `REQUESTER_FSPH`, `DRIVER`, `SVO_TEAM`).
+2. **Gestão de Frota (`vehicles`):** cadastro de viaturas administrativas e de remoção (`veh_vehicle`), controle de capacidade, hodômetro e disponibilidade.
+3. **Motoristas (`drivers`):** cadastro de condutores (`drv_driver`), controle de categoria e validade de CNH, escalas e disponibilidade.
+4. **Viagens Institucionais (`trips` / `requests`):** solicitação de transporte por unidades da FSPH (`req_request`), aprovação, alocação de veículo/motorista (`trp_trip`), checklist e registro de saída/retorno.
+5. **Operações do SVO (`svo`):** acionamento de chamados de verificação de óbito (`svo_occurrence`), despacho de viatura de remoção cadavérica, custódia, laudos e liberação formal com sigilo.
+6. **Manutenções (`maintenance`):** ordens de serviço preventivas e corretivas (`mnt_maintenance_order`), bloqueio automático de veículos indisponíveis e histórico de intervenções.
