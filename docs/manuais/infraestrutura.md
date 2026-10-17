@@ -35,6 +35,16 @@ O banco oficial do projeto é o **PostgreSQL 18** (`postgres:18-alpine`).
 ### 1.2 Migrações e Operações Críticas
 
 - **DDL Transacional:** toda migration no PostgreSQL 18 deve rodar dentro de `BEGIN; ... COMMIT;` para garantir atomicidade.
+- Configure as credenciais locais em `.env` usando `.env.example` como referência. `docker-compose.yml` lê `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` e `POSTGRES_PORT`; a API executada no host usa `DATABASE_URL` apontando para `localhost`, enquanto o Compose injeta a URL com host interno `db`.
+- O backend pode ser iniciado diretamente no host com `npm --prefix backend run dev` depois de instalar as dependências; `JWT_SECRET` deve ser exclusivo do ambiente e `JWT_EXPIRES_IN` usa `8h` como padrão.
+- A migration inicial de usuários pode ser aplicada na raiz do repositório após iniciar o container do banco:
+  ```bash
+  docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' < backend/src/database/migrations/202610160001_create_users.sql
+  ```
+  Para reverter essa migration:
+  ```bash
+  docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' < backend/src/database/migrations/202610160001_create_users.down.sql
+  ```
 - Antes de aplicar qualquer alteração estrutural (`ALTER`, `DROP`) ou atualização em massa:
   1. Avalie o volume de registros afetados e as dependências entre tabelas;
   2. Documente o objetivo, as tabelas/colunas impactadas e o **script de rollback**;
@@ -80,6 +90,8 @@ Operações que leem um estado, tomam uma decisão e gravam no banco (ex: alocar
 ## 4. Segurança Operacional, LGPD e Sigilo do SVO
 
 - **Zero segredos versionados:** senhas de banco, chaves de token JWT e credenciais externas devem ser injetadas exclusivamente via variáveis de ambiente (`.env` ignorado no Git). Use placeholders em exemplos de documentação.
+- Para execução local, copie `.env.example` para `.env` e substitua os placeholders de `POSTGRES_PASSWORD`, `DATABASE_URL` e `JWT_SECRET` por valores correspondentes/exclusivos (por exemplo, gere valores hexadecimais com `openssl rand -hex 32`). `JWT_EXPIRES_IN` aceita segundos (`s`), minutos (`m`), horas (`h`) ou dias (`d`); o padrão é `8h`.
+- Em produção, sirva a API somente por HTTPS: bcrypt protege as senhas armazenadas, mas não cifra o tráfego entre o cliente e o servidor.
 - **Sigilo de Dados Sensíveis (LGPD / SVO / FSPH):**
   - O SVO lida com informações de óbito, identificação de falecidos, laudos e dados de familiares.
   - A gestão de frota lida com CPF, matrícula e CNH de servidores e motoristas.
