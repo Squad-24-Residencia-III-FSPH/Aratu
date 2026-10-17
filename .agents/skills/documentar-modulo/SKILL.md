@@ -34,17 +34,20 @@ Gera ou atualiza o arquivo `docs/modulos/<CHAVE_MODULO>.html` com a documentaç�
 
 ---
 
-### Passo 1 — Identificar o módulo no índice oficial
+### Passo 1 — Identificar o módulo e mapear o codebase rapidamente
 
-1. Leia `docs/manuais/modulos.md` e `docs/modulos/EXEMPLO_MODULO.html`.
-2. Identifique a chave oficial do módulo correspondente a `$ARGUMENTS`.
+1. Leia `docs/manuais/modulos.md` para identificar a chave oficial do módulo correspondente a `$ARGUMENTS`.
+2. Execute o mapeador estático do repositório para listar todos os arquivos, símbolos exportados, rotas e tabelas de uma só vez:
+   ```bash
+   node docs/scripts/mapa-codigo.mjs
+   ```
 3. Caso o argumento seja ambíguo ou não corresponda a um módulo mapeado, aplique a **Regra da Dúvida** e confirme com o desenvolvedor antes de prosseguir.
 
 ---
 
 ### Passo 2 — Mapear a camada Backend (`backend/src/`)
 
-Explore os diretórios do backend relacionados ao módulo:
+A partir do índice retornado por `mapa-codigo.mjs`, leia os arquivos do backend relacionados ao módulo:
 
 1. **Rotas e Middlewares (`backend/src/routes/` e `backend/src/middlewares/`):**
    - Identifique todos os endpoints REST (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`), os caminhos de URL e os middlewares de autenticação e autorização por perfil (**RBAC**).
@@ -94,9 +97,13 @@ Explore os arquivos do frontend React 19 + TypeScript associados ao módulo:
 
 ---
 
-### Passo 5 — Gerar ou Atualizar `docs/modulos/<CHAVE_MODULO>.html`
+### Passo 5 — Gerar o Esqueleto e Atualizar `docs/modulos/<CHAVE_MODULO>.html`
 
-Utilize exatamente a folha de estilos CSS e a estrutura de seções definidas em `docs/modulos/EXEMPLO_MODULO.html`:
+1. Se o arquivo `docs/modulos/<CHAVE_MODULO>.html` ainda não existir, gere o esqueleto HTML pré-preenchido (com o CSS oficial de `EXEMPLO_MODULO.html`, índice de seções e cabeçalho de tabelas):
+   ```bash
+   node docs/scripts/gerar-esqueleto.mjs modulo <CHAVE_MODULO>
+   ```
+2. Preencha ou atualize as seções do documento HTML:
 
 1. **Bloco de Metadados (`.meta-block`):** Módulo (chave), índice de referência (`docs/manuais/modulos.md`), camadas Backend, camadas Frontend, banco de dados (`PostgreSQL 18`) e data de atualização (`YYYY-MM-DD`).
 2. **Seção 1 — Visão Geral:** propósito operacional para a FSPH e/ou SVO.

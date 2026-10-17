@@ -4,9 +4,9 @@ Este documento serve como guia rápido para autores e revisores da **Squad 24** 
 
 ---
 
-## 1. Escopo, Fluxo Git (`dev-<nome>`) e Tamanho do PR
+## 1. Escopo, Fluxo Git (Gitflow) e Tamanho do PR
 
-- [ ] O desenvolvimento foi mantido na branch do desenvolvedor (`dev-<nome>`), atualizada **somente a partir da `main`** (`git pull origin main`), com Pull Request direcionado para a `develop` (para validação do QA antes de ir para a `main`).
+- [ ] A branch de trabalho segue o padrão Gitflow (`feat/<nome-da-tarefa>`, `feature/<nome-da-tarefa>`, `fix/<nome-da-tarefa>` ou `hotfix/<nome-da-tarefa>`), criada a partir de `develop` atualizada, com Pull Request direcionado para `develop`.
 - [ ] Os commits seguem **Conventional Commits** (`tipo(escopo): descrição curta`) identificando claramente a tarefa entregue.
 - [ ] O PR tem menos de **400 linhas** novas/alteradas (ou possui justificativa explícita na descrição).
 - [ ] **O diff muda comportamento OU estrutura, nunca os dois ao mesmo tempo.**
