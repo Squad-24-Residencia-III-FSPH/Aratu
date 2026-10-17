@@ -99,6 +99,14 @@ test('JWT expirado, malformado ou com perfil diferente não cria sessão', () =>
   assert.throws(() => parseLoginResponse({ ...session, token: tokenFor('MOTORISTA') }), { message: SERVICE_UNAVAILABLE })
 })
 
+test('JWT usa perfil como claim e mantém compatibilidade com tokens role anteriores', () => {
+  for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO']) {
+    assert.equal(parseLoginResponse(sessionFor(profile)).perfil, profile)
+  }
+  const legacy = { ...session, token: tokenFor('GESTOR', 3600, { perfil: undefined, role: 'GESTOR' }) }
+  assert.equal(parseLoginResponse(legacy).perfil, 'GESTOR')
+})
+
 test('outras falhas preservam erro do backend e possuem fallback', async () => {
   await assert.rejects(login(credentials, { fetcher: respond(429, { erro: 'Tente novamente mais tarde.' }) }), {
     message: 'Tente novamente mais tarde.',

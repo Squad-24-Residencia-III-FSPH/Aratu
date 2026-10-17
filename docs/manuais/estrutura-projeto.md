@@ -27,7 +27,7 @@ Aratu/
 │   ├── manuais/                # Manuais de engenharia, arquitetura e convenções (.md)
 │   ├── modulos/                # Documentação HTML detalhada por módulo de negócio
 │   ├── plans/                  # Planos Técnicos de Implementação (SDDs em HTML)
-│   └── scripts/                # Scripts utilitários de automação e integração (ex: jira-fetch.mjs)
+│   └── scripts/                # Scripts utilitários (jira-fetch.mjs, mapa-codigo.mjs, gerar-esqueleto.mjs, aratu-check.mjs)
 ├── docker-compose.yml          # Orquestração dos serviços: db (PostgreSQL 18), backend e frontend
 ├── AGENTS.md                   # Diretrizes obrigatórias para Agentes de IA
 └── README.md                   # Apresentação do projeto, stack, Gitflow e Conventional Commits

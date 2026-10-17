@@ -39,7 +39,7 @@ aplica. Desliga só com comando explícito como "parar principios" / "modo norma
 
 ## Planejamento e Subordinação das Demais Skills do Projeto
 
-**Subordinação Obrigatória:** As skills operacionais do repositório — **`plano`** (`.agents/skills/plano/SKILL.md`), **`revisar`** (`.agents/skills/revisar/SKILL.md`), **`testar`** (`.agents/skills/testar/SKILL.md`), **`documentar-modulo`** (`.agents/skills/documentar-modulo/SKILL.md`) e **`buscar-tarefa`** (`.agents/skills/buscar-tarefa/SKILL.md`) — são **estritamente subordinadas a esta skill (`principios`)**. Nenhuma delas pode ser executada sem aplicar a Regra da Dúvida, a ordem de precedência dos princípios e o formato de saída aqui definidos.
+**Subordinação Obrigatória:** As skills operacionais do repositório — **`plano`** (`.agents/skills/plano/SKILL.md`), **`implementar`** (`.agents/skills/implementar/SKILL.md`), **`revisar`** (`.agents/skills/revisar/SKILL.md`), **`testar`** (`.agents/skills/testar/SKILL.md`), **`documentar-modulo`** (`.agents/skills/documentar-modulo/SKILL.md`) e **`buscar-tarefa`** (`.agents/skills/buscar-tarefa/SKILL.md`) — são **estritamente subordinadas a esta skill (`principios`)**. Nenhuma delas pode ser executada sem aplicar a Regra da Dúvida, a ordem de precedência dos princípios e o formato de saída aqui definidos.
 
 **Invocada para planejar** — `/principios planejar`, `/plano` ou pedido explícito
 de planejar, arquitetar ou gerar plano de implementação: leia `references/planejamento.md`
@@ -207,7 +207,7 @@ escopo adicional que depende de decisão expressa do usuário.
   TypeScript para estados, categorias de veículos e tipos de serviço.
 - **Um diff muda comportamento ou estrutura, nunca os dois.** Correção de defeito
   ou nova feature não carrega refatoração em massa não solicitada.
-- **Fluxo Git (`dev-<nome>`) e Conventional Commits:** Siga rigorosamente o fluxo do repositório: todo o trabalho permanece na branch do desenvolvedor (`dev-<nome>`), atualizada **somente a partir da `main`** (`git pull origin main`); a branch `dev-<nome>` envia PR para `develop`, onde passa pelo **QA** e depois vai para a `main`. Diferencie as entregas no commit pelo formato `tipo(escopo): descrição curta (FROTA-XX)`.
+- **Fluxo Git (Gitflow) e Conventional Commits:** Siga rigorosamente o fluxo do `README.md`: atualize a `develop` (`git switch develop && git pull origin develop`), crie uma branch específica por tarefa (`feat/<nome-da-tarefa>`, `feature/<nome-da-tarefa>`, `fix/<nome-da-tarefa>` ou `hotfix/<nome-da-tarefa>`) e abra Pull Request para `develop`. Formato de commit: `tipo(escopo): descrição curta`.
 - **Documentação e TSDoc semântico:** Métodos públicos de Services, Middlewares e Props de componentes visuais devem possuir documentação TSDoc (`/** ... */`) focada no "porquê", em invariantes e nas regras de negócio da FSPH/SVO conforme `docs/manuais/padroes-docblocks.md`, sem duplicar tipagem nem incluir tags obsoletas (`@author`, `@version`).
 - **Padrões de Projeto (Design Patterns):** Siga estritamente a matriz canônica em `docs/manuais/padroes-projeto.md`: Layered Architecture com injeção leve, Repository Pattern com queries parametrizadas (`$1, $2`) e locks `FOR UPDATE`, State Pattern (FSM) para ciclos de vida imutáveis de viagens/SVO, Strategy para algoritmos e exportações variáveis, Chain of Responsibility para middlewares Express 5 e Custom Hooks + Compound Components no React 19.
 - **Proteção de dados sensíveis e LGPD:** O SVO e a gestão de frotas lidam com

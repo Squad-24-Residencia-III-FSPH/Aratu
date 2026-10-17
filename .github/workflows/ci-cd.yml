@@ -1,0 +1,180 @@
+name: CI and production delivery
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - staging
+      - main
+  push:
+    branches:
+      - staging
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-ci:
+    name: frontend-ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Test
+        working-directory: frontend
+        run: npm test
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  backend-ci:
+    name: backend-ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Test
+        working-directory: backend
+        run: npm test
+      - name: Check TypeScript types
+        working-directory: backend
+        run: npx tsc --noEmit
+      - name: Build production JavaScript
+        working-directory: backend
+        run: npm run build
+
+  docker-ci:
+    name: docker-ci
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-ci
+      - backend-ci
+    env:
+      POSTGRES_USER: ci_user
+      POSTGRES_PASSWORD: ci_password
+      POSTGRES_DB: aratu_ci
+      DATABASE_URL: postgresql://ci_user:ci_password@db:5432/aratu_ci
+      JWT_SECRET: synthetic-ci-secret-not-for-production
+      JWT_EXPIRES_IN: 8h
+      FRONTEND_PORT: 8080
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Validate production Compose configuration
+        run: docker compose -f docker-compose.prod.yml config --quiet
+      - name: Build production containers
+        run: docker compose -f docker-compose.prod.yml build
+
+  create-release-pr:
+    name: create-release-pr
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-ci
+      - backend-ci
+      - docker-ci
+    concurrency:
+      group: staging-release-pr
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create staging-to-main PR if one is not already open
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          staging_sha="$(gh api "repos/$GH_REPO/git/ref/heads/staging" --jq '.object.sha')"
+          if [[ "$staging_sha" != "$GITHUB_SHA" ]]; then
+            echo "Staging advanced after this run started; the latest successful run will manage the release PR."
+            exit 0
+          fi
+
+          existing_pr="$(gh pr list --head staging --base main --state open --json number --jq '.[0].number')"
+          if [[ -n "$existing_pr" ]]; then
+            echo "Reusing open release PR #${existing_pr}; new staging commits are included automatically."
+          else
+            gh pr create \
+              --base main \
+              --head staging \
+              --title "Release: staging → main" \
+              --body "Automated release pull request. Frontend lint/tests/build, backend tests/typecheck/build, and production Docker builds passed for the latest staging push. Review and merge this PR manually."
+          fi
+
+  deploy-production:
+    name: deploy-production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-ci
+      - backend-ci
+      - docker-ci
+    environment: production
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Validate deployment configuration
+        env:
+          PRODUCTION_HOST: ${{ vars.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ vars.PRODUCTION_USER }}
+          PRODUCTION_PATH: ${{ vars.PRODUCTION_PATH }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ -n "$PRODUCTION_HOST" && "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "PRODUCTION_HOST is missing or invalid."; exit 1; }
+          [[ -n "$PRODUCTION_USER" && "$PRODUCTION_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { echo "PRODUCTION_USER is missing or invalid."; exit 1; }
+          [[ -n "$PRODUCTION_PATH" && "$PRODUCTION_PATH" =~ ^/[A-Za-z0-9._/-]+$ && ! "$PRODUCTION_PATH" =~ (^|/)\.\.(/|$) ]] || { echo "PRODUCTION_PATH is missing or invalid."; exit 1; }
+          [[ -n "$SSH_PRIVATE_KEY" ]] || { echo "SSH_PRIVATE_KEY is required."; exit 1; }
+          [[ -n "$SSH_KNOWN_HOSTS" ]] || { echo "SSH_KNOWN_HOSTS is required."; exit 1; }
+      - name: Configure verified SSH access
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+      - name: Update the validated main commit and verify production
+        env:
+          PRODUCTION_HOST: ${{ vars.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ vars.PRODUCTION_USER }}
+          PRODUCTION_PATH: ${{ vars.PRODUCTION_PATH }}
+        run: |
+          set -euo pipefail
+          remote_command="cd '$PRODUCTION_PATH' && git pull --ff-only origin main && test \"\$(git rev-parse HEAD)\" = '$GITHUB_SHA' && docker compose -f docker-compose.prod.yml up -d --build --remove-orphans --wait --wait-timeout 180 && docker compose -f docker-compose.prod.yml exec -T frontend wget -q -O /dev/null http://127.0.0.1/ && docker compose -f docker-compose.prod.yml exec -T frontend wget -q -O /dev/null http://127.0.0.1/api/ && docker compose -f docker-compose.prod.yml ps"
+          ssh \
+            -i "$HOME/.ssh/id_ed25519" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "$remote_command"

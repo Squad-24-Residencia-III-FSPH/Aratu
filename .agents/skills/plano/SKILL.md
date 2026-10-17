@@ -38,8 +38,8 @@ Coleta o contexto de uma tarefa (via Jira / `.agents/skills/buscar-tarefa/SKILL.
    - `.agents/skills/principios/SKILL.md` (Regra da Dúvida, Teste do *"provavelmente"*, ordem de precedência dos 9 princípios, proteção LGPD/SVO e formato de saída);
    - `.agents/skills/principios/references/planejamento.md` (guia canônico de planejamento do Aratu);
    - `.agents/skills/principios/references/camadas.md` e `.agents/skills/principios/references/escopo-impacto.md`;
-   - `docs/manuais/padroes-projeto.md` (matriz de Padrões de Projeto: Layered, Repository, State/FSM, Strategy, Chain of Responsibility, Compound Components);
-   - `docs/plans/EXEMPLO_PLANO.html` (template estrutural HTML do SDD).
+   - `docs/manuais/padroes-projeto.md` (matriz de Padrões de Projeto: Layered, Repository, State/FSM, Strategy, Chain of Responsibility, Compound Components).
+   - *(Economia de tokens)* **Não** é necessário ler `docs/plans/EXEMPLO_PLANO.html` inteiro no Passo 0: o script `node docs/scripts/gerar-esqueleto.mjs plano <CHAVE>` já injeta automaticamente o `<style>` oficial e as seções fixas (7, 10, 11 e 12).
 2. **Leitura condicional obrigatória conforme o escopo da tarefa:**
    - Se envolver tabelas, transações ou queries SQL no PostgreSQL 18: leia `.agents/skills/principios/references/dados.md` e `.agents/skills/principios/references/consultas.md`;
    - Se envolver telas React 19, formulários, mensagens de erro ou fluxos operacionais: leia `.agents/skills/principios/references/ux-fluxo.md`, `.agents/skills/principios/references/ui-componentes.md` e `.agents/skills/principios/references/acessibilidade.md`.
@@ -47,7 +47,7 @@ Coleta o contexto de uma tarefa (via Jira / `.agents/skills/buscar-tarefa/SKILL.
 
 ---
 
-### Passo 2 — Coletar Dados da Tarefa no Jira e Identificar a Branch do Desenvolvedor (`dev-<nome>`)
+### Passo 2 — Coletar Dados da Tarefa no Jira e Identificar a Branch da Tarefa (Gitflow)
 
 1. Se `$ARGUMENTS` contiver uma chave/URL do Jira (ex: `FROTA-27` ou `https://squad24.atlassian.net/browse/FROTA-27`) ou se precisar listar as tarefas abertas do desenvolvedor, execute o script utilitário documentado em `.agents/skills/buscar-tarefa/SKILL.md`:
    ```bash
@@ -57,18 +57,22 @@ Coleta o contexto de uma tarefa (via Jira / `.agents/skills/buscar-tarefa/SKILL.
    # Ou listar issues abertas atribuídas ao usuário atual no Jira
    node docs/scripts/jira-fetch.mjs --mine
    ```
-2. Verifique a branch atual do desenvolvedor (`git branch --show-current`, ex: `dev-eliakim`):
-   - **Regra do Fluxo Git:** Todo o trabalho permanece sempre na branch fixa do desenvolvedor (`dev-<nome>`), que é **atualizada somente a partir da `main`** (`git pull origin main`) e envia **PR para `develop`** (onde passa pelo **QA** e depois vai para a `main`). **Nunca crie nem sugira criar branches `feature/...` ou `fix/...`.**
-   - O que identifica a entrega no histórico é a mensagem do commit: `tipo(escopo): descrição curta (FROTA-XX)`.
+2. Verifique a branch atual (`git branch --show-current`) e defina a branch da tarefa seguindo o Gitflow do `README.md` (criada a partir de `develop` atualizada):
+   - Novas funcionalidades: `feat/<nome-da-tarefa>` ou `feature/<nome-da-tarefa>` (ex: `feat/controle-sessao-token`, `feature/login`);
+   - Correções de defeito: `fix/<nome-da-tarefa>` (ex: `fix/vehicle-validation`);
+   - Padrão de commits: `tipo(escopo): descrição curta (FROTA-XX)`.
 3. O arquivo de saída do plano será `docs/plans/<chave-jira-minuscula>-<slug>.html` (ex: `docs/plans/frota-27-controle-sessao-token.html`).
 
 ---
 
-### Passo 3 — Explorar o Codebase e a Documentação do Módulo
+### Passo 3 — Explorar o Codebase e a Documentação do Módulo (Via Script de Mapa)
 
-1. Identifique o módulo em `docs/manuais/modulos.md` (`AUTENTICACAO_RBAC`, `FROTA`, `MOTORISTAS`, `VIAGENS`, `SVO`, `MANUTENCOES`).
-2. Se existir `docs/modulos/<MODULO>.html`, leia-o para conhecer as tabelas, rotas e regras já documentadas.
-3. Inspecione os arquivos existentes em `backend/src/` (`routes`, `controllers`, `services`, `repositories`, `middlewares`, `types`) e `frontend/src/` (`pages`, `components/ui`, `services`, `hooks`, `types`) para garantir reuso (**DRY**) e aderência às convenções vizinhas.
+1. Execute o mapeador estático para obter em um único comando a árvore completa de arquivos, símbolos exportados, rotas e tabelas de `backend/src/` e `frontend/src/`:
+   ```bash
+   node docs/scripts/mapa-codigo.mjs
+   ```
+2. Identifique o módulo em `docs/manuais/modulos.md` (`AUTENTICACAO_RBAC`, `FROTA`, `MOTORISTAS`, `VIAGENS`, `SVO`, `MANUTENCOES`). Se existir `docs/modulos/<MODULO>.html`, leia-o.
+3. Abra e leia apenas os arquivos específicos de `backend/src/` e `frontend/src/` que serão diretamente impactados ou reutilizados pela tarefa (**DRY**).
 
 ---
 
@@ -86,9 +90,13 @@ Se houver **qualquer dúvida**, interrompa e pergunte objetivamente ao usuário 
 
 ---
 
-### Passo 5 — Gerar o SDD em `docs/plans/<nome-do-plano>.html`
+### Passo 5 — Gerar o Esqueleto e Preencher o SDD em `docs/plans/<nome-do-plano>.html`
 
-Crie o arquivo HTML autocontido seguindo exatamente o layout, CSS e as **12 seções** de `docs/plans/EXEMPLO_PLANO.html`:
+1. **Gere o esqueleto HTML pré-preenchido** (com o CSS oficial de `EXEMPLO_PLANO.html`, metadados do Jira de `.tmp/task-<KEY>/issue.json` e as seções fixas 7, 10, 11 e 12 já prontas):
+   ```bash
+   node docs/scripts/gerar-esqueleto.mjs plano FROTA-27 --modulo AUTENTICACAO_RBAC
+   ```
+2. **Edite cirurgicamente o arquivo gerado** substituindo os marcadores `<!-- PREENCHER_SECAO_X -->` para completar as **12 seções**:
 
 1. **Contexto, Objetivo e Escopo** (objetivo no domínio FSPH/SVO, delimitação YAGNI e decisões confirmadas pela Regra da Dúvida);
 2. **Requisitos e Regras de Negócio (Casos de Borda)** (cenários *Dado / Quando / Então*, requisitos funcionais e não-funcionais);
@@ -96,15 +104,15 @@ Crie o arquivo HTML autocontido seguindo exatamente o layout, CSS e as **12 seç
 4. **Banco de Dados e Migrações (PostgreSQL 18)** (DDL transacional `BEGIN ... COMMIT`, `snake_case` plural, `ON DELETE RESTRICT`, índices sargáveis e **Plano de Rollback obrigatório**);
 5. **Back-end — Contratos REST e Detalhamento por Arquivo** (tabela de endpoints, status HTTP, `Types/DTOs`, `Repository` com `$1, $2` e `SELECT ... FOR UPDATE`, `Service` puro sem Express e `Controller`);
 6. **Front-end — Telas, Componentes React 19 e Estados Visuais** (reuso de `components/ui/` e tratamento explícito dos **5 estados visuais**: *Ideal*, *Carregando*, *Vazio*, *Erro*, *Parcial*);
-7. **Acessibilidade (WCAG 2.2 Nível AA)** (`useId()`, navegação por teclado, `:focus-visible`, alvos mínimos de 44×44px, contraste 4.5:1 e `role="status"` / `aria-live`);
+7. **Acessibilidade (WCAG 2.2 Nível AA)** *(pré-preenchida pelo script — complemente com especificidades da tela)*;
 8. **Escopo de Impacto, RBAC e Configuração**;
 9. **Casos de Teste e Verificação** (testes unitários de `Service`, integração de `Repository` com rollback e roteiro manual por perfil RBAC com dados 100% fictícios — LGPD);
-10. **Checklist Pré-PR**;
+10. **Checklist Pré-PR** *(pré-preenchida pelo script)*;
 11. **Atualização da Documentação do Módulo** (`docs/modulos/<MODULO>.html`);
-12. **Princípios de Desenvolvimento e Restrições de Implementação** (ordem de precedência da skill `principios`, Regra da Dúvida e proteção LGPD/SVO).
+12. **Princípios de Desenvolvimento e Restrições de Implementação** *(pré-preenchida pelo script)*.
 
 ---
 
-### Passo 6 — Sincronização da Branch `dev-<nome>` (Opcional mediante confirmação)
+### Passo 6 — Criação da Branch da Tarefa e Próximo Passo (`/implementar`)
 
-Após gerar o SDD, mantenha o trabalho sempre na branch do desenvolvedor (`dev-<nome>`, ex: `dev-eliakim`). Caso necessário sincronizar antes de iniciar a implementação, a atualização da `dev-<nome>` deve ser feita **exclusivamente a partir da `main`** (`git pull origin main`). Nunca crie branches `feature/...` ou `fix/...` e nunca faça `git push` ou commits sem confirmação explícita.
+Após gerar o SDD, caso o desenvolvedor ainda esteja em `develop` ou deseje criar a branch específica da tarefa, ofereça criar a branch a partir de `develop` atualizada (`git switch develop && git pull origin develop && git switch -c feat/<nome-da-tarefa>`) e informe que, após revisar o SDD, a implementação pode ser iniciada com `/implementar` (`.agents/skills/implementar/SKILL.md`). Nunca faça `git push` ou commits sem confirmação explícita.

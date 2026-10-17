@@ -25,11 +25,18 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
 ### Skills Operacionais do Fluxo SDD (`.agents/skills/`)
 > **Regra de Subordinação Obrigatória:** Ao executar qualquer uma das skills abaixo, o agente é **obrigado** a carregar e obedecer integralmente à skill canônica **[`principios`](.agents/skills/principios/SKILL.md)** e às suas referências (`Passo 0` bloqueante).
 
-- **[`buscar-tarefa`](.agents/skills/buscar-tarefa/SKILL.md)** (`/buscar-tarefa`): Coleta dados da issue no Jira via `node docs/scripts/jira-fetch.mjs` e estrutura o contexto Git da branch do desenvolvedor (`dev-<nome>`).
+- **[`buscar-tarefa`](.agents/skills/buscar-tarefa/SKILL.md)** (`/buscar-tarefa`): Coleta dados da issue no Jira via `node docs/scripts/jira-fetch.mjs` e estrutura o contexto Gitflow da tarefa (`develop` como base).
 - **[`plano`](.agents/skills/plano/SKILL.md)** (`/plano`): Planeja a tarefa aplicando a Regra da Dúvida e gera o SDD em `docs/plans/<chave-tarefa>-<slug>.html` a partir de `docs/plans/EXEMPLO_PLANO.html`.
+- **[`implementar`](.agents/skills/implementar/SKILL.md)** (`/implementar`): Implementa o plano SDD passo a passo em camadas seguindo rigorosamente a skill `principios`.
 - **[`testar`](.agents/skills/testar/SKILL.md)** (`/testar`): Executa a bateria de testes funcionais (API REST, UI React 19, PostgreSQL 18, RBAC e WCAG 2.2 AA).
-- **[`revisar`](.agents/skills/revisar/SKILL.md)** (`/revisar`): Realiza a revisão automatizada do diff da branch `dev-<nome>` validando camadas, segurança SQL, concorrência, WCAG 2.2 AA e LGPD/SVO.
+- **[`revisar`](.agents/skills/revisar/SKILL.md)** (`/revisar`): Realiza a revisão automatizada do diff da branch da tarefa contra `develop` validando camadas, segurança SQL, concorrência, WCAG 2.2 AA e LGPD/SVO.
 - **[`documentar-modulo`](.agents/skills/documentar-modulo/SKILL.md)** (`/documentar-modulo`): Gera ou atualiza a documentação HTML do módulo em `docs/modulos/<MODULO>.html`.
+
+### Scripts Utilitários de Automação e Economia de Tokens (`docs/scripts/`)
+- **[`jira-fetch.mjs`](docs/scripts/jira-fetch.mjs)**: Coleta issues do Jira (`node docs/scripts/jira-fetch.mjs FROTA-27 --save` ou `--mine`).
+- **[`mapa-codigo.mjs`](docs/scripts/mapa-codigo.mjs)**: Gera snapshot em Markdown de todos os arquivos, símbolos exportados, rotas e tabelas (`node docs/scripts/mapa-codigo.mjs`).
+- **[`gerar-esqueleto.mjs`](docs/scripts/gerar-esqueleto.mjs)**: Cria o esqueleto HTML pré-preenchido com CSS e seções fixas para SDD (`node docs/scripts/gerar-esqueleto.mjs plano FROTA-27`) ou Módulo (`node docs/scripts/gerar-esqueleto.mjs modulo FROTA`).
+- **[`aratu-check.mjs`](docs/scripts/aratu-check.mjs)**: Executa pré-auditoria estática (camadas, SQL `$1`, `SELECT *`, `FOR UPDATE`, `any`, `useId`, foco WCAG), valida Gitflow/Commits e roda testes automatizados (`node docs/scripts/aratu-check.mjs`).
 
 ---
 
@@ -58,13 +65,18 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
 
 ---
 
-## 4. Fluxo Git (Branch por Desenvolvedor) e Commits
+## 4. Fluxo Git (Gitflow) e Commits
 
-- **Branches e Promoção (`dev-<nome>` → `develop` (QA) → `main`):**
-  - Todo o trabalho permanece sempre na branch fixa do desenvolvedor (`dev-<nome>`, ex: `dev-eliakim`, `dev-arthur`). **Não crie branches `feature/...` ou `fix/...` separadas.**
-  - A branch `dev-<nome>` é **somente atualizada a partir da `main`** (`git pull origin main`).
-  - Ao concluir uma entrega, a branch `dev-<nome>` envia um **Pull Request para `develop`**, onde passa pelo **QA** e, após validação, segue da `develop` para a `main`.
-- **Commits:** Padrão Conventional Commits identificando a entrega (`tipo(escopo): descrição curta`):
+- **Branches Principais:**
+  - `main`: Versões estáveis e entregas validadas.
+  - `develop`: Integração das funcionalidades em desenvolvimento.
+- **Branches de Trabalho (criadas a partir de `develop`):**
+  - `feat/<nome-da-tarefa>` ou `feature/<nome-da-tarefa>`: Nova funcionalidade (ex: `feat/controle-sessao-token`, `feature/login`).
+  - `fix/<nome-da-tarefa>`: Correção de defeito (ex: `fix/vehicle-validation`).
+  - `hotfix/<nome-da-tarefa>`: Correção urgente em produção/versão estável.
+  - `release/<versao>`: Preparação de uma entrega.
+  - Fluxo: atualizar `develop` (`git switch develop && git pull origin develop`) → criar branch da tarefa (`git switch -c feat/<nome-da-tarefa>`) → implementar e testar → enviar branch e abrir **Pull Request para `develop`**.
+- **Commits:** Padrão Conventional Commits (`tipo(escopo): descrição curta`):
   - `feat(auth): implementar controle de sessao e token (FROTA-27)`
   - `feat(frota): adicionar cadastro de veiculos`
   - `fix(viagens): corrigir validacao de status`

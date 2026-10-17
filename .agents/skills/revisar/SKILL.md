@@ -27,8 +27,8 @@ A revisão:
 
 `$ARGUMENTS` pode ser:
 - A chave ou URL da tarefa no Jira (ex: `FROTA-27` ou `https://squad24.atlassian.net/browse/FROTA-27`);
-- O nome da branch do desenvolvedor (ex: `dev-eliakim`);
-- Vazio: revisa a branch atual (`git branch --show-current`) contra `develop` (para o PR de QA).
+- O nome da branch da tarefa (ex: `feat/controle-sessao-token` ou `feature/login`);
+- Vazio: revisa a branch atual (`git branch --show-current`) contra `develop`.
 
 ---
 
@@ -61,30 +61,30 @@ A revisão:
 
 ---
 
-### Passo 2 — Calcular o Diff contra `develop` e Ler os Arquivos Tocados
+### Passo 2 — Executar Pré-Auditoria Estática (`aratu-check.mjs`) e Ler o Diff
 
-Execute em paralelo:
-```bash
-git diff --name-only develop...HEAD
-git diff develop...HEAD
-git log develop..HEAD --oneline
-```
-
-Leia integralmente cada arquivo de código alterado em `backend/src/` e `frontend/src/` (ignorando `package-lock.json` e `node_modules/`).
+1. Execute o script de pré-auditoria automatizada (que já valida branch Gitflow, Conventional Commits, estatística do diff contra `develop`, violações estáticas C4–C17, TypeScript e testes automatizados):
+   ```bash
+   node docs/scripts/aratu-check.mjs
+   ```
+2. Inspecione o diff detalhado contra `develop` e leia os arquivos de código alterados em `backend/src/` e `frontend/src/`:
+   ```bash
+   git diff develop...HEAD
+   ```
 
 ---
 
 ### Passo 3 — Revisão Técnica Item a Item
 
-Classifique cada critério como:
+Combine o resultado de `node docs/scripts/aratu-check.mjs` com a análise semântica do código para classificar cada critério como:
 - 🔴 **Bloqueante** — impede o merge; deve ser corrigido.
 - 🟡 **Atenção** — ponto de melhoria ou decisão que requer justificativa.
 - 🟢 **OK** — critério integralmente atendido.
 - ⚪ **N/A** — não aplicável ao escopo do diff.
 
-#### Eixo 1 — Aderência ao Requisito, Escopo e Fluxo Git (`dev-<nome>`)
+#### Eixo 1 — Aderência ao Requisito, Escopo e Fluxo Git (Gitflow)
 - **C1 (Escopo e Tamanho):** O diff contém apenas alterações pertinentes à tarefa? Está abaixo de 400 linhas e separa refatoração estrutural de mudança de comportamento?
-- **C2 (Fluxo Git e Commits):** O trabalho está mantido na branch do desenvolvedor (`dev-<nome>`, atualizada somente a partir da `main`, com PR destinado à `develop` para QA) e os commits seguem Conventional Commits (`tipo(escopo): descrição curta`) identificando a tarefa?
+- **C2 (Fluxo Git e Commits):** A branch da tarefa segue o padrão Gitflow (`feat/<nome-da-tarefa>`, `feature/<nome-da-tarefa>`, `fix/<nome-da-tarefa>` ou `hotfix/<nome-da-tarefa>`), criada a partir de `develop` com PR destinado à `develop`, e os commits seguem Conventional Commits (`tipo(escopo): descrição curta`)?
 - **C3 (Cumprimento do Requisito e SDD):** Todos os requisitos funcionais e casos de borda previstos na tarefa e no plano SDD foram atendidos sem introduzir escopo especulativo (**YAGNI**)?
 
 #### Eixo 2 — Arquitetura em Camadas e Princípios (SOLID / DRY / KISS)
@@ -111,12 +111,12 @@ Classifique cada critério como:
 
 ---
 
-### Passo 4 — Executar Verificações Automatizadas de QA (`docs/manuais/testes.md`)
+### Passo 4 — Executar Verificações Complementares nos Containers Docker (`docs/manuais/testes.md`)
 
-Verifique se os containers estão ativos (`docker compose ps`) ou execute localmente:
+Além da saída de `node docs/scripts/aratu-check.mjs`, caso os containers Docker estejam ativos (`docker compose ps`), execute:
 
 ```bash
-# Backend: compilação TypeScript estrita e testes
+# Backend: compilação TypeScript estrita e testes no container
 docker compose exec backend npx tsc --noEmit
 docker compose exec backend npm test
 
