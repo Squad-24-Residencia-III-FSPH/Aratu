@@ -20,7 +20,7 @@ Obtém o contexto da tarefa (plano SDD em `docs/plans/` ou dados do Jira via `.a
 
 `$ARGUMENTS` pode ser:
 - A chave ou URL da tarefa no Jira (ex: `FROTA-27` ou `https://squad24.atlassian.net/browse/FROTA-27`);
-- O nome da branch do desenvolvedor (ex: `dev-eliakim`);
+- O nome da branch da tarefa (ex: `feat/controle-sessao-token` ou `feature/login`);
 - Vazio: utiliza a branch atual (`git branch --show-current`).
 
 ---
@@ -33,12 +33,11 @@ Obtém o contexto da tarefa (plano SDD em `docs/plans/` ou dados do Jira via `.a
 
 ---
 
-### Passo 1 — Levantar Contexto, Plano SDD e Diff Real
+### Passo 1 — Levantar Contexto, Plano SDD e Rodar Suíte Automatizada (`aratu-check.mjs`)
 
-1. Identifique a branch atual e os arquivos alterados em relação à `develop`:
+1. Execute o verificador estático e a suíte de testes automatizados nativos (`node --test`):
    ```bash
-   git branch --show-current
-   git diff --name-only develop...HEAD
+   node docs/scripts/aratu-check.mjs
    ```
 2. Se existir plano técnico em `docs/plans/<nome-do-plano>.html`, leia as seções **2 (Requisitos)**, **5 (Contratos REST)**, **6 (Front-end e 5 Estados Visuais)**, **7 (Acessibilidade WCAG 2.2 AA)** e **9 (Casos de Teste)**.
 3. Caso não haja plano local e tenha sido informada uma chave do Jira, execute `.agents/skills/buscar-tarefa/SKILL.md`.

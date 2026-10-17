@@ -3,11 +3,11 @@ name: buscar-tarefa
 description: >
   Coleta e estrutura todos os dados de uma tarefa ou história de usuário do Jira
   (via API REST v3 com docs/scripts/jira-fetch.mjs) ou do contexto local da
-  branch do desenvolvedor para o Sistema Aratu (Squad 24 — FSPH / SVO). Use
+  branch da tarefa para o Sistema Aratu (Squad 24 — FSPH / SVO). Use
   quando o usuário pedir para buscar, consultar ou listar tarefas do Jira
   (/buscar-tarefa), informar uma chave ou URL de issue (ex: FROTA-27 ou
   https://squad24.atlassian.net/browse/FROTA-27) ou como etapa inicial das
-  skills plano, revisar e testar.
+  skills plano, implementar, revisar e testar.
 argument-hint: "[chave ou URL da issue no Jira, ex: FROTA-27 ou https://squad24.atlassian.net/browse/FROTA-27]"
 license: MIT
 ---
@@ -16,7 +16,7 @@ license: MIT
 
 Sub-skill utilitária da **Squad 24** para buscar e estruturar todos os dados de uma issue/história de usuário do **Jira** (`https://squad24.atlassian.net/browse/FROTA-<ID>`) ou consolidar o contexto local da branch no **Sistema Aratu**.
 
-Pode ser invocada diretamente (`/buscar-tarefa`) ou chamada pelas skills `plano` (`.agents/skills/plano/SKILL.md`), `revisar` (`.agents/skills/revisar/SKILL.md`) e `testar` (`.agents/skills/testar/SKILL.md`).
+Pode ser invocada diretamente (`/buscar-tarefa`) ou chamada pelas skills `plano` (`.agents/skills/plano/SKILL.md`), `implementar` (`.agents/skills/implementar/SKILL.md`), `revisar` (`.agents/skills/revisar/SKILL.md`) e `testar` (`.agents/skills/testar/SKILL.md`).
 
 ---
 
@@ -44,7 +44,7 @@ JIRA_API_TOKEN="seu-token-jira"
 `$ARGUMENTS` pode ser:
 - A URL completa da tarefa no Jira (ex: `https://squad24.atlassian.net/browse/FROTA-27`), a chave (`FROTA-27`) ou apenas o número (`27`);
 - `--mine` / `--list`: para listar todas as tarefas abertas atribuídas ao desenvolvedor no projeto `FROTA` do Jira;
-- Vazio: a skill verifica a branch atual do desenvolvedor (`git branch --show-current`, ex: `dev-eliakim`) e consulta o desenvolvedor caso a chave do Jira não tenha sido informada.
+- Vazio: a skill verifica a branch atual (`git branch --show-current`, ex: `feat/controle-sessao-token` ou `feature/login`) e consulta o desenvolvedor caso a chave do Jira não tenha sido informada.
 
 ---
 
@@ -117,9 +117,10 @@ Apresente a saída padronizada abaixo (utilizada pelas skills `plano`, `revisar`
 ### Comentários e Observações Relevantes
 {lista de comentários ou "- (nenhum)"}
 
-### Situação no Git (`dev-<nome>` → `develop` (QA) → `main`)
-- **Branch atual do desenvolvedor:** `{branch_atual (ex: dev-eliakim)}` (atualizada somente via `main`)
-- **Fluxo de entrega:** `dev-<nome>` → PR para `develop` (QA) → `main`
+### Situação no Git (Gitflow)
+- **Branch base:** `develop`
+- **Branch atual:** `{branch_atual}`
+- **Branch sugerida para a tarefa:** `{feat/<nome-da-tarefa> | feature/<nome-da-tarefa> | fix/<nome-da-tarefa>}`
 - **Sugestão de Commit:** `{tipo(escopo): descrição curta (FROTA-XX)}`
 - **Plano SDD (`docs/plans/<chave-tarefa>-<slug>.html`):** `{encontrado | ainda não gerado}`
 ```

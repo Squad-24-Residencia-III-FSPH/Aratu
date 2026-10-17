@@ -9,22 +9,23 @@ em total conformidade com o processo da Squad 24 no projeto Aratu.
 
 ---
 
-## O Fluxo de Trabalho do Projeto Aratu
+## O Fluxo de Trabalho do Projeto Aratu (Gitflow)
 
-O projeto adota **Branch por Desenvolvedor (`dev-<nome>`)**, estágio de **QA em `develop`**, **Conventional Commits** e Pull Requests estruturados:
+O projeto adota **Gitflow** (conforme `README.md`), **Conventional Commits** e Pull Requests estruturados:
 
-1. **Branch de trabalho fixa por desenvolvedor (`dev-<nome>`):**
-   - Cada desenvolvedor trabalha continuamente em sua própria branch (ex: `dev-eliakim`, `dev-arthur`). **Não se criam branches `feature/...` ou `fix/...` separadas.**
-   - A branch `dev-<nome>` é **somente atualizada a partir da `main`** (`git pull origin main`).
-2. **Rastreabilidade por Commit (Conventional Commits):**
-   - O que diferencia cada tarefa entregue na branch `dev-<nome>` é a mensagem do commit: `tipo(escopo): descrição curta (FROTA-XX)`
+1. **Branches Principais:**
+   - `main`: Versões estáveis e entregas validadas.
+   - `develop`: Integração das funcionalidades em desenvolvimento.
+2. **Branches de Trabalho (por tarefa, criadas a partir de `develop`):**
+   - `feat/<nome-da-tarefa>` ou `feature/<nome-da-tarefa>`: Nova funcionalidade (ex: `feat/controle-sessao-token`, `feature/login`).
+   - `fix/<nome-da-tarefa>`: Correção de defeito (ex: `fix/vehicle-validation`).
+   - `hotfix/<nome-da-tarefa>`: Correção urgente em produção/versão estável.
+   - `release/<versao>`: Preparação de uma entrega.
+3. **Padrão de Commits (Conventional Commits):**
+   - Formato: `tipo(escopo): descrição curta (FROTA-XX)`
    - Tipos: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `style`.
    - Exemplos: `feat(auth): implementar controle de sessao e token (FROTA-27)`, `feat(frota): adicionar cadastro de veiculos`, `fix(viagens): corrigir validacao de status`.
-3. **Promoção e QA (`dev-<nome>` → `develop` → `main`):**
-   - A branch `dev-<nome>` abre Pull Request para a `develop` (`dev-<nome>` → `develop`).
-   - Na `develop`, a entrega passa pelo **QA (Homologação)**.
-   - Após aprovação do QA, a `develop` segue via PR para a `main` (`develop` → `main`).
-4. **Estrutura do Pull Request (`dev-<nome>` → `develop`):**
+4. **Estrutura do Pull Request (`<branch-da-tarefa>` → `develop`):**
    - Título claro e objetivo;
    - Descrição da tarefa / história de usuário atendida;
    - Explicação técnica do que foi implementado;

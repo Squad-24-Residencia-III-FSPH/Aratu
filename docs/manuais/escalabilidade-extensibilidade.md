@@ -183,7 +183,7 @@ Quando a FSPH ou o SVO demandar uma nova frente de trabalho (ex: módulo `ABASTE
                                                                     │
                                                                     ▼
 7. Pull Request & QA     ◄── 6. Documentação HTML   ◄── 4. Telas React 19 (UI)
-   (dev-<nome> -> develop      (docs/modulos/<CHAVE>.html  (5 Estados Visuais +
+   (feat/<tarefa> -> develop   (docs/modulos/<CHAVE>.html  (5 Estados Visuais +
     após /revisar)              via /documentar-modulo)     WCAG 2.2 AA)
                                         ▲
                                         │
@@ -195,6 +195,7 @@ Quando a FSPH ou o SVO demandar uma nova frente de trabalho (ex: módulo `ABASTE
 #### Passo 1 — Mapeamento no Índice e Planejamento SDD
 1. Adicione a chave do novo módulo em [`docs/manuais/modulos.md`](modulos.md) com sua descrição e entidades principais.
 2. Execute o comando `/plano <CHAVE_TAREFA>` para gerar o Plano Técnico em `docs/plans/<chave-tarefa>-<slug>.html`.
+3. Após aprovar o SDD, execute `/implementar` para codificar os passos 2 a 4 em conformidade estrita com a skill `principios`.
 
 #### Passo 2 — Banco de Dados e Migrações (PostgreSQL 18)
 1. Crie a migration em bloco transacional com rollback testado:
@@ -240,9 +241,9 @@ Quando a FSPH ou o SVO demandar uma nova frente de trabalho (ex: módulo `ABASTE
 1. Execute `/documentar-modulo <CHAVE_MODULO>` para gerar o arquivo autocontido `docs/modulos/<CHAVE_MODULO>.html` a partir de `docs/modulos/EXEMPLO_MODULO.html`.
 
 #### Passo 7 — Revisão Automatizada e Pull Request (`/revisar`)
-1. Mantenha as alterações na branch fixa `dev-<nome>`.
+1. Crie e mantenha as alterações na branch da tarefa a partir de `develop` (`feat/<nome-da-tarefa>` ou `feature/<nome-da-tarefa>`).
 2. Execute `/revisar` para auditar conformidade de camadas, SQL injection, WCAG 2.2 AA e ausência de dados pessoais.
-3. Abra o Pull Request para `develop` (onde passará pela homologação do **QA** antes da promoção para a `main`).
+3. Abra o Pull Request para `develop`.
 
 ---
 

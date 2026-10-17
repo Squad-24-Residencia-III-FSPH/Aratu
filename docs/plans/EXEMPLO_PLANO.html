@@ -77,7 +77,7 @@
 
 <div class="meta-block">
   <p><strong>Tarefa / História:</strong> <code>[ID_TAREFA]</code> — [Descrição curta da demanda]</p>
-  <p><strong>Branch (Fixa por Desenvolvedor):</strong> <code>dev-&lt;nome&gt;</code> (atualizada somente via <code>main</code> → PR para <code>develop</code> [QA] → <code>main</code>)</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
   <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
   <p><strong>Módulo:</strong> <code>&lt;FROTA | VIAGENS | SVO | MOTORISTAS | MANUTENCOES | AUTENTICACAO_RBAC&gt;</code></p>
   <p><strong>Perfis RBAC Impactados:</strong> <code>&lt;ADMIN | GESTOR_FROTA | SOLICITANTE | MOTORISTA | OPERADOR_SVO&gt;</code></p>
@@ -381,7 +381,7 @@ COMMIT;</code></pre>
 <h2 id="s10">10. Checklist Pré-PR</h2>
 
 <ul class="check">
-  <li><input type="checkbox"> Trabalho mantido na branch do desenvolvedor (<code>dev-&lt;nome&gt;</code>), atualizada somente a partir da <code>main</code> (<code>git pull origin main</code>), com PR direcionado para <code>develop</code> (QA)</li>
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
   <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-XX)</code>)</li>
   <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
   <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico conforme <code>docs/manuais/padroes-docblocks.md</code></li>
