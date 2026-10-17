@@ -9,15 +9,16 @@ Este documento define as diretrizes de desenvolvimento de interface, componentes
 Toda tela do Aratu é desenhada a partir da rotina operacional real dos profissionais da **FSPH** e do **SVO**, e nunca como um espelho direto das colunas do banco de dados:
 
 1. **Identifique o perfil e o contexto de uso:**
-   - **Motorista (campo/pátio):** utiliza smartphone ou tablet sob sol forte ou à noite. Exige alvos de toque de no mínimo **44×44px**, alto contraste e formulários diretos.
-   - **Gestor de Frota (central):** utiliza desktop com teclado e mouse. Exige tabelas semânticas densas, filtros rápidos e visão clara de disponibilidade.
-   - **Equipe SVO (plantão/acolhimento):** lida com situações sensíveis de verificação de óbito e liberação de corpos. Exige máxima prevenção de erros, confirmações explícitas e sigilo visual.
-   - **Solicitante FSPH (setores/unidades):** uso esporádico. Exige telas autoexplicativas, instruções de preenchimento claras e acompanhamento simples do pedido.
+   - **Motorista (`DRIVER` — campo/pátio):** utiliza smartphone ou tablet sob sol forte ou à noite. Exige alvos de toque de no mínimo **44×44px**, alto contraste e formulários diretos.
+   - **Gestor de Frota (`MANAGER` — central):** utiliza desktop com teclado e mouse. Exige tabelas semânticas densas, filtros rápidos e visão clara de disponibilidade.
+   - **Operador / Equipe SVO (`OPERATOR` / `TRIAGE` — plantão/acolhimento):** lida com situações sensíveis de verificação de óbito e liberação de corpos. Exige máxima prevenção de erros, confirmações explícitas e sigilo visual.
+   - **Solicitante FSPH (`REQUESTER` — setores/unidades):** uso esporádico. Exige telas autoexplicativas, instruções de preenchimento claras e acompanhamento simples do pedido.
 
 ---
 
 ## 2. Organização e Reuso de Componentes (`frontend/src/`)
 
+- **Código em inglês, textos de tela em português:** componentes, props, hooks, estados e rotas (`/vehicles`, `/trips`, `/requests`) são escritos em **inglês**, enquanto rótulos, mensagens e textos visíveis para o usuário são exibidos em **português (PT-BR)**.
 - **Componente reutilizável antes de marcação avulsa (DRY na interface):**
   - Controles base ficam em `frontend/src/components/ui/` (`Button`, `TextInput`, `SelectField`, `Modal`, `StatusBadge`, `DataTable`).
   - Telas completas ficam em `frontend/src/pages/`.
@@ -38,7 +39,7 @@ import { useId } from 'react';
 interface TextInputProps {
   label: string;
   value: string;
-  onChange: (valor: string) => void;
+  onChange: (value: string) => void;
   error?: string;
   helperText?: string;
   required?: boolean;
@@ -94,8 +95,8 @@ export function TextInput({
   ```tsx
   <button
     type="button"
-    aria-label={`Visualizar detalhes da viagem #${viagem.protocolo} para ${viagem.destino}`}
-    onClick={() => onVisualizar(viagem.id)}
+    aria-label={`Visualizar detalhes da solicitação #${request.id} para ${request.destination}`}
+    onClick={() => onViewDetails(request.id)}
   >
     <EyeIcon aria-hidden="true" />
   </button>
@@ -104,7 +105,7 @@ export function TextInput({
 
 ### 3.3 Badges de Status (`StatusBadge`)
 
-- O status de veículos (`Disponível`, `Em Viagem`, `Manutenção`) ou de solicitações (`Pendente`, `Aprovada`, `Em Andamento`, `Concluída`, `Cancelada`) **nunca deve depender apenas de cor**. Utilize sempre texto explícito + ícone auxiliar + contraste mínimo de 4.5:1.
+- Os estados vindos da API em inglês (`'PLANNED'`, `'IN_PROGRESS'`, `'COMPLETED'`, `'CANCELED'`, `'SUBMITTED'`, `'APPROVED'`) são traduzidos para português na camada de apresentação (`Planejada`, `Em Andamento`, `Concluída`, `Cancelada`, `Enviada`, `Aprovada`) e **nunca devem depender apenas de cor**. Utilize sempre texto explícito + ícone auxiliar + contraste mínimo de 4.5:1.
 
 ---
 
@@ -135,4 +136,3 @@ Toda tela ou listagem que consome dados assíncronos da API deve implementar exp
 
 A interface adota formalmente os padrões **Custom Hooks** (para isolamento de efeitos assíncronos e I/O de rede) e **Compound Components** (para componentes visuais acessíveis e compostos com Context). Consulte os exemplos em:
 👉 **[`docs/manuais/padroes-projeto.md`](padroes-projeto.md)**
-

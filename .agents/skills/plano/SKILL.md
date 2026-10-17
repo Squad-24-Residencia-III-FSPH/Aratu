@@ -81,8 +81,8 @@ Coleta o contexto de uma tarefa (via Jira / `.agents/skills/buscar-tarefa/SKILL.
 > **É terminantemente proibido assumir premissas.** Frases mentais como *"provavelmente"*, *"imagino que"*, *"deve ser"* ou *"por padrão"* indicam lacuna de requisito.
 
 Verifique se há qualquer ambiguidade nos seguintes pontos:
-- **Escopo de Impacto e RBAC:** está claro quais dos 5 perfis (`ADMIN`, `GESTOR_FROTA`, `SOLICITANTE`, `MOTORISTA`, `OPERADOR_SVO`) podem ver ou executar a ação?
-- **Regras de Domínio e Transições de Status:** o comportamento em caso de conflito de horário, CNH vencida, veículo em manutenção ou cancelamento está 100% definido?
+- **Escopo de Impacto e RBAC:** está claro quais perfis (`ADMIN`, `MANAGER`, `OPERATOR`, `REQUESTER`, `TRIAGE`, `DRIVER`) podem ver ou executar a ação?
+- **Regras de Domínio e Transições de Estado:** o comportamento em caso de conflito de horário, capacidade de veículo, triagem obrigatória ou cancelamento está 100% definido?
 - **Compatibilidade de Dados e Contratos:** se alterar tabela ou endpoint existente, o que acontece com os registros já gravados no PostgreSQL 18?
 - **UX e Fluxo Operacional:** a ordem dos passos, as confirmações de ações destrutivas e os campos obrigatórios estão claros?
 
@@ -100,9 +100,9 @@ Se houver **qualquer dúvida**, interrompa e pergunte objetivamente ao usuário 
 
 1. **Contexto, Objetivo e Escopo** (objetivo no domínio FSPH/SVO, delimitação YAGNI e decisões confirmadas pela Regra da Dúvida);
 2. **Requisitos e Regras de Negócio (Casos de Borda)** (cenários *Dado / Quando / Então*, requisitos funcionais e não-funcionais);
-3. **Estrutura de Arquivos** (novos arquivos, arquivos alterados e referências em `backend/src/` e `frontend/src/`);
-4. **Banco de Dados e Migrações (PostgreSQL 18)** (DDL transacional `BEGIN ... COMMIT`, `snake_case` plural, `ON DELETE RESTRICT`, índices sargáveis e **Plano de Rollback obrigatório**);
-5. **Back-end — Contratos REST e Detalhamento por Arquivo** (tabela de endpoints, status HTTP, `Types/DTOs`, `Repository` com `$1, $2` e `SELECT ... FOR UPDATE`, `Service` puro sem Express e `Controller`);
+3. **Estrutura de Arquivos** (novos arquivos e arquivos alterados com nomes em inglês em `backend/src/` e `frontend/src/`);
+4. **Banco de Dados e Migrações (PostgreSQL 18)** (DDL transacional `BEGIN ... COMMIT`, padrão de prefixo de 3 letras em inglês `<pre>_<singular_entity>`, PK `<pre>_id`, FKs `<ref_pre>_id` com `ON DELETE RESTRICT`, índices `<pre>_<name>` sem `idx_`/`uq_` e **Plano de Rollback obrigatório**);
+5. **Back-end — Contratos REST e Detalhamento por Arquivo** (tabela de endpoints em inglês, status HTTP, `Types/DTOs` em inglês, `Repository` com `$1, $2`, `<pre>_id AS id` e `SELECT ... FOR UPDATE`, `Service` puro sem Express e `Controller`);
 6. **Front-end — Telas, Componentes React 19 e Estados Visuais** (reuso de `components/ui/` e tratamento explícito dos **5 estados visuais**: *Ideal*, *Carregando*, *Vazio*, *Erro*, *Parcial*);
 7. **Acessibilidade (WCAG 2.2 Nível AA)** *(pré-preenchida pelo script — complemente com especificidades da tela)*;
 8. **Escopo de Impacto, RBAC e Configuração**;

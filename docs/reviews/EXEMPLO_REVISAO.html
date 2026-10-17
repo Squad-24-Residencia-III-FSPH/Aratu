@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — [ID_TAREFA]: [Título da Tarefa] (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — [ID_TAREFA]</h1>
+
+<div class="notice-block">
+  <strong>Arquivo de Exemplo / Template (Sistema Aratu):</strong> Este documento define o padrão oficial de Relatório de Revisão Automatizada (<code>/revisar</code>) da <strong>Squad 24</strong> para o <strong>Sistema Aratu — Gestão de Frota e Operações (FSPH &amp; SVO)</strong>. Ao revisar uma tarefa real, gere <code>docs/reviews/&lt;chave-tarefa&gt;-&lt;slug&gt;.html</code> via <code>node docs/scripts/gerar-esqueleto.mjs revisao &lt;CHAVE&gt;</code>.
+</div>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>[ID_TAREFA]</code> — [Descrição curta da entrega]</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/&lt;nome-da-tarefa&gt;</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/&lt;chave-tarefa&gt;-&lt;slug&gt;.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>&lt;FROTA | VIAGENS | SVO | MOTORISTAS | MANUTENCOES | AUTENTICACAO_RBAC&gt;</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>&lt;ADMIN | MANAGER | OPERATOR | REQUESTER | TRIAGE | DRIVER&gt;</code></p>
+  <p><strong>Data da Revisão:</strong> YYYY-MM-DD</p>
+</div>
+
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA (ou use a classe .verdict-blocked para BLOQUEADO_POR_PENDENCIAS)
+</div>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">0</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">17</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">0</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<p>Síntese dos arquivos criados/modificados na branch da tarefa em relação à <code>develop</code>:</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/services/&lt;entity&gt;.service.ts</code></td>
+      <td>Service</td>
+      <td>Novo / Modificado</td>
+      <td>Implementação das regras de negócio puras em inglês com TSDoc em português</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/&lt;entity&gt;.repository.ts</code></td>
+      <td>Repository</td>
+      <td>Novo / Modificado</td>
+      <td>Consultas parametrizadas (<code>$1, $2</code>) mapeando <code>&lt;pre&gt;_id AS id</code> e trava <code>FOR UPDATE</code></td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/&lt;PageName&gt;Page.tsx</code></td>
+      <td>Page (React 19)</td>
+      <td>Novo / Modificado</td>
+      <td>Tela operacional com os 5 estados visuais e acessibilidade WCAG 2.2 AA</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>C1</code></td>
+      <td>Escopo focado (comportamento <em>ou</em> estrutura) e tamanho do diff (&lt; 400 linhas)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Diff enxuto e restrito aos arquivos previstos no SDD.</td>
+    </tr>
+    <tr>
+      <td><code>C2</code></td>
+      <td>Fluxo Gitflow (branch a partir de <code>develop</code>) e Conventional Commits</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Branch e mensagens de commit em conformidade com o padrão da Squad 24.</td>
+    </tr>
+    <tr>
+      <td><code>C3</code></td>
+      <td>Cumprimento integral do SDD e ausência de escopo especulativo (YAGNI)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Todos os cenários do plano foram atendidos sem código especulativo.</td>
+    </tr>
+    <tr>
+      <td><code>C4</code></td>
+      <td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Zero SQL fora de <code>repositories/</code> e zero objetos HTTP dentro de <code>services/</code>.</td>
+    </tr>
+    <tr>
+      <td><code>C5</code></td>
+      <td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e chamadas via <code>services/</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Componentes compartilhados reutilizados (DRY) e <code>fetch</code> centralizado.</td>
+    </tr>
+    <tr>
+      <td><code>C6</code></td>
+      <td>Ausência de ciclos de importação e de feature flags não autorizadas</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Grafo de importação unidirecional.</td>
+    </tr>
+    <tr>
+      <td><code>C7</code></td>
+      <td>Prevenção de SQL Injection (100% queries parametrizadas com <code>$1, $2</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Nenhuma interpolação de variável em string SQL.</td>
+    </tr>
+    <tr>
+      <td><code>C8</code></td>
+      <td>Projeção SQL explícita (proibido <code>SELECT *</code>, mapeando <code>&lt;pre&gt;_id AS id</code>) e filtros sargáveis</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Colunas explícitas com alias <code>camelCase</code> sem vazar prefixo SQL.</td>
+    </tr>
+    <tr>
+      <td><code>C9</code></td>
+      <td>Transações atômicas (<code>BEGIN/COMMIT/ROLLBACK</code>), <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Controle de concorrência e devolução segura de conexão ao pool.</td>
+    </tr>
+    <tr>
+      <td><code>C10</code></td>
+      <td>Padrão SQL PostgreSQL 18 (prefixo de 3 letras <code>&lt;pre&gt;_&lt;entity&gt;</code>, PK <code>&lt;pre&gt;_id</code>, índices sem <code>idx_</code>/<code>uq_</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Nomenclatura alinhada ao modelo canônico em inglês.</td>
+    </tr>
+    <tr>
+      <td><code>C11</code></td>
+      <td>Autorização RBAC validada no middleware do Backend (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Permissões verificadas no servidor e refletidas na UI.</td>
+    </tr>
+    <tr>
+      <td><code>C12</code></td>
+      <td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais ou segredos hardcoded</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Apenas dados 100% sintéticos nos testes e exemplos.</td>
+    </tr>
+    <tr>
+      <td><code>C13</code></td>
+      <td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Contratos de entrada e saída explicitamente tipados.</td>
+    </tr>
+    <tr>
+      <td><code>C14</code></td>
+      <td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Identificadores em inglês e documentação TSDoc semântica em português.</td>
+    </tr>
+    <tr>
+      <td><code>C15</code></td>
+      <td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Todos os estados assíncronos tratados na tela React 19.</td>
+    </tr>
+    <tr>
+      <td><code>C16</code></td>
+      <td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Associação programática completa em todos os campos.</td>
+    </tr>
+    <tr>
+      <td><code>C17</code></td>
+      <td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Conformidade integral com a WCAG 2.2 Nível AA.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado nesta revisão. (Caso existam, liste arquivo:linha, critério violado, impacto operacional na FSPH/SVO e correção recomendada).</em></p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<p><em>Nenhum item de atenção identificado.</em></p>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática e Regras Aratu</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 bloqueantes)</span></td>
+    </tr>
+    <tr>
+      <td>TypeScript Backend</td>
+      <td><code>npx tsc --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Passou</span></td>
+    </tr>
+    <tr>
+      <td>TypeScript + Build Frontend</td>
+      <td><code>npm run lint &amp;&amp; npm run build</code></td>
+      <td><span class="badge-ok">🟢 Passou</span></td>
+    </tr>
+    <tr>
+      <td>Testes Automatizados</td>
+      <td><code>npm test</code></td>
+      <td><span class="badge-ok">🟢 Passou</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul class="check">
+  <li><input type="checkbox"> Validar funcionalmente a regra de negócio no navegador (<code>http://localhost:5173</code>) com os perfis RBAC impactados.</li>
+  <li><input type="checkbox"> Confirmar a navegação por teclado (<code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Esc</code>) e a leitura visual das mensagens de erro em português.</li>
+  <li><input type="checkbox"> Conferir se a documentação do módulo em <code>docs/modulos/&lt;MODULO&gt;.html</code> reflete as alterações desta branch antes de aprovar o Pull Request para <code>develop</code>.</li>
+</ul>
+
+</body>
+</html>

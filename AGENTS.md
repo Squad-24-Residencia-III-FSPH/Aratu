@@ -29,13 +29,13 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
 - **[`plano`](.agents/skills/plano/SKILL.md)** (`/plano`): Planeja a tarefa aplicando a Regra da Dúvida e gera o SDD em `docs/plans/<chave-tarefa>-<slug>.html` a partir de `docs/plans/EXEMPLO_PLANO.html`.
 - **[`implementar`](.agents/skills/implementar/SKILL.md)** (`/implementar`): Implementa o plano SDD passo a passo em camadas seguindo rigorosamente a skill `principios`.
 - **[`testar`](.agents/skills/testar/SKILL.md)** (`/testar`): Executa a bateria de testes funcionais (API REST, UI React 19, PostgreSQL 18, RBAC e WCAG 2.2 AA).
-- **[`revisar`](.agents/skills/revisar/SKILL.md)** (`/revisar`): Realiza a revisão automatizada do diff da branch da tarefa contra `develop` validando camadas, segurança SQL, concorrência, WCAG 2.2 AA e LGPD/SVO.
+- **[`revisar`](.agents/skills/revisar/SKILL.md)** (`/revisar`): Realiza a revisão automatizada do diff da branch da tarefa contra `develop` validando camadas, segurança SQL, concorrência, WCAG 2.2 AA e LGPD/SVO, e gera o relatório visual em `docs/reviews/<chave-tarefa>-<slug>.html` a partir de `docs/reviews/EXEMPLO_REVISAO.html`.
 - **[`documentar-modulo`](.agents/skills/documentar-modulo/SKILL.md)** (`/documentar-modulo`): Gera ou atualiza a documentação HTML do módulo em `docs/modulos/<MODULO>.html`.
 
 ### Scripts Utilitários de Automação e Economia de Tokens (`docs/scripts/`)
 - **[`jira-fetch.mjs`](docs/scripts/jira-fetch.mjs)**: Coleta issues do Jira (`node docs/scripts/jira-fetch.mjs FROTA-27 --save` ou `--mine`).
 - **[`mapa-codigo.mjs`](docs/scripts/mapa-codigo.mjs)**: Gera snapshot em Markdown de todos os arquivos, símbolos exportados, rotas e tabelas (`node docs/scripts/mapa-codigo.mjs`).
-- **[`gerar-esqueleto.mjs`](docs/scripts/gerar-esqueleto.mjs)**: Cria o esqueleto HTML pré-preenchido com CSS e seções fixas para SDD (`node docs/scripts/gerar-esqueleto.mjs plano FROTA-27`) ou Módulo (`node docs/scripts/gerar-esqueleto.mjs modulo FROTA`).
+- **[`gerar-esqueleto.mjs`](docs/scripts/gerar-esqueleto.mjs)**: Cria o esqueleto HTML pré-preenchido com CSS e seções fixas para SDD (`node docs/scripts/gerar-esqueleto.mjs plano FROTA-27`), Revisão (`node docs/scripts/gerar-esqueleto.mjs revisao FROTA-27`) ou Módulo (`node docs/scripts/gerar-esqueleto.mjs modulo FROTA`).
 - **[`aratu-check.mjs`](docs/scripts/aratu-check.mjs)**: Executa pré-auditoria estática (camadas, SQL `$1`, `SELECT *`, `FOR UPDATE`, `any`, `useId`, foco WCAG), valida Gitflow/Commits e roda testes automatizados (`node docs/scripts/aratu-check.mjs`).
 
 ---

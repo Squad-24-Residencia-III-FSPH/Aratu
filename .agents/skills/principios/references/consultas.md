@@ -37,37 +37,35 @@ envolvidas em funções ou transformações:
 
   | Em vez de | Escreva |
   |---|---|
-  | `DATE(data_viagem) = '2026-05-10'` | `data_viagem >= '2026-05-10T00:00:00Z' AND data_viagem < '2026-05-11T00:00:00Z'` |
-  | `EXTRACT(YEAR FROM data_saida) = 2026` | `data_saida >= '2026-01-01' AND data_saida < '2027-01-01'` |
-  | `LOWER(placa) = 'abc1234'` | `placa = 'ABC1234'` (armazene normalizado em maiúsculo) |
-  | `status || tipo = 'aberto_urgente'` | `status = 'aberto' AND tipo = 'urgente'` |
+  | `DATE(trp_planned_departure) = '2026-05-10'` | `trp_planned_departure >= '2026-05-10T00:00:00Z' AND trp_planned_departure < '2026-05-11T00:00:00Z'` |
+  | `EXTRACT(YEAR FROM req_created_at) = 2026` | `req_created_at >= '2026-01-01' AND req_created_at < '2027-01-01'` |
+  | `LOWER(veh_identification) = 'vtr-01'` | `veh_identification = 'VTR-01'` (armazene normalizado) |
+  | `req_state || req_category = 'SUBMITTED_BODY'` | `req_state = 'SUBMITTED' AND req_category = 'BODY'` |
 
   Períodos contínuos devem ser expressos como intervalos semiabertos (`>=` início e `<` fim).
 - **Tipagem estrita no PostgreSQL:**
-  O PostgreSQL não converte strings para inteiros silenciosamente. Comparar `id = '42'`
-  quando `id` é numérico ou UUID pode exigir cast ou gerar erro de tipo. Passe os tipos
+  O PostgreSQL não converte strings para inteiros silenciosamente. Passe os tipos
   corretos nos parâmetros do `pg`.
 - **Busca por texto com `LIKE`:**
-  `placa LIKE 'ABC%'` aproveita o índice B-tree padrão (com suporte a text_pattern_ops).
-  `destino LIKE '%Centro%'` (curinga à esquerda) faz varredura completa (`Seq Scan`), a
+  `veh_identification LIKE 'VTR%'` aproveita o índice B-tree padrão (com suporte a `text_pattern_ops`).
+  `req_destination LIKE '%Centro%'` (curinga à esquerda) faz varredura completa (`Seq Scan`), a
   menos que se utilize a extensão `pg_trgm` com índice GIN.
 
 ---
 
-## Traga só o necessário
+## Traga só o necessário e mapeie para `camelCase` sem prefixo
 
-- **Colunas nomeadas, nunca `SELECT *`:**
-  O `*` trafega dados desnecessários pela rede, impede o uso de *Index Only Scan*
-  e quebra contratos se a tabela ganhar colunas novas.
+- **Colunas nomeadas com alias `<pre>_id AS id`, nunca `SELECT *`:**
+  O `*` trafega dados desnecessários pela rede, vaza o prefixo SQL de 3 letras para o JSON, impede o uso de *Index Only Scan* e quebra contratos se a tabela ganhar colunas novas.
 - **Filtre no banco, não na memória do Node.js:**
-  Nunca faça `SELECT` de todas as viagens para filtrar por status com `.filter()`
+  Nunca faça `SELECT` de todas as viagens para filtrar por estado com `.filter()`
   no JavaScript. O banco é infinitamente mais rápido para filtrar e ordenar.
 - **Evite o problema do N+1:**
   Buscar uma lista de 50 viagens e, para cada uma, disparar uma query individual
   para buscar o motorista e o veículo gera 101 idas ao banco.
-  - Faça `JOIN` diretamente no SQL;
+  - Faça `JOIN` diretamente no SQL (ex: `FROM trp_trip JOIN veh_vehicle USING (veh_id) JOIN drv_driver USING (drv_id)`);
   - Ou agregue dados filhos em formato JSON nativo no PostgreSQL usando
-    `json_build_object` e `json_agg`.
+    `jsonb_build_object` e `jsonb_agg`.
 
 ---
 
@@ -79,13 +77,16 @@ envolvidas em funções ou transformações:
 - **Keyset Pagination (Busca pela última linha vista):**
   No PostgreSQL, a comparação de tuplas em índices é nativa e eficiente:
   ```sql
-  SELECT id, data_solicitacao, status
-  FROM solicitacoes_viagem
-  WHERE (data_solicitacao, id) < ($1, $2)
-  ORDER BY data_solicitacao DESC, id DESC
+  SELECT
+    req_id AS id,
+    req_created_at AS "createdAt",
+    req_state AS state
+  FROM req_request
+  WHERE (req_created_at, req_id) < ($1, $2)
+  ORDER BY req_created_at DESC, req_id DESC
   LIMIT 20;
   ```
-  Isso aproveita diretamente o índice composto `(data_solicitacao DESC, id DESC)`.
+  Isso aproveita diretamente o índice composto `(req_created_at DESC, req_id DESC)`.
 
 ---
 
@@ -97,26 +98,32 @@ envolvidas em funções ou transformações:
 - **Padrão correto:**
   ```typescript
   const query = `
-    SELECT id, placa, modelo, status
-    FROM veiculos
-    WHERE status = $1 AND capacidade >= $2
-    ORDER BY modelo ASC;
+    SELECT
+      veh_id AS id,
+      veh_identification AS identification,
+      veh_seats AS seats,
+      veh_active AS active
+    FROM veh_vehicle
+    WHERE veh_active = $1 AND veh_seats >= $2
+    ORDER BY veh_identification ASC;
   `;
-  const result = await pool.query(query, [status, capacidadeMinima]);
+  const result = await pool.query(query, [true, minSeats]);
   ```
 
-### 2. Índices Estratégicos para o Domínio Aratu
-- **Chaves estrangeiras:** Toda coluna FK (`veiculo_id`, `motorista_id`, `solicitante_id`)
-  deve possuir índice B-tree para garantir `JOINs` rápidos e integridade referencial eficiente.
-- **Índices Parciais (Recurso Poderoso do PostgreSQL):**
-  Grande parte das operações do Aratu busca apenas veículos ou chamados ativos.
-  Um índice parcial indexa apenas o subconjunto relevante, ocupando uma fração da memória:
+### 2. Índices Estratégicos para o Domínio Aratu (Sem `idx_` ou `uq_`)
+- **Nomenclatura de Índices:** Iniciam diretamente pelo prefixo de 3 letras da tabela `<pre>_<descriptive_name>` (sem `idx_` nem `uq_`).
+- **Chaves estrangeiras e buscas frequentes:**
   ```sql
-  -- Indexa apenas veículos que estão aptos para novas viagens
-  CREATE INDEX idx_veiculos_disponiveis ON veiculos (id) WHERE status = 'disponivel';
-
-  -- Indexa apenas chamados pendentes do SVO
-  CREATE INDEX idx_svo_chamados_abertos ON registros_svo (data_registro) WHERE status = 'pendente';
+  CREATE INDEX ral_by_request ON ral_request_allocation (req_id);
+  CREATE INDEX ral_by_trip ON ral_request_allocation (trp_id);
+  CREATE INDEX rqe_by_request ON rqe_request_event (req_id, rqv_id);
+  CREATE INDEX aud_by_table ON aud_audit (aud_table, aud_id);
+  ```
+- **Índices Parciais (Recurso Poderoso do PostgreSQL):**
+  ```sql
+  -- Garante que um veículo ou motorista tenha no máximo uma viagem em andamento
+  CREATE UNIQUE INDEX trp_vehicle_in_progress ON trp_trip (veh_id) WHERE trp_state = 'IN_PROGRESS';
+  CREATE UNIQUE INDEX trp_driver_in_progress ON trp_trip (drv_id) WHERE trp_state = 'IN_PROGRESS';
   ```
 
 ### 3. Interpretando o `EXPLAIN` no PostgreSQL
