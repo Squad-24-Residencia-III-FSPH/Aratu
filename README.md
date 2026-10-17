@@ -1,4 +1,4 @@
-# Aratu — Sistema de Gestão de Frota e Operações
+ff# Aratu — Sistema de Gestão de Frota e Operações
 
 Sistema web desenvolvido pela **Squad 24**, no contexto da Residência em Software III, para apoiar a gestão de frota, viagens institucionais e operações do Serviço de Verificação de Óbito (SVO) da Fundação de Saúde Parreiras Horta (FSPH).
 
@@ -96,6 +96,12 @@ git pull origin develop
 - Não realizar merge de uma funcionalidade sem revisão.
 - Resolver conflitos antes de concluir o Pull Request.
 - Não enviar arquivos `.env`, dependências instaladas ou arquivos temporários.
+
+### Promoção para produção
+
+Após a integração em `develop`, a equipe promove as alterações para `staging` por Pull Request. O workflow executa lint, testes, verificação de tipos e builds; com todos os checks aprovados, abre ou reutiliza um Pull Request de `staging` para `main`. A revisão e o merge em `main` continuam manuais. O merge aprovado aciona o deploy no VPS via SSH e Docker Compose.
+
+Configure as proteções de branch, o ambiente `production`, secrets e variáveis do Actions e o servidor conforme [`docs/manuais/deploy.md`](docs/manuais/deploy.md).
 
 ## Padrão de commits
 
