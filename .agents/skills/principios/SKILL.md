@@ -160,11 +160,12 @@ Nenhuma destas circunstâncias autoriza assumir:
    interfaces/types, variáveis, constantes, hooks, componentes, arquivos `.ts`/`.tsx`,
    classes de CSS Modules `*.module.css` em `camelCase`, endpoints REST e enums em
    `UPPER_SNAKE_CASE`) deve ser escrito em **inglês**, e o banco PostgreSQL 18 segue o
-   padrão de **prefixo de 3 letras em inglês** (`veh_vehicle`, `trp_trip`, `req_request`,
-   com PK `id` projetada como `SELECT id AS <pre>_id` no Repository e objetos auxiliares
-   sem `idx_`/`uq_`/`trg_`/`fn_`). Comentários TSDoc (`/** ... */`) e textos de interface
-   são em português. Retorno explícito, tipagem TypeScript estrita (zero `any`), sem
-   código morto, sem logs de depuração temporários esquecidos.
+   padrão de **Schemas Nativos de Domínio em inglês** (`auth`, `audit`, `fleet`, `trip`, `svo`),
+   com tabelas substantivas no plural (`<schema>.<plural_entity>`, ex: `auth.users`, `audit.logs`, `fleet.vehicles`, `trip.trips`), PK `id BIGINT GENERATED ALWAYS AS IDENTITY`,
+   colunas próprias limpas em `snake_case` sem prefixos redundantes, FKs no singular `<entity>_id` e
+   índices descritivos (`<schema>_<table>_<purpose>`). Comentários TSDoc (`/** ... */`) e
+   textos de interface são em português. Retorno explícito, tipagem TypeScript estrita (zero `any`),
+   sem código morto, sem logs de depuração temporários esquecidos.
 
 ---
 

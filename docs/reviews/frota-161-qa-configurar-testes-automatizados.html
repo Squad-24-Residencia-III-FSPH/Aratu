@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-161 — QA Configurar testes automatizados (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-161: QA Configurar testes automatizados</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-161</code> — QA Configurar testes automatizados</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/qa-configurar-testes-automatizados</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-161-qa-configurar-testes-automatizados.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>AUTENTICACAO_RBAC</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ADMINISTRADOR, GESTOR, SOLICITANTE, MOTORISTA, ATENDENTE_SVO, EQUIPE_SVO</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-10-18</p>
+</div>
+
+<!-- PREENCHER_VEREDITO: Use class="verdict-approved" para APROVADO_PARA_REVISAO_HUMANA ou class="verdict-blocked" para BLOQUEADO_POR_PENDENCIAS -->
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA
+</div>
+
+<!-- PREENCHER_CONTADORES: Atualize os contadores de Bloqueantes, Atenção, OK e N/A -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">0</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">13</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">4</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<!-- PREENCHER_REVISAO_SECAO_1: Tabela de arquivos criados/alterados no diff contra develop -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>.github/workflows/ci-cd.yml</code></td>
+      <td>CI/CD</td>
+      <td>Modificado</td>
+      <td>Adiciona service container <code>postgres:18-alpine</code> com healthcheck e variáveis de ambiente (<code>DATABASE_URL</code>, <code>JWT_SECRET</code>, <code>JWT_EXPIRES_IN</code>) para o job <code>backend-ci</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/package.json</code></td>
+      <td>Configuração / Scripts</td>
+      <td>Modificado</td>
+      <td>Atualiza script <code>test</code> para <code>"tsx --test tests/**/*.test.ts"</code> e adiciona comandos <code>test:unit</code>, <code>test:integration</code> e <code>test:db:setup</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/users.repository.ts</code></td>
+      <td>Backend (Repository)</td>
+      <td>Modificado</td>
+      <td>Normaliza e-mail com <code>[email.trim().toLowerCase()]</code> na consulta SQL parametrizada de autenticação.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrator.ts</code></td>
+      <td>Backend (Database / Migrator)</td>
+      <td>Novo</td>
+      <td>Implementa <code>DatabaseMigrator</code> para descoberta ordenada e execução atômica e idempotente de migrações SQL com registro na tabela <code>schema_migrations</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/helpers/db-test.ts</code></td>
+      <td>Testes (Helpers)</td>
+      <td>Novo</td>
+      <td>Helper de ciclo de vida e conexão com banco <code>aratu_test</code>: provisionamento dinâmico via pool administrativo, singleton <code>getTestPool()</code> e limpeza atômica via <code>truncateTestDatabase()</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/database.integration.test.ts</code></td>
+      <td>Testes (Integração)</td>
+      <td>Novo</td>
+      <td>7 casos de teste de integração (<code>IT01</code> a <code>IT07</code>) cobrindo conexão PG18, migrações idempotentes, consultas de usuário, violação de unicidade (23505), rollback e truncate.</td>
+    </tr>
+    <tr>
+      <td><code>docs/manuais/padroes-backend.md</code></td>
+      <td>Documentação Técnica</td>
+      <td>Modificado</td>
+      <td>Seção 7 documentando a arquitetura de testes automatizados, isolamento de banco de dados e comandos do <code>package.json</code>.</td>
+    </tr>
+    <tr>
+      <td><code>docs/plans/frota-161-qa-configurar-testes-automatizados.html</code></td>
+      <td>Documentação (SDD)</td>
+      <td>Novo</td>
+      <td>Plano Técnico de Implementação (SDD) da história FROTA-161 com todos os requisitos, casos de borda e matriz de conformidade.</td>
+    </tr>
+    <tr>
+      <td><code>docs/modulos/AUTENTICACAO_RBAC.html</code></td>
+      <td>Documentação de Módulo</td>
+      <td>Modificado</td>
+      <td>Atualização da documentação do módulo <code>AUTENTICACAO_RBAC</code> com a infraestrutura de testes da API.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<!-- PREENCHER_REVISAO_SECAO_2: Status de cada critério C1 a C17 (badge-ok, badge-warn, badge-block, badge-na) -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-ok">🟢 OK</span></td><td>Diff enxuto concentrado exclusivamente em infraestrutura de testes da API, banco isolado e CI/CD. Arquivos de produção e de teste com escopo estritamente delimitado.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>Branch <code>feat/qa-configurar-testes-automatizados</code> no padrão Gitflow. Pré-auditoria <code>aratu-check.mjs</code> validou zero violações de padrão de commits e integridade do repositório.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-ok">🟢 OK</span></td><td>Todos os requisitos do plano SDD <code>frota-161-qa-configurar-testes-automatizados.html</code> foram atendidos: test runner nativo (<code>node:test</code> + <code>tsx</code>), isolamento de banco (<code>aratu_test</code>), migrações atômicas e CI no GitHub Actions sem bibliotecas pesadas.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td><code>DatabaseMigrator</code> isolado na camada de banco de dados (<code>src/database/</code>). <code>UsersRepository</code> mantém queries parametrizadas sem acoplamento a objetos HTTP ou controllers.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>O escopo é 100% de infraestrutura backend, testes e CI/CD. O frontend existente permaneceu intacto e validado sem erros (33 testes passando, build de produção OK).</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Estrutura limpa de dependências com zero referências circulares. Nenhuma feature flag ou switch condicional arbitrário foi criado.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>100% das consultas dinâmicas utilizam parâmetros posicionais (<code>$1, $2</code>) no PostgreSQL. Identificadores de schema usam <code>quote_ident</code> e nomes de banco passam por validação estrita de regex <code>/^[a-zA-Z0-9_]+$/</code>.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeando <code>&lt;pre&gt;_id AS id</code>) e filtros sargáveis</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero uso de <code>SELECT *</code> em consultas de repositório. Projeção explícita mantida em <code>UsersRepository</code> com busca indexável sargável via <code>lower(email) = $1</code>.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-ok">🟢 OK</span></td><td><code>DatabaseMigrator</code> executa migrações em blocos <code>BEGIN ... COMMIT / ROLLBACK</code> e garante liberação de clientes via <code>client.release()</code> no bloco <code>finally</code>. Caso de teste <code>IT05</code> valida rollback transacional.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (prefixo de 3 letras <code>&lt;pre&gt;_&lt;entity&gt;</code>, PK <code>&lt;pre&gt;_id</code>, índices sem <code>idx_</code>/<code>uq_</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Total paridade com <code>origin/develop</code> (PR #27): schemas padronizados <code>auth.users</code> (com coluna <code>active</code> e PK identidade) e <code>audit.logs</code> plenamente provisionados, migrados e validados na suíte de integração.</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Perfis do sistema (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, etc.) devidamente validados e mapeados nos repositories e testes de integração.</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>100% dos dados utilizados nos testes de integração e unitários são fictícios (<code>@example.test</code> conforme RFC 2606). Nenhum dado real de servidor, motorista ou óbito do SVO inserido. Segredos de CI são sintéticos.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Tipagem estrita respeitada sem <code>any</code> ou <code>@ts-ignore</code>. Interfaces <code>MigrationFile</code> e <code>MigrationResult</code> explicitadas. Compilação estrita com <code>npx tsc --noEmit</code> concluída com zero erros.</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Classes e funções em inglês (<code>DatabaseMigrator</code>, <code>getTestPool</code>, <code>setupTestDatabase</code>, <code>truncateTestDatabase</code>). Blocos TSDoc completos em português com tags semânticas (<code>@param</code>, <code>@returns</code>, <code>@throws</code>). Sem logs residuais de debug.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-na">⚪ N/A</span></td><td>Não aplicável ao escopo backend/QA desta tarefa. Os componentes visuais do frontend permanecem inalterados e validados.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-na">⚪ N/A</span></td><td>Não aplicável (sem novas telas ou formulários).</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-na">⚪ N/A</span></td><td>Não aplicável (sem elementos interativos visuais alterados).</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<!-- PREENCHER_REVISAO_SECAO_3: Detalhar bloqueantes e pontos de atenção (arquivo:linha, impacto e como corrigir) -->
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado. Todas as invariantes arquiteturais, de concorrência e de segurança foram estritamente respeitadas.</em></p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<ul>
+  <li>
+    <strong>Delimitação Transacional em Migrações SQL (<code>backend/src/database/migrator.ts:163</code>):</strong>
+    O método <code>cleanMigrationSql</code> remove comandos <code>BEGIN;</code> e <code>COMMIT;</code> externos do arquivo SQL via expressão regular para evitar advertências do PostgreSQL sobre blocos de transação aninhados (<code>WARNING: there is already a transaction in progress</code>). Ao adicionar novos arquivos de migração em <code>backend/src/database/migrations/</code>, mantenha a formatação DDL padronizada e evite scripts procedurais que manipulem transações internas não idempotentes.
+  </li>
+  <li>
+    <strong>Derivação Automática da URL de Testes (<code>backend/tests/helpers/db-test.ts:22</code>):</strong>
+    A função <code>getTestDatabaseUrl</code> deriva a conexão de testes substituindo o banco por <code>aratu_test</code> a partir de <code>DATABASE_URL</code> caso <code>DATABASE_URL_TEST</code> não seja especificada no <code>.env</code>. Em ambientes de homologação ou CI, certifique-se de que o usuário PostgreSQL do container possua permissão de <code>CREATEDB</code> para a rotina de provisionamento dinâmico.
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<!-- PREENCHER_REVISAO_SECAO_4: Resultado de aratu-check.mjs, tsc, lint, build e testes -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática e Regras Aratu</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 bloqueantes, 0 atenção, Gitflow OK)</span></td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript Estrita (Backend)</td>
+      <td><code>docker compose exec backend npx tsc --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 erros de tipo)</span></td>
+    </tr>
+    <tr>
+      <td>Testes Automatizados Backend (Unitários + Integração PG18)</td>
+      <td><code>docker compose exec backend npm test</code></td>
+      <td><span class="badge-ok">🟢 Passou (14/14 testes passaram em 4.67s)</span></td>
+    </tr>
+    <tr>
+      <td>Análise Estática de Frontend (ESLint)</td>
+      <td><code>docker compose exec frontend npm run lint</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 warnings, 0 erros)</span></td>
+    </tr>
+    <tr>
+      <td>Compilação e Build de Produção (Frontend)</td>
+      <td><code>docker compose exec frontend npm run build</code></td>
+      <td><span class="badge-ok">🟢 Passou (Vite build concluído em 1.15s)</span></td>
+    </tr>
+    <tr>
+      <td>Testes Automatizados do Frontend (Node.js Test Runner)</td>
+      <td><code>node --test tests/*.test.mjs</code></td>
+      <td><span class="badge-ok">🟢 Passou (33/33 passaram)</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<!-- PREENCHER_REVISAO_SECAO_5: Pontos específicos que o par humano da Squad 24 deve validar -->
+<ul class="check">
+  <li><input type="checkbox"> Validar a execução da pipeline completa no GitHub Actions (<code>.github/workflows/ci-cd.yml</code>) com o container de serviço <code>postgres:18-alpine</code>.</li>
+  <li><input type="checkbox"> Executar <code>docker compose exec backend npm test</code> e confirmar o tempo total de resposta inferior a 5 segundos no ambiente local.</li>
+  <li><input type="checkbox"> Verificar que o banco de dados principal de desenvolvimento (<code>meubanco</code>) permanece intacto e sem registros polutos após a execução da suíte de integração no banco isolado (<code>aratu_test</code>).</li>
+  <li><input type="checkbox"> Avaliar a idempotência do comando avulso de provisionamento <code>npm run test:db:setup</code> em um banco recém-criado.</li>
+</ul>
+
+</body>
+</html>

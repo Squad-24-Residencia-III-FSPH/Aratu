@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-161 — [QA] Configurar testes automatizados da API (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-161: [QA] Configurar testes automatizados da API</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-161</code> — [QA] Configurar testes automatizados da API</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/qa-configurar-testes-automatizados</code> (criada a partir de <code>main</code>, considerando as alterações da <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>AUTENTICACAO_RBAC</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ADMINISTRADOR, GESTOR, SOLICITANTE, MOTORISTA, ATENDENTE_SVO, EQUIPE_SVO</code> (Infraestrutura transversal de testes da API para todos os módulos)</p>
+  <p><strong>Data:</strong> 2026-10-18</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+
+<p>
+  No ecossistema de saúde pública e verificação de óbito da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e do <strong>Serviço de Verificação de Óbito (SVO)</strong>, a robustez e a integridade das APIs do <strong>Sistema Aratu</strong> são vitais para a operação ininterrupta de frotas, transporte de bolsas de sangue, reagentes laboratoriais e remoção cadavérica sigilosa. Falhas de concorrência, regressões em regras de negócio ou inconsistências no banco de dados têm impacto direto no atendimento à população sergipana.
+</p>
+
+<p>
+  Esta tarefa (<strong>FROTA-161</strong> — <em>[QA] Configurar testes automatizados da API</em>, pertencente ao épico de infraestrutura <strong>FROTA-154</strong>) estabelece a <strong>base técnica oficial de testes automatizados do backend</strong>, atendendo a um pré-requisito mandatório e bloqueante para o desenvolvimento das histórias de usuário <strong>US02 (FROTA-29 — Gerenciar usuários)</strong> e <strong>US03 (FROTA-35 — Gerenciar perfis e permissões)</strong>.
+</p>
+
+<h3>Delimitação de Escopo (YAGNI)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Entra no Escopo (FROTA-161)</th>
+      <th scope="col">Fora do Escopo (YAGNI)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <ul>
+          <li><strong>Padronização do Test Runner:</strong> Formalização e estruturação do runner nativo do Node.js (<code>node:test</code> e <code>node:assert/strict</code> via <code>tsx --test</code>), mantendo a suíte leve, rápida e sem dependências externas pesadas (alinhado a KISS e YAGNI).</li>
+          <li><strong>Banco de Dados de Teste Separado:</strong> Configuração de banco de dados isolado (<code>aratu_test</code> ou <code>${POSTGRES_DB}_test</code>) no mesmo PostgreSQL 18 em Docker, apontado pela variável <code>DATABASE_URL_TEST</code> no <code>.env</code> e <code>.env.example</code>, garantindo que execuções de testes nunca alterem ou corrompam dados de desenvolvimento ou produção.</li>
+          <li><strong>Mecanismo de Migrações em TypeScript:</strong> Utilitário <code>backend/src/database/migrator.ts</code> que lê e executa ordenadamente todas as migrações SQL (<code>src/database/migrations/*.sql</code>) em transações atômicas seguras.</li>
+          <li><strong>Helper de Testes com PostgreSQL:</strong> Utilitário <code>backend/tests/helpers/db-test.ts</code> com funções para provisionar banco, rodar migrações, fornecer pool com encerramento limpo (evitando conexões presas) e executar limpeza de dados rápida (<code>TRUNCATE ... CASCADE</code>).</li>
+          <li><strong>Scripts Padronizados no <code>package.json</code>:</strong> Refinamento do <code>npm test</code> e adição de comandos específicos (<code>npm run test:unit</code>, <code>npm run test:integration</code>, <code>npm run test:db:setup</code>).</li>
+          <li><strong>Integração Contínua (CI):</strong> Atualização do workflow <code>.github/workflows/ci-cd.yml</code> adicionando container de serviço <code>postgres:18-alpine</code> com healthcheck no job <code>backend-ci</code>, garantindo que o GitHub Actions rode a suíte completa com banco real a cada Pull Request.</li>
+          <li><strong>Bateria de Testes de Integração de Base:</strong> Implementação de <code>backend/tests/database.integration.test.ts</code> validando o funcionamento dos repositórios existentes (<code>UsersRepository</code> em <code>auth.users</code> e <code>AuditRepository</code> em <code>audit.logs</code>) diretamente no PostgreSQL 18 real.</li>
+        </ul>
+      </td>
+      <td>
+        <ul>
+          <li>Implementação de rotas ou regras de negócio novas das US02/US03 (ex.: <code>GET /users</code>, <code>POST /users</code>, <code>GET /profiles</code> — essas possuem tarefas próprias no Jira).</li>
+          <li>Testes de interface web ou componentes do frontend React 19 (escopo de tarefas de frontend).</li>
+          <li>Adoção de frameworks de teste externos pesados (Jest, Vitest, Cypress, Mocha) que adicionem complexidade desnecessária.</li>
+          <li>Criação de novos schemas ou tabelas de negócio não existentes no momento.</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Decisões Confirmadas pela Regra da Dúvida</h3>
+<ol>
+  <li><strong>Ferramenta de Testes Backend:</strong> Manter e formalizar o test runner nativo do Node.js (<code>node:test</code> e <code>node:assert/strict</code>) executado via <code>tsx --test</code>, que já é suportado nativamente pelo Node 24 do CI e elimina dependências transitivas.</li>
+  <li><strong>Estratégia do Banco de Testes:</strong> Mesma instância do PostgreSQL 18 em Docker (serviço <code>db</code> na porta 5432), com banco de dados isolado denominado <code>aratu_test</code> (configurável via <code>DATABASE_URL_TEST</code> no <code>.env</code>), evitando a sobrecarga de memória de múltiplos containers.</li>
+  <li><strong>Branch Criada a partir da <code>main</code> com Arquitetura Desacoplada:</strong> Conforme definição explícita do desenvolvedor, a branch <code>feat/qa-configurar-testes-automatizados</code> é criada a partir da <code>main</code> e mantém o conteúdo da <code>main</code> sem mesclar a <code>develop</code> neste momento. A infraestrutura de testes é desenhada de forma dinâmica e desacoplada, pronta para suportar tanto o estado atual quanto as migrações e tabelas da <code>develop</code> (como <code>auth.users</code> e <code>audit.logs</code>) quando for integrada.</li>
+  <li><strong>Gerenciamento Dinâmico de Migrações e Isolamento:</strong> Criação do helper <code>backend/tests/helpers/db-test.ts</code> e do migrator <code>backend/src/database/migrator.ts</code> que descobre e aplica dinamicamente todas as migrações SQL presentes no diretório <code>migrations/</code> em ordem cronológica, e limpa as tabelas existentes de forma dinâmica e segura antes de cada teste de integração.</li>
+  <li><strong>Pipeline de CI (.github/workflows/ci-cd.yml):</strong> Inclusão de container de serviço <code>postgres:18-alpine</code> no job <code>backend-ci</code>, permitindo que o <code>npm test</code> execute testes unitários e de integração com banco de dados real em ambiente de CI automatizado.</li>
+</ol>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+
+<h3>Requisitos Funcionais (RF)</h3>
+<ul>
+  <li><strong>RF01 — Test Runner Padronizado:</strong> A suíte de testes deve rodar via <code>npm test</code> utilizando o runner nativo <code>node:test</code> com assertivas estritas (<code>node:assert/strict</code>) e execução TypeScript via <code>tsx --test</code>.</li>
+  <li><strong>RF02 — Configuração do Banco de Testes:</strong> O ambiente de testes deve carregar as variáveis de conexão com prioridade para <code>DATABASE_URL_TEST</code> ou derivar da conexão padrão adicionando o sufixo <code>_test</code> (ex.: <code>aratu_test</code>), nunca apontando para o banco de desenvolvimento.</li>
+  <li><strong>RF03 — Provisionamento e Migrações Automáticas:</strong> O utilitário <code>DatabaseMigrator</code> (<code>backend/src/database/migrator.ts</code>) deve escanear <code>backend/src/database/migrations/*.sql</code> (desconsiderando arquivos <code>*.down.sql</code>), ordená-los alfabeticamente/cronologicamente e aplicá-los de forma transacional e idempotente.</li>
+  <li><strong>RF04 — Helper de Ciclo de Vida do Banco (<code>db-test.ts</code>):</strong> O helper de teste deve expor:
+    <ul>
+      <li><code>setupTestDatabase()</code>: Assegura a criação do banco de teste caso não exista e aplica todas as migrações pendentes;</li>
+      <li><code>truncateTestDatabase()</code>: Limpa dados de todas as tabelas dos schemas <code>auth</code> e <code>audit</code> preservando a estrutura e reiniciando sequências de identidade (<code>RESTART IDENTITY CASCADE</code>);</li>
+      <li><code>getTestPool()</code> e <code>closeTestPool()</code>: Gerencia o pool de conexões do driver <code>pg</code> de forma singleton, encerrando conexões abertas no hook <code>after()</code> do test runner para impedir que o processo fique preso.</li>
+    </ul>
+  </li>
+  <li><strong>RF05 — Scripts Operacionais no <code>package.json</code>:</strong>
+    <ul>
+      <li><code>npm test</code>: Executa todos os testes da suíte (unitários e de integração);</li>
+      <li><code>npm run test:unit</code>: Executa apenas testes unitários em memória (ex.: <code>auth.test.ts</code> e <code>audit.test.ts</code> com repositório fake);</li>
+      <li><code>npm run test:integration</code>: Executa testes de integração com banco de dados real (<code>*.integration.test.ts</code>);</li>
+      <li><code>npm run test:db:setup</code>: Provisiona o banco de testes e roda migrações de forma avulsa pela linha de comando.</li>
+    </ul>
+  </li>
+  <li><strong>RF06 — Integração Contínua (CI):</strong> O job <code>backend-ci</code> em <code>.github/workflows/ci-cd.yml</code> deve subir um container de serviço <code>postgres:18-alpine</code> com healthcheck <code>pg_isready</code> e rodar a suíte completa de forma verde e estável.</li>
+</ul>
+
+<h3>Requisitos Não-Funcionais (RNF)</h3>
+<ul>
+  <li><strong>RNF01 — Velocidade e Performance:</strong> A suíte completa de testes de integração com banco real deve executar em menos de 10 segundos no ambiente local e no CI.</li>
+  <li><strong>RNF02 — Idempotência e Confiabilidade:</strong> A execução repetida de <code>npm test</code> não deve acumular registros nem falhar por dependência de ordem entre testes.</li>
+  <li><strong>RNF03 — Segurança e Sigilo (LGPD):</strong> Todos os usuários, senhas, e-mails, tokens e registros de auditoria utilizados em fixtures e testes devem ser estritamente fictícios e sintéticos.</li>
+  <li><strong>RNF04 — Isolamento Estrito:</strong> Testes em execução nunca devem ler ou alterar o banco de desenvolvimento local (<code>meubanco</code> / <code>aratu</code>).</li>
+</ul>
+
+<h3>Cenários e Casos de Borda (Dado / Quando / Então)</h3>
+
+<h4>Cenário 1: Banco de dados de teste inexistente na primeira execução</h4>
+<p>
+  <strong>Dado</strong> que o desenvolvedor acabou de subir o container PostgreSQL local pelo Docker Compose e o banco <code>aratu_test</code> ainda não existe;<br>
+  <strong>Quando</strong> a suíte de testes de integração ou o script <code>npm run test:db:setup</code> for acionado;<br>
+  <strong>Então</strong> o helper de banco conecta ao banco de manutenção (<code>postgres</code>), executa <code>CREATE DATABASE aratu_test</code>, conecta ao novo banco e aplica todas as migrações SQL com sucesso.
+</p>
+
+<h4>Cenário 2: Migrações idempotentes no banco de teste já criado</h4>
+<p>
+  <strong>Dado</strong> que o banco de dados <code>aratu_test</code> já possui tabelas e schemas criados de uma execução anterior;<br>
+  <strong>Quando</strong> a suíte de testes é disparada novamente;<br>
+  <strong>Então</strong> o migrator aplica as migrações transacionais sem emitir erros de colisão de schemas ou índices, deixando a base pronta para os testes.
+</p>
+
+<h4>Cenário 3: Limpeza de tabelas com integridade referencial ativa (Foreign Key)</h4>
+<p>
+  <strong>Dado</strong> que a tabela <code>audit.logs</code> possui uma chave estrangeira referenciando <code>auth.users(id) ON DELETE RESTRICT</code> e ambas possuem registros inseridos pelo teste anterior;<br>
+  <strong>Quando</strong> a função <code>truncateTestDatabase()</code> for acionada no hook <code>beforeEach()</code>;<br>
+  <strong>Então</strong> o comando <code>TRUNCATE auth.users, audit.logs RESTART IDENTITY CASCADE</code> esvazia ambas as tabelas sem violação de chave estrangeira e reinicia os contadores de identidade.
+</p>
+
+<h4>Cenário 4: Encerramento limpo do Pool do PostgreSQL</h4>
+<p>
+  <strong>Dado</strong> que múltiplos testes abriram conexões no pool do PostgreSQL para executar consultas reais;<br>
+  <strong>Quando</strong> a suíte de testes atinge o final da execução;<br>
+  <strong>Então</strong> o hook <code>after()</code> invoca <code>closeTestPool()</code> liberando todos os clientes e clientes inativos, garantindo que o comando <code>npm test</code> finalize com código de saída <code>0</code> sem congelar o terminal.
+</p>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+
+<h3>Arquivos de referência no projeto (padrão a seguir)</h3>
+<ul>
+  <li><strong>Camadas Backend:</strong> <code>docs/manuais/arquitetura-camadas.md</code> e <code>docs/manuais/padroes-backend.md</code>.</li>
+  <li><strong>Padrões de Projeto (Design Patterns):</strong> <code>docs/manuais/padroes-projeto.md</code> (Repository, Layered Architecture, Pool management).</li>
+  <li><strong>Estrutura de Schemas Nativos PostgreSQL 18:</strong> <code>docs/manuais/padroes-codigo.md</code> e <code>docs/plans/frota-139-be-criar-estrutura-de.html</code>.</li>
+</ul>
+
+<h3>Tabela de Arquivos Criados ou Modificados</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Ação</th>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Responsabilidade / Propósito Técnico</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-status">CRIAR</span></td>
+      <td><code>backend/src/database/migrator.ts</code></td>
+      <td>Utilitário em TypeScript responsável por escanear o diretório <code>backend/src/database/migrations/</code>, filtrar arquivos <code>*.sql</code> (ignorando <code>*.down.sql</code>), ordená-los e executá-los sequencialmente dentro de transações do PostgreSQL via <code>PoolClient</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-status">CRIAR</span></td>
+      <td><code>backend/tests/helpers/db-test.ts</code></td>
+      <td>Helper de suporte aos testes automatizados com PostgreSQL 18: gerencia a criação do banco <code>aratu_test</code>, instancia o <code>Pool</code> de teste, dispara as migrações automáticas, limpa dados com <code>TRUNCATE ... CASCADE</code> e garante fechamento limpo no encerramento.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-status">CRIAR</span></td>
+      <td><code>backend/tests/database.integration.test.ts</code></td>
+      <td>Suíte de testes de integração real que valida o ecossistema com o PostgreSQL 18: testa <code>UsersRepository</code> em <code>auth.users</code>, <code>AuditRepository</code> em <code>audit.logs</code>, constraints de unicidade, integridade referencial, e isolamento de transações.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-status">MODIFICAR</span></td>
+      <td><code>backend/package.json</code></td>
+      <td>Atualização do script <code>npm test</code> (<code>tsx --test tests/**/*.test.ts</code>) e adição dos scripts auxiliares: <code>test:unit</code>, <code>test:integration</code> e <code>test:db:setup</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-status">MODIFICAR</span></td>
+      <td><code>.env.example</code></td>
+      <td>Documentação das variáveis de configuração do banco de testes: <code>POSTGRES_DB_TEST=aratu_test</code> e <code>DATABASE_URL_TEST</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-status">MODIFICAR</span></td>
+      <td><code>.github/workflows/ci-cd.yml</code></td>
+      <td>Adição do container de serviço <code>postgres:18-alpine</code> no job <code>backend-ci</code> com healthcheck e injeção das variáveis de ambiente de teste, assegurando execução 100% verde e automatizada no GitHub Actions.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+
+<p>
+  A tarefa <strong>FROTA-161</strong> não altera o schema nem cria novas tabelas no banco de dados de produção da FSPH/SVO. Seu propósito de banco é <strong>estruturar a gestão e a aplicação automatizada de migrações em um banco de testes isolado (<code>aratu_test</code>)</strong>, garantindo que o PostgreSQL 18 reflita com 100% de paridade todas as tabelas de negócio já aprovadas.
+</p>
+
+<h3>Estrutura do Banco de Testes Isolado (<code>aratu_test</code>) e Suporte Dinâmico</h3>
+<p>
+  O banco de testes é provisionado dinamicamente na mesma instância do PostgreSQL 18 (porta <code>5432</code> no Docker Compose ou no container de serviço do GitHub Actions). Para garantir desacoplamento total entre as branches <code>main</code> e <code>develop</code>, o migrador descobre e executa todas as migrações ativas presentes em <code>backend/src/database/migrations/*.sql</code>:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Ambiente / Branch</th>
+      <th scope="col">Migrações Descobertas e Aplicadas</th>
+      <th scope="col">Tabelas Criadas Dinamicamente</th>
+      <th scope="col">Comportamento do Migrator</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Estado atual na <code>main</code></strong></td>
+      <td><code>202610160001_create_users.sql</code></td>
+      <td><code>public.users</code> (PK <code>id UUID</code>, <code>name</code>, <code>email</code>, <code>password_hash</code>, <code>role</code>, <code>is_active</code>) e índice <code>users_email_lower_unique</code></td>
+      <td>Aplica a migração existente na <code>main</code> em transação atômica.</td>
+    </tr>
+    <tr>
+      <td><strong>Após merge com a <code>develop</code></strong></td>
+      <td><code>202610160001_create_users.sql</code> e <code>202610170001_create_audit.sql</code></td>
+      <td><code>auth.users</code> (PK <code>id BIGINT</code>) e <code>audit.logs</code> (PK <code>id BIGINT</code>, FK <code>user_id</code>)</td>
+      <td>Reconhece e executa automaticamente as duas migrações em sequência ordenada sem necessidade de alterar nenhuma linha de código da suíte de testes.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Mecanismo de Execução e Transacionalidade (DDL Transacional)</h3>
+<p>
+  O PostgreSQL 18 suporta DDL transacional nativo. O utilitário <code>DatabaseMigrator</code> encapsula a execução de cada arquivo <code>.sql</code> dentro de uma transação explícita com o <code>PoolClient</code>:
+</p>
+
+<pre><code>// Padrão de execução dinâmica em backend/src/database/migrator.ts
+await client.query('BEGIN;');
+try {
+  await client.query(sqlContent);
+  await client.query('COMMIT;');
+} catch (error) {
+  await client.query('ROLLBACK;');
+  throw error;
+}</code></pre>
+
+<h3>Estratégia de Limpeza Dinâmica entre Testes (Desacoplamento Total)</h3>
+<p>
+  Para que a limpeza funcione tanto com as tabelas da <code>main</code> (<code>public.users</code>) quanto com as tabelas da <code>develop</code> (<code>auth.users</code>, <code>audit.logs</code>) e futuros módulos, a função <code>truncateTestDatabase()</code> consulta dinamicamente o <code>information_schema.tables</code> e executa o truncamento em cascata com reinício de sequências:
+</p>
+
+<pre><code>// Limpeza dinâmica universal em backend/tests/helpers/db-test.ts
+const { rows } = await pool.query&lt;{ tname: string }&gt;(`
+  SELECT quote_ident(table_schema) || '.' || quote_ident(table_name) AS tname
+    FROM information_schema.tables
+   WHERE table_schema IN ('public', 'auth', 'audit', 'fleet', 'trip', 'svo')
+     AND table_type = 'BASE TABLE';
+`);
+
+if (rows.length > 0) {
+  const tableList = rows.map((r) => r.tname).join(', ');
+  await pool.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE;`);
+}</code></pre>
+
+<p>
+  Isso garante isolamento instantâneo (&lt; 10ms) entre testes, sem acoplamento a nomes rígidos de tabelas e sem risco de violação de chave estrangeira.
+</p>
+
+<h3>Plano de Rollback</h3>
+<p>
+  Por se tratar exclusivamente de infraestrutura de banco de teste:
+</p>
+<ul>
+  <li><strong>Ambiente de Testes:</strong> Em caso de necessidade de reset estrutural completo, o comando SQL administrativo <code>DROP DATABASE IF EXISTS aratu_test;</code> destrói o banco de teste, permitindo que <code>setupTestDatabase()</code> o recrie limpo do zero.</li>
+  <li><strong>Ambiente de Desenvolvimento/Produção:</strong> Nenhuma alteração física de DDL é executada nos bancos persistentes (<code>meubanco</code> / <code>aratu</code>), garantindo risco zero de regressão nos dados existentes.</li>
+</ul>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+
+<p>
+  Como tarefa de infraestrutura e QA, a <strong>FROTA-161</strong> não altera os contratos públicos REST da API. Em vez disso, ela formaliza os contratos técnicos do <strong>Migrator</strong>, do <strong>Helper de Banco de Testes</strong> e da <strong>Bateria de Testes de Integração</strong> que validam os endpoints e repositórios existentes com dados 100% reais no PostgreSQL 18.
+</p>
+
+<h3>5.1 Contratos REST Testados na Base</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Método</th>
+      <th scope="col">Rota</th>
+      <th scope="col">Autenticação / RBAC</th>
+      <th scope="col">Payload (Requisição)</th>
+      <th scope="col">Resposta de Sucesso</th>
+      <th scope="col">Status de Erro</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/auth/login</code></td>
+      <td>Pública</td>
+      <td><code>{ "email": string, "senha": string }</code></td>
+      <td><code>200 OK</code>: <code>{ "token": string, "nome": string, "perfil": string }</code></td>
+      <td><code>400</code> (inválido), <code>401</code> (credenciais erradas), <code>403</code> (inativo)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/auth/logout</code></td>
+      <td><code>Bearer &lt;token&gt;</code> (Autenticado)</td>
+      <td>(Nenhum corpo)</td>
+      <td><code>200 OK</code>: <code>{ "mensagem": string }</code></td>
+      <td><code>401</code> (token ausente ou expirado)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>5.2 Contratos TypeScript do Migrator (<code>backend/src/database/migrator.ts</code>)</h3>
+<pre><code>import type { Pool, PoolClient } from 'pg';
+
+export interface MigrationFile {
+  filename: string;
+  filepath: string;
+  version: string;
+  name: string;
+}
+
+export interface MigrationResult {
+  version: string;
+  name: string;
+  durationMs: number;
+  status: 'applied' | 'skipped';
+}
+
+/**
+ * Utilitário responsável por descobrir, ordenar e executar arquivos SQL de migração
+ * dentro de transações seguras no PostgreSQL 18.
+ */
+export class DatabaseMigrator {
+  constructor(private readonly migrationsDirectory?: string) {}
+
+  /** Carrega e ordena alfabeticamente os arquivos de migração .sql (ignorando .down.sql). */
+  public async loadFiles(): Promise&lt;MigrationFile[]&gt;;
+
+  /** Executa todas as migrações pendentes em transação atômica. */
+  public async runMigrations(target: Pool | PoolClient, options?: { silent?: boolean }): Promise&lt;MigrationResult[]&gt;;
+}</code></pre>
+
+<h3>5.3 Contratos TypeScript do Helper de Banco de Testes (<code>backend/tests/helpers/db-test.ts</code>)</h3>
+<pre><code>import type { Pool } from 'pg';
+
+/** Retorna a URL de conexão oficial do banco de testes (prioriza DATABASE_URL_TEST). */
+export function getTestDatabaseUrl(): string;
+
+/** Obtém a instância singleton do Pool conectada ao banco de testes PostgreSQL 18. */
+export function getTestPool(): Pool;
+
+/** Encerra com segurança o pool de testes liberando todos os sockets ativos. */
+export function closeTestPool(): Promise&lt;void&gt;;
+
+/** Cria o banco de dados de testes se não existir e aplica todas as migrações SQL. */
+export function setupTestDatabase(): Promise&lt;void&gt;;
+
+/** Esvazia os registros de todas as tabelas via TRUNCATE CASCADE preservando schemas. */
+export function truncateTestDatabase(): Promise&lt;void&gt;;</code></pre>
+
+<h3>5.4 Detalhamento do Arquivo de Testes de Integração (<code>backend/tests/database.integration.test.ts</code>)</h3>
+<p>
+  Demonstra e consolida a base de testes da API para as futuras US02 e US03, testando:
+</p>
+<ul>
+  <li><strong>Conexão real ao PostgreSQL 18:</strong> Teste de conectividade e verificação de versão (<code>SELECT version()</code>);</li>
+  <li><strong>Aplicação Dinâmica de Migrações:</strong> Execução do <code>DatabaseMigrator</code> aplicando as migrações presentes de forma atômica e verificando a criação das tabelas;</li>
+  <li><strong>UsersRepository com Banco Real:</strong> Inserção e consulta de usuário via <code>UsersRepository.findByEmail()</code> operando sobre a tabela ativa;</li>
+  <li><strong>Unicidade de E-mail Case-Insensitive:</strong> Validação prática do índice único de e-mail rejeitando duplicatas com código de erro <code>23505</code>;</li>
+  <li><strong>Rollback em Transação:</strong> Prova de atomicidade onde inserções em transação abortada não deixam resíduos no banco de teste;</li>
+  <li><strong>Limpeza Dinâmica com <code>truncateTestDatabase()</code>:</strong> Garantia de que a base começa 100% vazia entre cada teste individual, pronta para suportar tanto o schema atual quanto as tabelas da <code>develop</code> (<code>auth.users</code>, <code>audit.logs</code>) assim que integradas.</li>
+</ul>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+
+<p>
+  <strong>Não se aplica diretamente a esta tarefa.</strong>
+</p>
+<p>
+  A tarefa <strong>FROTA-161</strong> é estritamente focada na camada de infraestrutura de testes automatizados do backend (Node.js/Express 5 + PostgreSQL 18). Nenhuma tela, componente visual em React 19, estilo CSS Module ou rota de navegação no frontend é criada ou modificada.
+</p>
+<p>
+  Os testes de interface do frontend (React 19 + Vitest / Playwright / fixtures HTTP) continuam isolados em <code>frontend/tests/</code> conforme o padrão já estabelecido em <code>frontend/tests/login.test.mjs</code> e <code>frontend/tests/api.test.mjs</code>.
+</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+
+<p>
+  Embora esta tarefa trate de infraestrutura de backend e testes sem componentes visuais diretos, os princípios de acessibilidade da WCAG 2.2 Nível AA são resguardados através da clareza das mensagens de erro retornadas pela API e da garantia de que os testes asseguram que respostas com <code>role="alert"</code> e textos compreensíveis pelo usuário não sofram regressões.
+</p>
+
+<ul class="check">
+  <li><input type="checkbox" checked disabled> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> As validações de API testadas emitem mensagens em português descritivas e orientadoras (ex.: <em>"E-mail ou senha inválidos"</em>, <em>"Acesso desativado"</em>).</li>
+  <li><input type="checkbox" checked disabled> <strong>Resiliência de Serviço:</strong> A suíte de testes de integração previne regressões que poderiam derrubar endpoints essenciais para a operação em campo de motoristas e operadores.</li>
+  <li><input type="checkbox" checked disabled> <strong>Proteção de Sessão e Timeout:</strong> Os testes de autenticação cobrem cenários de token expirado e tokens inválidos, garantindo deslogue limpo e feedback semântico.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+
+<h3>8.1 Escopo de Impacto e Perfis RBAC</h3>
+<p>
+  Por se tratar de infraestrutura de QA/testes de base da API, não há introdução de novas restrições ou privilégios de acesso para os usuários finais. No entanto, a infraestrutura criada atua como alicerce transversal para a verificação de todos os perfis do Sistema Aratu:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Perfil RBAC</th>
+      <th scope="col">Papel no Sistema Aratu</th>
+      <th scope="col">Impacto desta Tarefa</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>ADMINISTRADOR</code></td>
+      <td>Gestão global de usuários, setores e parâmetros</td>
+      <td>Suporte a testes reais de cadastro, inativação e controle de perfis (US02/US03).</td>
+    </tr>
+    <tr>
+      <td><code>GESTOR</code></td>
+      <td>Aprovação de viagens e gestão da frota da FSPH</td>
+      <td>Garantia de auditoria íntegra de ações de gestão testada em banco real.</td>
+    </tr>
+    <tr>
+      <td><code>SOLICITANTE</code></td>
+      <td>Servidor que abre pedidos de transporte institucional</td>
+      <td>Validação de sessão e integridade de credenciais.</td>
+    </tr>
+    <tr>
+      <td><code>MOTORISTA</code></td>
+      <td>Condutor que realiza viagens e registra hodômetro</td>
+      <td>Garantia de que a autenticação mobile/web opera sem falhas de banco.</td>
+    </tr>
+    <tr>
+      <td><code>ATENDENTE_SVO</code> / <code>EQUIPE_SVO</code></td>
+      <td>Operação e despacho sigiloso do Serviço de Verificação de Óbito</td>
+      <td>Garantia de conformidade de auditoria e sigilo absoluto de dados sensíveis.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>8.2 Variáveis de Ambiente e Configurações</h3>
+<p>
+  As seguintes variáveis de ambiente são adicionadas ou formalizadas para o funcionamento dos testes:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Variável</th>
+      <th scope="col">Onde é Definida</th>
+      <th scope="col">Valor Padrão / Exemplo</th>
+      <th scope="col">Descrição e Finalidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>DATABASE_URL_TEST</code></td>
+      <td><code>.env</code> / GitHub Actions</td>
+      <td><code>postgresql://admin:secret@localhost:5432/aratu_test</code></td>
+      <td>URL completa de conexão ao banco de dados exclusivo de testes no PostgreSQL 18.</td>
+    </tr>
+    <tr>
+      <td><code>POSTGRES_DB_TEST</code></td>
+      <td><code>.env</code> / <code>.env.example</code></td>
+      <td><code>aratu_test</code></td>
+      <td>Nome do banco de dados isolado de testes.</td>
+    </tr>
+    <tr>
+      <td><code>JWT_SECRET</code></td>
+      <td><code>.env</code> / GitHub Actions</td>
+      <td>(Segredo sintético exclusivo para testes)</td>
+      <td>Chave simétrica para assinatura e decodificação de tokens JWT nos testes.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<p>
+  A verificação técnica desta entrega é dividida em testes automatizados na suíte do backend e testes de integração com o banco PostgreSQL 18, além da execução no CI. Todos os dados utilizados são 100% fictícios (LGPD).
+</p>
+
+<h3>9.1 Casos de Teste Automatizados da Suíte Backend</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Arquivo de Teste</th>
+      <th scope="col">Cenário / Invariante Testada</th>
+      <th scope="col">Resultado Esperado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>IT01</code></td>
+      <td><code>tests/database.integration.test.ts</code></td>
+      <td>Inicialização do banco de testes via <code>setupTestDatabase()</code> e conferência de versão</td>
+      <td>O banco <code>aratu_test</code> é criado (se necessário), as migrações são aplicadas e a query <code>SELECT version()</code> retorna PostgreSQL 18.</td>
+    </tr>
+    <tr>
+      <td><code>IT02</code></td>
+      <td><code>tests/database.integration.test.ts</code></td>
+      <td>Execução do <code>DatabaseMigrator</code> aplicando migrações ativas e verificando criação de tabelas</td>
+      <td>O migrador descobre dinamicamente os arquivos <code>.sql</code>, executa em transação atômica e retorna os resultados de migração aplicada.</td>
+    </tr>
+    <tr>
+      <td><code>IT03</code></td>
+      <td><code>tests/database.integration.test.ts</code></td>
+      <td><code>UsersRepository.findByEmail</code> com registro real gravado no PostgreSQL</td>
+      <td>O repositório localiza o usuário pelo e-mail (inclusive com normalização para minúsculas) e retorna a entidade tipada com campos em camelCase.</td>
+    </tr>
+    <tr>
+      <td><code>IT04</code></td>
+      <td><code>tests/database.integration.test.ts</code></td>
+      <td>Violação do índice único de e-mail ao inserir e-mails duplicados</td>
+      <td>O PostgreSQL rejeita a segunda inserção com código de erro <code>23505</code> (unique_violation).</td>
+    </tr>
+    <tr>
+      <td><code>IT05</code></td>
+      <td><code>tests/database.integration.test.ts</code></td>
+      <td>Isolamento transacional e atomicidade com rollback intencional</td>
+      <td>Operações realizadas dentro de um bloco <code>BEGIN ... ROLLBACK</code> não deixam resíduos na tabela.</td>
+    </tr>
+    <tr>
+      <td><code>IT06</code></td>
+      <td><code>tests/database.integration.test.ts</code></td>
+      <td>Limpeza dinâmica completa via <code>truncateTestDatabase()</code></td>
+      <td>O truncamento dinâmico baseado em <code>information_schema</code> esvazia todas as tabelas de domínio sem erros e reinicia os IDs para 1.</td>
+    </tr>
+    <tr>
+      <td><code>IT07</code></td>
+      <td><code>tests/database.integration.test.ts</code></td>
+      <td>Fechamento limpo do pool de conexões via <code>closeTestPool()</code></td>
+      <td>O pool de testes encerra todos os sockets abertos, permitindo que a execução do processo finalize com código <code>0</code>.</td>
+    </tr>
+    <tr>
+      <td><code>UT01</code></td>
+      <td><code>tests/auth.test.ts</code></td>
+      <td>Testes unitários existentes de autenticação, bcrypt, JWT e rotas Express</td>
+      <td>Todos os 12 testes unitários continuam passando com 100% de sucesso.</td>
+    </tr>
+    <tr>
+      <td><code>UT02</code></td>
+      <td><code>tests/audit.test.ts</code></td>
+      <td>Testes unitários existentes do serviço de auditoria e higienização de senhas</td>
+      <td>Todos os testes unitários de auditoria continuam passando com 100% de sucesso.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>9.2 Roteiro de Verificação Manual Local e no CI</h3>
+<ol>
+  <li><strong>Subir o ambiente PostgreSQL local:</strong>
+    <pre><code>docker compose up -d db</code></pre>
+  </li>
+  <li><strong>Executar a suíte de testes completa no backend:</strong>
+    <pre><code>cd backend && npm test</code></pre>
+    <em>Verificar se todos os testes unitários e de integração passam sem falhas e sem travar o processo.</em>
+  </li>
+  <li><strong>Executar os scripts direcionados:</strong>
+    <pre><code>npm run test:unit
+npm run test:integration
+npm run test:db:setup</code></pre>
+    <em>Conferir a saída limpa e os códigos de retorno zero.</em>
+  </li>
+  <li><strong>Verificar a tipagem estrita do TypeScript:</strong>
+    <pre><code>npx tsc --noEmit</code></pre>
+    <em>Conferir zero erros de compilação ou tipos faltantes.</em>
+  </li>
+  <li><strong>Validação no GitHub Actions (CI):</strong>
+    <em>Conferir que o workflow <code>ci-cd.yml</code> executa com sucesso o job <code>backend-ci</code> com o serviço PostgreSQL ativo.</em>
+  </li>
+</ol>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-161)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivo de referência:</strong> <code>docs/modulos/AUTENTICACAO_RBAC.html</code> e <code>docs/manuais/padroes-backend.md</code></p>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do sistema, formalizando a arquitetura de testes automatizados da API, o uso do banco de dados de testes isolado no PostgreSQL 18 e os scripts padronizados do <code>package.json</code>. O manual de padrões de backend e o documento do módulo <code>AUTENTICACAO_RBAC.html</code> serão atualizados para refletir essa base técnica antes de abrir o Pull Request.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

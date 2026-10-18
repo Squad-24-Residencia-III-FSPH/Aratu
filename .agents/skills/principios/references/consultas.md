@@ -37,33 +37,43 @@ envolvidas em funções ou transformações:
 
   | Em vez de | Escreva |
   |---|---|
-  | `DATE(trp_planned_departure) = '2026-05-10'` | `trp_planned_departure >= '2026-05-10T00:00:00Z' AND trp_planned_departure < '2026-05-11T00:00:00Z'` |
-  | `EXTRACT(YEAR FROM req_created_at) = 2026` | `req_created_at >= '2026-01-01' AND req_created_at < '2027-01-01'` |
-  | `LOWER(veh_identification) = 'vtr-01'` | `veh_identification = 'VTR-01'` (armazene normalizado) |
-  | `req_state || req_category = 'SUBMITTED_BODY'` | `req_state = 'SUBMITTED' AND req_category = 'BODY'` |
+  | `DATE(planned_departure) = '2026-05-10'` | `planned_departure >= '2026-05-10T00:00:00Z' AND planned_departure < '2026-05-11T00:00:00Z'` |
+  | `EXTRACT(YEAR FROM created_at) = 2026` | `created_at >= '2026-01-01' AND created_at < '2027-01-01'` |
+  | `LOWER(license_plate) = 'abc-1234'` | `license_plate = 'ABC-1234'` (armazene normalizado) |
+  | `state || category = 'SUBMITTED_BODY'` | `state = 'SUBMITTED' AND category = 'BODY'` |
 
   Períodos contínuos devem ser expressos como intervalos semiabertos (`>=` início e `<` fim).
 - **Tipagem estrita no PostgreSQL:**
   O PostgreSQL não converte strings para inteiros silenciosamente. Passe os tipos
   corretos nos parâmetros do `pg`.
 - **Busca por texto com `LIKE`:**
-  `veh_identification LIKE 'VTR%'` aproveita o índice B-tree padrão (com suporte a `text_pattern_ops`).
-  `req_destination LIKE '%Centro%'` (curinga à esquerda) faz varredura completa (`Seq Scan`), a
+  `license_plate LIKE 'VTR%'` aproveita o índice B-tree padrão (com suporte a `text_pattern_ops`).
+  `destination LIKE '%Centro%'` (curinga à esquerda) faz varredura completa (`Seq Scan`), a
   menos que se utilize a extensão `pg_trgm` com índice GIN.
 
 ---
 
-## Traga só o necessário e mapeie para `camelCase` sem prefixo
+## Traga só o necessário e mapeie para `camelCase`
 
-- **Colunas nomeadas com alias `<pre>_id AS id`, nunca `SELECT *`:**
-  O `*` trafega dados desnecessários pela rede, vaza o prefixo SQL de 3 letras para o JSON, impede o uso de *Index Only Scan* e quebra contratos se a tabela ganhar colunas novas.
+- **Colunas nomeadas, nunca `SELECT *`:**
+  O `*` trafega dados desnecessários pela rede, impede o uso de *Index Only Scan* e quebra contratos se a tabela ganhar colunas novas. Mapeie apenas as colunas necessárias com alias `camelCase` quando o nome em `snake_case` divergir (ex: `created_at AS "createdAt"`).
 - **Filtre no banco, não na memória do Node.js:**
   Nunca faça `SELECT` de todas as viagens para filtrar por estado com `.filter()`
   no JavaScript. O banco é infinitamente mais rápido para filtrar e ordenar.
 - **Evite o problema do N+1:**
   Buscar uma lista de 50 viagens e, para cada uma, disparar uma query individual
   para buscar o motorista e o veículo gera 101 idas ao banco.
-  - Faça `JOIN` diretamente no SQL (ex: `FROM trp_trip JOIN veh_vehicle USING (veh_id) JOIN drv_driver USING (drv_id)`);
+  - Faça `JOIN` diretamente no SQL:
+    ```sql
+    SELECT t.id,
+           t.state,
+           t.planned_departure AS "plannedDeparture",
+           v.license_plate AS "licensePlate",
+           d.name AS "driverName"
+      FROM trip.trips t
+      JOIN fleet.vehicles v ON v.id = t.vehicle_id
+      JOIN fleet.drivers d ON d.id = t.driver_id;
+    ```
   - Ou agregue dados filhos em formato JSON nativo no PostgreSQL usando
     `jsonb_build_object` e `jsonb_agg`.
 
@@ -78,15 +88,15 @@ envolvidas em funções ou transformações:
   No PostgreSQL, a comparação de tuplas em índices é nativa e eficiente:
   ```sql
   SELECT
-    req_id AS id,
-    req_created_at AS "createdAt",
-    req_state AS state
-  FROM req_request
-  WHERE (req_created_at, req_id) < ($1, $2)
-  ORDER BY req_created_at DESC, req_id DESC
+    id,
+    created_at AS "createdAt",
+    state
+  FROM trip.requests
+  WHERE (created_at, id) < ($1, $2)
+  ORDER BY created_at DESC, id DESC
   LIMIT 20;
   ```
-  Isso aproveita diretamente o índice composto `(req_created_at DESC, req_id DESC)`.
+  Isso aproveita diretamente o índice composto `(created_at DESC, id DESC)`.
 
 ---
 
@@ -99,31 +109,30 @@ envolvidas em funções ou transformações:
   ```typescript
   const query = `
     SELECT
-      veh_id AS id,
-      veh_identification AS identification,
-      veh_seats AS seats,
-      veh_active AS active
-    FROM veh_vehicle
-    WHERE veh_active = $1 AND veh_seats >= $2
-    ORDER BY veh_identification ASC;
+      id,
+      identification,
+      seats,
+      active
+    FROM fleet.vehicles
+    WHERE active = $1 AND seats >= $2
+    ORDER BY identification ASC;
   `;
   const result = await pool.query(query, [true, minSeats]);
   ```
 
 ### 2. Índices Estratégicos para o Domínio Aratu (Sem `idx_` ou `uq_`)
-- **Nomenclatura de Índices:** Iniciam diretamente pelo prefixo de 3 letras da tabela `<pre>_<descriptive_name>` (sem `idx_` nem `uq_`).
+- **Nomenclatura de Índices:** Seguem o padrão `<schema>_<table>_<purpose>` (sem `idx_` nem `uq_`).
 - **Chaves estrangeiras e buscas frequentes:**
   ```sql
-  CREATE INDEX ral_by_request ON ral_request_allocation (req_id);
-  CREATE INDEX ral_by_trip ON ral_request_allocation (trp_id);
-  CREATE INDEX rqe_by_request ON rqe_request_event (req_id, rqv_id);
-  CREATE INDEX aud_by_table ON aud_audit (aud_table, aud_id);
+  CREATE INDEX trip_allocations_by_request ON trip.allocations (request_id);
+  CREATE INDEX trip_allocations_by_trip ON trip.allocations (trip_id);
+  CREATE INDEX audit_logs_by_table ON audit.logs (table_name, record_id);
   ```
 - **Índices Parciais (Recurso Poderoso do PostgreSQL):**
   ```sql
   -- Garante que um veículo ou motorista tenha no máximo uma viagem em andamento
-  CREATE UNIQUE INDEX trp_vehicle_in_progress ON trp_trip (veh_id) WHERE trp_state = 'IN_PROGRESS';
-  CREATE UNIQUE INDEX trp_driver_in_progress ON trp_trip (drv_id) WHERE trp_state = 'IN_PROGRESS';
+  CREATE UNIQUE INDEX trip_trips_vehicle_in_progress ON trip.trips (vehicle_id) WHERE state = 'IN_PROGRESS';
+  CREATE UNIQUE INDEX trip_trips_driver_in_progress ON trip.trips (driver_id) WHERE state = 'IN_PROGRESS';
   ```
 
 ### 3. Interpretando o `EXPLAIN` no PostgreSQL

@@ -43,6 +43,24 @@ jobs:
   backend-ci:
     name: backend-ci
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: meubanco
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://ci_user:ci_password@localhost:5432/meubanco
+      JWT_SECRET: synthetic-ci-secret-not-for-production
+      JWT_EXPIRES_IN: 8h
     steps:
       - name: Check out source
         uses: actions/checkout@v4
