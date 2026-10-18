@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AUTENTICACAO_RBAC — Autenticação, Usuários e Controle de Acesso RBAC (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #075985;
+      --brand: #0369a1;
+      --brand-surface: #f0f9ff;
+      --brand-border: #bae6fd;
+      --brand-hover: #e0f2fe;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>AUTENTICACAO_RBAC — Autenticação, Usuários e Controle de Acesso RBAC</h1>
+
+<div class="meta-block">
+  <p><strong>Módulo (chave):</strong> <code>AUTENTICACAO_RBAC</code></p>
+  <p><strong>Índice de referência:</strong> <code>docs/manuais/modulos.md</code> (Módulo #1)</p>
+  <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/auth.routes.ts</code>, <code>backend/src/controllers/auth.controller.ts</code>, <code>backend/src/services/auth.service.ts</code>, <code>backend/src/services/audit.service.ts</code>, <code>backend/src/services/password.service.ts</code>, <code>backend/src/services/jwt-config.service.ts</code>, <code>backend/src/repositories/users.repository.ts</code>, <code>backend/src/repositories/audit.repository.ts</code></p>
+  <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/LoginPage.tsx</code>, <code>frontend/src/pages/ProfileHome.tsx</code>, <code>frontend/src/auth/</code>, <code>frontend/src/api/client.ts</code>, <code>frontend/src/routing/</code></p>
+  <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (tabelas <code>usr_user</code> e <code>aud_audit</code> no container <code>db</code> — database <code>meubanco</code>)</p>
+  <p><strong>Versão da documentação:</strong> 2026-10-18</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#visao-geral">1. Visão Geral</a></li>
+  <li><a href="#regras-negocio">2. Regras de Negócio e Transições de Estado</a></li>
+  <li><a href="#matriz-rbac">3. Escopo de Impacto e Matriz de Acesso (RBAC)</a></li>
+  <li><a href="#tabelas-banco">4. Tabelas do Banco de Dados (PostgreSQL 18)</a></li>
+  <li><a href="#contratos-api">5. Contratos de API REST (Backend Express 5)</a></li>
+  <li><a href="#camadas-backend">6. Camadas de Negócio e Persistência (Backend)</a></li>
+  <li><a href="#interface-acessibilidade">7. Interface e Acessibilidade (Frontend React 19 + WCAG 2.2 AA)</a></li>
+  <li><a href="#arquivos-principais">8. Arquivos Principais (Referência Rápida)</a></li>
+  <li><a href="#dependencias-lgpd">9. Dependências, Integrações e Proteção de Dados (LGPD)</a></li>
+</ol>
+
+<hr>
+
+<h2 id="visao-geral">1. Visão Geral</h2>
+<p>
+  O módulo <strong><code>AUTENTICACAO_RBAC</code></strong> é o alicerce de segurança, controle de sessão e governança do <strong>Aratu — Sistema de Gestão de Frota e Operações</strong>, desenvolvido para a <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e o <strong>Serviço de Verificação de Óbito (SVO)</strong>.
+</p>
+<p>
+  Ele resolve a necessidade de uma porta de entrada centralizada, acessível e segura para servidores estaduais, gestores de frota, solicitantes de transporte, triagem e condutores. O módulo garante:
+</p>
+<ul>
+  <li><strong>Autenticação Stateless e Segura:</strong> Emissão de tokens JWT assinados com algoritmo HMAC-SHA256, com tempo de expiração estrito (padrão de 8 horas para turnos de trabalho, configurável via <code>JWT_EXPIRES_IN</code>) e senhas armazenadas com hash criptográfico bcrypt (custo 12).</li>
+  <li><strong>Rastreabilidade e Trilha de Auditoria Imutável:</strong> Toda tentativa de login (sucesso, senha incorreta, e-mail inexistente ou conta inativa) e encerramento voluntário de sessão (logout) é registrado de forma perene na tabela <code>aud_audit</code>, sem jamais persistir senhas em texto puro ou hashes em snapshots (LGPD).</li>
+  <li><strong>Controle de Acesso Baseado em Perfis (RBAC):</strong> Definição dos 6 perfis canônicos do sistema (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code>), interceptando requisições no backend Express 5 e direcionando as telas iniciais no frontend React 19.</li>
+</ul>
+
+<hr>
+
+<h2 id="regras-negocio">2. Regras de Negócio e Transições de Estado</h2>
+<p>
+  As regras de domínio e invariantes de segurança do módulo estão encapsuladas exclusivamente na camada de serviços do backend:
+</p>
+<ul>
+  <li>
+    <strong>Prevenção de Ataques de Enumeração de Contas (<code>AuthService::login</code>):</strong>
+    O e-mail informado é normalizado com <code>trim().toLowerCase()</code>. Se o usuário não existir no banco ou se a senha conferida com bcrypt for incorreta, o serviço retorna status HTTP <code>401 Unauthorized</code> com a mensagem genérica <code>"E-mail ou senha inválidos"</code>, impedindo que invasores descubram quais e-mails estão cadastrados no sistema.
+  </li>
+  <li>
+    <strong>Bloqueio Imediato de Contas Inativas (<code>AuthService::login</code>):</strong>
+    Usuários com a flag <code>usr_active = false</code> têm sua autenticação rejeitada com status HTTP <code>403 Forbidden</code> (<code>"Acesso desativado"</code>), mesmo fornecendo a senha correta. O evento é registrado como <code>LOGIN_INACTIVE</code> em <code>aud_audit</code>.
+  </li>
+  <li>
+    <strong>Restrições Criptográficas de Senha (<code>PasswordService::hashPassword</code> e <code>PasswordService::comparePassword</code>):</strong>
+    Senhas não podem estar vazias e possuem limite estrito de <strong>72 bytes em UTF-8</strong>, evitando a vulnerabilidade de truncamento silencioso intrínseca ao algoritmo bcrypt. A verificação é realizada em tempo constante para mitigar ataques de temporização (<em>timing attacks</em>).
+  </li>
+  <li>
+    <strong>Configuração Dinâmica e Segura de Token (<code>JwtConfigService::loadJwtConfig</code>):</strong>
+    Exige obrigatoriamente a presença da variável de ambiente <code>JWT_SECRET</code> na inicialização do servidor e valida o formato temporal de <code>JWT_EXPIRES_IN</code> aceitando sufixos <code>s</code> (segundos), <code>m</code> (minutos), <code>h</code> (horas) ou <code>d</code> (dias).
+  </li>
+  <li>
+    <strong>Higienização LGPD e Atomicidade de Auditoria (<code>AuditService::recordAudit</code> e <code>AuditRepository::create</code>):</strong>
+    Campos sensíveis de autenticação (<code>password</code>, <code>senha</code>, <code>password_hash</code>, <code>usr_password_hash</code>) são automaticamente removidos de qualquer snapshot antes da inserção no banco. O serviço suporta um cliente transacional dedicado (<code>PoolClient</code>) para garantir que auditorias de operações críticas compartilhem a mesma transação (<code>BEGIN ... COMMIT / ROLLBACK</code>).
+  </li>
+  <li>
+    <strong>Encerramento de Sessão Auditado (<code>AuthService::logout</code>):</strong>
+    O logout valida o token JWT do usuário ativo, grava o evento <code>LOGOUT</code> na trilha de auditoria e orienta o cliente web a descartar o token em memória e no <code>sessionStorage</code>.
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="matriz-rbac">3. Escopo de Impacto e Matriz de Acesso (RBAC)</h2>
+<p>
+  A autorização no Sistema Aratu é validada pelo middleware <code>createAuthMiddleware</code> no backend e direcionada pelas rotas e contextos de autorização no frontend:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Perfil RBAC (<code>usr_role</code>)</th>
+      <th scope="col">Ações Permitidas no Módulo</th>
+      <th scope="col">Destino Pós-Login / Escopo Operacional</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Autenticação, encerramento de sessão, consulta irrestrita de usuários e trilha de auditoria global.</td>
+      <td>Redirecionado para <code>/admin</code>; permissão de gestão sobre todos os módulos da FSPH e SVO.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">GESTOR</span></td>
+      <td>Autenticação, logout e operações de gestão de frotas e aprovação.</td>
+      <td>Redirecionado para <code>/gestao</code>; controle de viaturas, motoristas e despacho de viagens.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td>Autenticação, logout e abertura de solicitações de transporte institucional.</td>
+      <td>Redirecionado para <code>/solicitante</code>; restrito aos pedidos do seu setor/unidade da FSPH.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">MOTORISTA</span></td>
+      <td>Autenticação e encerramento de sessão via celular/tablet.</td>
+      <td>Redirecionado para <code>/motorista</code>; acesso restrito à escala de viagens atribuídas e registro de km.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td>Autenticação, logout e recepção de ocorrências de óbito.</td>
+      <td>Redirecionado para <code>/svo/atendimento</code>; triagem de chamados e solicitação de remoção cadavérica.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">EQUIPE_SVO</span></td>
+      <td>Autenticação e logout para equipes de campo do SVO.</td>
+      <td>Redirecionado para <code>/svo/operacao</code>; atendimento sigiloso, coleta e entrega cadavérica.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="tabelas-banco">4. Tabelas do Banco de Dados (PostgreSQL 18)</h2>
+<p>
+  As tabelas do módulo seguem o padrão de prefixo de 3 letras em inglês, chave primária <code>BIGINT GENERATED ALWAYS AS IDENTITY</code> e índices sargáveis sem prefixos redundantes:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Tabela</th>
+      <th scope="col">Descrição Funcional (Grão da Linha)</th>
+      <th scope="col">Colunas-Chave e Tipos</th>
+      <th scope="col">Constraints e Índices</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-tabela">usr_user</span></td>
+      <td>Cada linha representa a conta de acesso de um servidor ou colaborador do Aratu.</td>
+      <td>
+        <code>usr_id</code> (BIGINT IDENTITY PK, projetado como <code>usr_id::text AS id</code> no Repository),<br>
+        <code>usr_name</code> (TEXT NOT NULL),<br>
+        <code>usr_email</code> (TEXT NOT NULL),<br>
+        <code>usr_password_hash</code> (TEXT NOT NULL),<br>
+        <code>usr_role</code> (TEXT NOT NULL),<br>
+        <code>usr_active</code> (BOOLEAN NOT NULL DEFAULT true),<br>
+        <code>usr_revision</code> (INTEGER NOT NULL DEFAULT 1),<br>
+        <code>usr_created_at</code> (TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp())
+      </td>
+      <td>
+        <code>CHECK (usr_role IN ('ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO'))</code>;<br>
+        Índice único sargável: <code>CREATE UNIQUE INDEX usr_email_lower_unique ON usr_user (lower(usr_email));</code>
+      </td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">aud_audit</span></td>
+      <td>Cada linha registra imutavelmente uma ação de negócio, login ou mutação no sistema.</td>
+      <td>
+        <code>aud_id</code> (BIGINT IDENTITY PK, projetado como <code>aud_id::text AS id</code>),<br>
+        <code>usr_id</code> (BIGINT FK NULLABLE),<br>
+        <code>aud_table</code> (TEXT NOT NULL),<br>
+        <code>aud_record_id</code> (TEXT NULLABLE),<br>
+        <code>aud_operation</code> (TEXT NOT NULL),<br>
+        <code>aud_before</code> (JSONB NULLABLE),<br>
+        <code>aud_after</code> (JSONB NULLABLE),<br>
+        <code>aud_actor_snapshot</code> (JSONB NULLABLE),<br>
+        <code>aud_reason</code> (TEXT NULLABLE),<br>
+        <code>aud_registered_at</code> (TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp())
+      </td>
+      <td>
+        FK: <code>usr_id REFERENCES usr_user(usr_id) ON DELETE RESTRICT</code>;<br>
+        Índices:<br>
+        <code>CREATE INDEX aud_by_table ON aud_audit (aud_table, aud_record_id);</code><br>
+        <code>CREATE INDEX aud_by_user ON aud_audit (usr_id);</code><br>
+        <code>CREATE INDEX aud_by_registered_at ON aud_audit (aud_registered_at DESC, aud_id DESC);</code>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="contratos-api">5. Contratos de API REST (Backend Express 5)</h2>
+<p>Rota base de autenticação: <code>/auth</code>.</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Método</th>
+      <th scope="col">Endpoint</th>
+      <th scope="col">Controller / Método</th>
+      <th scope="col">Perfis Autorizados</th>
+      <th scope="col">Resumo do Contrato (Entrada → Saída)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/auth/login</code></td>
+      <td><code>createAuthController::login</code></td>
+      <td>Público (Não autenticado)</td>
+      <td>
+        <strong>Entrada:</strong> <code>{ email: string, senha: string }</code><br>
+        <strong>Sucesso (200 OK):</strong> <code>{ token: string, nome: string, perfil: UserRole }</code><br>
+        <strong>Erros:</strong> <code>400 Bad Request</code> (JSON malformado/vazio), <code>401 Unauthorized</code> (credenciais inválidas), <code>403 Forbidden</code> (conta desativada).
+      </td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/auth/logout</code></td>
+      <td><code>createAuthController::logout</code></td>
+      <td>Todos os perfis autenticados</td>
+      <td>
+        <strong>Entrada:</strong> Header <code>Authorization: Bearer &lt;token&gt;</code><br>
+        <strong>Sucesso (200 OK):</strong> <code>{ mensagem: "Logout realizado. Apague o token armazenado no cliente." }</code><br>
+        <strong>Erros:</strong> <code>401 Unauthorized</code> (token ausente, inválido ou expirado).
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="camadas-backend">6. Camadas de Negócio e Persistência (Backend)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Artefato / Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Responsabilidade Principal</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>AuthService</code></td>
+      <td>Service (<code>backend/src/services/auth.service.ts</code>)</td>
+      <td>Orquestra login com normalização de e-mail, verificação de hash bcrypt, emissão de JWT e disparo de eventos de auditoria.</td>
+    </tr>
+    <tr>
+      <td><code>AuditService</code></td>
+      <td>Service (<code>backend/src/services/audit.service.ts</code>)</td>
+      <td>Validação de invariantes da trilha de auditoria, higienização LGPD contra vazamento de senhas e integração transacional (<code>PoolClient</code>).</td>
+    </tr>
+    <tr>
+      <td><code>PasswordService</code></td>
+      <td>Service (<code>backend/src/services/password.service.ts</code>)</td>
+      <td>Funções puras de hashing seguro (custo 12) e comparação em tempo constante contra truncamento (72 bytes).</td>
+    </tr>
+    <tr>
+      <td><code>JwtConfigService</code></td>
+      <td>Service (<code>backend/src/services/jwt-config.service.ts</code>)</td>
+      <td>Carregamento e validação estrita de segredos e prazos de expiração a partir das variáveis de ambiente.</td>
+    </tr>
+    <tr>
+      <td><code>UsersRepository</code></td>
+      <td>Repository (<code>backend/src/repositories/users.repository.ts</code>)</td>
+      <td>Consulta parametrizada à tabela <code>usr_user</code> projetando <code>usr_id::text AS id</code> e aliases compatíveis sem <code>SELECT *</code>.</td>
+    </tr>
+    <tr>
+      <td><code>AuditRepository</code></td>
+      <td>Repository (<code>backend/src/repositories/audit.repository.ts</code>)</td>
+      <td>Persistência de registros em <code>aud_audit</code> via query parametrizada (<code>$1..$8</code>), serialização JSONB e retorno em <code>camelCase</code>.</td>
+    </tr>
+    <tr>
+      <td><code>createAuthMiddleware</code></td>
+      <td>Middleware (<code>backend/src/middlewares/auth.middleware.ts</code>)</td>
+      <td>Extração e validação do token JWT Bearer, validação de formato e injeção do usuário autenticado em <code>req.usuario</code>.</td>
+    </tr>
+    <tr>
+      <td><code>auth.ts</code> e <code>audit.types.ts</code></td>
+      <td>Types (<code>backend/src/types/</code>)</td>
+      <td>Contratos estritos em TypeScript para perfis RBAC, DTOs de login e modelos de auditoria.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="interface-acessibilidade">7. Interface e Acessibilidade (Frontend React 19 + WCAG 2.2 AA)</h2>
+<ul>
+  <li>
+    <strong>Telas do Fluxo de Autenticação:</strong>
+    <ul>
+      <li><code>LoginPage.tsx</code>: Formulário de entrada com campos de e-mail e senha, botão de submissão, alerta de feedback visual/auditivo e suporte aos 5 estados visuais.</li>
+      <li><code>ProfileHome.tsx</code>: Tela inicial padronizada pós-autenticação apresentando as boas-vindas ao servidor, seu perfil RBAC e botão de logout.</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Tratamento Obrigatório dos 5 Estados Visuais:</strong>
+    <ul>
+      <li><em>Estado Ideal:</em> Campos limpos, foco automático acessível e botão de acesso ativo.</li>
+      <li><em>Estado Carregando:</em> Botão desabilitado com indicador visual de progresso e atributo <code>aria-busy="true"</code>.</li>
+      <li><em>Estado Vazio:</em> Mensagens inline de validação preventiva acionadas antes da submissão à rede.</li>
+      <li><em>Estado Erro:</em> Banner com <code>role="alert"</code> contendo mensagem clara em português (ex: credenciais incorretas ou falha de conectividade).</li>
+      <li><em>Estado Parcial:</em> Preservação do e-mail digitado após tentativa com senha incorreta para agilizar a correção sem retrabalho.</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Critérios WCAG 2.2 Nível AA Atendidos:</strong>
+    <ul>
+      <li><strong>1.3.1 e 3.3.2 (Rótulos e Instruções):</strong> Conexão semântica entre rótulos visuais e campos via <code>htmlFor</code>/<code>id</code>.</li>
+      <li><strong>2.1.1 (Teclado):</strong> Operação integralmente realizável via <code>Tab</code>, <code>Shift+Tab</code> e <code>Enter</code>.</li>
+      <li><strong>2.4.7 e 2.4.11 (Foco Visível e Não Obscurecido):</strong> Destaque nítido de foco com <code>:focus-visible</code> sem remoção arbitrária de <code>outline</code>.</li>
+      <li><strong>2.5.8 (Tamanho do Alvo):</strong> Todos os controles interativos possuem área clicável mínima de <strong>44×44px</strong>, essencial para operação móvel por condutores sob claridade solar.</li>
+      <li><strong>4.1.3 (Mensagens de Status):</strong> Erros e confirmações emitidos em regiões acessíveis (<code>role="alert"</code>).</li>
+    </ul>
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="arquivos-principais">8. Arquivos Principais (Referência Rápida)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Caminho do Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Responsabilidade (Resumo)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/routes/auth.routes.ts</code></td>
+      <td>Rotas</td>
+      <td>Registro das rotas <code>POST /auth/login</code> e <code>POST /auth/logout</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/auth.controller.ts</code></td>
+      <td>Controller</td>
+      <td>Validação de payloads HTTP e delegação para o <code>AuthService</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/auth.service.ts</code></td>
+      <td>Service</td>
+      <td>Regras de negócio de autenticação, JWT e encerramento de sessão.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/audit.service.ts</code></td>
+      <td>Service</td>
+      <td>Regras de auditoria, normalização e higienização LGPD.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/users.repository.ts</code></td>
+      <td>Repository</td>
+      <td>Consulta parametrizada à tabela <code>usr_user</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/audit.repository.ts</code></td>
+      <td>Repository</td>
+      <td>Inserção parametrizada e imutável na tabela <code>aud_audit</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/middlewares/auth.middleware.ts</code></td>
+      <td>Middleware</td>
+      <td>Interceptação e validação de tokens JWT Bearer.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/auth/AuthProvider.tsx</code></td>
+      <td>Context / State</td>
+      <td>Provedor React de estado de autenticação, login e logout.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/auth/loginService.ts</code></td>
+      <td>API Client</td>
+      <td>Chamada HTTP tipada para <code>/auth/login</code> e tratamento de status.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/LoginPage.tsx</code></td>
+      <td>Page (React 19)</td>
+      <td>Interface visual acessível de autenticação.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/ProfileHome.tsx</code></td>
+      <td>Page (React 19)</td>
+      <td>Área inicial pós-login para redirecionamento por perfil RBAC.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="dependencias-lgpd">9. Dependências, Integrações e Proteção de Dados (LGPD)</h2>
+<ul>
+  <li>
+    <strong>Integrações com Outros Módulos:</strong>
+    O módulo <code>AUTENTICACAO_RBAC</code> fornece a base de identidade e autorização para todos os demais módulos do Sistema Aratu (<code>FROTA</code>, <code>MOTORISTAS</code>, <code>VIAGENS</code>, <code>SVO</code> e <code>MANUTENCOES</code>). Todos os serviços subsequentes consomem <code>req.usuario</code> para validar permissões de domínio e invocam <code>AuditService::recordAudit</code> para registrar mutações críticas.
+  </li>
+  <li>
+    <strong>Proteção de Dados Pessoais (LGPD) e Sigilo Operacional do SVO:</strong>
+    <ul>
+      <li>Senhas nunca são persistidas em texto puro ou trafegadas em logs de depuração.</li>
+      <li>O utilitário de auditoria higieniza automaticamente os snapshots de dados, impedindo o vazamento de hashes ou dados confidenciais.</li>
+      <li>É terminantemente proibido utilizar dados pessoais reais de servidores, condutores ou registros de falecidos do SVO em testes unitários, seeds ou documentações. Todos os exemplos utilizam exclusivamente dados sintéticos/fictícios (ex: <code>servidor@example.test</code>).</li>
+    </ul>
+  </li>
+</ul>
+
+</body>
+</html>

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-139 — [BE] Criar estrutura de registros de auditoria (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-139: [BE] Criar estrutura de registros de auditoria</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-139</code> — [BE] Criar estrutura de registros de auditoria</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/estrutura-registros-auditoria</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>AUTENTICACAO_RBAC</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ADMINISTRADOR, GESTOR, SOLICITANTE, MOTORISTA, ATENDENTE_SVO, EQUIPE_SVO</code></p>
+  <p><strong>Data:</strong> 2026-10-17</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+
+<p>
+  No domínio operacional da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e do <strong>Serviço de Verificação de Óbito (SVO)</strong>, a rastreabilidade das operações executadas no <strong>Sistema Aratu</strong> é um requisito crítico de governança, conformidade com a LGPD e auditoria administrativa. Toda ação relevante — desde autenticação e encerramento de sessão até futuras operações sobre veículos, motoristas, solicitações de viagem e atendimentos do SVO — precisa registrar de forma padronizada e imutável <strong>quem realizou a operação, o que foi feito, em qual entidade/registro ocorreu e o instante exato</strong>.
+</p>
+
+<p>
+  Esta tarefa (<strong>FROTA-139</strong>, que incorpora o escopo da antiga <strong>FROTA-140</strong>) entrega a infraestrutura central de auditoria no backend (PostgreSQL 18 + Node.js/Express 5/TypeScript) e padroniza a tabela de usuários (<code>usr_user</code>) para o modelo canônico de prefixo de 3 letras em inglês.
+</p>
+
+<h3>Delimitação de Escopo (YAGNI)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Entra no Escopo (FROTA-139 + FROTA-140)</th>
+      <th scope="col">Fora do Escopo (YAGNI)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <ul>
+          <li>Reescrita da migration inicial <code>202610160001_create_users.sql</code> (e <code>.down.sql</code>) para o padrão de prefixo de 3 letras <code>usr_user</code> com chave primária <code>usr_id BIGINT GENERATED ALWAYS AS IDENTITY</code> e atualização de <code>UsersRepository</code> mantendo 100% de compatibilidade com os contratos de autenticação e JWT.</li>
+          <li>Criação da migration <code>202610170001_create_audit.sql</code> (e <code>.down.sql</code>) para a tabela <code>aud_audit</code> com estrutura completa (autor, tabela, ID do registro, operação, snapshots JSONB e motivo) e índices sargáveis sem prefixo <code>idx_</code>/<code>uq_</code>.</li>
+          <li>Implementação das camadas <code>AuditRepository</code> (<code>backend/src/repositories/audit.repository.ts</code>) e <code>AuditService</code> / helper <code>recordAudit()</code> (<code>backend/src/services/audit.service.ts</code>) com suporte a <code>PoolClient</code> opcional para transações atômicas.</li>
+          <li>Integração imediata do registro de auditoria nas operações existentes de autenticação (<code>POST /auth/login</code> para sucesso, credenciais inválidas e conta inativa, e <code>POST /auth/logout</code>).</li>
+          <li>Testes automatizados unitários e de integração com dados 100% sintéticos (LGPD).</li>
+        </ul>
+      </td>
+      <td>
+        <ul>
+          <li>Criação de endpoints HTTP REST de listagem ou exportação de logs de auditoria (ex.: <code>GET /api/audit-logs</code>).</li>
+          <li>Telas ou componentes visuais no frontend React 19 para visualização de trilha de auditoria.</li>
+          <li>Triggers automáticos em PL/pgSQL para tabelas de módulos ainda não criados (cada módulo de negócio chamará <code>AuditService.recordAudit()</code> explicitamente em sua camada de serviço).</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Decisões Confirmadas pela Regra da Dúvida</h3>
+<ol>
+  <li><strong>Padronização de <code>usr_user</code> e <code>aud_audit</code>:</strong> A migration inicial <code>202610160001_create_users.sql</code> será reescrita diretamente para criar a tabela <code>usr_user</code> com <code>usr_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, e a nova migration <code>202610170001_create_audit.sql</code> criará <code>aud_audit</code> referenciando <code>usr_id BIGINT REFERENCES usr_user(usr_id) ON DELETE RESTRICT</code>.</li>
+  <li><strong>Estrutura Completa da Tabela <code>aud_audit</code>:</strong> Serão contempladas as colunas canônicas do manual (<code>aud_id</code>, <code>usr_id</code>, <code>aud_table</code>, <code>aud_record_id</code>, <code>aud_operation</code>, <code>aud_before</code>, <code>aud_after</code>, <code>aud_actor_snapshot</code>, <code>aud_reason</code>, <code>aud_registered_at</code>).</li>
+  <li><strong>Nomenclatura e Transacionalidade do Utilitário:</strong> Respeitando a regra <code>C4</code> do <code>aratu-check.mjs</code> e o Clean Code em inglês, o acesso SQL fica isolado em <code>AuditRepository</code> e a regra em <code>AuditService</code> (expondo o método e helper <code>recordAudit</code> em inglês), aceitando um <code>PoolClient</code> opcional para rodar na mesma transação (<code>BEGIN ... COMMIT</code>) da operação auditada.</li>
+  <li><strong>Integração nas Rotas Atuais (Antiga FROTA-140):</strong> Serão auditadas todas as operações existentes no módulo <code>/auth</code> (<code>LOGIN_SUCCESS</code>, <code>LOGIN_FAILURE</code>, <code>LOGIN_INACTIVE</code> e <code>LOGOUT</code>), sem criar endpoint HTTP de consulta nesta entrega.</li>
+</ol>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+
+<h3>Cenários Operacionais (Dado / Quando / Então)</h3>
+
+<div class="card">
+  <h4>Cenário 1 — Gravação de auditoria por operação de negócio autenticada</h4>
+  <ul>
+    <li><strong>Dado</strong> que um serviço de domínio executa uma operação relevante em nome de um usuário autenticado (ex.: login bem-sucedido, logout ou futura alteração de frota/viagem);</li>
+    <li><strong>Quando</strong> o serviço invoca <code>auditService.recordAudit(input, client)</code> informando <code>userId</code>, <code>table</code>, <code>recordId</code>, <code>operation</code> e metadados opcionais (<code>before</code>, <code>after</code>, <code>actorSnapshot</code>, <code>reason</code>);</li>
+    <li><strong>Então</strong> um novo registro imutável é inserido em <code>aud_audit</code> com carimbo temporal <code>clock_timestamp()</code> e retornado com seus campos mapeados em <code>camelCase</code>.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h4>Cenário 2 — Atomicidade transacional via <code>PoolClient</code></h4>
+  <ul>
+    <li><strong>Dado</strong> que um módulo executa uma operação crítica dentro de uma transação explícita (<code>BEGIN ... COMMIT</code>) usando um <code>PoolClient</code>;</li>
+    <li><strong>Quando</strong> <code>recordAudit(input, client)</code> é chamado passando o mesmo <code>client</code> transacional e ocorre uma falha na gravação da auditoria ou em etapa posterior da transação;</li>
+    <li><strong>Então</strong> o <code>ROLLBACK</code> da transação desfaz tanto a operação de negócio quanto o registro de auditoria, impedindo estados órfãos ou alterações sem rastro.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h4>Cenário 3 — Rastreio de operações de autenticação (<code>/auth/login</code> e <code>/auth/logout</code>)</h4>
+  <ul>
+    <li><strong>Dado</strong> que um usuário envia credenciais para <code>POST /auth/login</code> ou encerra a sessão em <code>POST /auth/logout</code>;</li>
+    <li><strong>Quando</strong>:
+      <ol>
+        <li>As credenciais são válidas e a conta está ativa → grava <code>aud_operation = 'LOGIN_SUCCESS'</code>, <code>aud_table = 'usr_user'</code>, <code>usr_id = Number(user.id)</code>, <code>aud_record_id = user.id</code> e <code>aud_actor_snapshot</code> com <code>{ id, email, role }</code>;</li>
+        <li>A senha é incorreta para usuário existente → grava <code>aud_operation = 'LOGIN_FAILURE'</code>, <code>aud_table = 'usr_user'</code>, <code>usr_id = Number(user.id)</code>, <code>aud_record_id = user.id</code>, <code>aud_reason = 'Invalid password'</code>;</li>
+        <li>O e-mail informado não corresponde a nenhum usuário → grava <code>aud_operation = 'LOGIN_FAILURE'</code>, <code>aud_table = 'usr_user'</code>, <code>usr_id = null</code>, <code>aud_record_id = null</code>, <code>aud_actor_snapshot = { email: normalizedEmail }</code>, <code>aud_reason = 'User not found'</code>;</li>
+        <li>A conta está inativa (<code>usr_active = false</code>) → grava <code>aud_operation = 'LOGIN_INACTIVE'</code>, <code>aud_table = 'usr_user'</code>, <code>usr_id = Number(user.id)</code>, <code>aud_record_id = user.id</code>, <code>aud_reason = 'Inactive user account'</code>;</li>
+        <li>O usuário autenticado chama <code>POST /auth/logout</code> → grava <code>aud_operation = 'LOGOUT'</code>, <code>aud_table = 'usr_user'</code>, <code>usr_id = Number(req.usuario.id)</code> (quando numérico válido), <code>aud_record_id = req.usuario.id</code> e <code>aud_actor_snapshot = { id: req.usuario.id, role: req.usuario.perfil }</code>.</li>
+      </ol>
+    </li>
+    <li><strong>Então</strong> todas as ocorrências ficam rastreadas em <code>aud_audit</code> sem nunca registrar a senha em texto puro ou o hash bcrypt nos snapshots (proteção LGPD e segurança).</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h4>Cenário 4 — Validação de entrada obrigatória no <code>AuditService</code></h4>
+  <ul>
+    <li><strong>Dado</strong> que um chamador invoca <code>recordAudit()</code> com <code>table</code> vazio ou <code>operation</code> vazia;</li>
+    <li><strong>Quando</strong> o <code>AuditService</code> valida os parâmetros antes de chamar o <code>AuditRepository</code>;</li>
+    <li><strong>Então</strong> lança erro descritivo em português informando que a tabela/entidade e a operação auditada são obrigatórias, sem enviar query inválida ao PostgreSQL.</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Ação</th>
+      <th scope="col">Responsabilidade na Camada</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/database/migrations/202610160001_create_users.sql</code></td>
+      <td>Modificar</td>
+      <td>Reescrever tabela inicial de usuários para o padrão <code>usr_user</code> com PK <code>usr_id BIGINT GENERATED ALWAYS AS IDENTITY</code> e colunas com prefixo <code>usr_</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610160001_create_users.down.sql</code></td>
+      <td>Modificar</td>
+      <td>Script de rollback transacional removendo o índice <code>usr_email_lower_unique</code> e a tabela <code>usr_user</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610170001_create_audit.sql</code></td>
+      <td>Criar</td>
+      <td>Migration DDL transacional criando a tabela <code>aud_audit</code> e os índices <code>aud_by_table</code>, <code>aud_by_user</code> e <code>aud_by_registered_at</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610170001_create_audit.down.sql</code></td>
+      <td>Criar</td>
+      <td>Script de rollback transacional removendo os índices e a tabela <code>aud_audit</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/types/audit.types.ts</code></td>
+      <td>Criar</td>
+      <td>Contratos TypeScript estritos (<code>AuditOperation</code>, <code>AuditActorSnapshot</code>, <code>CreateAuditInput</code>, <code>AuditEntry</code>, <code>AuditRepositoryContract</code>, <code>AuditLogger</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/audit.repository.ts</code></td>
+      <td>Criar</td>
+      <td>Implementação do <code>AuditRepository</code> com <code>INSERT INTO aud_audit</code> parametrizado (<code>$1..$8</code>), suporte a <code>PoolClient</code> opcional e projeção explícita em <code>camelCase</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/audit.service.ts</code></td>
+      <td>Criar</td>
+      <td>Implementação do <code>AuditService</code> puro e do helper <code>createRecordAudit()</code> / <code>recordAudit()</code> com validação de invariantes e normalização de snapshots.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/users.repository.ts</code></td>
+      <td>Modificar</td>
+      <td>Atualizar query parametrizada de <code>findByEmail</code> para ler da tabela <code>usr_user</code> projetando <code>usr_id::text AS id</code> e demais aliases compatíveis com <code>UserForLogin</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/auth.service.ts</code></td>
+      <td>Modificar</td>
+      <td>Injetar <code>AuditService</code> (ou <code>AuditLogger</code>) opcional/padrão para registrar <code>LOGIN_SUCCESS</code>, <code>LOGIN_FAILURE</code> e <code>LOGIN_INACTIVE</code>, além de método <code>logout()</code> auditado.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/auth.controller.ts</code></td>
+      <td>Modificar</td>
+      <td>Adicionar handler <code>logout</code> que aciona <code>authService.logout(req.usuario)</code> e retorna a confirmação HTTP 200.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/routes/auth.routes.ts</code></td>
+      <td>Modificar</td>
+      <td>Receber e repassar o serviço/repositório de auditoria para <code>AuthService</code> e delegar <code>POST /logout</code> ao controller.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/app.ts</code></td>
+      <td>Modificar</td>
+      <td>Permitir injeção opcional de <code>audits?: AuditRepositoryContract</code> em <code>AppDependencies</code> (instanciando <code>AuditRepository(pool)</code> quando <code>pool</code> for fornecido).</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/audit.test.ts</code></td>
+      <td>Criar</td>
+      <td>Suíte de testes unitários e de integração cobrindo <code>AuditService</code>, <code>AuditRepository</code>, suporte transacional <code>PoolClient</code> e auditoria das rotas <code>/auth/login</code> e <code>/auth/logout</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/auth.test.ts</code></td>
+      <td>Modificar</td>
+      <td>Adequar fixtures sintéticas de ID de usuário e verificar compatibilidade total dos testes existentes com a auditoria integrada.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Arquivos de referência no projeto (padrão a seguir)</h3>
+<ul>
+  <li><strong>Camadas Backend e Frontend:</strong> <code>docs/manuais/arquitetura-camadas.md</code>, <code>docs/manuais/padroes-backend.md</code> e <code>docs/manuais/padroes-frontend.md</code>.</li>
+  <li><strong>Padrões de Projeto (Design Patterns):</strong> <code>docs/manuais/padroes-projeto.md</code> (Repository, State/FSM, Strategy, Chain of Responsibility, Compound Components).</li>
+  <li><strong>Nomenclatura SQL de 3 letras:</strong> <code>docs/manuais/padroes-codigo.md</code> e <code>.agents/skills/principios/references/dados.md</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+
+<h3>4.1 Reescrita da Migration de Usuários (<code>202610160001_create_users.sql</code>)</h3>
+<pre><code>BEGIN;
+
+CREATE TABLE usr_user (
+  usr_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  usr_name TEXT NOT NULL CHECK (btrim(usr_name) &lt;&gt; ''),
+  usr_email TEXT NOT NULL CHECK (btrim(usr_email) &lt;&gt; ''),
+  usr_password_hash TEXT NOT NULL CHECK (btrim(usr_password_hash) &lt;&gt; ''),
+  usr_role TEXT NOT NULL CHECK (usr_role IN (
+    'ADMINISTRADOR',
+    'GESTOR',
+    'SOLICITANTE',
+    'MOTORISTA',
+    'ATENDENTE_SVO',
+    'EQUIPE_SVO'
+  )),
+  usr_active BOOLEAN NOT NULL DEFAULT true,
+  usr_revision INTEGER NOT NULL DEFAULT 1 CHECK (usr_revision &gt; 0),
+  usr_created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE UNIQUE INDEX usr_email_lower_unique ON usr_user (lower(usr_email));
+
+COMMIT;</code></pre>
+
+<h4>Plano de Rollback (<code>202610160001_create_users.down.sql</code>)</h4>
+<pre><code>BEGIN;
+
+DROP INDEX IF EXISTS usr_email_lower_unique;
+DROP TABLE IF EXISTS usr_user;
+
+COMMIT;</code></pre>
+
+<h3>4.2 Nova Migration da Tabela de Auditoria (<code>202610170001_create_audit.sql</code>)</h3>
+<p>
+  Cada linha de <code>aud_audit</code> registra que o ator <code>usr_id</code> (ou tentativa anônima documentada em <code>aud_actor_snapshot</code>) executou a operação <code>aud_operation</code> sobre o registro <code>aud_record_id</code> da tabela/entidade <code>aud_table</code> no instante <code>aud_registered_at</code>.
+</p>
+<pre><code>BEGIN;
+
+CREATE TABLE aud_audit (
+  aud_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  usr_id BIGINT REFERENCES usr_user (usr_id) ON DELETE RESTRICT,
+  aud_table TEXT NOT NULL CHECK (btrim(aud_table) &lt;&gt; ''),
+  aud_record_id TEXT CHECK (aud_record_id IS NULL OR btrim(aud_record_id) &lt;&gt; ''),
+  aud_operation TEXT NOT NULL CHECK (btrim(aud_operation) &lt;&gt; ''),
+  aud_before JSONB,
+  aud_after JSONB,
+  aud_actor_snapshot JSONB,
+  aud_reason TEXT CHECK (aud_reason IS NULL OR btrim(aud_reason) &lt;&gt; ''),
+  aud_registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE INDEX aud_by_table ON aud_audit (aud_table, aud_record_id);
+CREATE INDEX aud_by_user ON aud_audit (usr_id);
+CREATE INDEX aud_by_registered_at ON aud_audit (aud_registered_at DESC, aud_id DESC);
+
+COMMIT;</code></pre>
+
+<h4>Plano de Rollback (<code>202610170001_create_audit.down.sql</code>)</h4>
+<pre><code>BEGIN;
+
+DROP INDEX IF EXISTS aud_by_registered_at;
+DROP INDEX IF EXISTS aud_by_user;
+DROP INDEX IF EXISTS aud_by_table;
+DROP TABLE IF EXISTS aud_audit;
+
+COMMIT;</code></pre>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+
+<h3>5.1 Impacto nos Endpoints REST Existentes</h3>
+<p>
+  Conforme decisão confirmada (YAGNI), esta tarefa não cria novos endpoints HTTP, mas integra a gravação automática de auditoria nos endpoints de autenticação existentes mantendo 100% do contrato JSON de entrada e saída com o frontend:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Método e Rota</th>
+      <th scope="col">Autenticação</th>
+      <th scope="col">Operações Auditadas em <code>aud_audit</code></th>
+      <th scope="col">Respostas HTTP (Inalteradas)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>POST /auth/login</code></td>
+      <td>Pública</td>
+      <td>
+        <ul>
+          <li><code>LOGIN_SUCCESS</code> (200): grava <code>usr_id</code>, <code>aud_record_id = user.id</code>, <code>aud_actor_snapshot = { id, email, role }</code>.</li>
+          <li><code>LOGIN_FAILURE</code> (401): grava tentativa com senha inválida ou e-mail inexistente (sem jamais gravar a senha).</li>
+          <li><code>LOGIN_INACTIVE</code> (403): grava tentativa bloqueada de conta inativa.</li>
+        </ul>
+      </td>
+      <td><code>200 OK</code>, <code>400 Bad Request</code>, <code>401 Unauthorized</code>, <code>403 Forbidden</code></td>
+    </tr>
+    <tr>
+      <td><code>POST /auth/logout</code></td>
+      <td>Bearer JWT (<code>createAuthMiddleware</code>)</td>
+      <td>
+        <ul>
+          <li><code>LOGOUT</code> (200): grava encerramento de sessão com <code>usr_id</code>, <code>aud_record_id = req.usuario.id</code> e <code>aud_actor_snapshot = { id, role }</code>.</li>
+        </ul>
+      </td>
+      <td><code>200 OK</code>, <code>401 Unauthorized</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>5.2 Contratos e Tipagens (<code>backend/src/types/audit.types.ts</code>)</h3>
+<pre><code>import type { PoolClient } from 'pg'
+
+export type AuditOperation =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'STATUS_CHANGE'
+  | 'LOGIN_SUCCESS'
+  | 'LOGIN_FAILURE'
+  | 'LOGIN_INACTIVE'
+  | 'LOGOUT'
+  | (string &amp; {})
+
+export interface AuditActorSnapshot {
+  id?: string
+  email?: string
+  role?: string
+  [key: string]: unknown
+}
+
+export interface CreateAuditInput {
+  userId?: string | number | null
+  table: string
+  recordId?: string | number | null
+  operation: AuditOperation
+  before?: Record&lt;string, unknown&gt; | null
+  after?: Record&lt;string, unknown&gt; | null
+  actorSnapshot?: AuditActorSnapshot | null
+  reason?: string | null
+}
+
+export interface NormalizedCreateAuditInput {
+  userId: string | null
+  table: string
+  recordId: string | null
+  operation: string
+  before: Record&lt;string, unknown&gt; | null
+  after: Record&lt;string, unknown&gt; | null
+  actorSnapshot: AuditActorSnapshot | null
+  reason: string | null
+}
+
+export interface AuditEntry {
+  id: string
+  userId: string | null
+  table: string
+  recordId: string | null
+  operation: string
+  before: Record&lt;string, unknown&gt; | null
+  after: Record&lt;string, unknown&gt; | null
+  actorSnapshot: AuditActorSnapshot | null
+  reason: string | null
+  registeredAt: Date
+}
+
+export interface AuditRepositoryContract {
+  create(input: NormalizedCreateAuditInput, client?: PoolClient): Promise&lt;AuditEntry&gt;
+}
+
+export interface AuditLogger {
+  recordAudit(input: CreateAuditInput, client?: PoolClient): Promise&lt;AuditEntry&gt;
+}</code></pre>
+
+<h3>5.3 Camada de Repositório (<code>backend/src/repositories/audit.repository.ts</code>)</h3>
+<ul>
+  <li>Implementa <code>AuditRepositoryContract</code> recebendo <code>Pool</code> no construtor e aceitando <code>client?: PoolClient</code> no método <code>create</code> para participar de transações atômicas.</li>
+  <li>Utiliza placeholders posicionais (<code>$1..$8</code>), converte objetos JSON com serialização segura para <code>$5::jsonb, $6::jsonb, $7::jsonb</code> e projeta explicitamente as colunas com <code>aud_id::text AS id</code> e aliases em <code>camelCase</code> (proibido <code>SELECT *</code> ou <code>RETURNING *</code>).</li>
+</ul>
+
+<h3>5.4 Camada de Serviço e Helper Único (<code>backend/src/services/audit.service.ts</code>)</h3>
+<ul>
+  <li>Implementa <code>AuditService</code> sem nenhuma dependência de Express ou HTTP.</li>
+  <li>Valida que <code>table</code> e <code>operation</code> são strings não vazias após <code>trim()</code>; normaliza <code>userId</code> numérico positivo (ou <code>null</code> quando ausente/não numérico em mocks) e <code>recordId</code> como string limpa.</li>
+  <li>Exporta também a fábrica utilitária <code>createRecordAudit(repository)</code> para casos em que módulos queiram injetar diretamente a função <code>recordAudit(input, client)</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+
+<p>
+  <strong>Não se aplica a esta tarefa.</strong> A <strong>FROTA-139</strong> é uma tarefa estritamente de infraestrutura de backend (label <code>backend, infra</code>, épico <code>FROTA-154 — [INFRA] Base do backend</code>) e mantém inalterados os payloads e mensagens consumidos pelo frontend em <code>POST /auth/login</code> e <code>POST /auth/logout</code>.
+</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>
+  Embora esta tarefa não introduza novas telas no frontend React 19, todas as respostas HTTP de erro e confirmação originadas no backend (<code>auth.controller.ts</code>) preservam mensagens claras e orientadoras em português, compatíveis com os alertas acessíveis (<code>role="alert"</code>) já renderizados na tela de login:
+</p>
+<ul class="check">
+  <li><input type="checkbox" checked disabled> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Mensagens de retorno de <code>/auth/login</code> e <code>/auth/logout</code> mantêm clareza textual em português e não expõem stack traces ou detalhes internos de banco.</li>
+  <li><input type="checkbox" checked disabled> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Sem alterações na navegação por teclado do frontend.</li>
+  <li><input type="checkbox" checked disabled> <strong>Tamanho do Alvo (2.5.8):</strong> Sem alterações nos controles interativos de 44×44px.</li>
+  <li><input type="checkbox" checked disabled> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Sem alterações visuais no tema.</li>
+  <li><input type="checkbox" checked disabled> <strong>Mensagens de Status (4.1.3):</strong> Contratos JSON de feedback (<code>{ erro }</code> e <code>{ mensagem }</code>) integralmente preservados.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+
+<h3>Matriz de Impacto por Perfil RBAC</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Perfil (<code>usr_role</code>)</th>
+      <th scope="col">Impacto na Tarefa</th>
+      <th scope="col">Operações Auditadas</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code></td>
+      <td>Todos os perfis têm seus eventos de login, tentativa inválida/inativa e logout registrados automaticamente em <code>aud_audit</code>.</td>
+      <td><code>LOGIN_SUCCESS</code>, <code>LOGIN_FAILURE</code>, <code>LOGIN_INACTIVE</code>, <code>LOGOUT</code> e futuras mutações nos módulos de domínio.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Configuração e Variáveis de Ambiente</h3>
+<ul>
+  <li>Nenhuma variável de ambiente nova ou feature flag é necessária (Princípio 2 — Escopo de Impacto e YAGNI). A estrutura utiliza o pool PostgreSQL já configurado via <code>DATABASE_URL</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<p>Todos os testes utilizam exclusivamente dados 100% sintéticos e fictícios, em conformidade estrita com a LGPD e o sigilo operacional da FSPH/SVO.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Tipo</th>
+      <th scope="col">Cenário de Teste</th>
+      <th scope="col">Resultado Esperado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>T01</strong></td>
+      <td>Unitário (<code>AuditService</code>)</td>
+      <td>Gravar auditoria válida com <code>userId</code>, <code>table</code>, <code>recordId</code>, <code>operation</code>, <code>before</code>, <code>after</code>, <code>actorSnapshot</code> e <code>reason</code>.</td>
+      <td>Normaliza os campos (incluindo trim de strings) e repassa ao <code>AuditRepository.create</code> retornando o <code>AuditEntry</code> criado.</td>
+    </tr>
+    <tr>
+      <td><strong>T02</strong></td>
+      <td>Unitário (<code>AuditService</code>)</td>
+      <td>Rejeitar chamada com <code>table</code> ou <code>operation</code> em branco.</td>
+      <td>Lança erro de validação em português sem acionar o repositório.</td>
+    </tr>
+    <tr>
+      <td><strong>T03</strong></td>
+      <td>Unitário / Transação (<code>AuditRepository</code>)</td>
+      <td>Executar <code>AuditRepository.create(input, client)</code> fornecendo um <code>PoolClient</code> mockado/transacional.</td>
+      <td>Executa a query parametrizada <code>INSERT INTO aud_audit ... RETURNING ...</code> através do <code>client</code> fornecido (e não do pool global) e mapeia as colunas para <code>camelCase</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>T04</strong></td>
+      <td>Integração HTTP (<code>POST /auth/login</code>)</td>
+      <td>Login com sucesso, login com senha incorreta, login com e-mail inexistente e login de conta inativa.</td>
+      <td>Gera os respectivos registros <code>LOGIN_SUCCESS</code>, <code>LOGIN_FAILURE</code> e <code>LOGIN_INACTIVE</code> na tabela/repositório de auditoria sem expor senhas ou hashes.</td>
+    </tr>
+    <tr>
+      <td><strong>T05</strong></td>
+      <td>Integração HTTP (<code>POST /auth/logout</code>)</td>
+      <td>Logout autenticado com token JWT válido.</td>
+      <td>Retorna HTTP 200 e grava registro <code>LOGOUT</code> com <code>userId</code>, <code>recordId</code> e <code>actorSnapshot</code> do usuário autenticado.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-139)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas e colunas PostgreSQL no padrão de prefixo de 3 letras (<code>&lt;pre&gt;_id AS id</code> no Repository)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivo de referência:</strong> <code>docs/modulos/AUTENTICACAO_RBAC.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do módulo <code>AUTENTICACAO_RBAC</code> (modelagem de <code>usr_user</code> e <code>aud_audit</code> e rastreio de eventos de autenticação). Atualize ou gere a documentação correspondente com <code>/documentar-modulo AUTENTICACAO_RBAC</code> quando o módulo for documentado.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 com prefixo de 3 letras em inglês.</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>
