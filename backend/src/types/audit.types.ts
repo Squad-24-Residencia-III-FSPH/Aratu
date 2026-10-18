@@ -33,7 +33,7 @@ export interface AuditActorSnapshot {
 export interface CreateAuditInput {
   /** Identificador numérico do usuário (ou string numérica) no banco. */
   userId?: string | number | null | undefined
-  /** Nome da tabela ou entidade alvo da ação (ex: `usr_user`, `veh_vehicle`, `trp_trip`). */
+  /** Nome da tabela ou entidade alvo da ação (ex: `auth.users`, `fleet.vehicles`, `trip.trips`). */
   table: string
   /** Identificador do registro afetado na tabela auditada. */
   recordId?: string | number | null | undefined
@@ -75,7 +75,7 @@ export interface NormalizedCreateAuditInput {
  * Registro de auditoria persistido retornado pelo repositório.
  */
 export interface AuditEntry {
-  /** Identificador único do registro de auditoria (`aud_id`). */
+  /** Identificador único do registro de auditoria (`audit.logs.id`). */
   id: string
   /** Identificador do usuário associado à ação ou null quando anônimo. */
   userId: string | null
@@ -93,12 +93,12 @@ export interface AuditEntry {
   actorSnapshot: AuditActorSnapshot | null
   /** Motivo ou justificativa operacional. */
   reason: string | null
-  /** Carimbo temporal do registro gerado pelo PostgreSQL (`aud_registered_at`). */
+  /** Carimbo temporal do registro gerado pelo PostgreSQL (`audit.logs.registered_at`). */
   registeredAt: Date
 }
 
 /**
- * Contrato de persistência para gravação da trilha de auditoria (`aud_audit`).
+ * Contrato de persistência para gravação da trilha de auditoria (`audit.logs`).
  */
 export interface AuditRepositoryContract {
   /**

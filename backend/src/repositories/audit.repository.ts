@@ -20,22 +20,22 @@ interface AuditRow {
 }
 
 const AUDIT_RETURNING_COLUMNS = `
-  aud_id::text AS id,
-  usr_id::text AS "userId",
-  aud_table AS "table",
-  aud_record_id AS "recordId",
-  aud_operation AS operation,
-  aud_before AS before,
-  aud_after AS after,
-  aud_actor_snapshot AS "actorSnapshot",
-  aud_reason AS reason,
-  aud_registered_at AS "registeredAt"
+  id::text AS id,
+  user_id::text AS "userId",
+  table_name AS "table",
+  record_id AS "recordId",
+  operation,
+  before,
+  after,
+  actor_snapshot AS "actorSnapshot",
+  reason,
+  registered_at AS "registeredAt"
 `
 
 /**
- * Repositório responsável pela persistência imutável da trilha de auditoria (`aud_audit`) no PostgreSQL 18.
+ * Repositório responsável pela persistência imutável da trilha de auditoria (`audit.logs`) no PostgreSQL 18.
  *
- * Encapsula as inserções parametrizadas com prefixo de 3 letras e converte os resultados para
+ * Encapsula as inserções parametrizadas no schema `audit` e projeta os resultados para
  * objetos de domínio em `camelCase`, suportando transações isoladas através de clientes dedicados.
  */
 export class AuditRepository implements AuditRepositoryContract {
@@ -65,15 +65,15 @@ export class AuditRepository implements AuditRepositoryContract {
   async create(input: NormalizedCreateAuditInput, client?: PoolClient): Promise<AuditEntry> {
     const executor = client ?? this.pool
     const result = await executor.query<AuditRow>(
-      `INSERT INTO aud_audit (
-         usr_id,
-         aud_table,
-         aud_record_id,
-         aud_operation,
-         aud_before,
-         aud_after,
-         aud_actor_snapshot,
-         aud_reason
+      `INSERT INTO audit.logs (
+         user_id,
+         table_name,
+         record_id,
+         operation,
+         before,
+         after,
+         actor_snapshot,
+         reason
        )
        VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8)
        RETURNING ${AUDIT_RETURNING_COLUMNS}`,

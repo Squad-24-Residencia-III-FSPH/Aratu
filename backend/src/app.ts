@@ -18,7 +18,7 @@ export interface AppDependencies {
   jwtConfig: JwtConfig
   /** Repositório de usuários customizado (utilizado primariamente em testes unitários). */
   users?: UserRepository
-  /** Repositório de auditoria customizado para gravação em `aud_audit`. */
+  /** Repositório de auditoria customizado para gravação em `audit.logs`. */
   audits?: AuditRepositoryContract
   /** Pool de conexões com o PostgreSQL 18 para instanciação dos repositórios padrão. */
   pool?: Pool

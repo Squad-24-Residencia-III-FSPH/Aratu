@@ -11,7 +11,7 @@ export const USER_ROLES = [
 ] as const
 
 /**
- * Papel ou perfil de acesso de um usuário no sistema (`usr_role`).
+ * Papel ou perfil de acesso de um usuário no sistema (`auth.users.role`).
  */
 export type UserRole = typeof USER_ROLES[number]
 
@@ -29,17 +29,17 @@ export interface LoginRequestBody {
  * Dados de usuário retornados pelo repositório para o fluxo de autenticação.
  */
 export interface UserForLogin {
-  /** Identificador numérico do usuário formatado como texto (`usr_id::text`). */
+  /** Identificador numérico do usuário formatado como texto (`auth.users.id::text`). */
   id: string
-  /** Nome completo do usuário (`usr_name`). */
+  /** Nome completo do usuário (`auth.users.name`). */
   name: string
-  /** Endereço de e-mail institucional (`usr_email`). */
+  /** Endereço de e-mail institucional (`auth.users.email`). */
   email: string
-  /** Hash criptográfico da senha (`usr_password_hash`). */
+  /** Hash criptográfico da senha (`auth.users.password_hash`). */
   password_hash: string
-  /** Perfil de acesso RBAC atribuído ao usuário (`usr_role`). */
+  /** Perfil de acesso RBAC atribuído ao usuário (`auth.users.role`). */
   role: UserRole
-  /** Indica se a conta está ativa e autorizada a autenticar (`usr_active`). */
+  /** Indica se a conta está ativa e autorizada a autenticar (`auth.users.active`). */
   is_active: boolean
 }
 

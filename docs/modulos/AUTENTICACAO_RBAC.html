@@ -73,7 +73,7 @@
   <p><strong>Índice de referência:</strong> <code>docs/manuais/modulos.md</code> (Módulo #1)</p>
   <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/auth.routes.ts</code>, <code>backend/src/controllers/auth.controller.ts</code>, <code>backend/src/services/auth.service.ts</code>, <code>backend/src/services/audit.service.ts</code>, <code>backend/src/services/password.service.ts</code>, <code>backend/src/services/jwt-config.service.ts</code>, <code>backend/src/repositories/users.repository.ts</code>, <code>backend/src/repositories/audit.repository.ts</code></p>
   <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/LoginPage.tsx</code>, <code>frontend/src/pages/ProfileHome.tsx</code>, <code>frontend/src/auth/</code>, <code>frontend/src/api/client.ts</code>, <code>frontend/src/routing/</code></p>
-  <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (tabelas <code>usr_user</code> e <code>aud_audit</code> no container <code>db</code> — database <code>meubanco</code>)</p>
+  <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (schemas <code>auth</code> e <code>audit</code>, tabelas <code>auth.users</code> e <code>audit.logs</code> no container <code>db</code> — database <code>meubanco</code>)</p>
   <p><strong>Versão da documentação:</strong> 2026-10-18</p>
 </div>
 
@@ -100,7 +100,7 @@
 </p>
 <ul>
   <li><strong>Autenticação Stateless e Segura:</strong> Emissão de tokens JWT assinados com algoritmo HMAC-SHA256, com tempo de expiração estrito (padrão de 8 horas para turnos de trabalho, configurável via <code>JWT_EXPIRES_IN</code>) e senhas armazenadas com hash criptográfico bcrypt (custo 12).</li>
-  <li><strong>Rastreabilidade e Trilha de Auditoria Imutável:</strong> Toda tentativa de login (sucesso, senha incorreta, e-mail inexistente ou conta inativa) e encerramento voluntário de sessão (logout) é registrado de forma perene na tabela <code>aud_audit</code>, sem jamais persistir senhas em texto puro ou hashes em snapshots (LGPD).</li>
+  <li><strong>Rastreabilidade e Trilha de Auditoria Imutável:</strong> Toda tentativa de login (sucesso, senha incorreta, e-mail inexistente ou conta inativa) e encerramento voluntário de sessão (logout) é registrado de forma perene na tabela <code>audit.logs</code>, sem jamais persistir senhas em texto puro ou hashes em snapshots (LGPD).</li>
   <li><strong>Controle de Acesso Baseado em Perfis (RBAC):</strong> Definição dos 6 perfis canônicos do sistema (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code>), interceptando requisições no backend Express 5 e direcionando as telas iniciais no frontend React 19.</li>
 </ul>
 
@@ -117,7 +117,7 @@
   </li>
   <li>
     <strong>Bloqueio Imediato de Contas Inativas (<code>AuthService::login</code>):</strong>
-    Usuários com a flag <code>usr_active = false</code> têm sua autenticação rejeitada com status HTTP <code>403 Forbidden</code> (<code>"Acesso desativado"</code>), mesmo fornecendo a senha correta. O evento é registrado como <code>LOGIN_INACTIVE</code> em <code>aud_audit</code>.
+    Usuários com a flag <code>active = false</code> têm sua autenticação rejeitada com status HTTP <code>403 Forbidden</code> (<code>"Acesso desativado"</code>), mesmo fornecendo a senha correta. O evento é registrado como <code>LOGIN_INACTIVE</code> em <code>audit.logs</code>.
   </li>
   <li>
     <strong>Restrições Criptográficas de Senha (<code>PasswordService::hashPassword</code> e <code>PasswordService::comparePassword</code>):</strong>
@@ -129,7 +129,7 @@
   </li>
   <li>
     <strong>Higienização LGPD e Atomicidade de Auditoria (<code>AuditService::recordAudit</code> e <code>AuditRepository::create</code>):</strong>
-    Campos sensíveis de autenticação (<code>password</code>, <code>senha</code>, <code>password_hash</code>, <code>usr_password_hash</code>) são automaticamente removidos de qualquer snapshot antes da inserção no banco. O serviço suporta um cliente transacional dedicado (<code>PoolClient</code>) para garantir que auditorias de operações críticas compartilhem a mesma transação (<code>BEGIN ... COMMIT / ROLLBACK</code>).
+    Campos sensíveis de autenticação (<code>password</code>, <code>senha</code>, <code>password_hash</code>) são automaticamente removidos de qualquer snapshot antes da inserção no banco. O serviço suporta um cliente transacional dedicado (<code>PoolClient</code>) para garantir que auditorias de operações críticas compartilhem a mesma transação (<code>BEGIN ... COMMIT / ROLLBACK</code>).
   </li>
   <li>
     <strong>Encerramento de Sessão Auditado (<code>AuthService::logout</code>):</strong>
@@ -146,7 +146,7 @@
 <table>
   <thead>
     <tr>
-      <th scope="col">Perfil RBAC (<code>usr_role</code>)</th>
+      <th scope="col">Perfil RBAC (<code>auth.users.role</code>)</th>
       <th scope="col">Ações Permitidas no Módulo</th>
       <th scope="col">Destino Pós-Login / Escopo Operacional</th>
     </tr>
@@ -189,7 +189,7 @@
 
 <h2 id="tabelas-banco">4. Tabelas do Banco de Dados (PostgreSQL 18)</h2>
 <p>
-  As tabelas do módulo seguem o padrão de prefixo de 3 letras em inglês, chave primária <code>BIGINT GENERATED ALWAYS AS IDENTITY</code> e índices sargáveis sem prefixos redundantes:
+  As tabelas do módulo seguem a arquitetura de <strong>schemas nativos de domínio</strong> do PostgreSQL 18 com tabelas no plural (schemas <code>auth</code> e <code>audit</code>, <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>), chave primária <code>id BIGINT GENERATED ALWAYS AS IDENTITY</code>, chaves estrangeiras <code>&lt;entidade&gt;_id</code> e índices sargáveis:
 </p>
 <table>
   <thead>
@@ -202,44 +202,44 @@
   </thead>
   <tbody>
     <tr>
-      <td><span class="badge-tabela">usr_user</span></td>
+      <td><span class="badge-tabela">auth.users</span></td>
       <td>Cada linha representa a conta de acesso de um servidor ou colaborador do Aratu.</td>
       <td>
-        <code>usr_id</code> (BIGINT IDENTITY PK, projetado como <code>usr_id::text AS id</code> no Repository),<br>
-        <code>usr_name</code> (TEXT NOT NULL),<br>
-        <code>usr_email</code> (TEXT NOT NULL),<br>
-        <code>usr_password_hash</code> (TEXT NOT NULL),<br>
-        <code>usr_role</code> (TEXT NOT NULL),<br>
-        <code>usr_active</code> (BOOLEAN NOT NULL DEFAULT true),<br>
-        <code>usr_revision</code> (INTEGER NOT NULL DEFAULT 1),<br>
-        <code>usr_created_at</code> (TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp())
+        <code>id</code> (BIGINT IDENTITY PK, projetado como <code>id::text AS id</code> no Repository),<br>
+        <code>name</code> (TEXT NOT NULL),<br>
+        <code>email</code> (TEXT NOT NULL),<br>
+        <code>password_hash</code> (TEXT NOT NULL),<br>
+        <code>role</code> (TEXT NOT NULL),<br>
+        <code>active</code> (BOOLEAN NOT NULL DEFAULT true),<br>
+        <code>revision</code> (INTEGER NOT NULL DEFAULT 1),<br>
+        <code>created_at</code> (TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp())
       </td>
       <td>
-        <code>CHECK (usr_role IN ('ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO'))</code>;<br>
-        Índice único sargável: <code>CREATE UNIQUE INDEX usr_email_lower_unique ON usr_user (lower(usr_email));</code>
+        <code>CHECK (role IN ('ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO'))</code>;<br>
+        Índice único sargável: <code>CREATE UNIQUE INDEX auth_users_email_lower_unique ON auth.users (lower(email));</code>
       </td>
     </tr>
     <tr>
-      <td><span class="badge-tabela">aud_audit</span></td>
+      <td><span class="badge-tabela">audit.logs</span></td>
       <td>Cada linha registra imutavelmente uma ação de negócio, login ou mutação no sistema.</td>
       <td>
-        <code>aud_id</code> (BIGINT IDENTITY PK, projetado como <code>aud_id::text AS id</code>),<br>
-        <code>usr_id</code> (BIGINT FK NULLABLE),<br>
-        <code>aud_table</code> (TEXT NOT NULL),<br>
-        <code>aud_record_id</code> (TEXT NULLABLE),<br>
-        <code>aud_operation</code> (TEXT NOT NULL),<br>
-        <code>aud_before</code> (JSONB NULLABLE),<br>
-        <code>aud_after</code> (JSONB NULLABLE),<br>
-        <code>aud_actor_snapshot</code> (JSONB NULLABLE),<br>
-        <code>aud_reason</code> (TEXT NULLABLE),<br>
-        <code>aud_registered_at</code> (TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp())
+        <code>id</code> (BIGINT IDENTITY PK, projetado como <code>id::text AS id</code>),<br>
+        <code>user_id</code> (BIGINT FK NULLABLE),<br>
+        <code>table_name</code> (TEXT NOT NULL),<br>
+        <code>record_id</code> (TEXT NULLABLE),<br>
+        <code>operation</code> (TEXT NOT NULL),<br>
+        <code>before</code> (JSONB NULLABLE),<br>
+        <code>after</code> (JSONB NULLABLE),<br>
+        <code>actor_snapshot</code> (JSONB NULLABLE),<br>
+        <code>reason</code> (TEXT NULLABLE),<br>
+        <code>registered_at</code> (TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp())
       </td>
       <td>
-        FK: <code>usr_id REFERENCES usr_user(usr_id) ON DELETE RESTRICT</code>;<br>
+        FK: <code>user_id REFERENCES auth.users(id) ON DELETE RESTRICT</code>;<br>
         Índices:<br>
-        <code>CREATE INDEX aud_by_table ON aud_audit (aud_table, aud_record_id);</code><br>
-        <code>CREATE INDEX aud_by_user ON aud_audit (usr_id);</code><br>
-        <code>CREATE INDEX aud_by_registered_at ON aud_audit (aud_registered_at DESC, aud_id DESC);</code>
+        <code>CREATE INDEX audit_logs_by_table ON audit.logs (table_name, record_id);</code><br>
+        <code>CREATE INDEX audit_logs_by_user ON audit.logs (user_id);</code><br>
+        <code>CREATE INDEX audit_logs_by_registered_at ON audit.logs (registered_at DESC, id DESC);</code>
       </td>
     </tr>
   </tbody>
@@ -320,12 +320,12 @@
     <tr>
       <td><code>UsersRepository</code></td>
       <td>Repository (<code>backend/src/repositories/users.repository.ts</code>)</td>
-      <td>Consulta parametrizada à tabela <code>usr_user</code> projetando <code>usr_id::text AS id</code> e aliases compatíveis sem <code>SELECT *</code>.</td>
+      <td>Consulta parametrizada à tabela <code>auth.users</code> projetando <code>id::text AS id</code>, <code>name</code>, <code>email</code>, <code>password_hash</code>, <code>role</code> e <code>active AS is_active</code> sem <code>SELECT *</code>.</td>
     </tr>
     <tr>
       <td><code>AuditRepository</code></td>
       <td>Repository (<code>backend/src/repositories/audit.repository.ts</code>)</td>
-      <td>Persistência de registros em <code>aud_audit</code> via query parametrizada (<code>$1..$8</code>), serialização JSONB e retorno em <code>camelCase</code>.</td>
+      <td>Persistência de registros em <code>audit.logs</code> via query parametrizada (<code>$1..$8</code>), serialização JSONB e retorno em <code>camelCase</code>.</td>
     </tr>
     <tr>
       <td><code>createAuthMiddleware</code></td>
@@ -408,12 +408,12 @@
     <tr>
       <td><code>backend/src/repositories/users.repository.ts</code></td>
       <td>Repository</td>
-      <td>Consulta parametrizada à tabela <code>usr_user</code>.</td>
+      <td>Consulta parametrizada à tabela <code>auth.users</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/repositories/audit.repository.ts</code></td>
       <td>Repository</td>
-      <td>Inserção parametrizada e imutável na tabela <code>aud_audit</code>.</td>
+      <td>Inserção parametrizada e imutável na tabela <code>audit.logs</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/middlewares/auth.middleware.ts</code></td>

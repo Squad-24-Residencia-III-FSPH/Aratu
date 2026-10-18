@@ -1,13 +1,17 @@
 BEGIN;
 
-DROP TABLE IF EXISTS users CASCADE;
+CREATE SCHEMA IF NOT EXISTS auth;
 
-CREATE TABLE usr_user (
-  usr_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  usr_name TEXT NOT NULL CHECK (btrim(usr_name) <> ''),
-  usr_email TEXT NOT NULL CHECK (btrim(usr_email) <> ''),
-  usr_password_hash TEXT NOT NULL CHECK (btrim(usr_password_hash) <> ''),
-  usr_role TEXT NOT NULL CHECK (usr_role IN (
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS usr_user CASCADE;
+DROP TABLE IF EXISTS auth.user CASCADE;
+
+CREATE TABLE auth.users (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL CHECK (btrim(name) <> ''),
+  email TEXT NOT NULL CHECK (btrim(email) <> ''),
+  password_hash TEXT NOT NULL CHECK (btrim(password_hash) <> ''),
+  role TEXT NOT NULL CHECK (role IN (
     'ADMINISTRADOR',
     'GESTOR',
     'SOLICITANTE',
@@ -15,11 +19,11 @@ CREATE TABLE usr_user (
     'ATENDENTE_SVO',
     'EQUIPE_SVO'
   )),
-  usr_active BOOLEAN NOT NULL DEFAULT true,
-  usr_revision INTEGER NOT NULL DEFAULT 1 CHECK (usr_revision > 0),
-  usr_created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+  active BOOLEAN NOT NULL DEFAULT true,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE UNIQUE INDEX usr_email_lower_unique ON usr_user (lower(usr_email));
+CREATE UNIQUE INDEX auth_users_email_lower_unique ON auth.users (lower(email));
 
 COMMIT;

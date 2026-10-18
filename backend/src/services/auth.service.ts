@@ -17,7 +17,7 @@ export type LoginResult =
  * Serviço responsável pela autenticação de usuários, emissão de tokens JWT e trilha de auditoria de sessão.
  *
  * Aplica a política de segurança da FSPH e do SVO: tempo de expiração configurável, validação de hash bcrypt,
- * bloqueio de contas inativas e gravação obrigatória de eventos de acesso em `aud_audit`.
+ * bloqueio de contas inativas e gravação obrigatória de eventos de acesso em `audit.logs`.
  */
 export class AuthService {
   private readonly users: UserRepository
@@ -43,7 +43,7 @@ export class AuthService {
 
   /**
    * Valida as credenciais de acesso sem revelar ao chamador se o e-mail ou a senha falhou,
-   * registrando o resultado na trilha de auditoria (`aud_audit`).
+   * registrando o resultado na trilha de auditoria (`audit.logs`).
    *
    * @param email - E-mail informado pelo usuário no formulário de login.
    * @param password - Senha em texto puro para verificação contra o hash bcrypt.
@@ -57,7 +57,7 @@ export class AuthService {
     if (!user) {
       await this.auditLogger?.recordAudit({
         userId: null,
-        table: 'usr_user',
+        table: 'auth.users',
         recordId: null,
         operation: 'LOGIN_FAILURE',
         actorSnapshot: { email: normalizedEmail },
@@ -70,7 +70,7 @@ export class AuthService {
     if (!isPasswordValid) {
       await this.auditLogger?.recordAudit({
         userId: user.id,
-        table: 'usr_user',
+        table: 'auth.users',
         recordId: user.id,
         operation: 'LOGIN_FAILURE',
         actorSnapshot: { id: user.id, email: user.email, role: user.role },
@@ -82,7 +82,7 @@ export class AuthService {
     if (!user.is_active) {
       await this.auditLogger?.recordAudit({
         userId: user.id,
-        table: 'usr_user',
+        table: 'auth.users',
         recordId: user.id,
         operation: 'LOGIN_INACTIVE',
         actorSnapshot: { id: user.id, email: user.email, role: user.role },
@@ -103,7 +103,7 @@ export class AuthService {
 
     await this.auditLogger?.recordAudit({
       userId: user.id,
-      table: 'usr_user',
+      table: 'auth.users',
       recordId: user.id,
       operation: 'LOGIN_SUCCESS',
       actorSnapshot: { id: user.id, email: user.email, role: profile },
@@ -125,7 +125,7 @@ export class AuthService {
     if (!user) return
     await this.auditLogger?.recordAudit({
       userId: user.id,
-      table: 'usr_user',
+      table: 'auth.users',
       recordId: user.id,
       operation: 'LOGOUT',
       actorSnapshot: { id: user.id, role: user.perfil },

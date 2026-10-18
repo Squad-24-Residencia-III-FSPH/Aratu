@@ -58,7 +58,7 @@ test('T01: AuditService e createRecordAudit normalizam campos, higienizam senhas
 
   const created = await recordAudit({
     userId: 42,
-    table: '  veh_vehicle ',
+    table: '  fleet.vehicles ',
     recordId: 105,
     operation: '  UPDATE ',
     before: { identification: 'VTR-01', seats: 4, password: 'vazar-jamais' },
@@ -75,7 +75,7 @@ test('T01: AuditService e createRecordAudit normalizam campos, higienizam senhas
   assert.equal(entries.length, 1)
   assert.equal(created.id, '1')
   assert.equal(created.userId, '42')
-  assert.equal(created.table, 'veh_vehicle')
+  assert.equal(created.table, 'fleet.vehicles')
   assert.equal(created.recordId, '105')
   assert.equal(created.operation, 'UPDATE')
   assert.deepEqual(created.before, { identification: 'VTR-01', seats: 4 })
@@ -97,7 +97,7 @@ test('T02: AuditService rejeita tabela ou operação em branco sem acionar o rep
     /tabela\/entidade auditada é obrigatória/,
   )
   await assert.rejects(
-    service.recordAudit({ table: 'usr_user', operation: '   ' }),
+    service.recordAudit({ table: 'auth.users', operation: '   ' }),
     /operação auditada é obrigatória/,
   )
   assert.equal(entries.length, 0)
@@ -128,7 +128,7 @@ test('T03: AuditRepository executa INSERT parametrizado via Pool ou PoolClient t
           {
             id: '99',
             userId: '7',
-            table: 'trp_trip',
+            table: 'trip.trips',
             recordId: '500',
             operation: 'STATUS_CHANGE',
             before: { state: 'PLANNED' },
@@ -146,7 +146,7 @@ test('T03: AuditRepository executa INSERT parametrizado via Pool ou PoolClient t
   const entry = await repo.create(
     {
       userId: '7',
-      table: 'trp_trip',
+      table: 'trip.trips',
       recordId: '500',
       operation: 'STATUS_CHANGE',
       before: { state: 'PLANNED' },
@@ -158,12 +158,12 @@ test('T03: AuditRepository executa INSERT parametrizado via Pool ou PoolClient t
   )
 
   assert.equal(poolCalled, false)
-  assert.match(capturedClientSql, /INSERT INTO aud_audit/i)
-  assert.match(capturedClientSql, /aud_id::text AS id/)
+  assert.match(capturedClientSql, /INSERT INTO audit\.logs/i)
+  assert.match(capturedClientSql, /id::text AS id/)
   assert.equal(capturedClientSql.includes('*'), false)
   assert.deepEqual(capturedClientValues, [
     '7',
-    'trp_trip',
+    'trip.trips',
     '500',
     'STATUS_CHANGE',
     JSON.stringify({ state: 'PLANNED' }),
@@ -173,13 +173,13 @@ test('T03: AuditRepository executa INSERT parametrizado via Pool ou PoolClient t
   ])
   assert.equal(entry.id, '99')
   assert.equal(entry.userId, '7')
-  assert.equal(entry.table, 'trp_trip')
+  assert.equal(entry.table, 'trip.trips')
   assert.equal(entry.recordId, '500')
   assert.equal(entry.operation, 'STATUS_CHANGE')
   assert.equal(entry.registeredAt instanceof Date, true)
 })
 
-test('UsersRepository consulta a tabela padronizada usr_user com projeção explícita', async () => {
+test('UsersRepository consulta a tabela padronizada auth.users com projeção explícita', async () => {
   let executedSql = ''
   let executedParams: unknown[] = []
 
@@ -205,8 +205,8 @@ test('UsersRepository consulta a tabela padronizada usr_user com projeção expl
   const usersRepo = new UsersRepository(fakePool)
   const found = await usersRepo.findByEmail('servidor@example.test')
 
-  assert.match(executedSql, /FROM usr_user/i)
-  assert.match(executedSql, /usr_id::text AS id/)
+  assert.match(executedSql, /FROM auth\.users/i)
+  assert.match(executedSql, /id::text AS id/)
   assert.deepEqual(executedParams, ['servidor@example.test'])
   assert.equal(found?.id, '10')
   assert.equal(found?.role, 'SOLICITANTE')
@@ -224,7 +224,7 @@ function buildSyntheticUser(overrides: Partial<UserForLogin> = {}): UserForLogin
   }
 }
 
-test('T04 e T05: Rotas /auth/login e /auth/logout gravam trilha completa em aud_audit sem expor senhas', async () => {
+test('T04 e T05: Rotas /auth/login e /auth/logout gravam trilha completa em audit.logs sem expor senhas', async () => {
   const { entries, repository: audits } = createInMemoryAuditRepo()
   const users = {
     findByEmail: async (email: string): Promise<UserForLogin | null> => {

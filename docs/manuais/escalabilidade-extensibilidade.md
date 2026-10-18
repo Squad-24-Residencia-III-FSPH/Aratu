@@ -28,50 +28,49 @@ O Sistema Aratu adota um modelo de **Monolito Modular em Camadas**. Esse modelo 
 │                                   │                                    │
 │   ┌───────────────────────────────▼────────────────────────────────┐   │
 │   │         MÓDULO TRANSVERSAL: PARAMETRIZAÇÃO DO SISTEMA          │   │
-│   │      (Cache em Memória + Tabela `par_system_parameter`)        │   │
+│   │      (Cache em Memória + Tabela `auth.system_parameters`)      │   │
 │   └───────────────────────────────┬────────────────────────────────┘   │
 └───────────────────────────────────┼────────────────────────────────────┘
                                     │ Pool pg ($1, $2, FOR UPDATE)
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                         POSTGRESQL 18 (ALPINE)                         │
-│    (Prefixo de 3 Letras · DDL Transacional · Índices Sargáveis)        │
+│    (Schemas Nativos · DDL Transacional · Índices Sargáveis)            │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Parametrização Dinâmica do Sistema (`par_system_parameter`)
+## 2. Parametrização Dinâmica do Sistema (`auth.system_parameters`)
 
 ### 2.1 Problema que Resolve
 Determinadas regras operacionais da **Fundação de Saúde Parreiras Horta (FSPH)** e do **Serviço de Verificação de Óbito (SVO)** variam conforme portarias, decretos ou mudanças sazonais de demanda. 
 
 Se esses limites forem gravados como constantes fixas no código, qualquer mudança exige que um desenvolvedor altere código, faça commit, execute testes e suba um novo deploy. Com a **parametrização dinâmica**, gestores e administradores autorizados alteram essas regras diretamente na interface administrativa, surtindo efeito imediato e seguro no sistema.
 
-### 2.2 Modelagem no PostgreSQL 18 (Padrão de Prefixo de 3 Letras)
+### 2.2 Modelagem no PostgreSQL 18 (Schemas Nativos)
 
-A tabela `par_system_parameter` armazena configurações tipadas em formato JSONB, com auditoria completa de quem alterou e quando:
+A tabela `auth.system_parameters` armazena configurações tipadas em formato JSONB, com auditoria completa de quem alterou e quando:
 
 ```sql
-CREATE TABLE par_system_parameter (
-    par_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    par_key text NOT NULL UNIQUE CHECK (btrim(par_key) <> ''),
-    par_module text NOT NULL CHECK (btrim(par_module) <> ''),
-    par_value jsonb NOT NULL,
-    par_data_type text NOT NULL CHECK (par_data_type IN ('NUMBER', 'TEXT', 'BOOLEAN', 'JSON')),
-    par_description text NOT NULL CHECK (btrim(par_description) <> ''),
-    par_editable_by_role text NOT NULL DEFAULT 'ADMIN',
-    usr_id bigint REFERENCES usr_user,
-    par_updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-    par_revision integer NOT NULL DEFAULT 1 CHECK (par_revision > 0)
+CREATE TABLE auth.system_parameters (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    key text NOT NULL UNIQUE CHECK (btrim(key) <> ''),
+    module text NOT NULL CHECK (btrim(module) <> ''),
+    value jsonb NOT NULL,
+    data_type text NOT NULL CHECK (data_type IN ('NUMBER', 'TEXT', 'BOOLEAN', 'JSON')),
+    description text NOT NULL CHECK (btrim(description) <> ''),
+    editable_by_role text NOT NULL DEFAULT 'ADMINISTRADOR',
+    user_id bigint REFERENCES auth.users(id),
+    updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    revision integer NOT NULL DEFAULT 1 CHECK (revision > 0)
 );
 
--- Índice iniciando com o prefixo de 3 letras da tabela (sem idx_)
-CREATE INDEX par_by_module ON par_system_parameter (par_module);
+CREATE INDEX auth_system_parameters_by_module ON auth.system_parameters (module);
 ```
 
 ### 2.3 Catálogo de Parâmetros Oficiais de Domínio
 
-| Chave (`par_key`) | Módulo (`par_module`) | Tipo (`par_data_type`) | Valor Inicial | Descrição Operacional |
+| Chave (`key`) | Módulo (`module`) | Tipo (`data_type`) | Valor Inicial | Descrição Operacional |
 |---|---|---|---|---|
 | `trips.min_advance_request_hours` | `VIAGENS` | `NUMBER` | `24` | Tempo mínimo em horas para envio de pedido de viagem comum pela FSPH. |
 | `trips.max_radius_without_overnight_km` | `VIAGENS` | `NUMBER` | `150` | Distância máxima de ida e volta que não exige justificativa de diária/pernoite. |
@@ -106,7 +105,7 @@ export class SystemParameterService {
     }
 
     const { rows } = await this.pool.query<{ value: T }>(
-      'SELECT par_value AS value FROM par_system_parameter WHERE par_key = $1 LIMIT 1;',
+      'SELECT value FROM auth.system_parameters WHERE key = $1 LIMIT 1;',
       [key]
     );
 
@@ -128,12 +127,12 @@ export class SystemParameterService {
     userId: number
   ): Promise<void> {
     await this.pool.query(
-      `UPDATE par_system_parameter
-          SET par_value = $1::jsonb,
-              usr_id = $2,
-              par_updated_at = clock_timestamp(),
-              par_revision = par_revision + 1
-        WHERE par_key = $3;`,
+      `UPDATE auth.system_parameters
+          SET value = $1::jsonb,
+              user_id = $2,
+              updated_at = clock_timestamp(),
+              revision = revision + 1
+        WHERE key = $3;`,
       [JSON.stringify(newValue), userId, key]
     );
 
@@ -202,26 +201,26 @@ Quando a FSPH ou o SVO demandar uma nova frente de trabalho (ex: módulo `ABASTE
 3. Após aprovar o SDD, execute `/implementar` para codificar os passos 2 a 4 em conformidade estrita com a skill `principios`.
 
 #### Passo 2 — Banco de Dados e Migrações (PostgreSQL 18)
-1. Crie a migration em bloco transacional seguindo o padrão de prefixo de 3 letras em inglês (`fll_fuel_log`) e índice sem `idx_`:
+1. Crie a migration em bloco transacional qualificando a tabela no plural no schema de domínio (`fleet.fuel_logs`):
    ```sql
    BEGIN;
-   CREATE TABLE fll_fuel_log (
-       fll_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-       veh_id bigint NOT NULL REFERENCES veh_vehicle ON DELETE RESTRICT,
-       drv_id bigint NOT NULL REFERENCES drv_driver ON DELETE RESTRICT,
-       fll_liters numeric(8, 2) NOT NULL CHECK (fll_liters > 0),
-       fll_odometer numeric(12, 1) NOT NULL CHECK (fll_odometer >= 0),
-       fll_fueled_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-       fll_revision integer NOT NULL DEFAULT 1 CHECK (fll_revision > 0)
+   CREATE TABLE fleet.fuel_logs (
+       id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+       vehicle_id bigint NOT NULL REFERENCES fleet.vehicles(id) ON DELETE RESTRICT,
+       driver_id bigint NOT NULL REFERENCES fleet.drivers(id) ON DELETE RESTRICT,
+       liters numeric(8, 2) NOT NULL CHECK (liters > 0),
+       odometer numeric(12, 1) NOT NULL CHECK (odometer >= 0),
+       fueled_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+       revision integer NOT NULL DEFAULT 1 CHECK (revision > 0)
    );
-   CREATE INDEX fll_by_vehicle ON fll_fuel_log (veh_id);
+   CREATE INDEX fleet_fuel_logs_by_vehicle ON fleet.fuel_logs (vehicle_id);
    COMMIT;
    ```
 
 #### Passo 3 — Implementação das Camadas Backend (Express 5)
 1. Crie os arquivos em inglês em `backend/src/`:
    - `types/<entity>.types.ts` (interfaces e DTOs explícitos em inglês, zero `any`);
-   - `repositories/<entity>.repository.ts` (queries com `$1, $2`, projeções explícitas `<pre>_id AS id`, sem `SELECT *`);
+   - `repositories/<entity>.repository.ts` (queries com `$1, $2`, projeções explícitas, sem `SELECT *`);
    - `services/<entity>.service.ts` (regras puras de negócio em inglês com TSDoc semântico em português conforme [`docs/manuais/padroes-docblocks.md`](padroes-docblocks.md));
    - `controllers/<entity>.controller.ts` (validação de I/O HTTP e tratamento semântico de erros);
    - `routes/<entity>.routes.ts` (endpoints REST em inglês no plural protegidos com middlewares de autenticação e RBAC).
@@ -259,6 +258,6 @@ Para suportar aumentos de escala de demanda sem alterações estruturais no cód
 1. **Escalabilidade Horizontal do Backend (Stateless):**
    - Como os tokens de sessão JWT são stateless e assinados criptograficamente, instâncias adicionais do container `backend` podem ser adicionadas instantaneamente atrás de um balanceador Nginx (`docker compose up --scale backend=3`) sem necessidade de replicação de sessão em memória.
 2. **Escalabilidade Concorrente no PostgreSQL 18:**
-   - Todo processo de alocação de frota ou despacho de equipe SVO deve utilizar **lock pessimista** (`SELECT ... FOR UPDATE`) ou controle de revisão otimista (`<pre>_revision`), evitando deadlocks mantendo a ordem de ID ao travar mais de uma tabela.
+   - Todo processo de alocação de frota ou despacho de equipe SVO deve utilizar **lock pessimista** (`SELECT ... FOR UPDATE`) ou controle de revisão otimista (`revision`), evitando deadlocks mantendo a ordem de ID ao travar mais de uma tabela.
 3. **Escalabilidade de Dados Históricos:**
-   - Tabelas operacionais com alto volume de inserção diária (ex: `req_request`, `trp_trip`, `aud_audit`) devem utilizar **Keyset Pagination** em vez de `OFFSET` para manter tempos de resposta constantes (< 50ms) mesmo após anos de registros hospitalares acumulados.
+   - Tabelas operacionais com alto volume de inserção diária (ex: `trip.requests`, `trip.trips`, `audit.logs`) devem utilizar **Keyset Pagination** em vez de `OFFSET` para manter tempos de resposta constantes (< 50ms) mesmo após anos de registros hospitalares acumulados.

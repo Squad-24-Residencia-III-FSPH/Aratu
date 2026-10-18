@@ -42,64 +42,66 @@ Não utilizamos notação húngara em variáveis TypeScript (como `sName` ou `iA
 
 ---
 
-### 2.1 Padrão de Nomenclatura no PostgreSQL 18 (Prefixo de 3 Letras em Inglês)
+### 2.1 Padrão de Nomenclatura no PostgreSQL 18 (Schemas Nativos de Domínio em Inglês)
 
-O schema do banco de dados segue o modelo canônico de **prefixo único de 3 letras** adaptado para o inglês:
+O banco de dados oficial é estruturado em **Schemas Nativos de Domínio**, eliminando prefixos húngaros redundantes e espelhando diretamente o modelo TypeScript:
 
-1. **Tabelas (`<pre>_<singular_entity>`):**
-   - Sempre no **singular**, em `snake_case` em inglês, iniciadas por um prefixo exclusivo de 3 letras da entidade.
-   - Exemplos: `veh_vehicle`, `drv_driver`, `usr_user`, `sec_sector`, `srv_service`, `req_request`, `trp_trip`, `tre_trip_event`, `ral_request_allocation`, `aud_audit`.
-2. **Chave Primária na Tabela (`<pre>_id`) e Mapeamento no `SELECT` (`<pre>_id AS id`):**
-   - Na definição da tabela (`CREATE TABLE`), a chave primária é sempre `<pre>_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY` (ex: `veh_id`, `drv_id`, `trp_id`, `req_id`, `usr_id`).
-   - Nas consultas `SELECT` do Repository para o TypeScript/JSON, o prefixo de 3 letras é removido via alias SQL para produzir DTOs `camelCase` limpos:
+1. **Schemas de Domínio:**
+   - `auth`: Autenticação, controle de usuários, setores, sessões e parâmetros do sistema.
+   - `audit`: Trilha de auditoria transversal e imutável.
+   - `fleet`: Gestão de viaturas, serviços, motoristas e ordens de manutenção.
+   - `trip`: Solicitações de transporte institucional FSPH, aprovações, alocações e viagens.
+   - `svo`: Atendimento de óbitos, remoções cadavéricas, custódia e laudos.
+2. **Tabelas (`<schema>.<plural_entity>`):**
+   - Sempre no **plural**, em `snake_case` em inglês, qualificadas pelo schema (evitando colisões com palavras reservadas do SQL como `USER`, `ORDER`, `GROUP` e representando a coleção de registros).
+   - Exemplos: `auth.users`, `auth.sectors`, `audit.logs`, `fleet.vehicles`, `fleet.drivers`, `fleet.maintenance_orders`, `trip.requests`, `trip.trips`, `trip.allocations`, `svo.occurrences`.
+3. **Chave Primária (`id`):**
+   - Na definição da tabela (`CREATE TABLE`), a chave primária é sempre:
+     ```sql
+     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+     ```
+   - Nas consultas `SELECT` do Repository para o TypeScript, a projeção é limpa e direta:
      ```sql
      SELECT
-       veh_id AS id,
-       veh_identification AS identification,
-       veh_categories AS categories,
-       veh_seats AS seats,
-       veh_body_limit AS "bodyLimit",
-       veh_weight_limit AS "weightLimit",
-       veh_active AS active,
-       veh_revision AS revision
-     FROM veh_vehicle;
+       id,
+       license_plate AS "licensePlate",
+       seats,
+       body_limit AS "bodyLimit",
+       weight_limit AS "weightLimit",
+       is_active AS "isActive",
+       revision
+     FROM fleet.vehicles;
      ```
-3. **Colunas Próprias (`<pre>_<column_name>`):**
-   - Todas as colunas próprias da tabela levam o prefixo de 3 letras da própria tabela (ex: `veh_identification`, `veh_seats`, `veh_active`, `veh_revision`, `trp_planned_departure`, `trp_planned_end`, `trp_state`, `trp_created_at`).
-4. **Chaves Estrangeiras (`<ref_pre>_id` ou `<ref_pre>_id_<role>`):**
-   - Preservam exatamente o nome da PK da tabela referenciada **sem** o prefixo da tabela filha (ex: dentro de `trp_trip`, as FKs são `veh_id` e `drv_id`; nos eventos de auditoria, `usr_id`).
-   - No `SELECT` do Repository, FKs recebem alias descritivo em `camelCase` (ex: `veh_id AS "vehicleId"`, `drv_id AS "driverId"`, `usr_id_requester AS "requesterUserId"`).
-   - Quando uma tabela possui múltiplas FKs para a mesma tabela ou papel específico, adiciona-se o sufixo do papel em inglês: `<ref_pre>_id_<role>` (ex: `usr_id_requester` em `req_request`; `req_id_outbound` e `req_id_return` em `rte_round_trip_event`).
-5. **Objetos Auxiliares do Banco (sem `idx_`, `uq_`, `trg_`, `fn_`):**
-   - **Índices e Unique Indexes:** iniciam diretamente pelo prefixo de 3 letras da tabela `<pre>_<descriptive_name>` sem usar `idx_` ou `uq_` (ex: `rqe_unique_decision`, `rqe_unique_triage`, `trp_vehicle_in_progress`, `trp_driver_in_progress`, `ral_by_request`, `ral_by_trip`, `aud_by_table`).
-   - **Triggers:** nomes descritivos em inglês em `snake_case` sem `trg_` (ex: `preserve`, `preserve_truncate`, `prevent_delete`, `prevent_truncate`, `audit`).
-   - **Funções SQL:** sem `fn_`; funções auxiliares internas iniciam com `_` (ex: `_barrier()`, `_actor()`, `_actor_snapshot()`, `_reason()`, `_immutable()`, `_audit()`, `_validate_trip()`) e funções de comando públicas usam `verb_noun` em inglês (ex: `save_sector()`, `create_trip()`, `allocate_request()`, `decide_request()`).
-   - **Views:** iniciam com `vw_` em inglês (ex: `vw_active_allocations`, `vw_round_trip_pairs`, `vw_active_policies`).
-   - **Migrations:** `NNN_<description_in_english>.sql` (ex: `001_initial_schema.sql`).
+4. **Colunas Próprias:**
+   - Nomes substantivos em inglês `snake_case` sem prefixos redundantes (ex: `name`, `email`, `password_hash`, `role`, `active` / `is_active`, `planned_departure`, `planned_end`, `state`, `created_at`).
+5. **Chaves Estrangeiras (`<entity>_id` ou `<entity>_id_<role>`):**
+   - Seguem o padrão `<entity>_id` **no singular** referenciando a tabela de origem (ex: `user_id REFERENCES auth.users(id)`, `vehicle_id REFERENCES fleet.vehicles(id)`, `driver_id REFERENCES fleet.drivers(id)`).
+   - Quando uma tabela possui múltiplas FKs para a mesma entidade, adiciona-se o papel semântico em inglês: `user_id_requester`, `user_id_manager`, `request_id_outbound`, `request_id_return`.
+6. **Objetos Auxiliares do Banco:**
+   - **Índices Únicos e de Busca:** `<schema>_<table>_<purpose>` (ex: `auth_users_email_lower_unique`, `audit_logs_by_user`, `trip_trips_vehicle_in_progress`, `trip_allocations_by_request`).
+   - **Triggers:** nomes descritivos em inglês em `snake_case` (ex: `preserve`, `prevent_delete`, `audit_trigger`).
+   - **Funções SQL:** funções internas iniciam com `_` (ex: `_actor_snapshot()`, `_audit()`) e funções de comando públicas usam `verb_noun` em inglês (ex: `create_trip()`, `allocate_request()`).
+   - **Views:** qualificadas no schema ou com `vw_` em inglês (ex: `trip.vw_active_allocations`).
+   - **Migrations:** `YYYYMMDDNNNN_<description_in_english>.sql` (ex: `202610160001_create_users.sql`).
 
-#### Tabela Canônica de Entidades e Prefixos SQL do Aratu
+#### Tabela Canônica de Entidades por Schema no PostgreSQL 18
 
-| Entidade (Domínio) | Tabela SQL (EN) | Prefixo | PK na Tabela | Colunas Próprias e FKs Principais |
-| :--- | :--- | :---: | :--- | :--- |
-| Setor | `sec_sector` | `sec_` | `sec_id` | `sec_code`, `sec_name`, `sec_active`, `sec_revision` |
-| Usuário | `usr_user` | `usr_` | `usr_id` | `usr_name`, `usr_login`, `usr_password_hash`, `usr_roles`, `usr_active`, `usr_revision` |
-| Serviço | `srv_service` | `srv_` | `srv_id` | `srv_name`, `srv_categories`, `srv_requires_triage`, `srv_requires_weight`, `srv_requires_identification`, `srv_active`, `srv_revision` |
-| Veículo | `veh_vehicle` | `veh_` | `veh_id` | `veh_identification`, `veh_categories`, `veh_seats`, `veh_body_limit`, `veh_weight_limit`, `veh_active`, `veh_revision` |
-| Motorista | `drv_driver` | `drv_` | `drv_id` | `drv_name`, `drv_active`, `drv_revision` |
-| Veículo × Serviço | `vhs_vehicle_service` | `vhs_` | `(veh_id, srv_id)` | FKs: `veh_id`, `srv_id` · Próprias: `vhs_active`, `vhs_revision` |
-| Auditoria | `aud_audit` | `aud_` | `aud_id` | FK: `usr_id` · Próprias: `aud_table`, `aud_operation`, `aud_before`, `aud_after`, `aud_actor_snapshot`, `aud_registered_at`, `aud_reason` |
-| Política de Aprovação | `apo_approval_policy` | `apo_` | `apo_id` | FKs: `sec_id`, `srv_id`, `usr_id` · Próprias: `apo_description`, `apo_actor_snapshot`, `apo_registered_at`, `apo_reason` |
-| Evento de Política | `ape_policy_event` | `ape_` | `ape_id` | FKs: `apo_id`, `usr_id` · Próprias: `ape_type`, `ape_actor_snapshot`, `ape_registered_at`, `ape_reason` |
-| Solicitação | `req_request` | `req_` | `req_id` | FKs: `usr_id_requester`, `sec_id`, `srv_id` · Próprias: `req_origin`, `req_destination`, `req_purpose`, `req_desired_departure`, `req_desired_end`, `req_category`, `req_quantity`, `req_total_weight`, `req_identification`, `req_state`, `req_version`, `req_revision`, `req_created_at` |
-| Versão da Solicitação | `rqv_request_version` | `rqv_` | `rqv_id` | FKs: `req_id`, `usr_id` · Próprias: `rqv_number`, `rqv_snapshot`, `rqv_actor_snapshot`, `rqv_registered_at` |
-| Evento da Solicitação | `rqe_request_event` | `rqe_` | `rqe_id` | FKs: `req_id`, `rqv_id`, `ape_id`, `usr_id` · Próprias: `rqe_type`, `rqe_modality`, `rqe_actor_snapshot`, `rqe_registered_at`, `rqe_reason` |
-| Viagem | `trp_trip` | `trp_` | `trp_id` | FKs: `veh_id`, `drv_id` · Próprias: `trp_planned_departure`, `trp_planned_end`, `trp_state`, `trp_revision`, `trp_created_at` |
-| Evento da Viagem | `tre_trip_event` | `tre_` | `tre_id` | FKs: `trp_id`, `usr_id` · Próprias: `tre_type`, `tre_occurred_at`, `tre_odometer`, `tre_actor_snapshot`, `tre_registered_at`, `tre_reason`, `tre_snapshot` |
-| Alocação de Solicitação | `ral_request_allocation` | `ral_` | `ral_id` | FKs: `req_id`, `rqv_id`, `trp_id`, `usr_id` · Próprias: `ral_actor_snapshot`, `ral_registered_at`, `ral_reason`, `ral_snapshot` |
-| Evento de Atendimento | `fve_fulfillment_event` | `fve_` | `fve_id` | FKs: `ral_id`, `usr_id` · Próprias: `fve_type`, `fve_occurred_at`, `fve_location`, `fve_actor_snapshot`, `fve_registered_at`, `fve_report` |
-| Evento de Ida e Volta | `rte_round_trip_event` | `rte_` | `rte_id` | FKs: `req_id_outbound`, `req_id_return`, `rte_id_link`, `usr_id` · Próprias: `rte_type`, `rte_actor_snapshot`, `rte_registered_at`, `rte_reason` |
-| Parâmetro do Sistema | `par_system_parameter` | `par_` | `par_id` | FK: `usr_id` · Próprias: `par_key`, `par_module`, `par_value`, `par_data_type`, `par_description`, `par_editable_by_role`, `par_updated_at` |
-| Manutenção | `mnt_maintenance` | `mnt_` | `mnt_id` | FK: `veh_id` · Próprias: `mnt_type`, `mnt_description`, `mnt_state`, `mnt_started_at`, `mnt_finished_at`, `mnt_revision` |
+| Schema | Entidade (Domínio) | Tabela SQL (EN) | PK | Colunas Próprias e FKs Principais |
+| :--- | :--- | :--- | :---: | :--- |
+| `auth` | Setor | `auth.sectors` | `id` | `code`, `name`, `is_active`, `revision`, `created_at` |
+| `auth` | Usuário | `auth.users` | `id` | `name`, `email`, `password_hash`, `role`, `active`, `revision`, `created_at` |
+| `audit` | Log de Auditoria | `audit.logs` | `id` | FK: `user_id` · Próprias: `table_name`, `record_id`, `operation`, `before`, `after`, `actor_snapshot`, `reason`, `registered_at` |
+| `fleet` | Serviço | `fleet.services` | `id` | `name`, `categories`, `requires_triage`, `requires_weight`, `requires_identification`, `is_active`, `revision` |
+| `fleet` | Veículo | `fleet.vehicles` | `id` | `license_plate`, `categories`, `seats`, `body_limit`, `weight_limit`, `is_active`, `revision` |
+| `fleet` | Motorista | `fleet.drivers` | `id` | `name`, `cnh_number`, `cnh_category`, `cnh_expiration`, `is_active`, `revision` |
+| `fleet` | Veículo × Serviço | `fleet.vehicle_services` | `(vehicle_id, service_id)` | FKs: `vehicle_id`, `service_id` · Próprias: `is_active`, `revision` |
+| `fleet` | Manutenção | `fleet.maintenance_orders` | `id` | FK: `vehicle_id` · Próprias: `type`, `description`, `state`, `started_at`, `finished_at`, `revision` |
+| `trip` | Política de Aprovação | `trip.approval_policies` | `id` | FKs: `sector_id`, `service_id`, `user_id` · Próprias: `description`, `actor_snapshot`, `registered_at`, `reason` |
+| `trip` | Solicitação | `trip.requests` | `id` | FKs: `user_id_requester`, `sector_id`, `service_id` · Próprias: `origin`, `destination`, `purpose`, `desired_departure`, `desired_end`, `category`, `quantity`, `total_weight`, `state`, `version`, `revision`, `created_at` |
+| `trip` | Alocação | `trip.allocations` | `id` | FKs: `request_id`, `trip_id`, `user_id` · Próprias: `actor_snapshot`, `registered_at`, `reason` |
+| `trip` | Viagem | `trip.trips` | `id` | FKs: `vehicle_id`, `driver_id` · Próprias: `planned_departure`, `planned_end`, `state`, `odometer_start`, `odometer_end`, `revision`, `created_at` |
+| `svo` | Chamado / Ocorrência | `svo.occurrences` | `id` | FKs: `user_id_operator`, `vehicle_id`, `driver_id` · Próprias: `protocol_number`, `deceased_name`, `death_date`, `location`, `state`, `created_at` |
+| `svo` | Custódia e Laudo | `svo.custody_records` | `id` | FKs: `occurrence_id`, `user_id_responsible` · Próprias: `custody_state`, `report_summary`, `registered_at` |
 
 ---
 

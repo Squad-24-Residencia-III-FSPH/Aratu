@@ -138,25 +138,25 @@
       <td><code>backend/src/database/migrations/202610160001_create_users.sql</code></td>
       <td>Database / Migration</td>
       <td>Modificado</td>
-      <td>Padronização da tabela inicial de usuários para <code>usr_user</code> com PK <code>usr_id BIGINT GENERATED ALWAYS AS IDENTITY</code>, colunas com prefixo <code>usr_</code> e índice único <code>usr_email_lower_unique</code>.</td>
+      <td>Estruturação da tabela inicial de usuários em <code>auth.user</code> com PK <code>id BIGINT GENERATED ALWAYS AS IDENTITY</code> e índice único <code>auth_user_email_lower_unique</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/database/migrations/202610160001_create_users.down.sql</code></td>
       <td>Database / Migration</td>
       <td>Modificado</td>
-      <td>Rollback transacional atualizado para remover <code>usr_email_lower_unique</code> e <code>usr_user</code>.</td>
+      <td>Rollback transacional atualizado para remover <code>auth_user_email_lower_unique</code> e <code>auth.user</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/database/migrations/202610170001_create_audit.sql</code></td>
       <td>Database / Migration</td>
       <td>Novo</td>
-      <td>Criação transacional da tabela <code>aud_audit</code> referenciando <code>usr_user (usr_id) ON DELETE RESTRICT</code>, colunas de snapshot JSONB (<code>aud_before</code>, <code>aud_after</code>, <code>aud_actor_snapshot</code>) e índices <code>aud_by_table</code>, <code>aud_by_user</code> e <code>aud_by_registered_at</code>.</td>
+      <td>Criação transacional da tabela <code>audit.log</code> referenciando <code>auth.user (id) ON DELETE RESTRICT</code>, colunas de snapshot JSONB (<code>before</code>, <code>after</code>, <code>actor_snapshot</code>) e índices <code>audit_log_by_table</code>, <code>audit_log_by_user</code> e <code>audit_log_by_registered_at</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/database/migrations/202610170001_create_audit.down.sql</code></td>
       <td>Database / Migration</td>
       <td>Novo</td>
-      <td>Rollback transacional removendo os índices e a tabela <code>aud_audit</code>.</td>
+      <td>Rollback transacional removendo os índices e a tabela <code>audit.log</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/types/audit.types.ts</code></td>
@@ -168,7 +168,7 @@
       <td><code>backend/src/repositories/audit.repository.ts</code></td>
       <td>Repository (PostgreSQL)</td>
       <td>Novo</td>
-      <td>Implementação de <code>AuditRepository</code> com <code>INSERT INTO aud_audit</code> parametrizado (<code>$1..$8</code>), suporte a <code>PoolClient</code> transacional opcional e projeção explícita em <code>camelCase</code>.</td>
+      <td>Implementação de <code>AuditRepository</code> com <code>INSERT INTO audit.log</code> parametrizado (<code>$1..$8</code>), suporte a <code>PoolClient</code> transacional opcional e projeção explícita em <code>camelCase</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/services/audit.service.ts</code></td>
@@ -180,7 +180,7 @@
       <td><code>backend/src/repositories/users.repository.ts</code></td>
       <td>Repository (PostgreSQL)</td>
       <td>Modificado</td>
-      <td>Adequação de <code>findByEmail</code> para consultar <code>usr_user</code> com projeção explícita (<code>usr_id::text AS id</code>, etc.) e adição de TSDoc em português.</td>
+      <td>Adequação de <code>findByEmail</code> para consultar <code>auth.user</code> com projeção explícita (<code>id::text AS id</code>, etc.) e adição de TSDoc em português.</td>
     </tr>
     <tr>
       <td><code>backend/src/services/auth.service.ts</code></td>
@@ -248,9 +248,9 @@
     <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Tarefa estritamente de backend e banco de dados (<code>[BE]</code> / <code>infra</code>), sem alterações em <code>frontend/</code>.</td></tr>
     <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Grafo de dependência estritamente unidirecional e zero feature flags criadas.</td></tr>
     <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td><code>AuditRepository.create</code> utiliza <code>$1..$8</code> (com casts seguros <code>$5::jsonb, $6::jsonb, $7::jsonb</code>) e <code>UsersRepository.findByEmail</code> utiliza <code>$1</code>.</td></tr>
-    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeando <code>&lt;pre&gt;_id AS id</code>) e filtros sargáveis</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero uso de <code>SELECT *</code> ou <code>RETURNING *</code>. Projeções explícitas em <code>AUDIT_RETURNING_COLUMNS</code> (<code>aud_id::text AS id</code>) e <code>UsersRepository</code> (<code>usr_id::text AS id</code>), além de índices sargáveis para busca e paginação keyset.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeando <code>id AS id</code>) e filtros sargáveis</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero uso de <code>SELECT *</code> ou <code>RETURNING *</code>. Projeções explícitas em <code>AUDIT_RETURNING_COLUMNS</code> (<code>id::text AS id</code>) e <code>UsersRepository</code> (<code>id::text AS id</code>), além de índices sargáveis para busca e paginação keyset.</td></tr>
     <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-ok">🟢 OK</span></td><td><code>AuditRepository.create</code> e <code>AuditService.recordAudit</code> aceitam <code>client?: PoolClient</code> (<code>const executor = client ?? this.pool</code>), permitindo gravação atômica na mesma transação das operações de domínio.</td></tr>
-    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (prefixo de 3 letras <code>&lt;pre&gt;_&lt;entity&gt;</code>, PK <code>&lt;pre&gt;_id</code>, índices sem <code>idx_</code>/<code>uq_</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Tabelas <code>usr_user</code> e <code>aud_audit</code> com PK <code>BIGINT GENERATED ALWAYS AS IDENTITY</code>, FK <code>usr_id</code> com <code>ON DELETE RESTRICT</code>, <code>TIMESTAMPTZ</code>, DDL transacional com <code>.down.sql</code> e índices <code>usr_email_lower_unique</code>, <code>aud_by_table</code>, <code>aud_by_user</code> e <code>aud_by_registered_at</code>.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (schemas nativos com tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth.users</code> e <code>audit.logs</code>, PK <code>id</code>, FK <code>user_id</code>, índices sargáveis)</td><td><span class="badge-ok">🟢 OK</span></td><td>Decisão arquitetural confirmada pelo usuário ("Tudo no Plural"): tabelas padronizadas em <code>auth.users</code> e <code>audit.logs</code>, eliminando o conflito com a palavra reservada <code>user</code> (<code>RESERVED_KEYWORD</code>) no PostgreSQL 18. FKs mantidas no singular (<code>user_id REFERENCES auth.users (id)</code>) e índices sargáveis no padrão canônico (<code>auth_users_email_lower_unique</code>, <code>audit_logs_by_table</code>, <code>audit_logs_by_user</code>, <code>audit_logs_by_registered_at</code>). Manuais, skills, migrations e testes 100% sincronizados.</td></tr>
     <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Rota <code>POST /auth/logout</code> protegida pelo middleware <code>authenticate</code> (<code>createAuthMiddleware</code>), que valida JWT e perfil RBAC antes de acionar o controller.</td></tr>
     <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td><code>sanitizeSnapshot()</code> em <code>audit.service.ts</code> remove ativamente chaves <code>password</code>, <code>senha</code>, <code>password_hash</code> e <code>usr_password_hash</code>. Testes usam dados 100% sintéticos (<code>@example.test</code>).</td></tr>
     <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero <code>any</code> ou diretivas de supressão; contratos explícitos em <code>backend/src/types/audit.types.ts</code> compatíveis com <code>exactOptionalPropertyTypes: true</code>.</td></tr>
@@ -269,7 +269,18 @@
 <p><em>Nenhum item bloqueante identificado.</em></p>
 
 <h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
-<p><em>Nenhum item de atenção pendente. As observações iniciais sobre <code>C1</code> (inclusão intencional dos guias PDF em <code>docs/manuais/</code> para facilitar o fluxo dos demais desenvolvedores) e <code>C2</code> (ciência de toda a Squad sobre as modificações encaminhadas para <code>develop</code>) foram justificadas e confirmadas pelo responsável.</em></p>
+<p><em>Nenhum item de atenção pendente. Todas as observações foram endereçadas e homologadas.</em></p>
+
+<h3>3.3 🟢 Decisão Arquitetural Homologada: Padronização Global em Tabelas no Plural (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>)</h3>
+<p>
+  Em conformidade com a <strong>Regra Inegociável da Dúvida</strong>, a análise de nomenclatura da tabela <code>user</code> versus palavras estritamente reservadas (<code>RESERVED_KEYWORD</code>) do PostgreSQL 18 foi submetida ao usuário. A decisão oficial estabelecida para o Sistema Aratu foi: <strong>"Tudo no Plural"</strong> (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>).
+</p>
+<ul>
+  <li><strong>Tabelas do Banco:</strong> Todas as tabelas nos 5 schemas nativos adotam nomes no plural em inglês (<code>auth.users</code>, <code>audit.logs</code>, <code>fleet.vehicles</code>, <code>fleet.drivers</code>, <code>trip.trips</code>, <code>trip.requests</code>, <code>svo.occurrences</code>, etc.).</li>
+  <li><strong>Eliminação de Riscos de SQL:</strong> Elimina-se qualquer colisão com <code>CURRENT_USER</code> ou chamadas não intencionais à função nativa <code>user()</code> caso o <code>search_path</code> inclua <code>auth</code>.</li>
+  <li><strong>Chaves Estrangeiras e Índices:</strong> FKs continuam pontuais no singular (<code>user_id REFERENCES auth.users (id)</code>, <code>vehicle_id REFERENCES fleet.vehicles (id)</code>) e índices seguem o padrão canônico sargável <code>&lt;schema&gt;_&lt;tabela&gt;_&lt;propósito&gt;</code> (<code>auth_users_email_lower_unique</code>, <code>audit_logs_by_table</code>, <code>audit_logs_by_user</code>, <code>audit_logs_by_registered_at</code>).</li>
+  <li><strong>Sincronização 100% Concluída:</strong> Migrations, repositórios, serviços, testes automatizados, scripts de automação, skills dos agentes (<code>principios</code>, <code>revisar</code>), manuais de arquitetura e documentos de módulos foram integralmente atualizados para este padrão.</li>
+</ul>
 
 <hr>
 
@@ -312,11 +323,11 @@
     <tr>
       <td>Migrações no PostgreSQL 18 via Docker (<code>db</code>)</td>
       <td><code>202610160001_create_users.sql</code> &amp; <code>202610170001_create_audit.sql</code></td>
-      <td><span class="badge-ok">🟢 Aplicadas com sucesso (tabelas <code>usr_user</code> e <code>aud_audit</code> e índices ativos)</span></td>
+      <td><span class="badge-ok">🟢 Aplicadas com sucesso (tabelas <code>auth.users</code> e <code>audit.logs</code> e índices ativos)</span></td>
     </tr>
     <tr>
       <td>Persistência ao Vivo de Auditoria no PostgreSQL 18</td>
-      <td>Inspeção direta em <code>aud_audit</code> após login e logout na API</td>
+      <td>Inspeção direta em <code>audit.logs</code> após login e logout na API</td>
       <td><span class="badge-ok">🟢 Confirmado (eventos <code>LOGIN_FAILURE</code>, <code>LOGIN_SUCCESS</code> e <code>LOGOUT</code> gravados com sanitização estrita)</span></td>
     </tr>
   </tbody>
@@ -328,7 +339,7 @@
 <!-- PREENCHER_REVISAO_SECAO_5: Pontos específicos que o par humano da Squad 24 deve validar -->
 <ul class="check">
   <li><input type="checkbox" checked disabled> Compilação TypeScript e suíte completa de testes backend (12/12) e frontend (33/33) executados com 100% de sucesso.</li>
-  <li><input type="checkbox" checked disabled> Migrações aplicadas no container PostgreSQL 18 (<code>db</code>) e gravação de eventos <code>aud_audit</code> validada ao vivo em conjunto com o backend.</li>
+  <li><input type="checkbox" checked disabled> Migrações aplicadas no container PostgreSQL 18 (<code>db</code>) e gravação de eventos <code>audit.logs</code> validada ao vivo em conjunto com o backend.</li>
   <li><input type="checkbox"> Realizar o commit atômico em Conventional Commits (<code>feat(auth): criar estrutura de registros de auditoria (FROTA-139)</code>) e abrir o Pull Request para <code>develop</code>.</li>
 </ul>
 

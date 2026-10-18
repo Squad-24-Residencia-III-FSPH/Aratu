@@ -36,20 +36,20 @@ e do **Serviço de Verificação de Óbito (SVO)**.
 
 | Mecanismo | Onde reside | Para que serve |
 |---|---|---|
-| **Condição pelo Dado (Padrão)** | Colunas no PostgreSQL (`req_state`, `req_category`, `sec_id`, `srv_id`, `srv_requires_triage`) | Diferenciar comportamentos com base nas características reais da entidade (ex: serviço com `srv_requires_triage = true` exige confirmação de triagem antes de aprovar) |
-| **Perfil de Acesso (RBAC)** | Middleware de autenticação/autorização no backend (`usr_roles`) e proteção de rotas no React | Controlar quem pode criar, visualizar, aprovar ou despachar viagens e registros do SVO |
+| **Condição pelo Dado (Padrão)** | Colunas no PostgreSQL (`state`, `category`, `sector_id`, `service_id`, `requires_triage`) | Diferenciar comportamentos com base nas características reais da entidade (ex: serviço com `requires_triage = true` exige confirmação de triagem antes de aprovar) |
+| **Perfil de Acesso (RBAC)** | Middleware de autenticação/autorização no backend (`role`) e proteção de rotas no React | Controlar quem pode criar, visualizar, aprovar ou despachar viagens e registros do SVO |
 | **Variáveis de Ambiente (`.env`)** | `backend/.env`, `docker-compose.yml` | Configurações de infraestrutura (conexão com o PostgreSQL, portas, segredos de tokens, URLs de serviços) |
 | **Feature Flags / Chaves** | Não usar sem autorização expressa | Feature flags só entram sob demanda explícita da Squad para isolar entregas parciais |
 
 ---
 
-### Os perfis de usuário do sistema (`usr_roles` em Inglês `UPPER_SNAKE_CASE`)
+### Os perfis de usuário do sistema (`role` em Inglês `UPPER_SNAKE_CASE`)
 
 1. **`ADMIN` (Administrador):** Acesso global para parametrização do sistema, cadastro de setores, serviços e usuários.
 2. **`MANAGER` / `FLEET_MANAGER` (Gestor de Frota / Aprovador):** Avalia solicitações de transporte, aprova/recusa, configura políticas de aprovação, cria viagens e aloca veículos e motoristas.
 3. **`REQUESTER` (Solicitante — FSPH):** Cria e acompanha pedidos de transporte institucional para sua respectiva unidade/setor.
 4. **`OPERATOR` / `SVO_OPERATOR` (Operador de Frota / Equipe SVO):** Opera atendimento de solicitações alocadas, coleta, entrega, devolução e fluxos do SVO com sigilo absoluto.
-5. **`TRIAGE` (Triagem):** Confirma triagem obrigatória em serviços que exigem validação prévia (`srv_requires_triage`).
+5. **`TRIAGE` (Triagem):** Confirma triagem obrigatória em serviços que exigem validação prévia (`requires_triage`).
 6. **`DRIVER` (Motorista):** Acessa escala de viagens atribuídas, registra início/conclusão de viagem e informa hodômetro.
 
 ---
@@ -57,7 +57,7 @@ e do **Serviço de Verificação de Óbito (SVO)**.
 ### Árvore de decisão para o Aratu
 
 ```
-A diferença já está no dado que chega (req_state, req_category, sec_id, srv_id)?
+A diferença já está no dado que chega (state, category, sector_id, service_id)?
 ├─ SIM → Condicione pelo dado no Service. Fim. Nenhum mecanismo novo.
 └─ NÃO
    ├─ É uma restrição de quem pode executar a ação?
@@ -73,7 +73,7 @@ A diferença já está no dado que chega (req_state, req_category, sec_id, srv_i
 ## Erros comuns já evitados
 
 - **Criar chaves de configuração para regras triviais de UI:** Se um serviço exige triagem,
-  valide pela coluna `srv_requires_triage` no domínio, não crie uma flag `enable_triage_validation`.
+  valide pela coluna `requires_triage` no domínio, não crie uma flag `enable_triage_validation`.
 - **Esquecer de validar o perfil no backend:** Proteger apenas a rota visual no React
   é falha de segurança; a autorização deve ser conferida obrigatoriamente no middleware do Express.
 - **Assumir permissões de usuário:** Se a tarefa não deixa claro se um `REQUESTER`

@@ -24,8 +24,8 @@ Este guia reúne os antipadrões técnicos e de domínio mais frequentes e como 
 ## 2. TypeScript e Clean Code (Código em Inglês)
 
 - **Misturar português e inglês em identificadores de código ou banco:**
-  - *Erro:* Criar classes/métodos em português (`ViagemService`, `alocarViatura()`) ou tabelas sem o padrão de prefixo de 3 letras em inglês.
-  - *Como fazer:* Todo o código (classes, métodos, funções, tipos, variáveis, constantes, hooks, componentes, arquivos `.ts`/`.tsx` e endpoints) deve ser em **inglês**, e o banco segue o padrão `<pre>_<singular_entity>` em inglês (`veh_vehicle`, `trp_trip`, `req_request`, com `veh_id AS id` no `SELECT`). Apenas TSDoc e mensagens ao usuário final ficam em português.
+  - *Erro:* Criar classes/métodos em português (`ViagemService`, `alocarViatura()`) ou tabelas sem o padrão de Schemas Nativos em inglês.
+  - *Como fazer:* Todo o código (classes, métodos, funções, tipos, variáveis, constantes, hooks, componentes, arquivos `.ts`/`.tsx`, endpoints e classes de `*.module.css` em `camelCase`) deve ser em **inglês**, e o banco segue o padrão de **Schemas Nativos de Domínio** em inglês com tabelas no plural (`auth.users`, `audit.logs`, `fleet.vehicles`, `trip.trips`, `svo.occurrences`). Apenas TSDoc e mensagens ao usuário final ficam em português.
 - **Usar valores mágicos (strings ou números soltos):**
   - *Erro:* `if (vehicle.state === '1')` ou `if (request.state === 'aprovada')` espalhados pelo código.
   - *Como fazer:* Defina union types literais em inglês em `UPPER_SNAKE_CASE` em `src/types/` (ex: `RequestState`, `TripState`, `ServiceCategory`, `UserRole`).
@@ -44,20 +44,20 @@ Este guia reúne os antipadrões técnicos e de domínio mais frequentes e como 
 ## 3. Banco de Dados (PostgreSQL 18 e driver `pg`)
 
 - **Interpolar variáveis em strings SQL (risco grave de SQL Injection):**
-  - *Erro:* ``pool.query(`SELECT veh_id AS id, veh_identification AS identification FROM veh_vehicle WHERE veh_identification = '${identification}'`)``.
+  - *Erro:* ``pool.query(`SELECT id, license_plate FROM fleet.vehicles WHERE license_plate = '${plate}'`)``.
   - *Como fazer:* Use **sempre** queries parametrizadas com placeholders posicionais (`$1, $2`):
     ```typescript
     await pool.query(
-      'SELECT veh_id AS id, veh_identification AS identification FROM veh_vehicle WHERE veh_identification = $1',
-      [identification]
+      'SELECT id, license_plate AS "licensePlate" FROM fleet.vehicles WHERE license_plate = $1',
+      [plate]
     );
     ```
-- **Usar `SELECT *` ou vazar o prefixo de 3 letras para o JSON/TypeScript:**
-  - *Erro:* `SELECT * FROM req_request` (expondo `req_id`, `req_origin` diretamente no frontend).
-  - *Como fazer:* Liste explicitamente todas as colunas e projete aliases `camelCase` limpos (`req_id AS id`, `req_origin AS origin`, `usr_id_requester AS "requesterUserId"`).
-- **Usar prefixos `idx_`, `uq_`, `trg_` ou `fn_` em objetos auxiliares do banco:**
-  - *Erro:* Criar `idx_req_state` com o prefixo da tabela no meio.
-  - *Como fazer:* Índices iniciam diretamente pelo prefixo de 3 letras da tabela (`<pre>_<descriptive_name>`, ex: `req_by_state`, `trp_vehicle_in_progress`), triggers e funções usam nomes descritivos em inglês sem `trg_`/`fn_` (`preserve`, `audit`, `_validate_trip()`, `create_trip()`), e views usam `vw_` (`vw_active_allocations`).
+- **Usar `SELECT *`:**
+  - *Erro:* `SELECT * FROM trip.requests` (trafegando colunas desnecessárias e quebrando contratos).
+  - *Como fazer:* Liste explicitamente todas as colunas necessárias e projete aliases `camelCase` quando necessário (`created_at AS "createdAt"`).
+- **Sobrescrever esquemas ou criar tabelas fora dos schemas de domínio:**
+  - *Erro:* Criar tabelas soltas no schema `public` sem qualificação de domínio.
+  - *Como fazer:* Qualifique sempre a tabela no plural no seu respectivo schema (`auth`, `audit`, `fleet`, `trip`, `svo`) e use índices descritivos (`<schema>_<table>_<purpose>`).
 - **Filtrar registros em memória no Node.js:**
   - *Erro:* Buscar todas as linhas da tabela e aplicar `.filter()` no JavaScript.
   - *Como fazer:* Filtre e ordene diretamente no PostgreSQL com cláusulas `WHERE` sargáveis (que aproveitam índices) e paginação.
@@ -79,7 +79,7 @@ Este guia reúne os antipadrões técnicos e de domínio mais frequentes e como 
     ```
 - **Ignorar concorrência ao ler, decidir e gravar:**
   - *Erro:* Fazer um `SELECT` simples para checar se a viatura está disponível e em seguida um `INSERT` de viagem sem transação/lock, permitindo alocação dupla simultânea.
-  - *Como fazer:* Use transação com trava pessimista (`SELECT ... FROM veh_vehicle WHERE veh_id = $1 FOR UPDATE`) e validação de revisão (`<pre>_revision`).
+  - *Como fazer:* Use transação com trava pessimista (`SELECT id, state FROM fleet.vehicles WHERE id = $1 FOR UPDATE`) e validação de revisão (`revision`).
 
 ---
 
