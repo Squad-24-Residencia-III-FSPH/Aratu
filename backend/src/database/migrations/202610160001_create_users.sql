@@ -1,11 +1,17 @@
 BEGIN;
 
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR NOT NULL,
-  email VARCHAR NOT NULL,
-  password_hash VARCHAR NOT NULL,
-  role VARCHAR NOT NULL CHECK (role IN (
+CREATE SCHEMA IF NOT EXISTS auth;
+
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS usr_user CASCADE;
+DROP TABLE IF EXISTS auth.user CASCADE;
+
+CREATE TABLE auth.users (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL CHECK (btrim(name) <> ''),
+  email TEXT NOT NULL CHECK (btrim(email) <> ''),
+  password_hash TEXT NOT NULL CHECK (btrim(password_hash) <> ''),
+  role TEXT NOT NULL CHECK (role IN (
     'ADMINISTRADOR',
     'GESTOR',
     'SOLICITANTE',
@@ -13,9 +19,11 @@ CREATE TABLE users (
     'ATENDENTE_SVO',
     'EQUIPE_SVO'
   )),
-  is_active BOOLEAN NOT NULL DEFAULT true
+  active BOOLEAN NOT NULL DEFAULT true,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE UNIQUE INDEX users_email_lower_unique ON users (lower(email));
+CREATE UNIQUE INDEX auth_users_email_lower_unique ON auth.users (lower(email));
 
 COMMIT;

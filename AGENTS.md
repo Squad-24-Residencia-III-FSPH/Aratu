@@ -60,8 +60,7 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
   - `src/components/layout/`: Estrutura padronizada de tela (`AppShell`, `PageHeader`).
   - `src/components/ui/`: Componentes visuais acessíveis e reutilizáveis sobre Material UI (`FormField` com `useId()`, `DataTable`, `FilterBar`, `EntityCard`, `StatCard`, `StatusChip`, `StateFeedback`, `ConfirmDialog`).
   - `src/pages/`: Telas e fluxos de navegação (estilização via `theme.ts`/`sx`; CSS Modules restritos a layout estrutural com classes em **inglês em `camelCase`**, proibido `:global(.Mui...)`).
-  - `src/hooks/` e `src/services/`: Hooks customizados de estado/ciclo de vida e cliente de API centralizado.
-- **Banco de Dados:** PostgreSQL 18 via Docker (`postgres:18-alpine`).
+- **Banco de Dados:** PostgreSQL 18 via Docker (`postgres:18-alpine`) estruturado em **Schemas Nativos de Domínio** (`auth`, `audit`, `fleet`, `trip`, `svo`), tabelas no plural (`<schema>.<plural_entity>`), PK `id BIGINT GENERATED ALWAYS AS IDENTITY`, colunas em inglês `snake_case` e FKs `<entity>_id`.
 - **Padrões de Projeto:** Consulte [`docs/manuais/padroes-projeto.md`](docs/manuais/padroes-projeto.md) para aplicação obrigatória de Repository, State Pattern (FSM), Strategy, Chain of Responsibility e Compound Components.
 - **Containers:** Docker & Docker Compose (`docker-compose.yml` com `db`, `backend`, `frontend`).
 

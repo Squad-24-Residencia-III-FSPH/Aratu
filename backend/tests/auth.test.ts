@@ -45,7 +45,7 @@ test('configuração JWT exige segredo e usa oito horas por padrão', () => {
 
 function user(overrides: Partial<UserForLogin> = {}): UserForLogin {
   return {
-    id: '246c8650-9727-4d2b-a2a3-f809ddbc86f9',
+    id: '1',
     name: 'Usuária Fictícia',
     email: 'motorista@example.test',
     password_hash: passwordHash,
@@ -74,7 +74,7 @@ test('login normaliza e-mail, valida bcrypt e emite JWT com id e perfil', async 
   const payload = jwt.verify(result.user.token, jwtConfig.secret, { algorithms: ['HS256'] })
   assert.equal(typeof payload, 'object')
   if (typeof payload === 'string') return
-  assert.equal(payload.id, '246c8650-9727-4d2b-a2a3-f809ddbc86f9')
+  assert.equal(payload.id, '1')
   assert.equal(payload.perfil, 'MOTORISTA')
   assert.equal('role' in payload, false)
   assert.equal('nome' in payload, false)
@@ -214,7 +214,7 @@ test('logout protegido rejeita token ausente/inválido e aceita token válido', 
     })
     assert.equal(privateRoute.status, 200)
     assert.deepEqual(await privateRoute.json(), {
-      id: '246c8650-9727-4d2b-a2a3-f809ddbc86f9',
+      id: '1',
       perfil: 'MOTORISTA',
     })
 

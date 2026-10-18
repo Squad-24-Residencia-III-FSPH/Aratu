@@ -56,12 +56,12 @@ Todo plano de implementação desenvolvido no Aratu deve cobrir os seguintes tó
 - Resposta de sucesso (status code semântico `200`, `201`, `204`) e estrutura JSON.
 - Códigos e mensagens de erro esperados (`400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `409 Conflict`, `422 Unprocessable Entity`).
 
-### 4. Modelo de Dados e PostgreSQL 18 (Padrão `modelo.sql` em Inglês)
-- Tabelas novas ou modificadas, seguindo o padrão de prefixo único de 3 letras em inglês (`<pre>_<singular_entity>`, ex: `veh_vehicle`, `trp_trip`, `req_request`).
-- Chave primária `<pre>_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY` (projetada como `<pre>_id AS id` no Repository), colunas próprias `<pre>_<col>` e FKs `<ref_pre>_id` (ou `<ref_pre>_id_<role>`).
+### 4. Modelo de Dados e PostgreSQL 18 (Padrão de Schemas Nativos em Inglês)
+- Tabelas novas ou modificadas, organizadas nos schemas nativos de domínio (`auth`, `audit`, `fleet`, `trip`, `svo`) no plural (`<schema>.<plural_entity>`, ex: `auth.users`, `audit.logs`, `fleet.vehicles`, `trip.trips`, `trip.requests`).
+- Chave primária `id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY`, colunas substantivas limpas (`name`, `email`, `state`) e FKs limpas no singular `<entity>_id` (ou `<entity>_id_<role>`).
 - Tipos de colunas explícitos (`BIGINT`, `TEXT`, `TIMESTAMPTZ`, `BOOLEAN`, `INTEGER`, `NUMERIC`, `JSONB`).
 - Constraints declarativas: `PRIMARY KEY`, `FOREIGN KEY ... ON DELETE RESTRICT`, `CHECK`, `UNIQUE`.
-- Índices iniciando pelo prefixo de 3 letras da tabela (`<pre>_<descriptive_name>`, sem `idx_`/`uq_`), justificados pelas consultas reais (leia `references/consultas.md` e `references/dados.md`).
+- Índices no padrão `<schema>_<table>_<purpose>` (sem `idx_`/`uq_`), justificados pelas consultas reais (leia `references/consultas.md` e `references/dados.md`).
 - Script de migração DDL e como garantir transacionalidade.
 
 ### 5. Interface e Componentes React 19 (Frontend)

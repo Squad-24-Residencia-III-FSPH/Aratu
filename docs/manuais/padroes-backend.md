@@ -11,7 +11,7 @@ Este documento descreve as diretrizes práticas para implementação no **Backen
 | **Routes** | `backend/src/routes/` | Registra endpoints REST em inglês (`/api/vehicles`, `/api/trips`), associa middlewares de autenticação/RBAC e delega ao Controller | Conter lógica de validação, regras de domínio ou SQL |
 | **Controllers** | `backend/src/controllers/` | Lê `req.params`, `req.query` e `req.body`, chama o Service e formata a resposta HTTP (`res.status().json()`) | Acessar o banco ou implementar regras de negócio |
 | **Services** | `backend/src/services/` | Executa regras de negócio puras em inglês (`allocateRequest()`, `createTrip()`, validação de capacidade e fluxos do SVO) | Importar `Request`/`Response` do Express ou montar SQL cru |
-| **Repositories** | `backend/src/repositories/` | Executa queries parametrizadas (`$1, $2`) no PostgreSQL 18 via `pg.Pool` ou `PoolClient`, projetando `<pre>_id AS id` | Tomar decisões de negócio ou retornar status HTTP |
+| **Repositories** | `backend/src/repositories/` | Executa queries parametrizadas (`$1, $2`) no PostgreSQL 18 em Schemas Nativos (`auth`, `audit`, `fleet`, `trip`, `svo`) via `pg.Pool` ou `PoolClient` | Tomar decisões de negócio ou retornar status HTTP |
 | **Middlewares** | `backend/src/middlewares/` | Autenticação, verificação de perfil RBAC, validação de schema de entrada e handler global de erros | Conter fluxos completos de domínio |
 | **Types** | `backend/src/types/` | Interfaces, DTOs, union types em inglês (`UPPER_SNAKE_CASE`) e constantes de domínio | Conter lógica executável |
 
@@ -22,7 +22,7 @@ Este documento descreve as diretrizes práticas para implementação no **Backen
 ### 2.1 Regras obrigatórias em consultas SQL
 
 1. **Parâmetros posicionais (`$1, $2, ...`) sempre:** nunca concatene nem interpole variáveis dentro da string SQL.
-2. **Proibido `SELECT *`:** declare explicitamente as colunas retornadas utilizando constantes reutilizáveis no Repository e convertendo o prefixo de 3 letras para aliases `camelCase` limpos (`veh_id AS id`, `veh_identification AS identification`, `veh_id AS "vehicleId"`).
+2. **Proibido `SELECT *` e Schemas Nativos:** declare explicitamente as tabelas qualificadas no schema no plural (ex: `trip.trips`, `fleet.vehicles`) e as colunas retornadas, convertendo campos `snake_case` para aliases `camelCase` limpos no TypeScript (`license_plate AS "licensePlate"`, `created_at AS "createdAt"`).
 3. **Filtro e ordenação no banco:** nunca busque tabelas inteiras para filtrar com `.filter()` ou ordenar com `.sort()` em memória no Node.js.
 4. **Prevenção de N+1:** em listagens que exigem dados relacionados (ex: viagens com dados do veículo e motorista), utilize `JOIN` explícito no SQL.
 
@@ -37,7 +37,6 @@ export async function allocateRequestToTripInTransaction(
   pool: Pool,
   requestId: number,
   requestRevision: number,
-  requestVersionId: number,
   tripId: number,
   tripRevision: number,
   userId: number,
@@ -50,9 +49,9 @@ export async function allocateRequestToTripInTransaction(
 
     // 1. Trava a linha da solicitação e da viagem para evitar alocação concorrente
     const requestRes = await client.query<{ id: number; state: string; revision: number }>(
-      `SELECT req_id AS id, req_state AS state, req_revision AS revision
-         FROM req_request
-        WHERE req_id = $1
+      `SELECT id, state, revision
+         FROM trip.requests
+        WHERE id = $1
           FOR UPDATE;`,
       [requestId]
     );
@@ -63,9 +62,9 @@ export async function allocateRequestToTripInTransaction(
     }
 
     const tripRes = await client.query<{ id: number; state: string; revision: number }>(
-      `SELECT trp_id AS id, trp_state AS state, trp_revision AS revision
-         FROM trp_trip
-        WHERE trp_id = $1
+      `SELECT id, state, revision
+         FROM trip.trips
+        WHERE id = $1
           FOR UPDATE;`,
       [tripId]
     );
@@ -77,25 +76,25 @@ export async function allocateRequestToTripInTransaction(
 
     // 2. Registra a alocação e incrementa a revisão atomicamente
     const allocationRes = await client.query<{ id: number }>(
-      `INSERT INTO ral_request_allocation (
-         req_id, rqv_id, trp_id, usr_id, ral_actor_snapshot, ral_reason, ral_snapshot
+      `INSERT INTO trip.allocations (
+         request_id, trip_id, user_id, actor_snapshot, reason
        )
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb)
-       RETURNING ral_id AS id;`,
-      [requestId, requestVersionId, tripId, userId, JSON.stringify({ userId }), reason, JSON.stringify({ requestId, tripId })]
+       VALUES ($1, $2, $3, $4::jsonb, $5)
+       RETURNING id;`,
+      [requestId, tripId, userId, JSON.stringify({ userId }), reason]
     );
 
     await client.query(
-      `UPDATE req_request
-          SET req_revision = req_revision + 1
-        WHERE req_id = $1;`,
+      `UPDATE trip.requests
+          SET revision = revision + 1
+        WHERE id = $1;`,
       [requestId]
     );
 
     await client.query(
-      `UPDATE trp_trip
-          SET trp_revision = trp_revision + 1
-        WHERE trp_id = $1;`,
+      `UPDATE trip.trips
+          SET revision = revision + 1
+        WHERE id = $1;`,
       [tripId]
     );
 
@@ -160,3 +159,28 @@ As respostas de erro originadas no backend são lidas por pessoas na interface e
 
 A camada backend adota formalmente os padrões **Repository**, **State Pattern (FSM)**, **Strategy** e **Chain of Responsibility**. Consulte o catálogo completo com exemplos práticos de código em:
 👉 **[`docs/manuais/padroes-projeto.md`](padroes-projeto.md)**
+
+---
+
+## 7. Testes Automatizados e Banco de Dados Isolado (FROTA-161)
+
+O backend do Aratu adota uma estratégia leve e rápida de testes automatizados com execução direta em TypeScript:
+
+1. **Test Runner Nativo e Assertivas Estritas:**
+   - Execução via `node:test` e `node:assert/strict` gerenciada pelo `tsx --test`.
+   - Elimina dependências externas pesadas (Jest/Mocha), mantendo tempo de execução inferior a 5 segundos.
+2. **Isolamento de Banco de Dados (`aratu_test`):**
+   - Os testes de integração conectam exclusivamente a um banco de dados dedicado (`POSTGRES_DB_TEST=aratu_test` ou `DATABASE_URL_TEST`), nunca tocando na base de desenvolvimento (`meubanco`) ou de produção.
+   - O helper `backend/tests/helpers/db-test.ts` provisiona o banco e gerencia conexões via singleton `Pool`, garantindo encerramento limpo (`closeTestPool()`) no hook `after()`.
+3. **Migrações Dinâmicas e Idempotentes:**
+   - O utilitário `DatabaseMigrator` (`backend/src/database/migrator.ts`) descobre todos os arquivos `*.sql` em `src/database/migrations/` e os aplica ordenadamente dentro de transações atômicas `BEGIN ... COMMIT / ROLLBACK`, registrando versões na tabela `schema_migrations`.
+4. **Limpeza Dinâmica entre Testes:**
+   - A função `truncateTestDatabase()` esvazia tabelas de domínio via `TRUNCATE ... RESTART IDENTITY CASCADE` baseada no `information_schema.tables`, preservando a tabela de controle `schema_migrations` para velocidade e isolamento absoluto entre casos de teste.
+5. **Comandos Operacionais Padronizados no `package.json`:**
+   - `npm test`: Executa toda a suíte (testes unitários e de integração);
+   - `npm run test:unit`: Executa testes unitários isolados em memória;
+   - `npm run test:integration`: Executa testes de integração com banco PostgreSQL 18 real;
+   - `npm run test:db:setup`: Provisiona o banco de testes e executa migrações de forma avulsa via linha de comando.
+6. **Conformidade com LGPD e Sigilo SVO:**
+   - Fixtures e testes utilizam exclusivamente dados sintéticos e e-mails fictícios (`@example.test`), sendo estritamente proibido transcrever dados reais de servidores, motoristas ou óbitos.
+
