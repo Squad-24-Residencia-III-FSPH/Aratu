@@ -12,7 +12,7 @@ const pool = createPool(process.env.DATABASE_URL ?? '')
 const jwtConfig = loadJwtConfig(process.env)
 const app = createApp({ pool, jwtConfig })
 
-const server = app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, () => {
   log(`Servidor rodando na porta ${PORT}`)
 })
 
