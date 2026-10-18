@@ -42,10 +42,11 @@ Os blocos de documentação iniciam com `/**` e terminam com `*/`.
 | `@param <name>` | Obrigatório para parâmetros cujo propósito não seja 100% evidente pelo nome. | `@param requestId - Identificador único da solicitação aprovada.` |
 | `@returns` | Obrigatório para funções com retorno não-void onde o resultado precisa de contexto. | `@returns Alocação registrada com os snapshots de auditoria.` |
 | `@throws {ErrorType}` | Obrigatório quando o método lança erros de domínio esperados. | `@throws {AllocationConflictError} Se a solicitação já possuir alocação vigente.` |
-| `@remarks` | Opcional; para destacar regras de concorrência, transações ou impacto LGPD. | `@remarks Executa em transação com lock pessimista no PostgreSQL.` |
+| `@remarks` | Opcional; para destacar regras de concorrência, transações, impacto LGPD ou rastreabilidade de negócio. | `@remarks Executa em transação com lock pessimista no PostgreSQL.` |
+| `@deprecated` | Obrigatório quando uma função ou método está obsoleto e será removido em releases futuras. | `@deprecated Descontinuado; utilize allocateRequest() em seu lugar.` |
 | `@example` | Opcional; quando o payload ou formato de entrada/saída for complexo. | `@example const res = await authService.buildLoginResponse(user);` |
 
-> 🚫 **Tags Proibidas (YAGNI e Redundância):** `@author`, `@since`, `@version`, `@param {type}`, `@returns {type}`.
+> 🚫 **Tags Proibidas (YAGNI e Redundância):** `@author`, `@since`, `@version`, `@param {type}`, `@returns {type}` (o histórico de autoria e alterações é mantido exclusivamente pelo Git e Conventional Commits).
 
 ---
 
