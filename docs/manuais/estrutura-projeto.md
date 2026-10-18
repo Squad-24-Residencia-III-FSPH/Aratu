@@ -90,13 +90,12 @@ Toda evolução na estrutura de pastas e arquivos deve respeitar quatro invarian
 
 ---
 
-## 5. Domínios de Negócio do Sistema Aratu
+## 5. Domínios de Negócio e Schemas do Banco (PostgreSQL 18)
 
-O código dentro de cada camada é organizado em torno dos domínios operacionais da **FSPH** e do **SVO** (com identificadores técnicos em inglês):
+O código e o banco de dados são particionados em torno dos 5 domínios operacionais da **FSPH** e do **SVO**, mapeados 1:1 para **Schemas Nativos do PostgreSQL**:
 
-1. **Autenticação e Perfis (`auth` / `users`):** controle de sessão e RBAC (`ADMIN`, `FLEET_MANAGER`, `REQUESTER_FSPH`, `DRIVER`, `SVO_TEAM`).
-2. **Gestão de Frota (`vehicles`):** cadastro de viaturas administrativas e de remoção (`veh_vehicle`), controle de capacidade, hodômetro e disponibilidade.
-3. **Motoristas (`drivers`):** cadastro de condutores (`drv_driver`), controle de categoria e validade de CNH, escalas e disponibilidade.
-4. **Viagens Institucionais (`trips` / `requests`):** solicitação de transporte por unidades da FSPH (`req_request`), aprovação, alocação de veículo/motorista (`trp_trip`), checklist e registro de saída/retorno.
-5. **Operações do SVO (`svo`):** acionamento de chamados de verificação de óbito (`svo_occurrence`), despacho de viatura de remoção cadavérica, custódia, laudos e liberação formal com sigilo.
-6. **Manutenções (`maintenance`):** ordens de serviço preventivas e corretivas (`mnt_maintenance_order`), bloqueio automático de veículos indisponíveis e histórico de intervenções.
+1. **Autenticação e Perfis (Schema `auth`):** controle de sessão, usuários (`auth.users`), setores (`auth.sectors`) e RBAC (`ADMINISTRADOR`, `GESTOR`, `SOLICITANTE`, `MOTORISTA`, `ATENDENTE_SVO`, `EQUIPE_SVO`).
+2. **Trilha de Auditoria (Schema `audit`):** registro transversal, imutável e estruturado de todas as mutações do sistema (`audit.logs`).
+3. **Gestão de Frota, Condutores e Manutenções (Schema `fleet`):** cadastro de viaturas administrativas e de remoção (`fleet.vehicles`), serviços (`fleet.services`), motoristas (`fleet.drivers`) e ordens de manutenção preventiva/corretiva (`fleet.maintenance_orders`).
+4. **Viagens Institucionais e Solicitações FSPH (Schema `trip`):** fluxo de solicitação de transporte por unidades da FSPH (`trip.requests`), políticas de aprovação (`trip.approval_policies`), alocação de viaturas (`trip.allocations`) e ciclo de vida da viagem (`trip.trips`).
+5. **Operações do SVO (Schema `svo`):** acionamento de chamados de verificação de óbito (`svo.occurrences`), despacho de viatura de remoção cadavérica, custódia e laudos periciais com sigilo estrito (`svo.custody_records`, `svo.release_orders`).

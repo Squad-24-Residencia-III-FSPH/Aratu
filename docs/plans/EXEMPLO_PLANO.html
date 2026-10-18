@@ -177,43 +177,45 @@ docs/modulos/&lt;MODULO&gt;.html         ← atualização da documentação do 
 
 <h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
 
-<h3>4.1 Novas Tabelas / Alterações de Schema (DDL Transacional — Prefixo de 3 Letras)</h3>
+<h3>4.1 Novas Tabelas / Alterações de Schema (DDL Transacional — Schemas Nativos)</h3>
 <pre><code>-- Migration: backend/src/database/migrations/NNN_&lt;description&gt;.sql
 BEGIN;
 
-CREATE TABLE trp_trip (
-    trp_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    veh_id bigint NOT NULL REFERENCES veh_vehicle ON DELETE RESTRICT,
-    drv_id bigint NOT NULL REFERENCES drv_driver ON DELETE RESTRICT,
-    trp_planned_departure timestamptz NOT NULL,
-    trp_planned_end timestamptz NULL,
-    trp_state text NOT NULL DEFAULT 'PLANNED' CHECK (trp_state IN ('PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELED')),
-    trp_revision integer NOT NULL DEFAULT 1 CHECK (trp_revision &gt; 0),
-    trp_created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-    CHECK (trp_planned_end IS NULL OR trp_planned_end &gt; trp_planned_departure)
+CREATE SCHEMA IF NOT EXISTS trip;
+
+CREATE TABLE trip.trips (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    vehicle_id bigint NOT NULL REFERENCES fleet.vehicles ON DELETE RESTRICT,
+    driver_id bigint NOT NULL REFERENCES fleet.drivers ON DELETE RESTRICT,
+    planned_departure timestamptz NOT NULL,
+    planned_end timestamptz NULL,
+    state text NOT NULL DEFAULT 'PLANNED' CHECK (state IN ('PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELED')),
+    revision integer NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    CHECK (planned_end IS NULL OR planned_end &gt; planned_departure)
 );
 
--- Índices iniciando pelo prefixo de 3 letras da tabela (sem idx_ ou uq_)
-CREATE UNIQUE INDEX trp_vehicle_in_progress ON trp_trip (veh_id) WHERE trp_state = 'IN_PROGRESS';
-CREATE UNIQUE INDEX trp_driver_in_progress ON trp_trip (drv_id) WHERE trp_state = 'IN_PROGRESS';
+-- Índices no padrão &lt;schema&gt;_&lt;entity&gt;_&lt;purpose&gt; (sem idx_ ou uq_)
+CREATE UNIQUE INDEX trip_trips_vehicle_in_progress ON trip.trips (vehicle_id) WHERE state = 'IN_PROGRESS';
+CREATE UNIQUE INDEX trip_trips_driver_in_progress ON trip.trips (driver_id) WHERE state = 'IN_PROGRESS';
 
 COMMIT;</code></pre>
 
 <blockquote>
   <strong>Convenções obrigatórias do PostgreSQL 18 no Aratu:</strong>
   <ul>
-    <li>Tabelas no singular com prefixo único de 3 letras em inglês (<code>&lt;pre&gt;_&lt;singular_entity&gt;</code>); PK <code>&lt;pre&gt;_id</code> na tabela e <code>SELECT &lt;pre&gt;_id AS id</code> no Repository; colunas próprias <code>&lt;pre&gt;_&lt;column&gt;</code>; FKs preservando o nome da PK referenciada <code>&lt;ref_pre&gt;_id</code> (ou <code>&lt;ref_pre&gt;_id_&lt;role&gt;</code>).</li>
-    <li>Índices iniciando pelo prefixo de 3 letras da tabela (<code>&lt;pre&gt;_&lt;descriptive_name&gt;</code>, sem <code>idx_</code>/<code>uq_</code>); triggers e funções sem <code>trg_</code>/<code>fn_</code>; views com <code>vw_</code>.</li>
-    <li>Medidas numéricas ainda não informadas (ex: <code>tre_odometer</code> quando não aplicável) permanecem <code>NULL</code>, nunca zero.</li>
+    <li>Schemas nativos por domínio (<code>auth</code>, <code>audit</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>); tabelas no plural sem prefixo abreviado (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>); PK <code>id BIGINT GENERATED ALWAYS AS IDENTITY</code>; colunas substantivas limpas (<code>name</code>, <code>email</code>, <code>state</code>); FKs limpas <code>&lt;entity&gt;_id</code> (ou <code>&lt;entity&gt;_id_&lt;role&gt;</code>).</li>
+    <li>Índices no padrão <code>&lt;schema&gt;_&lt;entity&gt;_&lt;purpose&gt;</code> (sem <code>idx_</code>/<code>uq_</code>); triggers e funções sem <code>trg_</code>/<code>fn_</code>; views com <code>vw_</code>.</li>
+    <li>Medidas numéricas ainda não informadas (ex: <code>odometer</code> quando não aplicável) permanecem <code>NULL</code>, nunca zero.</li>
     <li>Compatibilidade de dados: se alterar tabela que já contém registros, explicitar como as linhas existentes serão migradas.</li>
   </ul>
 </blockquote>
 
 <h3>4.2 Plano de Rollback (Obrigatório quando houver Migration)</h3>
 <pre><code>BEGIN;
-DROP INDEX IF EXISTS trp_driver_in_progress;
-DROP INDEX IF EXISTS trp_vehicle_in_progress;
-DROP TABLE IF EXISTS trp_trip;
+DROP INDEX IF EXISTS trip_trips_driver_in_progress;
+DROP INDEX IF EXISTS trip_trips_vehicle_in_progress;
+DROP TABLE IF EXISTS trip.trips;
 COMMIT;</code></pre>
 
 <hr>
@@ -241,7 +243,7 @@ COMMIT;</code></pre>
       <td><code>GET /api/&lt;entities&gt;</code></td>
       <td>Autenticados (escopo filtrado por perfil)</td>
       <td>Query <code>?state=&amp;startDate=&amp;endDate=&amp;cursor=</code></td>
-      <td><code>200 OK</code> (lista paginada sem <code>SELECT *</code>, mapeando <code>&lt;pre&gt;_id AS id</code>)</td>
+      <td><code>200 OK</code> (lista paginada sem <code>SELECT *</code>, com projeção explícita de colunas)</td>
     </tr>
     <tr>
       <td><code>PATCH /api/&lt;entities&gt;/:id/allocate</code></td>
@@ -261,7 +263,7 @@ COMMIT;</code></pre>
 <h3>5.3 <code>backend/src/repositories/&lt;entity&gt;.repository.ts</code> — Acesso a Dados (<code>pg</code>)</h3>
 <ul>
   <li><strong>Ação:</strong> criar/alterar.</li>
-  <li><strong>Responsabilidade:</strong> Executar queries parametrizadas (<code>$1, $2</code>) com lista explícita de colunas (constante <code>&lt;ENTITY&gt;_COLUMNS</code> projetando <code>&lt;pre&gt;_id AS id</code>).</li>
+  <li><strong>Responsabilidade:</strong> Executar queries parametrizadas (<code>$1, $2</code>) com lista explícita de colunas (constante <code>&lt;ENTITY&gt;_COLUMNS</code> projetando colunas limpas diretamente no DTO).</li>
   <li><strong>Métodos públicos:</strong>
     <ul>
       <li><code>create(input: Create&lt;Entity&gt;Input, client?: PoolClient): Promise&lt;Entity&gt;</code></li>
@@ -324,7 +326,7 @@ COMMIT;</code></pre>
 <h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
 
 <ul>
-  <li><strong>Condição pelo Dado vs. RBAC:</strong> As diferenças operacionais são condicionadas pelas colunas de domínio (<code>req_state</code>, <code>req_category</code>, <code>sec_id</code>) no <code>Service</code> e pelo perfil do usuário no middleware de RBAC.</li>
+  <li><strong>Condição pelo Dado vs. RBAC:</strong> As diferenças operacionais são condicionadas pelas colunas de domínio (<code>state</code>, <code>category</code>, <code>sector_id</code>) no <code>Service</code> e pelo perfil do usuário no middleware de RBAC.</li>
   <li><strong>Feature Flags:</strong> Nenhuma feature flag nova criada (respeito à árvore de decisão de <code>escopo-impacto.md</code>).</li>
   <li><strong>Variáveis de Ambiente (<code>.env</code>):</strong> [Indicar se alguma variável de infraestrutura nova é necessária em <code>docker-compose.yml</code>, ou declarar "Nenhuma variável nova"].</li>
 </ul>
@@ -382,7 +384,7 @@ COMMIT;</code></pre>
   <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
   <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-XX)</code>)</li>
   <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
-  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas e colunas PostgreSQL no padrão de prefixo de 3 letras (<code>&lt;pre&gt;_id AS id</code> no Repository)</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de schemas nativos (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</li>
   <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
   <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
   <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
@@ -413,7 +415,7 @@ COMMIT;</code></pre>
 
 <p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
 <ol>
-  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 com prefixo de 3 letras em inglês.</li>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 com schemas nativos de domínio em inglês.</li>
   <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
   <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
   <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>

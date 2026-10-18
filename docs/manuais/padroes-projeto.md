@@ -11,7 +11,7 @@ O objetivo deste guia é fornecer consistência arquitetural, desacoplamento e t
 | Camada do Sistema | Padrão Principal | Nome em Inglês | Papel e Responsabilidade no Sistema Aratu |
 |---|---|---|---|
 | **Arquitetura Geral** | Arquitetura em Camadas + Inversão Leve | *Layered Architecture + Dependency Inversion* | Separação estrita em pipeline unidirecional: `Routes` → `Controllers` → `Services` → `Repositories`. |
-| **Persistência / Dados** | Repositório | *Repository Pattern* | Encapsulamento de queries SQL parametrizadas (`$1, $2`), projeção `SELECT id AS <pre>_id`, isolamento do `pg.Pool` e transações atômicas com `SELECT ... FOR UPDATE`. |
+| **Persistência / Dados** | Repositório | *Repository Pattern* | Encapsulamento de queries SQL parametrizadas (`$1, $2`) em Schemas Nativos (`auth`, `audit`, `fleet`, `trip`, `svo`), isolamento do `pg.Pool` e transações atômicas com `SELECT ... FOR UPDATE`. |
 | **Negócio / Domínio** | Máquina de Estados / Estado | *State Pattern (FSM)* | Controle do ciclo de vida imutável de solicitações e viagens, bloqueando transições ilegais em tempo de compilação e execução. |
 | **Algoritmos Variáveis** | Estratégia | *Strategy Pattern* | Variação dinâmica de algoritmos sem acoplamento nem `switch/case` extensos (ex: exportadores de relatórios em CSV, PDF e XLSX). |
 | **Segurança e HTTP** | Cadeia de Responsabilidade | *Chain of Responsibility* | Pipeline modular de middlewares Express 5: validação de token JWT → autorização RBAC → validação de schema → controller → tratamento global de erro. |
@@ -37,7 +37,7 @@ No Aratu, a dependência aponta sempre para o centro (domínio). O fluxo de uma 
 [3. Services]      (Regras puras de negócio, invariantes, cálculos, sem Express/HTTP)
          │
          ▼
-[4. Repositories]  (Consultas SQL parametrizadas no PostgreSQL 18 com prefixo de 3 letras)
+[4. Repositories]  (Consultas SQL parametrizadas em Schemas Nativos do PostgreSQL 18: auth, fleet, trip, etc.)
          │
          ▼
 [PostgreSQL 18]
@@ -87,7 +87,7 @@ O padrão Repositório atua como uma coleção em memória de entidades de domí
 ### 3.2 Diretrizes Mandatórias
 - **Zero SQL fora de `repositories/`:** é terminantemente proibido executar consultas SQL dentro de controllers, middlewares ou services.
 - **Consultas parametrizadas:** nunca concatenar variáveis em strings SQL. Utilize sempre parâmetros posicionais (`$1, $2`).
-- **Projeções explícitas e mapeamento `SELECT id AS <pre>_id`:** proibido o uso de `SELECT *`. A chave primária física `id` deve ser projetada como `SELECT id AS <pre>_id` e as colunas com prefixo de 3 letras mapeadas para `camelCase` no modelo de domínio.
+- **Projeções explícitas e Schemas Nativos:** proibido o uso de `SELECT *`. Toda consulta referencia `<schema>.<plural_entity>` (ex: `trip.trips`, `fleet.vehicles`) com projeção de colunas limpas, mapeando campos snake_case para `camelCase` no TypeScript.
 - **Gerenciamento de transações:** o repositório deve suportar tanto o pool compartilhado (`pg.Pool`) quanto um cliente transacional dedicado (`pg.PoolClient`) para operações atômicas com `SELECT ... FOR UPDATE`.
 
 ### 3.3 Exemplo Prático
@@ -104,15 +104,15 @@ export class TripRepository implements ITripRepository {
   public async findById(id: string, client?: PoolClient): Promise<Trip | null> {
     const executor = client ?? this.db;
     const query = `
-      SELECT id AS trp_id,
-             veh_id AS "vehicleId",
-             drv_id AS "driverId",
-             trp_planned_departure AS "plannedDeparture",
-             trp_planned_end AS "plannedEnd",
-             trp_state AS state,
-             trp_revision AS revision,
-             trp_created_at AS "createdAt"
-        FROM trp_trip
+      SELECT id,
+             vehicle_id AS "vehicleId",
+             driver_id AS "driverId",
+             planned_departure AS "plannedDeparture",
+             planned_end AS "plannedEnd",
+             state,
+             revision,
+             created_at AS "createdAt"
+        FROM trip.trips
        WHERE id = $1
        LIMIT 1;
     `;
@@ -122,12 +122,12 @@ export class TripRepository implements ITripRepository {
 
   public async findByIdForUpdate(id: string, client: PoolClient): Promise<Trip | null> {
     const query = `
-      SELECT id AS trp_id,
-             veh_id AS "vehicleId",
-             drv_id AS "driverId",
-             trp_state AS state,
-             trp_revision AS revision
-        FROM trp_trip
+      SELECT id,
+             vehicle_id AS "vehicleId",
+             driver_id AS "driverId",
+             state,
+             revision
+        FROM trip.trips
        WHERE id = $1
          FOR UPDATE;
     `;
@@ -138,9 +138,9 @@ export class TripRepository implements ITripRepository {
   public async updateState(id: string, state: TripState, client?: PoolClient): Promise<void> {
     const executor = client ?? this.db;
     const query = `
-      UPDATE trp_trip
-         SET trp_state = $2,
-             trp_revision = trp_revision + 1
+      UPDATE trip.trips
+         SET state = $2,
+             revision = revision + 1
        WHERE id = $1;
     `;
     await executor.query(query, [id, state]);
@@ -157,7 +157,7 @@ O Aratu gerencia fluxos operacionais críticos (solicitações de transporte da 
 
 ### 4.2 Grafo de Transições Válidas
 
-#### Ciclo de Vida da Viagem (`trp_trip`):
+#### Ciclo de Vida da Viagem (`trip.trips`):
 ```
 [PLANNED] ────► [IN_PROGRESS] ────► [COMPLETED]
     │                 │

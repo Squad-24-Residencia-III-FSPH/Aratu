@@ -214,9 +214,9 @@
     </tr>
     <tr>
       <td><code>C8</code></td>
-      <td>Projeção SQL explícita (proibido <code>SELECT *</code>, mapeando <code>&lt;pre&gt;_id AS id</code>) e filtros sargáveis</td>
+      <td>Projeção SQL explícita (proibido <code>SELECT *</code>) e filtros sargáveis</td>
       <td><span class="badge-ok">🟢 OK</span></td>
-      <td>Colunas explícitas com alias <code>camelCase</code> sem vazar prefixo SQL.</td>
+      <td>Colunas explícitas com alias <code>camelCase</code> diretamente no DTO.</td>
     </tr>
     <tr>
       <td><code>C9</code></td>
@@ -226,9 +226,9 @@
     </tr>
     <tr>
       <td><code>C10</code></td>
-      <td>Padrão SQL PostgreSQL 18 (prefixo de 3 letras <code>&lt;pre&gt;_&lt;entity&gt;</code>, PK <code>&lt;pre&gt;_id</code>, índices sem <code>idx_</code>/<code>uq_</code>)</td>
+      <td>Padrão SQL PostgreSQL 18 (schemas nativos com tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>, índices <code>&lt;schema&gt;_&lt;entity&gt;_&lt;purpose&gt;</code>)</td>
       <td><span class="badge-ok">🟢 OK</span></td>
-      <td>Nomenclatura alinhada ao modelo canônico em inglês.</td>
+      <td>Nomenclatura e schemas nativos com tabelas no plural alinhados ao modelo canônico em inglês.</td>
     </tr>
     <tr>
       <td><code>C11</code></td>

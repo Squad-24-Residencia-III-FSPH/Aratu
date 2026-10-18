@@ -104,7 +104,7 @@
 </p>
 
 <p>
-  Esta tarefa (<strong>FROTA-139</strong>, que incorpora o escopo da antiga <strong>FROTA-140</strong>) entrega a infraestrutura central de auditoria no backend (PostgreSQL 18 + Node.js/Express 5/TypeScript) e padroniza a tabela de usuários (<code>usr_user</code>) para o modelo canônico de prefixo de 3 letras em inglês.
+  Esta tarefa (<strong>FROTA-139</strong>, que incorpora o escopo da antiga <strong>FROTA-140</strong>) entrega a infraestrutura central de auditoria no backend (PostgreSQL 18 + Node.js/Express 5/TypeScript) e estrutura as tabelas de usuários (<code>auth.users</code>) e auditoria (<code>audit.logs</code>) sob schemas nativos de domínio do PostgreSQL 18 no padrão plural (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>).
 </p>
 
 <h3>Delimitação de Escopo (YAGNI)</h3>
@@ -119,8 +119,8 @@
     <tr>
       <td>
         <ul>
-          <li>Reescrita da migration inicial <code>202610160001_create_users.sql</code> (e <code>.down.sql</code>) para o padrão de prefixo de 3 letras <code>usr_user</code> com chave primária <code>usr_id BIGINT GENERATED ALWAYS AS IDENTITY</code> e atualização de <code>UsersRepository</code> mantendo 100% de compatibilidade com os contratos de autenticação e JWT.</li>
-          <li>Criação da migration <code>202610170001_create_audit.sql</code> (e <code>.down.sql</code>) para a tabela <code>aud_audit</code> com estrutura completa (autor, tabela, ID do registro, operação, snapshots JSONB e motivo) e índices sargáveis sem prefixo <code>idx_</code>/<code>uq_</code>.</li>
+          <li>Reescrita da migration inicial <code>202610160001_create_users.sql</code> (e <code>.down.sql</code>) no schema <code>auth.users</code> com chave primária <code>id BIGINT GENERATED ALWAYS AS IDENTITY</code> e atualização de <code>UsersRepository</code> mantendo 100% de compatibilidade com os contratos de autenticação e JWT.</li>
+          <li>Criação da migration <code>202610170001_create_audit.sql</code> (e <code>.down.sql</code>) no schema <code>audit.logs</code> com estrutura completa (autor, tabela, ID do registro, operação, snapshots JSONB e motivo) e índices sargáveis sem prefixo <code>idx_</code>/<code>uq_</code>.</li>
           <li>Implementação das camadas <code>AuditRepository</code> (<code>backend/src/repositories/audit.repository.ts</code>) e <code>AuditService</code> / helper <code>recordAudit()</code> (<code>backend/src/services/audit.service.ts</code>) com suporte a <code>PoolClient</code> opcional para transações atômicas.</li>
           <li>Integração imediata do registro de auditoria nas operações existentes de autenticação (<code>POST /auth/login</code> para sucesso, credenciais inválidas e conta inativa, e <code>POST /auth/logout</code>).</li>
           <li>Testes automatizados unitários e de integração com dados 100% sintéticos (LGPD).</li>
@@ -139,8 +139,8 @@
 
 <h3>Decisões Confirmadas pela Regra da Dúvida</h3>
 <ol>
-  <li><strong>Padronização de <code>usr_user</code> e <code>aud_audit</code>:</strong> A migration inicial <code>202610160001_create_users.sql</code> será reescrita diretamente para criar a tabela <code>usr_user</code> com <code>usr_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, e a nova migration <code>202610170001_create_audit.sql</code> criará <code>aud_audit</code> referenciando <code>usr_id BIGINT REFERENCES usr_user(usr_id) ON DELETE RESTRICT</code>.</li>
-  <li><strong>Estrutura Completa da Tabela <code>aud_audit</code>:</strong> Serão contempladas as colunas canônicas do manual (<code>aud_id</code>, <code>usr_id</code>, <code>aud_table</code>, <code>aud_record_id</code>, <code>aud_operation</code>, <code>aud_before</code>, <code>aud_after</code>, <code>aud_actor_snapshot</code>, <code>aud_reason</code>, <code>aud_registered_at</code>).</li>
+  <li><strong>Estrutura de Schemas Nativos (<code>auth.users</code> e <code>audit.logs</code>):</strong> A migration inicial <code>202610160001_create_users.sql</code> cria o schema <code>auth</code> e a tabela <code>auth.users</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, e a nova migration <code>202610170001_create_audit.sql</code> cria o schema <code>audit</code> e a tabela <code>audit.logs</code> referenciando <code>user_id BIGINT REFERENCES auth.users(id) ON DELETE RESTRICT</code>.</li>
+  <li><strong>Estrutura Completa da Tabela <code>audit.logs</code>:</strong> Serão contempladas as colunas canônicas do manual (<code>id</code>, <code>user_id</code>, <code>table_name</code>, <code>record_id</code>, <code>operation</code>, <code>before</code>, <code>after</code>, <code>actor_snapshot</code>, <code>reason</code>, <code>registered_at</code>).</li>
   <li><strong>Nomenclatura e Transacionalidade do Utilitário:</strong> Respeitando a regra <code>C4</code> do <code>aratu-check.mjs</code> e o Clean Code em inglês, o acesso SQL fica isolado em <code>AuditRepository</code> e a regra em <code>AuditService</code> (expondo o método e helper <code>recordAudit</code> em inglês), aceitando um <code>PoolClient</code> opcional para rodar na mesma transação (<code>BEGIN ... COMMIT</code>) da operação auditada.</li>
   <li><strong>Integração nas Rotas Atuais (Antiga FROTA-140):</strong> Serão auditadas todas as operações existentes no módulo <code>/auth</code> (<code>LOGIN_SUCCESS</code>, <code>LOGIN_FAILURE</code>, <code>LOGIN_INACTIVE</code> e <code>LOGOUT</code>), sem criar endpoint HTTP de consulta nesta entrega.</li>
 </ol>
@@ -156,7 +156,7 @@
   <ul>
     <li><strong>Dado</strong> que um serviço de domínio executa uma operação relevante em nome de um usuário autenticado (ex.: login bem-sucedido, logout ou futura alteração de frota/viagem);</li>
     <li><strong>Quando</strong> o serviço invoca <code>auditService.recordAudit(input, client)</code> informando <code>userId</code>, <code>table</code>, <code>recordId</code>, <code>operation</code> e metadados opcionais (<code>before</code>, <code>after</code>, <code>actorSnapshot</code>, <code>reason</code>);</li>
-    <li><strong>Então</strong> um novo registro imutável é inserido em <code>aud_audit</code> com carimbo temporal <code>clock_timestamp()</code> e retornado com seus campos mapeados em <code>camelCase</code>.</li>
+    <li><strong>Então</strong> um novo registro imutável é inserido em <code>audit.logs</code> com carimbo temporal <code>clock_timestamp()</code> e retornado com seus campos mapeados em <code>camelCase</code>.</li>
   </ul>
 </div>
 
@@ -175,14 +175,14 @@
     <li><strong>Dado</strong> que um usuário envia credenciais para <code>POST /auth/login</code> ou encerra a sessão em <code>POST /auth/logout</code>;</li>
     <li><strong>Quando</strong>:
       <ol>
-        <li>As credenciais são válidas e a conta está ativa → grava <code>aud_operation = 'LOGIN_SUCCESS'</code>, <code>aud_table = 'usr_user'</code>, <code>usr_id = Number(user.id)</code>, <code>aud_record_id = user.id</code> e <code>aud_actor_snapshot</code> com <code>{ id, email, role }</code>;</li>
-        <li>A senha é incorreta para usuário existente → grava <code>aud_operation = 'LOGIN_FAILURE'</code>, <code>aud_table = 'usr_user'</code>, <code>usr_id = Number(user.id)</code>, <code>aud_record_id = user.id</code>, <code>aud_reason = 'Invalid password'</code>;</li>
-        <li>O e-mail informado não corresponde a nenhum usuário → grava <code>aud_operation = 'LOGIN_FAILURE'</code>, <code>aud_table = 'usr_user'</code>, <code>usr_id = null</code>, <code>aud_record_id = null</code>, <code>aud_actor_snapshot = { email: normalizedEmail }</code>, <code>aud_reason = 'User not found'</code>;</li>
-        <li>A conta está inativa (<code>usr_active = false</code>) → grava <code>aud_operation = 'LOGIN_INACTIVE'</code>, <code>aud_table = 'usr_user'</code>, <code>usr_id = Number(user.id)</code>, <code>aud_record_id = user.id</code>, <code>aud_reason = 'Inactive user account'</code>;</li>
-        <li>O usuário autenticado chama <code>POST /auth/logout</code> → grava <code>aud_operation = 'LOGOUT'</code>, <code>aud_table = 'usr_user'</code>, <code>usr_id = Number(req.usuario.id)</code> (quando numérico válido), <code>aud_record_id = req.usuario.id</code> e <code>aud_actor_snapshot = { id: req.usuario.id, role: req.usuario.perfil }</code>.</li>
+        <li>As credenciais são válidas e a conta está ativa → grava <code>operation = 'LOGIN_SUCCESS'</code>, <code>table_name = 'auth.users'</code>, <code>user_id = Number(user.id)</code>, <code>record_id = user.id</code> e <code>actor_snapshot</code> com <code>{ id, email, role }</code>;</li>
+        <li>A senha é incorreta para usuário existente → grava <code>operation = 'LOGIN_FAILURE'</code>, <code>table_name = 'auth.users'</code>, <code>user_id = Number(user.id)</code>, <code>record_id = user.id</code>, <code>reason = 'Invalid password'</code>;</li>
+        <li>O e-mail informado não corresponde a nenhum usuário → grava <code>operation = 'LOGIN_FAILURE'</code>, <code>table_name = 'auth.users'</code>, <code>user_id = null</code>, <code>record_id = null</code>, <code>actor_snapshot = { email: normalizedEmail }</code>, <code>reason = 'User not found'</code>;</li>
+        <li>A conta está inativa (<code>active = false</code>) → grava <code>operation = 'LOGIN_INACTIVE'</code>, <code>table_name = 'auth.users'</code>, <code>user_id = Number(user.id)</code>, <code>record_id = user.id</code>, <code>reason = 'Inactive user account'</code>;</li>
+        <li>O usuário autenticado chama <code>POST /auth/logout</code> → grava <code>operation = 'LOGOUT'</code>, <code>table_name = 'auth.users'</code>, <code>user_id = Number(req.usuario.id)</code> (quando numérico válido), <code>record_id = req.usuario.id</code> e <code>actor_snapshot = { id: req.usuario.id, role: req.usuario.perfil }</code>.</li>
       </ol>
     </li>
-    <li><strong>Então</strong> todas as ocorrências ficam rastreadas em <code>aud_audit</code> sem nunca registrar a senha em texto puro ou o hash bcrypt nos snapshots (proteção LGPD e segurança).</li>
+    <li><strong>Então</strong> todas as ocorrências ficam rastreadas em <code>audit.logs</code> sem nunca registrar a senha em texto puro ou o hash bcrypt nos snapshots (proteção LGPD e segurança).</li>
   </ul>
 </div>
 
@@ -211,22 +211,22 @@
     <tr>
       <td><code>backend/src/database/migrations/202610160001_create_users.sql</code></td>
       <td>Modificar</td>
-      <td>Reescrever tabela inicial de usuários para o padrão <code>usr_user</code> com PK <code>usr_id BIGINT GENERATED ALWAYS AS IDENTITY</code> e colunas com prefixo <code>usr_</code>.</td>
+      <td>Reescrever tabela inicial de usuários no schema <code>auth.users</code> com PK <code>id BIGINT GENERATED ALWAYS AS IDENTITY</code> e colunas padronizadas.</td>
     </tr>
     <tr>
       <td><code>backend/src/database/migrations/202610160001_create_users.down.sql</code></td>
       <td>Modificar</td>
-      <td>Script de rollback transacional removendo o índice <code>usr_email_lower_unique</code> e a tabela <code>usr_user</code>.</td>
+      <td>Script de rollback transacional removendo o índice <code>auth_users_email_lower_unique</code> e a tabela <code>auth.users</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/database/migrations/202610170001_create_audit.sql</code></td>
       <td>Criar</td>
-      <td>Migration DDL transacional criando a tabela <code>aud_audit</code> e os índices <code>aud_by_table</code>, <code>aud_by_user</code> e <code>aud_by_registered_at</code>.</td>
+      <td>Migration DDL transacional criando o schema <code>audit</code>, a tabela <code>audit.logs</code> e os índices <code>audit_logs_by_table</code>, <code>audit_logs_by_user</code> e <code>audit_logs_by_registered_at</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/database/migrations/202610170001_create_audit.down.sql</code></td>
       <td>Criar</td>
-      <td>Script de rollback transacional removendo os índices e a tabela <code>aud_audit</code>.</td>
+      <td>Script de rollback transacional removendo os índices e a tabela <code>audit.logs</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/types/audit.types.ts</code></td>
@@ -236,7 +236,7 @@
     <tr>
       <td><code>backend/src/repositories/audit.repository.ts</code></td>
       <td>Criar</td>
-      <td>Implementação do <code>AuditRepository</code> com <code>INSERT INTO aud_audit</code> parametrizado (<code>$1..$8</code>), suporte a <code>PoolClient</code> opcional e projeção explícita em <code>camelCase</code>.</td>
+      <td>Implementação do <code>AuditRepository</code> com <code>INSERT INTO audit.logs</code> parametrizado (<code>$1..$8</code>), suporte a <code>PoolClient</code> opcional e projeção explícita em <code>camelCase</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/services/audit.service.ts</code></td>
@@ -246,7 +246,7 @@
     <tr>
       <td><code>backend/src/repositories/users.repository.ts</code></td>
       <td>Modificar</td>
-      <td>Atualizar query parametrizada de <code>findByEmail</code> para ler da tabela <code>usr_user</code> projetando <code>usr_id::text AS id</code> e demais aliases compatíveis com <code>UserForLogin</code>.</td>
+      <td>Atualizar query parametrizada de <code>findByEmail</code> para ler da tabela <code>auth.users</code> projetando <code>id::text AS id</code> e demais aliases compatíveis com <code>UserForLogin</code>.</td>
     </tr>
     <tr>
       <td><code>backend/src/services/auth.service.ts</code></td>
@@ -285,7 +285,7 @@
 <ul>
   <li><strong>Camadas Backend e Frontend:</strong> <code>docs/manuais/arquitetura-camadas.md</code>, <code>docs/manuais/padroes-backend.md</code> e <code>docs/manuais/padroes-frontend.md</code>.</li>
   <li><strong>Padrões de Projeto (Design Patterns):</strong> <code>docs/manuais/padroes-projeto.md</code> (Repository, State/FSM, Strategy, Chain of Responsibility, Compound Components).</li>
-  <li><strong>Nomenclatura SQL de 3 letras:</strong> <code>docs/manuais/padroes-codigo.md</code> e <code>.agents/skills/principios/references/dados.md</code>.</li>
+  <li><strong>Schemas Nativos de Domínio no PostgreSQL 18:</strong> <code>docs/manuais/padroes-codigo.md</code> e <code>.agents/skills/principios/references/dados.md</code>.</li>
 </ul>
 
 <hr>
@@ -295,12 +295,18 @@
 <h3>4.1 Reescrita da Migration de Usuários (<code>202610160001_create_users.sql</code>)</h3>
 <pre><code>BEGIN;
 
-CREATE TABLE usr_user (
-  usr_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  usr_name TEXT NOT NULL CHECK (btrim(usr_name) &lt;&gt; ''),
-  usr_email TEXT NOT NULL CHECK (btrim(usr_email) &lt;&gt; ''),
-  usr_password_hash TEXT NOT NULL CHECK (btrim(usr_password_hash) &lt;&gt; ''),
-  usr_role TEXT NOT NULL CHECK (usr_role IN (
+CREATE SCHEMA IF NOT EXISTS auth;
+
+DROP TABLE IF EXISTS usr_user CASCADE;
+DROP TABLE IF EXISTS auth.users CASCADE;
+DROP TABLE IF EXISTS auth.user CASCADE;
+
+CREATE TABLE auth.users (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL CHECK (btrim(name) &lt;&gt; ''),
+  email TEXT NOT NULL CHECK (btrim(email) &lt;&gt; ''),
+  password_hash TEXT NOT NULL CHECK (btrim(password_hash) &lt;&gt; ''),
+  role TEXT NOT NULL CHECK (role IN (
     'ADMINISTRADOR',
     'GESTOR',
     'SOLICITANTE',
@@ -308,55 +314,61 @@ CREATE TABLE usr_user (
     'ATENDENTE_SVO',
     'EQUIPE_SVO'
   )),
-  usr_active BOOLEAN NOT NULL DEFAULT true,
-  usr_revision INTEGER NOT NULL DEFAULT 1 CHECK (usr_revision &gt; 0),
-  usr_created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+  active BOOLEAN NOT NULL DEFAULT true,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE UNIQUE INDEX usr_email_lower_unique ON usr_user (lower(usr_email));
+CREATE UNIQUE INDEX auth_users_email_lower_unique ON auth.users (lower(email));
 
 COMMIT;</code></pre>
 
 <h4>Plano de Rollback (<code>202610160001_create_users.down.sql</code>)</h4>
 <pre><code>BEGIN;
 
-DROP INDEX IF EXISTS usr_email_lower_unique;
-DROP TABLE IF EXISTS usr_user;
+DROP INDEX IF EXISTS auth_users_email_lower_unique;
+DROP TABLE IF EXISTS auth.users;
 
 COMMIT;</code></pre>
 
 <h3>4.2 Nova Migration da Tabela de Auditoria (<code>202610170001_create_audit.sql</code>)</h3>
 <p>
-  Cada linha de <code>aud_audit</code> registra que o ator <code>usr_id</code> (ou tentativa anônima documentada em <code>aud_actor_snapshot</code>) executou a operação <code>aud_operation</code> sobre o registro <code>aud_record_id</code> da tabela/entidade <code>aud_table</code> no instante <code>aud_registered_at</code>.
+  Cada linha de <code>audit.logs</code> registra que o ator <code>user_id</code> (ou tentativa anônima documentada em <code>actor_snapshot</code>) executou a operação <code>operation</code> sobre o registro <code>record_id</code> da tabela/entidade <code>table_name</code> no instante <code>registered_at</code>.
 </p>
 <pre><code>BEGIN;
 
-CREATE TABLE aud_audit (
-  aud_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  usr_id BIGINT REFERENCES usr_user (usr_id) ON DELETE RESTRICT,
-  aud_table TEXT NOT NULL CHECK (btrim(aud_table) &lt;&gt; ''),
-  aud_record_id TEXT CHECK (aud_record_id IS NULL OR btrim(aud_record_id) &lt;&gt; ''),
-  aud_operation TEXT NOT NULL CHECK (btrim(aud_operation) &lt;&gt; ''),
-  aud_before JSONB,
-  aud_after JSONB,
-  aud_actor_snapshot JSONB,
-  aud_reason TEXT CHECK (aud_reason IS NULL OR btrim(aud_reason) &lt;&gt; ''),
-  aud_registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+CREATE SCHEMA IF NOT EXISTS audit;
+
+DROP TABLE IF EXISTS aud_audit CASCADE;
+DROP TABLE IF EXISTS audit.logs CASCADE;
+DROP TABLE IF EXISTS audit.log CASCADE;
+
+CREATE TABLE audit.logs (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id BIGINT REFERENCES auth.users (id) ON DELETE RESTRICT,
+  table_name TEXT NOT NULL CHECK (btrim(table_name) &lt;&gt; ''),
+  record_id TEXT CHECK (record_id IS NULL OR btrim(record_id) &lt;&gt; ''),
+  operation TEXT NOT NULL CHECK (btrim(operation) &lt;&gt; ''),
+  before JSONB,
+  after JSONB,
+  actor_snapshot JSONB,
+  reason TEXT CHECK (reason IS NULL OR btrim(reason) &lt;&gt; ''),
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE INDEX aud_by_table ON aud_audit (aud_table, aud_record_id);
-CREATE INDEX aud_by_user ON aud_audit (usr_id);
-CREATE INDEX aud_by_registered_at ON aud_audit (aud_registered_at DESC, aud_id DESC);
+CREATE INDEX audit_logs_by_table ON audit.logs (table_name, record_id);
+CREATE INDEX audit_logs_by_user ON audit.logs (user_id);
+CREATE INDEX audit_logs_by_registered_at ON audit.logs (registered_at DESC, id DESC);
 
 COMMIT;</code></pre>
 
 <h4>Plano de Rollback (<code>202610170001_create_audit.down.sql</code>)</h4>
 <pre><code>BEGIN;
 
-DROP INDEX IF EXISTS aud_by_registered_at;
-DROP INDEX IF EXISTS aud_by_user;
-DROP INDEX IF EXISTS aud_by_table;
-DROP TABLE IF EXISTS aud_audit;
+DROP INDEX IF EXISTS audit_logs_by_registered_at;
+DROP INDEX IF EXISTS audit_logs_by_user;
+DROP INDEX IF EXISTS audit_logs_by_table;
+DROP TABLE IF EXISTS audit.logs;
 
 COMMIT;</code></pre>
 
@@ -373,7 +385,7 @@ COMMIT;</code></pre>
     <tr>
       <th scope="col">Método e Rota</th>
       <th scope="col">Autenticação</th>
-      <th scope="col">Operações Auditadas em <code>aud_audit</code></th>
+      <th scope="col">Operações Auditadas em <code>audit.logs</code></th>
       <th scope="col">Respostas HTTP (Inalteradas)</th>
     </tr>
   </thead>
@@ -383,7 +395,7 @@ COMMIT;</code></pre>
       <td>Pública</td>
       <td>
         <ul>
-          <li><code>LOGIN_SUCCESS</code> (200): grava <code>usr_id</code>, <code>aud_record_id = user.id</code>, <code>aud_actor_snapshot = { id, email, role }</code>.</li>
+          <li><code>LOGIN_SUCCESS</code> (200): grava <code>user_id</code>, <code>record_id = user.id</code>, <code>actor_snapshot = { id, email, role }</code>.</li>
           <li><code>LOGIN_FAILURE</code> (401): grava tentativa com senha inválida ou e-mail inexistente (sem jamais gravar a senha).</li>
           <li><code>LOGIN_INACTIVE</code> (403): grava tentativa bloqueada de conta inativa.</li>
         </ul>
@@ -395,7 +407,7 @@ COMMIT;</code></pre>
       <td>Bearer JWT (<code>createAuthMiddleware</code>)</td>
       <td>
         <ul>
-          <li><code>LOGOUT</code> (200): grava encerramento de sessão com <code>usr_id</code>, <code>aud_record_id = req.usuario.id</code> e <code>aud_actor_snapshot = { id, role }</code>.</li>
+          <li><code>LOGOUT</code> (200): grava encerramento de sessão com <code>user_id</code>, <code>record_id = req.usuario.id</code> e <code>actor_snapshot = { id, role }</code>.</li>
         </ul>
       </td>
       <td><code>200 OK</code>, <code>401 Unauthorized</code></td>
@@ -470,7 +482,7 @@ export interface AuditLogger {
 <h3>5.3 Camada de Repositório (<code>backend/src/repositories/audit.repository.ts</code>)</h3>
 <ul>
   <li>Implementa <code>AuditRepositoryContract</code> recebendo <code>Pool</code> no construtor e aceitando <code>client?: PoolClient</code> no método <code>create</code> para participar de transações atômicas.</li>
-  <li>Utiliza placeholders posicionais (<code>$1..$8</code>), converte objetos JSON com serialização segura para <code>$5::jsonb, $6::jsonb, $7::jsonb</code> e projeta explicitamente as colunas com <code>aud_id::text AS id</code> e aliases em <code>camelCase</code> (proibido <code>SELECT *</code> ou <code>RETURNING *</code>).</li>
+  <li>Utiliza placeholders posicionais (<code>$1..$8</code>), converte objetos JSON com serialização segura para <code>$5::jsonb, $6::jsonb, $7::jsonb</code> e projeta explicitamente as colunas com <code>id::text AS id</code> e aliases em <code>camelCase</code> (proibido <code>SELECT *</code> ou <code>RETURNING *</code>).</li>
 </ul>
 
 <h3>5.4 Camada de Serviço e Helper Único (<code>backend/src/services/audit.service.ts</code>)</h3>
@@ -510,7 +522,7 @@ export interface AuditLogger {
 <table>
   <thead>
     <tr>
-      <th scope="col">Perfil (<code>usr_role</code>)</th>
+      <th scope="col">Perfil (<code>auth.users.role</code>)</th>
       <th scope="col">Impacto na Tarefa</th>
       <th scope="col">Operações Auditadas</th>
     </tr>
@@ -518,7 +530,7 @@ export interface AuditLogger {
   <tbody>
     <tr>
       <td><code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code></td>
-      <td>Todos os perfis têm seus eventos de login, tentativa inválida/inativa e logout registrados automaticamente em <code>aud_audit</code>.</td>
+      <td>Todos os perfis têm seus eventos de login, tentativa inválida/inativa e logout registrados automaticamente em <code>audit.logs</code>.</td>
       <td><code>LOGIN_SUCCESS</code>, <code>LOGIN_FAILURE</code>, <code>LOGIN_INACTIVE</code>, <code>LOGOUT</code> e futuras mutações nos módulos de domínio.</td>
     </tr>
   </tbody>
@@ -561,7 +573,7 @@ export interface AuditLogger {
       <td><strong>T03</strong></td>
       <td>Unitário / Transação (<code>AuditRepository</code>)</td>
       <td>Executar <code>AuditRepository.create(input, client)</code> fornecendo um <code>PoolClient</code> mockado/transacional.</td>
-      <td>Executa a query parametrizada <code>INSERT INTO aud_audit ... RETURNING ...</code> através do <code>client</code> fornecido (e não do pool global) e mapeia as colunas para <code>camelCase</code>.</td>
+      <td>Executa a query parametrizada <code>INSERT INTO audit.logs ... RETURNING ...</code> através do <code>client</code> fornecido (e não do pool global) e mapeia as colunas para <code>camelCase</code>.</td>
     </tr>
     <tr>
       <td><strong>T04</strong></td>
@@ -586,7 +598,7 @@ export interface AuditLogger {
   <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
   <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-139)</code>)</li>
   <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
-  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas e colunas PostgreSQL no padrão de prefixo de 3 letras (<code>&lt;pre&gt;_id AS id</code> no Repository)</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; schemas nativos de domínio PostgreSQL 18 (<code>&lt;pre&gt;_id AS id</code> no Repository)</li>
   <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
   <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
   <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
@@ -600,7 +612,7 @@ export interface AuditLogger {
 <h2 id="s11">11. Atualização da Documentação do Módulo</h2>
 
 <p><strong>Arquivo de referência:</strong> <code>docs/modulos/AUTENTICACAO_RBAC.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
-<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do módulo <code>AUTENTICACAO_RBAC</code> (modelagem de <code>usr_user</code> e <code>aud_audit</code> e rastreio de eventos de autenticação). Atualize ou gere a documentação correspondente com <code>/documentar-modulo AUTENTICACAO_RBAC</code> quando o módulo for documentado.</blockquote>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do módulo <code>AUTENTICACAO_RBAC</code> (modelagem de <code>auth.users</code> e <code>audit.logs</code> e rastreio de eventos de autenticação). Atualize ou gere a documentação correspondente com <code>/documentar-modulo AUTENTICACAO_RBAC</code> quando o módulo for documentado.</blockquote>
 
 <hr>
 
@@ -610,7 +622,7 @@ export interface AuditLogger {
 
 <p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
 <ol>
-  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 com prefixo de 3 letras em inglês.</li>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 com schemas nativos de domínio (auth, audit, fleet, trip, svo).</li>
   <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
   <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
   <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>

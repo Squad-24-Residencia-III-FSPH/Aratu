@@ -11,7 +11,7 @@ const BCRYPT_MAX_PASSWORD_BYTES = 72
  * e assegura que nenhuma senha em texto puro seja persistida no banco de dados.
  *
  * @param password - Senha em texto puro a ser criptografada.
- * @returns Hash criptográfico pronto para armazenamento em `usr_password_hash`.
+ * @returns Hash criptográfico pronto para armazenamento em `auth.users.password_hash`.
  * @throws {Error} Se a senha estiver vazia ou exceder o limite de 72 bytes em UTF-8.
  */
 export async function hashPassword(password: string): Promise<string> {
@@ -29,7 +29,7 @@ export async function hashPassword(password: string): Promise<string> {
  * ou excedam o limite máximo suportado de 72 bytes.
  *
  * @param password - Senha em texto puro fornecida na requisição de login.
- * @param passwordHash - Hash armazenado no banco (`usr_password_hash`).
+ * @param passwordHash - Hash armazenado no banco (`auth.users.password_hash`).
  * @returns `true` se a senha conferir com o hash; caso contrário, `false`.
  */
 export async function comparePassword(password: string, passwordHash: string): Promise<boolean> {

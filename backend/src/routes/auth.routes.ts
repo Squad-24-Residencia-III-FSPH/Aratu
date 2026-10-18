@@ -14,7 +14,7 @@ import type { UserRepository } from '../repositories/users.repository'
  *
  * @param users - Repositório para consulta de credenciais de usuários.
  * @param jwtConfig - Configurações de expiração e segredo dos tokens JWT.
- * @param auditLogger - Logger opcional para registro da trilha de auditoria em `aud_audit`.
+ * @param auditLogger - Logger opcional para registro da trilha de auditoria em `audit.logs`.
  * @returns Instância do Router configurado com as rotas de autenticação.
  */
 export function createAuthRouter(

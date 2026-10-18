@@ -1,6 +1,6 @@
 # Estrutura e Padrões de `src/` — Sistema Aratu
 
-Este documento detalha como organizar arquivos, responsabilidades e contratos dentro de `backend/src/` e `frontend/src/` no **Sistema Aratu**, com exemplos práticos em TypeScript seguindo **Clean Code, SOLID, DRY**, código em inglês e o padrão SQL de prefixo de 3 letras (`veh_vehicle`, `veh_id AS id`).
+Este documento detalha como organizar arquivos, responsabilidades e contratos dentro de `backend/src/` e `frontend/src/` no **Sistema Aratu**, com exemplos práticos em TypeScript seguindo **Clean Code, SOLID, DRY**, código em inglês e o padrão SQL em **Schemas Nativos de Domínio** (`auth`, `audit`, `fleet`, `trip`, `svo`).
 
 ---
 
@@ -11,7 +11,7 @@ O fluxo de uma requisição no servidor segue estritamente a cadeia:
 
 ### 1.1 Types e DTOs (`backend/src/types/`)
 
-Definem entidades, union types em inglês (`UPPER_SNAKE_CASE`) e contratos de entrada/saída em `camelCase` sem o prefixo SQL de 3 letras. Nunca use `any`.
+Definem entidades, union types em inglês (`UPPER_SNAKE_CASE`) e contratos de entrada/saída em `camelCase`. Nunca use `any`.
 
 ```typescript
 // backend/src/types/vehicle.types.ts
@@ -19,17 +19,17 @@ export type ServiceCategory = 'PASSENGER' | 'BODY' | 'OTHER';
 
 export interface Vehicle {
   id: number;
-  identification: string;
+  licensePlate: string;
   categories: ServiceCategory[];
   seats: number;
   bodyLimit: number;
   weightLimit: number | null;
-  active: boolean;
+  isActive: boolean;
   revision: number;
 }
 
 export interface CreateVehicleInput {
-  identification: string;
+  licensePlate: string;
   categories: ServiceCategory[];
   seats: number;
   bodyLimit: number;
@@ -39,7 +39,7 @@ export interface CreateVehicleInput {
 
 ### 1.2 Repositories (`backend/src/repositories/`)
 
-Encapsulam o acesso ao PostgreSQL 18 via `pg.Pool`. As tabelas e colunas no banco usam o prefixo de 3 letras (`veh_vehicle`, `veh_id`, `veh_identification`), e o `SELECT` projeta aliases `camelCase` limpos (`veh_id AS id`) para o TypeScript. Proibido usar `SELECT *` ou interpolar strings.
+Encapsulam o acesso ao PostgreSQL 18 via `pg.Pool` em Schemas Nativos (`fleet.vehicles`, `auth.users`). As colunas no banco usam nomes limpos em `snake_case`, e o `SELECT` projeta aliases `camelCase` quando necessário para o TypeScript. Proibido usar `SELECT *` ou interpolar strings.
 
 ```typescript
 // backend/src/repositories/vehicle.repository.ts
@@ -47,35 +47,35 @@ import { Pool, PoolClient } from 'pg';
 import { CreateVehicleInput, Vehicle } from '../types/vehicle.types';
 
 const VEHICLE_COLUMNS = `
-  veh_id AS id,
-  veh_identification AS identification,
-  veh_categories AS categories,
-  veh_seats AS seats,
-  veh_body_limit AS "bodyLimit",
-  veh_weight_limit AS "weightLimit",
-  veh_active AS active,
-  veh_revision AS revision
+  id,
+  license_plate AS "licensePlate",
+  categories,
+  seats,
+  body_limit AS "bodyLimit",
+  weight_limit AS "weightLimit",
+  is_active AS "isActive",
+  revision
 `;
 
 export class VehicleRepository {
   constructor(private readonly pool: Pool) {}
 
-  async findByIdentification(identification: string): Promise<Vehicle | null> {
+  async findByLicensePlate(licensePlate: string): Promise<Vehicle | null> {
     const query = `
       SELECT ${VEHICLE_COLUMNS}
-      FROM veh_vehicle
-      WHERE veh_identification = $1
+      FROM fleet.vehicles
+      WHERE license_plate = $1
       LIMIT 1;
     `;
-    const result = await this.pool.query<Vehicle>(query, [identification]);
+    const result = await this.pool.query<Vehicle>(query, [licensePlate]);
     return result.rows[0] ?? null;
   }
 
   async findByIdForUpdate(id: number, client: PoolClient): Promise<Vehicle | null> {
     const query = `
       SELECT ${VEHICLE_COLUMNS}
-      FROM veh_vehicle
-      WHERE veh_id = $1
+      FROM fleet.vehicles
+      WHERE id = $1
       FOR UPDATE;
     `;
     const result = await client.query<Vehicle>(query, [id]);
@@ -84,13 +84,13 @@ export class VehicleRepository {
 
   async create(input: CreateVehicleInput): Promise<Vehicle> {
     const query = `
-      INSERT INTO veh_vehicle (
-        veh_identification,
-        veh_categories,
-        veh_seats,
-        veh_body_limit,
-        veh_weight_limit,
-        veh_active
+      INSERT INTO fleet.vehicles (
+        license_plate,
+        categories,
+        seats,
+        body_limit,
+        weight_limit,
+        is_active
       )
       VALUES ($1, $2, $3, $4, $5, true)
       RETURNING ${VEHICLE_COLUMNS};

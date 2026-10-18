@@ -2,7 +2,7 @@ import type { Pool } from 'pg'
 import type { UserForLogin } from '../types/auth'
 
 /**
- * Contrato para operações de persistência e consulta da entidade de usuários (`usr_user`).
+ * Contrato para operações de persistência e consulta da entidade de usuários (`auth.users`).
  */
 export interface UserRepository {
   /**
@@ -15,7 +15,7 @@ export interface UserRepository {
 }
 
 /**
- * Repositório de acesso a dados da tabela `usr_user` no PostgreSQL 18 utilizando consultas parametrizadas.
+ * Repositório de acesso a dados da tabela `auth.users` no PostgreSQL 18 utilizando consultas parametrizadas.
  */
 export class UsersRepository implements UserRepository {
   private readonly pool: Pool
@@ -30,10 +30,9 @@ export class UsersRepository implements UserRepository {
   }
 
   /**
-   * Busca um usuário pelo e-mail normalizado projetando as colunas de `usr_user` para o contrato de autenticação.
+   * Busca um usuário pelo e-mail normalizado projetando as colunas de `auth.users` para o contrato de autenticação.
    *
-   * Remove o prefixo físico `usr_` via projeção SQL explícita (`usr_id::text AS id`), evitando vazamento
-   * de detalhes do schema físico e aproveitando o índice sargável `usr_email_lower_unique`.
+   * Projeta explicitamente as colunas necessárias e aproveita o índice sargável `auth_users_email_lower_unique`.
    *
    * @param email - Endereço de e-mail em letras minúsculas.
    * @returns Dados do usuário para validação de login ou `null` quando inexistente.
@@ -41,18 +40,17 @@ export class UsersRepository implements UserRepository {
   async findByEmail(email: string): Promise<UserForLogin | null> {
     const result = await this.pool.query<UserForLogin>(
       `SELECT
-         usr_id::text AS id,
-         usr_name AS name,
-         usr_email AS email,
-         usr_password_hash AS password_hash,
-         usr_role AS role,
-         usr_active AS is_active
-       FROM usr_user
-       WHERE lower(usr_email) = $1
+         id::text AS id,
+         name,
+         email,
+         password_hash,
+         role,
+         active AS is_active
+       FROM auth.users
+       WHERE lower(email) = $1
        LIMIT 1`,
       [email],
     )
     return result.rows[0] ?? null
   }
 }
-

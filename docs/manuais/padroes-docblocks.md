@@ -81,8 +81,8 @@ export class TripService {
    * Garante atomicidade transacional e concorrência segura via lock pessimista,
    * impedindo que dois gestores aloquem a mesma solicitação ou excedam a capacidade da viatura.
    *
-   * @param requestId - Identificador único da solicitação aprovada (`req_id`).
-   * @param tripId - Identificador único da viagem (`trp_id`).
+   * @param requestId - Identificador único da solicitação aprovada (`trip.requests.id`).
+   * @param tripId - Identificador único da viagem (`trip.trips.id`).
    * @param reason - Justificativa operacional obrigatória para trilha de auditoria.
    * @returns Alocação registrada com dados de viagem, viatura e motorista.
    *
