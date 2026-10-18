@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AUTENTICACAO_RBAC — Autenticação, Usuários e Controle de Acesso RBAC (Sistema Aratu)</title>
+  <title>Módulo AUTENTICACAO_RBAC — Autenticação e Controle de Acesso (Sistema Aratu)</title>
   <style>
     :root {
       --brand-strong: #075985;
@@ -66,49 +66,48 @@
 </head>
 <body>
 
-<h1>AUTENTICACAO_RBAC — Autenticação, Usuários e Controle de Acesso RBAC</h1>
+<h1>Módulo AUTENTICACAO_RBAC — Autenticação e Controle de Acesso Baseado em Perfis</h1>
 
 <div class="meta-block">
   <p><strong>Módulo (chave):</strong> <code>AUTENTICACAO_RBAC</code></p>
-  <p><strong>Índice de referência:</strong> <code>docs/manuais/modulos.md</code> (Módulo #1)</p>
-  <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/auth.routes.ts</code>, <code>backend/src/controllers/auth.controller.ts</code>, <code>backend/src/services/auth.service.ts</code>, <code>backend/src/services/audit.service.ts</code>, <code>backend/src/services/password.service.ts</code>, <code>backend/src/services/jwt-config.service.ts</code>, <code>backend/src/repositories/users.repository.ts</code>, <code>backend/src/repositories/audit.repository.ts</code></p>
-  <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/LoginPage.tsx</code>, <code>frontend/src/pages/ProfileHome.tsx</code>, <code>frontend/src/auth/</code>, <code>frontend/src/api/client.ts</code>, <code>frontend/src/routing/</code></p>
-  <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (schemas <code>auth</code> e <code>audit</code>, tabelas <code>auth.users</code> e <code>audit.logs</code> no container <code>db</code> — database <code>meubanco</code>)</p>
-  <p><strong>Versão da documentação:</strong> 2026-10-18</p>
+  <p><strong>Índice de referência:</strong> <code>docs/manuais/modulos.md</code> e <code>docs/manuais/padroes-backend.md</code></p>
+  <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/</code>, <code>backend/src/controllers/</code>, <code>backend/src/services/</code>, <code>backend/src/repositories/</code>, <code>backend/src/database/</code></p>
+  <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/</code>, <code>frontend/src/auth/</code>, <code>frontend/src/api/</code></p>
+  <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (container <code>db</code> — schemas <code>auth</code> e <code>audit</code> no banco <code>meubanco</code> e banco de testes <code>aratu_test</code>)</p>
+  <p><strong>Versão da documentação:</strong> 2026-10-18 (Atualizado para refletir FROTA-161: Testes Automatizados e Banco Isolado)</p>
 </div>
 
 <ol class="toc">
-  <li><a href="#visao-geral">1. Visão Geral</a></li>
-  <li><a href="#regras-negocio">2. Regras de Negócio e Transições de Estado</a></li>
+  <li><a href="#visao-geral">1. Visão Geral e Contexto Operacional</a></li>
+  <li><a href="#regras-negocio">2. Regras de Negócio e Invariantes</a></li>
   <li><a href="#matriz-rbac">3. Escopo de Impacto e Matriz de Acesso (RBAC)</a></li>
   <li><a href="#tabelas-banco">4. Tabelas do Banco de Dados (PostgreSQL 18)</a></li>
   <li><a href="#contratos-api">5. Contratos de API REST (Backend Express 5)</a></li>
   <li><a href="#camadas-backend">6. Camadas de Negócio e Persistência (Backend)</a></li>
   <li><a href="#interface-acessibilidade">7. Interface e Acessibilidade (Frontend React 19 + WCAG 2.2 AA)</a></li>
-  <li><a href="#arquivos-principais">8. Arquivos Principais (Referência Rápida)</a></li>
-  <li><a href="#dependencias-lgpd">9. Dependências, Integrações e Proteção de Dados (LGPD)</a></li>
+  <li><a href="#testes-api">8. Infraestrutura Oficial de Testes Automatizados da API (FROTA-161)</a></li>
+  <li><a href="#arquivos-principais">9. Arquivos Principais (Referência Rápida)</a></li>
+  <li><a href="#dependencias-lgpd">10. Dependências, Integrações e Proteção de Dados (LGPD)</a></li>
 </ol>
 
 <hr>
 
-<h2 id="visao-geral">1. Visão Geral</h2>
+<h2 id="visao-geral">1. Visão Geral e Contexto Operacional</h2>
 <p>
-  O módulo <strong><code>AUTENTICACAO_RBAC</code></strong> é o alicerce de segurança, controle de sessão e governança do <strong>Aratu — Sistema de Gestão de Frota e Operações</strong>, desenvolvido para a <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e o <strong>Serviço de Verificação de Óbito (SVO)</strong>.
+  O módulo <strong>AUTENTICACAO_RBAC</strong> é a camada fundamental de segurança e controle de acesso do <strong>Sistema Aratu</strong>. Ele estabelece a identidade digital, valida as credenciais de acesso de servidores da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e das equipes operacionais do <strong>Serviço de Verificação de Óbito (SVO)</strong>, e registra de forma imutável todas as mutações e eventos críticos de segurança em uma trilha de auditoria estruturada.
 </p>
 <p>
-  Ele resolve a necessidade de uma porta de entrada centralizada, acessível e segura para servidores estaduais, gestores de frota, solicitantes de transporte, triagem e condutores. O módulo garante:
+  A arquitetura desacopla a recepção HTTP (via rotas e controllers Express 5), as regras de negócio puras (em services sem acoplamento a objetos de requisição), o hashing seguro com proteção contra truncamento de senhas (via <code>bcrypt</code> e <code>password.service.ts</code>), a emissão de tokens JWT semânticos assinados, a persistência parametrizada em PostgreSQL 18 e o registro atômico de eventos na tabela <code>audit.logs</code>.
 </p>
-<ul>
-  <li><strong>Autenticação Stateless e Segura:</strong> Emissão de tokens JWT assinados com algoritmo HMAC-SHA256, com tempo de expiração estrito (padrão de 8 horas para turnos de trabalho, configurável via <code>JWT_EXPIRES_IN</code>) e senhas armazenadas com hash criptográfico bcrypt (custo 12).</li>
-  <li><strong>Rastreabilidade e Trilha de Auditoria Imutável:</strong> Toda tentativa de login (sucesso, senha incorreta, e-mail inexistente ou conta inativa) e encerramento voluntário de sessão (logout) é registrado de forma perene na tabela <code>audit.logs</code>, sem jamais persistir senhas em texto puro ou hashes em snapshots (LGPD).</li>
-  <li><strong>Controle de Acesso Baseado em Perfis (RBAC):</strong> Definição dos 6 perfis canônicos do sistema (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code>), interceptando requisições no backend Express 5 e direcionando as telas iniciais no frontend React 19.</li>
-</ul>
+<p>
+  Com a entrega da tarefa <strong>FROTA-161</strong>, o módulo passa a integrar formalmente a <strong>arquitetura oficial de testes automatizados do backend</strong>, garantindo isolamento total em banco de testes PostgreSQL 18 (<code>aratu_test</code>), execução transacional de migrações e cobertura contínua via CI/CD.
+</p>
 
 <hr>
 
-<h2 id="regras-negocio">2. Regras de Negócio e Transições de Estado</h2>
+<h2 id="regras-negocio">2. Regras de Negócio e Invariantes</h2>
 <p>
-  As regras de domínio e invariantes de segurança do módulo estão encapsuladas exclusivamente na camada de serviços do backend:
+  O módulo implementa as seguintes regras de negócio mandatórias para resguardar a integridade operacional e a privacidade dos dados públicos:
 </p>
 <ul>
   <li>
@@ -242,6 +241,18 @@
         <code>CREATE INDEX audit_logs_by_registered_at ON audit.logs (registered_at DESC, id DESC);</code>
       </td>
     </tr>
+    <tr>
+      <td><span class="badge-tabela">schema_migrations</span></td>
+      <td>Tabela de controle dinâmico de migrações gerenciada pelo <code>DatabaseMigrator</code> no banco de testes e desenvolvimento.</td>
+      <td>
+        <code>version</code> (VARCHAR(255) PK),<br>
+        <code>name</code> (VARCHAR(255) NOT NULL),<br>
+        <code>applied_at</code> (TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp())
+      </td>
+      <td>
+        PK <code>version</code>; preservada durante <code>truncateTestDatabase()</code> para garantir idempotência da suíte de testes automatizados.
+      </td>
+    </tr>
   </tbody>
 </table>
 
@@ -328,6 +339,11 @@
       <td>Persistência de registros em <code>audit.logs</code> via query parametrizada (<code>$1..$8</code>), serialização JSONB e retorno em <code>camelCase</code>.</td>
     </tr>
     <tr>
+      <td><code>DatabaseMigrator</code></td>
+      <td>Database (<code>backend/src/database/migrator.ts</code>)</td>
+      <td>Descoberta ordenada e execução sequencial, transacional e idempotente de migrações SQL com rastreamento em <code>schema_migrations</code>.</td>
+    </tr>
+    <tr>
       <td><code>createAuthMiddleware</code></td>
       <td>Middleware (<code>backend/src/middlewares/auth.middleware.ts</code>)</td>
       <td>Extração e validação do token JWT Bearer, validação de formato e injeção do usuário autenticado em <code>req.usuario</code>.</td>
@@ -375,7 +391,28 @@
 
 <hr>
 
-<h2 id="arquivos-principais">8. Arquivos Principais (Referência Rápida)</h2>
+<h2 id="testes-api">8. Infraestrutura Oficial de Testes Automatizados da API (FROTA-161)</h2>
+<p>
+  A infraestrutura padronizada pelo épico de infraestrutura de QA estabelece o alicerce oficial de testes automatizados do backend:
+</p>
+<ul>
+  <li><strong>Runner Nativo do Node.js:</strong> Execução rápida com <code>node:test</code> e <code>node:assert/strict</code> via <code>tsx --test</code>, eliminando overhead de dependências externas pesadas (Jest/Mocha).</li>
+  <li><strong>Banco de Testes Isolado:</strong> O banco <code>aratu_test</code> é configurado via <code>DATABASE_URL_TEST</code> no <code>.env</code> (ou derivado automaticamente via <code>getTestDatabaseUrl()</code>), garantindo que testes nunca modifiquem o banco de desenvolvimento.</li>
+  <li><strong>Ciclo de Vida Limpo:</strong> O helper <code>backend/tests/helpers/db-test.ts</code> provê <code>setupTestDatabase()</code>, <code>truncateTestDatabase()</code> com <code>TRUNCATE ... RESTART IDENTITY CASCADE</code> dinâmico baseado em <code>information_schema</code> e <code>closeTestPool()</code> para liberação limpa de conexões.</li>
+  <li><strong>Scripts Operacionais no <code>package.json</code>:</strong>
+    <ul>
+      <li><code>npm test</code>: Executa toda a suíte (unitários e integração);</li>
+      <li><code>npm run test:unit</code>: Executa apenas testes unitários em memória;</li>
+      <li><code>npm run test:integration</code>: Executa testes de integração com PostgreSQL 18 real;</li>
+      <li><code>npm run test:db:setup</code>: Provisiona o banco e aplica migrações avulsas via CLI.</li>
+    </ul>
+  </li>
+  <li><strong>Integração Contínua (CI):</strong> O workflow <code>.github/workflows/ci-cd.yml</code> conta com container de serviço <code>postgres:18-alpine</code> com healthcheck <code>pg_isready</code>, rodando a suíte com banco real a cada Pull Request.</li>
+</ul>
+
+<hr>
+
+<h2 id="arquivos-principais">9. Arquivos Principais (Referência Rápida)</h2>
 <table>
   <thead>
     <tr>
@@ -416,6 +453,26 @@
       <td>Inserção parametrizada e imutável na tabela <code>audit.logs</code>.</td>
     </tr>
     <tr>
+      <td><code>backend/src/database/migrator.ts</code></td>
+      <td>Database (Infra)</td>
+      <td>Utilitário TypeScript que executa arquivos <code>.sql</code> de migração em transações atômicas com registro em <code>schema_migrations</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/helpers/db-test.ts</code></td>
+      <td>Testes / Helper</td>
+      <td>Gerencia provisionamento, pool de conexões e limpeza dinâmica do banco de testes.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/database.integration.test.ts</code></td>
+      <td>Testes / Integração</td>
+      <td>Validação no PostgreSQL 18 real de conexões, migrações, unicidade, rollback e repositório.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/auth.test.ts</code></td>
+      <td>Testes / Unitário</td>
+      <td>Bateria unitária de testes cobrindo bcrypt, JWT, regras de serviço e rotas HTTP.</td>
+    </tr>
+    <tr>
       <td><code>backend/src/middlewares/auth.middleware.ts</code></td>
       <td>Middleware</td>
       <td>Interceptação e validação de tokens JWT Bearer.</td>
@@ -440,12 +497,22 @@
       <td>Page (React 19)</td>
       <td>Área inicial pós-login para redirecionamento por perfil RBAC.</td>
     </tr>
+    <tr>
+      <td><code>backend/package.json</code></td>
+      <td>Configuração</td>
+      <td>Scripts operacionais de teste (<code>test</code>, <code>test:unit</code>, <code>test:integration</code>, <code>test:db:setup</code>).</td>
+    </tr>
+    <tr>
+      <td><code>.github/workflows/ci-cd.yml</code></td>
+      <td>DevOps / CI</td>
+      <td>Pipeline do GitHub Actions com container de serviço PostgreSQL 18 para validação contínua.</td>
+    </tr>
   </tbody>
 </table>
 
 <hr>
 
-<h2 id="dependencias-lgpd">9. Dependências, Integrações e Proteção de Dados (LGPD)</h2>
+<h2 id="dependencias-lgpd">10. Dependências, Integrações e Proteção de Dados (LGPD)</h2>
 <ul>
   <li>
     <strong>Integrações com Outros Módulos:</strong>

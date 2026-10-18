@@ -49,7 +49,7 @@ export class UsersRepository implements UserRepository {
        FROM auth.users
        WHERE lower(email) = $1
        LIMIT 1`,
-      [email],
+      [email.trim().toLowerCase()],
     )
     return result.rows[0] ?? null
   }

@@ -159,3 +159,28 @@ As respostas de erro originadas no backend são lidas por pessoas na interface e
 
 A camada backend adota formalmente os padrões **Repository**, **State Pattern (FSM)**, **Strategy** e **Chain of Responsibility**. Consulte o catálogo completo com exemplos práticos de código em:
 👉 **[`docs/manuais/padroes-projeto.md`](padroes-projeto.md)**
+
+---
+
+## 7. Testes Automatizados e Banco de Dados Isolado (FROTA-161)
+
+O backend do Aratu adota uma estratégia leve e rápida de testes automatizados com execução direta em TypeScript:
+
+1. **Test Runner Nativo e Assertivas Estritas:**
+   - Execução via `node:test` e `node:assert/strict` gerenciada pelo `tsx --test`.
+   - Elimina dependências externas pesadas (Jest/Mocha), mantendo tempo de execução inferior a 5 segundos.
+2. **Isolamento de Banco de Dados (`aratu_test`):**
+   - Os testes de integração conectam exclusivamente a um banco de dados dedicado (`POSTGRES_DB_TEST=aratu_test` ou `DATABASE_URL_TEST`), nunca tocando na base de desenvolvimento (`meubanco`) ou de produção.
+   - O helper `backend/tests/helpers/db-test.ts` provisiona o banco e gerencia conexões via singleton `Pool`, garantindo encerramento limpo (`closeTestPool()`) no hook `after()`.
+3. **Migrações Dinâmicas e Idempotentes:**
+   - O utilitário `DatabaseMigrator` (`backend/src/database/migrator.ts`) descobre todos os arquivos `*.sql` em `src/database/migrations/` e os aplica ordenadamente dentro de transações atômicas `BEGIN ... COMMIT / ROLLBACK`, registrando versões na tabela `schema_migrations`.
+4. **Limpeza Dinâmica entre Testes:**
+   - A função `truncateTestDatabase()` esvazia tabelas de domínio via `TRUNCATE ... RESTART IDENTITY CASCADE` baseada no `information_schema.tables`, preservando a tabela de controle `schema_migrations` para velocidade e isolamento absoluto entre casos de teste.
+5. **Comandos Operacionais Padronizados no `package.json`:**
+   - `npm test`: Executa toda a suíte (testes unitários e de integração);
+   - `npm run test:unit`: Executa testes unitários isolados em memória;
+   - `npm run test:integration`: Executa testes de integração com banco PostgreSQL 18 real;
+   - `npm run test:db:setup`: Provisiona o banco de testes e executa migrações de forma avulsa via linha de comando.
+6. **Conformidade com LGPD e Sigilo SVO:**
+   - Fixtures e testes utilizam exclusivamente dados sintéticos e e-mails fictícios (`@example.test`), sendo estritamente proibido transcrever dados reais de servidores, motoristas ou óbitos.
+
