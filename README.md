@@ -1,4 +1,4 @@
-ff# Aratu — Sistema de Gestão de Frota e Operações
+## Aratu — Sistema de Gestão de Frota e Operações
 
 Sistema web desenvolvido pela **Squad 24**, no contexto da Residência em Software III, para apoiar a gestão de frota, viagens institucionais e operações do Serviço de Verificação de Óbito (SVO) da Fundação de Saúde Parreiras Horta (FSPH).
 
