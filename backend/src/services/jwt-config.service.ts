@@ -8,6 +8,17 @@ const UNIT_SECONDS: Record<string, number> = {
   d: 24 * 60 * 60,
 }
 
+/**
+ * Carrega e valida as configurações de emissão e expiração de tokens JWT a partir das variáveis de ambiente.
+ *
+ * Suporta sufixos temporais `s` (segundos), `m` (minutos), `h` (horas) ou `d` (dias).
+ * Aplica um tempo de expiração padrão de 8 horas (`8h`) caso a variável `JWT_EXPIRES_IN` não seja definida.
+ *
+ * @param environment - Mapa de variáveis de ambiente (tipicamente `process.env`).
+ * @returns Configuração validada contendo o segredo criptográfico e a expiração em segundos.
+ * @throws {Error} Se a variável `JWT_SECRET` não for fornecida.
+ * @throws {Error} Se o formato da variável `JWT_EXPIRES_IN` for inválido ou exceder limites seguros.
+ */
 export function loadJwtConfig(environment: Record<string, string | undefined>): JwtConfig {
   const secret = environment.JWT_SECRET?.trim()
   if (!secret) throw new Error('JWT_SECRET é obrigatória para iniciar a API.')

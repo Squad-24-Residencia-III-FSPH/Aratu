@@ -35,8 +35,8 @@ Este documento serve como guia rápido para autores e revisores da **Squad 24** 
 
 ## 4. Banco de Dados (PostgreSQL 18) e Segurança
 
-- [ ] **Padrão SQL de prefixo de 3 letras em inglês (`modelo.sql`):** tabelas `<pre>_<singular_entity>` (`veh_vehicle`, `trp_trip`, `req_request`), PK `<pre>_id` na tabela (`veh_id`), colunas próprias `<pre>_<col>`, FKs `<ref_pre>_id` (ou `<ref_pre>_id_<role>`) e índices iniciando pelo prefixo da tabela `<pre>_<name>` (sem `idx_`, `uq_`, `trg_`, `fn_`).
-- [ ] **Projeção explícita para DTOs:** nenhuma consulta utiliza `SELECT *`; o Repository projeta `<pre>_id AS id` e aliases `camelCase` sem o prefixo de 3 letras.
+- [ ] **Padrão SQL em Schemas Nativos do PostgreSQL 18 (`auth`, `audit`, `fleet`, `trip`, `svo`):** tabelas substantivas no plural (`<schema>.<plural_entity>`, ex: `auth.users`, `audit.logs`, `fleet.vehicles`), PK `id BIGINT GENERATED ALWAYS AS IDENTITY`, colunas próprias limpas em `snake_case` sem prefixos redundantes, FKs `<entity>_id` e índices descritivos (`<schema>_<table>_<purpose>`).
+- [ ] **Projeção explícita para DTOs:** nenhuma consulta utiliza `SELECT *`; o Repository projeta apenas as colunas necessárias com aliases `camelCase` para propriedades TypeScript que divergem do `snake_case`.
 - [ ] Todas as queries SQL usam parâmetros posicionais (`$1, $2, ...`) — zero interpolação de strings.
 - [ ] Operações compostas ou de alocação concorrente usam transação (`BEGIN ... COMMIT / ROLLBACK`) com `SELECT ... FOR UPDATE` e liberam a conexão no bloco `finally { client.release(); }`.
 - [ ] Rotas restritas validam o perfil **RBAC** no middleware do backend (não apenas ocultando botões no frontend).

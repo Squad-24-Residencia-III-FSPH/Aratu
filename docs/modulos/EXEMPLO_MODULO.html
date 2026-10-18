@@ -92,7 +92,7 @@
 <p>Liste todas as invariantes de domínio, validações obrigatórias, cálculos e controles de concorrência implementados na camada de serviço (<code>backend/src/services/</code>), citando a classe e o método responsável em inglês:</p>
 <ul>
   <li><strong>Transição de estado controlada:</strong> O registro inicia no estado <span class="badge-status">SUBMITTED</span> e só pode avançar para <span class="badge-status">APPROVED</span> ou <span class="badge-status">REJECTED</span> mediante validação do perfil e política vigente (<code>ExampleService::decideRequest</code>).</li>
-  <li><strong>Prevenção de concorrência (Lock Pessimista e Revisão):</strong> A alocação de viatura e motorista ocorre dentro de transação <code>BEGIN ... COMMIT</code> utilizando <code>SELECT ... FOR UPDATE</code> e verificação de <code>&lt;pre&gt;_revision</code> para impedir dupla alocação no mesmo horário (<code>ExampleRepository::findByIdForUpdate</code>).</li>
+  <li><strong>Prevenção de concorrência (Lock Pessimista e Revisão):</strong> A alocação de viatura e motorista ocorre dentro de transação <code>BEGIN ... COMMIT</code> utilizando <code>SELECT ... FOR UPDATE</code> e verificação de <code>revision</code> para impedir dupla alocação no mesmo horário (<code>ExampleRepository::findByIdForUpdate</code>).</li>
   <li><strong>Validação de integridade no domínio:</strong> O hodômetro de encerramento nunca pode ser inferior ao hodômetro de início registrado para a viagem (<code>ExampleService::registerTripCompletion</code>).</li>
 </ul>
 
@@ -139,7 +139,7 @@
 
 <hr>
 
-<h2>4. Tabelas do Banco de Dados (PostgreSQL 18 — Prefixo de 3 Letras)</h2>
+<h2>4. Tabelas do Banco de Dados (PostgreSQL 18 — Schemas Nativos de Domínio)</h2>
 <table>
   <thead>
     <tr>
@@ -151,10 +151,10 @@
   </thead>
   <tbody>
     <tr>
-      <td><span class="badge-tabela">exm_example</span></td>
+      <td><span class="badge-tabela">&lt;schema&gt;.examples</span></td>
       <td>Cada linha representa um registro operacional único do módulo</td>
-      <td><code>exm_id</code> (BIGINT IDENTITY PK, projetado como <code>exm_id AS id</code> no Repository), <code>veh_id</code> (BIGINT FK), <code>exm_state</code> (TEXT), <code>exm_planned_departure</code> (TIMESTAMPTZ), <code>exm_revision</code> (INTEGER), <code>exm_created_at</code> (TIMESTAMPTZ)</td>
-      <td>FK <code>veh_id</code> → <code>veh_vehicle(veh_id) ON DELETE RESTRICT</code>; Índice <code>exm_by_vehicle</code> em <code>(veh_id)</code>; Índice parcial <code>exm_vehicle_in_progress</code> (sem prefixo <code>idx_</code>/<code>uq_</code>)</td>
+      <td><code>id</code> (BIGINT IDENTITY PK), <code>vehicle_id</code> (BIGINT FK), <code>state</code> (TEXT), <code>planned_departure</code> (TIMESTAMPTZ), <code>revision</code> (INTEGER), <code>created_at</code> (TIMESTAMPTZ)</td>
+      <td>FK <code>vehicle_id</code> → <code>fleet.vehicles(id) ON DELETE RESTRICT</code>; Índice <code>&lt;schema&gt;_examples_by_vehicle</code> em <code>(vehicle_id)</code>; Índice parcial <code>&lt;schema&gt;_examples_vehicle_in_progress</code> (sem prefixo <code>idx_</code>/<code>uq_</code>)</td>
     </tr>
   </tbody>
 </table>
@@ -179,7 +179,7 @@
       <td><code>/api/examples</code></td>
       <td><code>ExampleController::list</code></td>
       <td>Todos os perfis autenticados (filtrado por escopo)</td>
-      <td>Query params de filtro e paginação → <code>200 OK</code> com lista paginada em <code>camelCase</code> sem prefixo SQL</td>
+      <td>Query params de filtro e paginação → <code>200 OK</code> com lista paginada em <code>camelCase</code></td>
     </tr>
     <tr>
       <td><span class="badge-http">POST</span></td>
@@ -218,7 +218,7 @@
     <tr>
       <td><code>ExampleRepository</code></td>
       <td>Repository (<code>backend/src/repositories/</code>)</td>
-      <td>Consultas SQL parametrizadas (<code>$1, $2</code>) sem <code>SELECT *</code>, projetando <code>exm_id AS id</code> e locks <code>FOR UPDATE</code> no PostgreSQL 18</td>
+      <td>Consultas SQL parametrizadas (<code>$1, $2</code>) sem <code>SELECT *</code>, mapeamento direto para DTO e locks <code>FOR UPDATE</code> no PostgreSQL 18</td>
     </tr>
     <tr>
       <td><code>example.types.ts</code></td>
@@ -267,7 +267,7 @@
     <tr>
       <td><code>backend/src/repositories/example.repository.ts</code></td>
       <td>Repository</td>
-      <td>Persistência e consultas parametrizadas no PostgreSQL 18 (<code>exm_id AS id</code>)</td>
+      <td>Persistência e consultas parametrizadas no PostgreSQL 18 (schemas nativos, projeção explícita)</td>
     </tr>
     <tr>
       <td><code>frontend/src/pages/ExamplesPage.tsx</code></td>
