@@ -1,5 +1,5 @@
 ---
-description: Executar bateria de testes funcionais e casos de borda (API REST, React 19 operada via Playwright MCP ou /browser, PostgreSQL 18, RBAC e WCAG 2.2 AA) — Sistema Aratu
+description: Executar bateria de testes funcionais, responsividade multi-dispositivo (monitores antigos 4:3 e 16:10, e celulares) e acessibilidade WCAG 2.2 AA (API REST, React 19 via Playwright MCP ou /browser, PostgreSQL 18 e RBAC) — Sistema Aratu
 argument-hint: "[chave ou URL da issue no Jira (ex: FROTA-27), branch da tarefa (ex: feat/controle-sessao-token) ou vazio para a branch atual]"
 ---
 
