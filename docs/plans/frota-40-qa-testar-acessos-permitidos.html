@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-40 — [QA] Testar acessos permitidos e negados (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-40: [QA] Testar acessos permitidos e negados</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-40</code> — [QA] Testar acessos permitidos e negados (Subtarefa da US03 / FROTA-35)</p>
+  <p><strong>Branch de Trabalho (Gitflow):</strong> <code>feat/qa-testar-acessos-permitidos</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo Aratu:</strong> <code>AUTENTICACAO_RBAC</code></p>
+  <p><strong>Perfis RBAC Cobertos (6/6):</strong> <code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code></p>
+  <p><strong>Data de Planejamento:</strong> 2026-10-19</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">1. Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">2. Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">3. Estrutura de Arquivos</a></li>
+  <li><a href="#s4">4. Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">7. Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">8. Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">9. Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">10. Checklist Pré-PR</a></li>
+  <li><a href="#s11">11. Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">12. Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+
+<h3>1.1 Contexto Operacional (FSPH / SVO)</h3>
+<p>
+  O <strong>Sistema Aratu</strong> apoia os transportes sanitários de pacientes e insumos da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e os deslocamentos sensíveis de remoção e custódia cadavérica do <strong>Serviço de Verificação de Óbito (SVO)</strong>. A segregação de funções entre os 6 perfis operacionais é uma salvaguarda jurídica e de privacidade indispensável. A segurança do sistema não pode depender do ocultamento cosmético de botões no frontend: toda rota protegida do Express 5 deve rejeitar chamadas de perfis não autorizados com <strong>HTTP 403 Forbidden</strong>.
+</p>
+
+<h3>1.2 Objetivo da Tarefa (FROTA-40)</h3>
+<p>
+  Comprovar formalmente, através de testes automatizados e reprodutíveis no backend e checagem de roteamento no frontend, que o controle de acesso baseado em papéis (RBAC implementado nas tarefas <code>FROTA-36</code>, <code>FROTA-37</code>, <code>FROTA-38</code> e <code>FROTA-156</code>) funciona sem falhas:
+</p>
+<ol>
+  <li>Provisionar 6 usuários de teste no banco PostgreSQL 18 isolado (<code>aratu_test</code>), contemplando cada um dos 6 perfis RBAC canônicos com dados 100% fictícios (LGPD);</li>
+  <li>Executar uma bateria de testes com no mínimo <strong>12 casos de perfil</strong> (1 permitido [2xx] e 1 negado [403] para cada um dos 6 perfis) e casos gerais de integridade de autenticação (401 para ausência, expiração e adulteração de token);</li>
+  <li>Integrar a suíte à rotina oficial <code>npm test</code> do backend sem alterar o banco de desenvolvimento;</li>
+  <li>Comprovar que o frontend React 19 direciona cada perfil para seu destino exclusivo e bloqueia navegação para telas alheias.</li>
+</ol>
+
+<h3>1.3 Delimitação YAGNI (O que entra e o que NÃO entra)</h3>
+<ul>
+  <li><strong>Entra no escopo:</strong> Fixture de 6 usuários com perfis variados, suíte de testes de integração em <code>backend/tests/rbac-access.integration.test.ts</code>, testes de validação da matriz de 403/2xx, validação de tokens e conferência da suite de rotas do frontend.</li>
+  <li><strong>Fora do escopo (YAGNI):</strong> Nenhuma alteração de DDL no PostgreSQL 18, nenhuma dependência externa pesada nova (o runner nativo <code>tsx --test</code> e <code>node:assert/strict</code> já suportam 100% do escopo) e nenhuma criação de tela nova no frontend.</li>
+</ul>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+
+<h3>2.1 Requisitos Funcionais (RF)</h3>
+<ul>
+  <li><strong>RF01 — Cobertura Completa dos 6 Perfis:</strong> A suíte deve instanciar usuários legítimos para <code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code> e <code>EQUIPE_SVO</code>.</li>
+  <li><strong>RF02 — Testes de Acesso Permitido (2xx):</strong> Cada um dos 6 perfis deve obter sucesso (HTTP 200 OK) ao acessar endpoints autorizados para sua alçada (ex: <code>ADMINISTRADOR</code> em <code>GET /profiles</code>, e todos os 6 perfis em rotas autorizadas para seu papel na matriz RBAC e no encerramento de sessão <code>POST /auth/logout</code>).</li>
+  <li><strong>RF03 — Testes de Acesso Negado (403 Forbidden):</strong> Cada perfil deve receber <strong>HTTP 403</strong> ao chamar rota restrita a outro perfil, retornando obrigatoriamente a estrutura JSON:
+    <pre><code>{ "erro": "Acesso negado: perfil de usuário não autorizado para esta operação." }</code></pre>
+  </li>
+  <li><strong>RF04 — Integridade e Ciclo de Vida do Token (401 Unauthorized):</strong>
+    <ul>
+      <li><em>Sem Token:</em> Requisição a rota protegida sem cabeçalho <code>Authorization</code> → <strong>HTTP 401</strong>;</li>
+      <li><em>Token Malformado:</em> Cabeçalho com valor diferente de <code>Bearer &lt;token&gt;</code> ou string corrompida → <strong>HTTP 401</strong>;</li>
+      <li><em>Token Expirado:</em> Token assinado com <code>exp</code> no passado → <strong>HTTP 401</strong>;</li>
+      <li><em>Token Adulterado (Perfil Forjado):</em> Token com payload alterado para perfil diferente da assinatura → <strong>HTTP 401</strong>;</li>
+      <li><em>Token com Perfil Inexistente:</em> Token assinado com perfil fora do catálogo de roles → <strong>HTTP 401</strong>.</li>
+    </ul>
+  </li>
+  <li><strong>RF05 — Roteamento Frontend por Perfil:</strong> O roteador de tela do cliente deve manter a invariante de direcionar cada usuário autenticado exclusivamente para sua respectiva tela inicial (<code>PROFILE_HOMES</code>) e repelir sessões inválidas para <code>/login</code>.</li>
+</ul>
+
+<h3>2.2 Casos de Borda e Segurança</h3>
+<ul>
+  <li><strong>Tentativa de Escalação de Privilégio Horizontal:</strong> Um <code>MOTORISTA</code> não pode consultar perfis administrativos (<code>GET /profiles</code> → 403).</li>
+  <li><strong>Tentativa de Escalação de Privilégio Vertical SVO:</strong> Um <code>SOLICITANTE</code> não pode acessar rotas da equipe do SVO (403).</li>
+  <li><strong>Usuário Desativado com Token Ativo:</strong> Se um usuário for desativado no banco após emitir o token, nova tentativa de login deve ser repelida com 403 (<code>LOGIN_INACTIVE</code>).</li>
+</ul>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+
+<h3>3.1 Novos Arquivos</h3>
+<ul>
+  <li><code>backend/tests/rbac-access.integration.test.ts</code>: Suíte oficial de integração para validação automatizada dos 6 perfis RBAC contra a API real conectada ao banco <code>aratu_test</code>.</li>
+  <li><code>backend/tests/fixtures/rbac-users.fixture.ts</code>: Fixture padronizada com a definição dos 6 usuários de teste (um de cada perfil) com hashes de senha pré-computados para agilidade da suíte.</li>
+</ul>
+
+<h3>3.2 Arquivos Modificados / Reutilizados</h3>
+<ul>
+  <li><code>backend/tests/helpers/db-test.ts</code>: Reutilização dos utilitários <code>setupTestDatabase()</code>, <code>getTestPool()</code>, <code>truncateTestDatabase()</code> e <code>closeTestPool()</code>.</li>
+  <li><code>backend/src/middlewares/rbac.middleware.ts</code>: Reutilização do middleware <code>authorizeRoles</code> para validação de comportamento.</li>
+  <li><code>frontend/tests/routing.test.mjs</code>: Reutilização para validação da camada de navegação e isolamento de telas no cliente React 19.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+
+<p>
+  <strong>Declaração de Impacto:</strong> <em>Não se aplica alteração de DDL ou novas migrações a esta tarefa.</em>
+</p>
+<p>
+  A tarefa valida o modelo existente já migrado na <code>FROTA-156</code> (tabelas <code>auth.roles</code>, <code>auth.permissions</code>, <code>auth.role_permissions</code> e <code>auth.users</code>). O ciclo de testes interage exclusivamente com a base de dados de testes isolada <code>aratu_test</code>:
+</p>
+<ul>
+  <li><code>setupTestDatabase()</code>: Cria o banco <code>aratu_test</code> caso não exista e executa o <code>DatabaseMigrator</code> aplicando as migrações SQL canônicas.</li>
+  <li><code>truncateTestDatabase()</code>: Executa <code>TRUNCATE ... RESTART IDENTITY CASCADE</code> dinâmico via <code>information_schema</code> antes de cada ciclo de teste, mantendo a tabela de migrações (<code>schema_migrations</code>) e garantindo testes 100% isolados e determinísticos.</li>
+  <li><code>seedRolesAndPermissions(pool)</code>: Provisiona os 6 perfis RBAC oficiais e 18 permissões antes de cada suíte.</li>
+</ul>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+
+<h3>5.1 Contratos REST e Matriz de Autorização Testada</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Rota / Método</th>
+      <th scope="col">Middleware de Proteção</th>
+      <th scope="col">Perfil Permitido (2xx)</th>
+      <th scope="col">Perfis Bloqueados (403)</th>
+      <th scope="col">Corpo de Resposta em Caso de Bloqueio (403)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>GET /profiles</code></td>
+      <td><code>authenticate</code> + <code>authorizeRoles(['ADMINISTRADOR'])</code></td>
+      <td><code>ADMINISTRADOR</code> (200 OK)</td>
+      <td><code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code></td>
+      <td><code>{ "erro": "Acesso negado: perfil de usuário não autorizado para esta operação." }</code></td>
+    </tr>
+    <tr>
+      <td><code>POST /auth/logout</code></td>
+      <td><code>authenticate</code> (qualquer autenticado)</td>
+      <td>Todos os 6 perfis autenticados (200 OK)</td>
+      <td>Nenhum autenticado (acesso livre para qualquer perfil ativo)</td>
+      <td>N/A (Rejeita com 401 caso token seja ausente ou inválido)</td>
+    </tr>
+    <tr>
+      <td><code>GET /test-access/gestor</code></td>
+      <td><code>authenticate</code> + <code>authorizeRoles(['GESTOR'])</code></td>
+      <td><code>GESTOR</code> (200 OK)</td>
+      <td><code>ADMINISTRADOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code></td>
+      <td><code>{ "erro": "Acesso negado: perfil de usuário não autorizado para esta operação." }</code></td>
+    </tr>
+    <tr>
+      <td><code>GET /test-access/solicitante</code></td>
+      <td><code>authenticate</code> + <code>authorizeRoles(['SOLICITANTE'])</code></td>
+      <td><code>SOLICITANTE</code> (200 OK)</td>
+      <td>Demais 5 perfis</td>
+      <td><code>{ "erro": "Acesso negado: perfil de usuário não autorizado para esta operação." }</code></td>
+    </tr>
+    <tr>
+      <td><code>GET /test-access/motorista</code></td>
+      <td><code>authenticate</code> + <code>authorizeRoles(['MOTORISTA'])</code></td>
+      <td><code>MOTORISTA</code> (200 OK)</td>
+      <td>Demais 5 perfis</td>
+      <td><code>{ "erro": "Acesso negado: perfil de usuário não autorizado para esta operação." }</code></td>
+    </tr>
+    <tr>
+      <td><code>GET /test-access/atendente-svo</code></td>
+      <td><code>authenticate</code> + <code>authorizeRoles(['ATENDENTE_SVO'])</code></td>
+      <td><code>ATENDENTE_SVO</code> (200 OK)</td>
+      <td>Demais 5 perfis</td>
+      <td><code>{ "erro": "Acesso negado: perfil de usuário não autorizado para esta operação." }</code></td>
+    </tr>
+    <tr>
+      <td><code>GET /test-access/equipe-svo</code></td>
+      <td><code>authenticate</code> + <code>authorizeRoles(['EQUIPE_SVO'])</code></td>
+      <td><code>EQUIPE_SVO</code> (200 OK)</td>
+      <td>Demais 5 perfis</td>
+      <td><code>{ "erro": "Acesso negado: perfil de usuário não autorizado para esta operação." }</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>5.2 Detalhamento dos Componentes de Teste</h3>
+<ul>
+  <li>
+    <strong><code>backend/tests/fixtures/rbac-users.fixture.ts</code>:</strong>
+    Exporta uma fábrica centralizada para instanciar no banco <code>aratu_test</code> os 6 usuários de teste (um para cada perfil) com senhas criptografadas em bcrypt (custo padronizado) e dados 100% fictícios. Exporta também helper para geração de tokens JWT válidos para cada usuário.
+  </li>
+  <li>
+    <strong><code>backend/tests/rbac-access.integration.test.ts</code>:</strong>
+    Inicializa a aplicação Express via <code>createApp({ pool, jwtConfig })</code>, provisiona o banco e executa todas as requisições HTTP via cliente <code>fetch</code> em porta dinâmica efêmera (<code>listen(0)</code>), garantindo zero concorrência de portas e encerramento limpo de conexões no bloco <code>finally</code>.
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+
+<p>
+  <strong>Declaração de Impacto:</strong> <em>Não se aplica criação ou alteração de componentes visuais React 19.</em>
+</p>
+<p>
+  No frontend, o escopo de verificação da <code>FROTA-40</code> é atendido e auditado por:
+</p>
+<ul>
+  <li>Validação da suite <code>frontend/tests/routing.test.mjs</code>: Garante que a função <code>resolveRoute</code> direciona cada perfil autenticado para sua rota raiz correspondente em <code>PROFILE_HOMES</code> e redireciona tentativas de acesso cruzado para a tela inicial do próprio perfil logado;</li>
+  <li>Proteção de Sessão: Sessão nula ou token expirado redireciona obrigatoriamente para <code>/login</code>;</li>
+  <li>Validação da integridade de aliases de perfis legíveis mapeados para os identificadores técnicos em <code>frontend/src/auth/profiles.ts</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<!-- PREENCHER_SECAO_7: Checklist de acessibilidade aplicável à tarefa (useId, teclado, foco visível, alvo 44x44px, role="alert"/"status") -->
+<ul class="check">
+  <li><input type="checkbox"> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Todos os campos usam <code>useId()</code> conectando <code>&lt;label htmlFor&gt;</code> ao <code>&lt;input id&gt;</code>, <code>aria-invalid</code> e mensagem de erro com <code>role="alert"</code>.</li>
+  <li><input type="checkbox"> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Operável integralmente via <code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Espaço</code> e <code>Esc</code>, com <code>:focus-visible</code> nítido.</li>
+  <li><input type="checkbox"> <strong>Tamanho do Alvo (2.5.8):</strong> Botões e controles interativos possuem área mínima de <strong>44×44px</strong> em telas operacionais.</li>
+  <li><input type="checkbox"> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste de texto &gt;= 4.5:1 e status acompanhado de rótulo textual além da cor.</li>
+  <li><input type="checkbox"> <strong>Mensagens de Status (4.1.3):</strong> Feedbacks dinâmicos anunciados via <code>role="status"</code> ou <code>aria-live="polite"</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+
+<h3>8.1 Variáveis de Ambiente e Configurações Requeridas</h3>
+<ul>
+  <li><code>DATABASE_URL_TEST</code>: String de conexão dedicada para o PostgreSQL 18 isolado (ex: <code>postgresql://admin:admin123@127.0.0.1:5432/aratu_test</code>).</li>
+  <li><code>JWT_SECRET</code>: Segredo criptográfico padrão para assinatura e verificação simétrica de tokens nos testes.</li>
+  <li><code>JWT_EXPIRES_IN</code>: Prazo de expiração (padrão: 8h / 28800s).</li>
+</ul>
+
+<h3>8.2 Matriz de Acesso RBAC Completa (Validação 6×6)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Perfil Testado</th>
+      <th scope="col">Rota Permitida (HTTP 200)</th>
+      <th scope="col">Rota Proibida Testada (HTTP 403)</th>
+      <th scope="col">Invariante de Segurança Testada</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><code>GET /profiles</code></td>
+      <td><code>GET /test-access/motorista</code></td>
+      <td>Acesso a configurações e perfis globais; segregação contra operações diretas de campo.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">GESTOR</span></td>
+      <td><code>GET /test-access/gestor</code></td>
+      <td><code>GET /profiles</code></td>
+      <td>Gestão operacional de frotas e viagens; bloqueio a cadastros de sistema exclusivos do admin.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td><code>GET /test-access/solicitante</code></td>
+      <td><code>GET /profiles</code></td>
+      <td>Abertura de solicitações institucionais; bloqueio total a telas e APIs administrativas.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">MOTORISTA</span></td>
+      <td><code>GET /test-access/motorista</code></td>
+      <td><code>GET /profiles</code></td>
+      <td>Acesso restrito à execução e km de viagens atribuídas; bloqueio a gestão e outros perfis.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td><code>GET /test-access/atendente-svo</code></td>
+      <td><code>GET /profiles</code></td>
+      <td>Triagem de óbitos e despacho de remoção cadavérica; bloqueio a administração geral.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">EQUIPE_SVO</span></td>
+      <td><code>GET /test-access/equipe-svo</code></td>
+      <td><code>GET /profiles</code></td>
+      <td>Execução sigilosa de coletas e custódias cadavéricas; bloqueio a outros domínios da FSPH.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<h3>9.1 Bateria de Testes Automatizados da API (Backend — <code>node:test</code> + <code>fetch</code>)</h3>
+<p>
+  A suíte <code>backend/tests/rbac-access.integration.test.ts</code> executará os seguintes 16 casos de teste automatizados integrados com PostgreSQL 18 real:
+</p>
+<ol>
+  <li><strong>IT-RBAC-01 (ADMINISTRADOR Permitido):</strong> Token de <code>ADMINISTRADOR</code> acessa <code>GET /profiles</code> → Status 200 e lista de perfis.</li>
+  <li><strong>IT-RBAC-02 (ADMINISTRADOR Negado):</strong> Token de <code>ADMINISTRADOR</code> acessa rota exclusiva de <code>MOTORISTA</code> → Status 403 e erro padronizado.</li>
+  <li><strong>IT-RBAC-03 (GESTOR Permitido):</strong> Token de <code>GESTOR</code> acessa rota exclusiva de gestor → Status 200.</li>
+  <li><strong>IT-RBAC-04 (GESTOR Negado):</strong> Token de <code>GESTOR</code> acessa <code>GET /profiles</code> → Status 403 e erro padronizado.</li>
+  <li><strong>IT-RBAC-05 (SOLICITANTE Permitido):</strong> Token de <code>SOLICITANTE</code> acessa rota exclusiva de solicitante → Status 200.</li>
+  <li><strong>IT-RBAC-06 (SOLICITANTE Negado):</strong> Token de <code>SOLICITANTE</code> acessa <code>GET /profiles</code> → Status 403 e erro padronizado.</li>
+  <li><strong>IT-RBAC-07 (MOTORISTA Permitido):</strong> Token de <code>MOTORISTA</code> acessa rota exclusiva de motorista → Status 200.</li>
+  <li><strong>IT-RBAC-08 (MOTORISTA Negado):</strong> Token de <code>MOTORISTA</code> acessa <code>GET /profiles</code> → Status 403 e erro padronizado.</li>
+  <li><strong>IT-RBAC-09 (ATENDENTE_SVO Permitido):</strong> Token de <code>ATENDENTE_SVO</code> acessa rota exclusiva de atendente SVO → Status 200.</li>
+  <li><strong>IT-RBAC-10 (ATENDENTE_SVO Negado):</strong> Token de <code>ATENDENTE_SVO</code> acessa <code>GET /profiles</code> → Status 403 e erro padronizado.</li>
+  <li><strong>IT-RBAC-11 (EQUIPE_SVO Permitido):</strong> Token de <code>EQUIPE_SVO</code> acessa rota exclusiva de equipe SVO → Status 200.</li>
+  <li><strong>IT-RBAC-12 (EQUIPE_SVO Negado):</strong> Token de <code>EQUIPE_SVO</code> acessa <code>GET /profiles</code> → Status 403 e erro padronizado.</li>
+  <li><strong>IT-RBAC-13 (Logout Permitido para Todos):</strong> Todos os 6 perfis autenticados realizam <code>POST /auth/logout</code> com sucesso → Status 200.</li>
+  <li><strong>IT-RBAC-14 (Sem Token / 401):</strong> Chamada a rota protegida sem header <code>Authorization</code> → Status 401.</li>
+  <li><strong>IT-RBAC-15 (Token Expirado / 401):</strong> Chamada a rota protegida com <code>exp</code> expirado → Status 401.</li>
+  <li><strong>IT-RBAC-16 (Token Adulterado / 401):</strong> Chamada com payload adulterado ou perfil forjado fora da assinatura → Status 401.</li>
+</ol>
+
+<h3>9.2 Verificação Automatizada e Regressão no Frontend</h3>
+<ul>
+  <li>Execução contínua da suíte <code>node --test tests/*.test.mjs</code> do frontend (33 testes passando);</li>
+  <li>Conferência da matriz de redirecionamento e isolamento de rotas por perfil em <code>frontend/tests/routing.test.mjs</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-40)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivo de referência:</strong> <code>docs/modulos/AUTENTICACAO_RBAC.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do módulo. A Seção 8 (Testes Automatizados da API) deve registrar a suíte oficial de integração de matriz RBAC da FROTA-40 antes da submissão do Pull Request.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

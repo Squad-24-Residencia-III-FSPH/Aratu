@@ -149,3 +149,8 @@ Qualquer erro de compilação TypeScript, falha de lint ou teste quebrado pelo d
    - `<!-- PREENCHER_REVISAO_SECAO_5 -->`: checklist para o revisor humano da Squad 24.
 3. **Apresente no terminal um resumo conciso** com o link clicável para o arquivo `docs/reviews/<chave-tarefa>-<slug>.html`, o quadro de contadores (🔴/🟡/🟢/⚪) e o veredito final.
 4. Se houver pendências 🔴 puramente mecânicas (ex: remoção de `console.log`, substituição de `SELECT *` por colunas explícitas já conhecidas, ajuste de tipagem local sem alterar comportamento), verifique antes se a working tree está limpa (`git status --porcelain`) e ofereça aplicá-las mediante confirmação explícita do desenvolvedor.
+5. **Abertura Automática do HTML no Navegador:**
+   - Ao concluir a edição do relatório de revisão (`docs/reviews/<chave-tarefa>-<slug>.html`), **abra-o imediatamente no navegador padrão do desenvolvedor** para conferência visual confortável:
+     - No Windows (PowerShell/CMD): `cmd.exe /c start "" "$((Resolve-Path docs/reviews/<chave-tarefa>-<slug>.html).Path)"` (ou `explorer.exe "$((Resolve-Path docs/reviews/<chave-tarefa>-<slug>.html).Path)"`)
+     - No macOS: `open "docs/reviews/<chave-tarefa>-<slug>.html"`
+     - No Linux: `xdg-open "docs/reviews/<chave-tarefa>-<slug>.html"`
