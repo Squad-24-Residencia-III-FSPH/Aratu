@@ -4,7 +4,8 @@ import type { AddressInfo } from 'node:net'
 import jwt = require('jsonwebtoken')
 import { createApp } from '../src/app'
 import { createAuthMiddleware } from '../src/middlewares/auth.middleware'
-import type { UserForLogin } from '../src/types/auth'
+import type { RoleRepositoryContract } from '../src/repositories/roles.repository'
+import type { Role, UserForLogin } from '../src/types/auth'
 import { AuthService } from '../src/services/auth.service'
 import { comparePassword, hashPassword } from '../src/services/password.service'
 import { loadJwtConfig } from '../src/services/jwt-config.service'
@@ -49,6 +50,7 @@ function user(overrides: Partial<UserForLogin> = {}): UserForLogin {
     name: 'Usuária Fictícia',
     email: 'motorista@example.test',
     password_hash: passwordHash,
+    roleId: '4',
     role: 'MOTORISTA',
     is_active: true,
     ...overrides,
@@ -99,8 +101,10 @@ async function withServer(
   users: { findByEmail(email: string): Promise<UserForLogin | null> },
   run: (baseUrl: string) => Promise<void>,
   configure?: (app: ReturnType<typeof createApp>) => void,
+  roles?: RoleRepositoryContract,
 ): Promise<void> {
-  const app = createApp({ users, jwtConfig })
+  const dependencies = roles ? { users, roles, jwtConfig } : { users, jwtConfig }
+  const app = createApp(dependencies)
   configure?.(app)
   const server = app.listen(0)
   await new Promise<void>((resolve) => server.once('listening', resolve))
@@ -166,6 +170,47 @@ test('POST /auth/login mantém contrato do frontend e mensagens de erro definida
     })
     assert.equal(malformedBody.status, 400)
   })
+})
+
+test('GET /profiles exige JWT de ADMINISTRADOR e retorna os perfis permitidos', async () => {
+  const profiles: Role[] = [{
+    id: '1',
+    name: 'ADMINISTRADOR',
+    description: 'Acesso global de administração do sistema.',
+    createdAt: new Date('2026-10-18T00:00:00.000Z'),
+  }]
+  const roles: RoleRepositoryContract = {
+    findAll: async () => profiles,
+    findById: async () => null,
+    findByName: async () => null,
+    findPermissionsByRoleId: async () => [],
+  }
+
+  await withServer({ findByEmail: async () => user() }, async (baseUrl) => {
+    const withoutToken = await fetch(`${baseUrl}/profiles`)
+    assert.equal(withoutToken.status, 401)
+
+    const driverToken = jwt.sign({ id: '1', perfil: 'MOTORISTA' }, jwtConfig.secret)
+    const forbidden = await fetch(`${baseUrl}/profiles`, {
+      headers: { Authorization: `Bearer ${driverToken}` },
+    })
+    assert.equal(forbidden.status, 403)
+    assert.deepEqual(await forbidden.json(), {
+      erro: 'Acesso negado: perfil de usuário não autorizado para esta operação.',
+    })
+
+    const adminToken = jwt.sign({ id: '1', perfil: 'ADMINISTRADOR' }, jwtConfig.secret)
+    const success = await fetch(`${baseUrl}/profiles`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+    assert.equal(success.status, 200)
+    assert.deepEqual(await success.json(), [{
+      id: '1',
+      name: 'ADMINISTRADOR',
+      description: 'Acesso global de administração do sistema.',
+      createdAt: '2026-10-18T00:00:00.000Z',
+    }])
+  }, undefined, roles)
 })
 
 test('logout protegido rejeita token ausente/inválido e aceita token válido', async () => {
