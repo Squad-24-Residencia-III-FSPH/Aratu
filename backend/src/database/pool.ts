@@ -14,5 +14,17 @@ export function createPool(connectionString: string): Pool {
   if (!connectionString.trim()) {
     throw new Error('DATABASE_URL é obrigatória para conectar ao PostgreSQL.')
   }
-  return new Pool({ connectionString })
+
+  let normalized = connectionString
+  try {
+    const parsed = new URL(connectionString)
+    if (parsed.hostname === 'localhost' && process.platform === 'win32') {
+      parsed.hostname = '127.0.0.1'
+      normalized = parsed.toString()
+    }
+  } catch {
+    // Mantém a string original caso não seja uma URL padrão
+  }
+
+  return new Pool({ connectionString: normalized })
 }

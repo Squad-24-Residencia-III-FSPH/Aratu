@@ -28,7 +28,7 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
 - **[`buscar-tarefa`](.agents/skills/buscar-tarefa/SKILL.md)** (`/buscar-tarefa`): Coleta dados da issue no Jira via `node docs/scripts/jira-fetch.mjs` e estrutura o contexto Gitflow da tarefa (`develop` como base).
 - **[`plano`](.agents/skills/plano/SKILL.md)** (`/plano`): Planeja a tarefa aplicando a Regra da Dúvida e gera o SDD em `docs/plans/<chave-tarefa>-<slug>.html` a partir de `docs/plans/EXEMPLO_PLANO.html`.
 - **[`implementar`](.agents/skills/implementar/SKILL.md)** (`/implementar`): Implementa o plano SDD passo a passo em camadas seguindo rigorosamente a skill `principios`.
-- **[`testar`](.agents/skills/testar/SKILL.md)** (`/testar`): Executa a bateria de testes funcionais (API REST, UI React 19, PostgreSQL 18, RBAC e WCAG 2.2 AA).
+- **[`testar`](.agents/skills/testar/SKILL.md)** (`/testar`): Executa a bateria de testes funcionais e casos de borda (API REST, UI React 19 operada via Playwright MCP ou `/browser`, PostgreSQL 18, RBAC e WCAG 2.2 AA).
 - **[`revisar`](.agents/skills/revisar/SKILL.md)** (`/revisar`): Realiza a revisão automatizada do diff da branch da tarefa contra `develop` validando camadas, segurança SQL, concorrência, WCAG 2.2 AA e LGPD/SVO, e gera o relatório visual em `docs/reviews/<chave-tarefa>-<slug>.html` a partir de `docs/reviews/EXEMPLO_REVISAO.html`.
 - **[`documentar-modulo`](.agents/skills/documentar-modulo/SKILL.md)** (`/documentar-modulo`): Gera ou atualiza a documentação HTML do módulo em `docs/modulos/<MODULO>.html`.
 
@@ -61,7 +61,8 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
   - `src/components/ui/`: Componentes visuais acessíveis e reutilizáveis sobre Material UI (`FormField` com `useId()`, `DataTable`, `FilterBar`, `EntityCard`, `StatCard`, `StatusChip`, `StateFeedback`, `ConfirmDialog`).
   - `src/pages/`: Telas e fluxos de navegação (estilização via `theme.ts`/`sx`; CSS Modules restritos a layout estrutural com classes em **inglês em `camelCase`**, proibido `:global(.Mui...)`).
 - **Banco de Dados:** PostgreSQL 18 via Docker (`postgres:18-alpine`) estruturado em **Schemas Nativos de Domínio** (`auth`, `audit`, `fleet`, `trip`, `svo`), tabelas no plural (`<schema>.<plural_entity>`), PK `id BIGINT GENERATED ALWAYS AS IDENTITY`, colunas em inglês `snake_case` e FKs `<entity>_id`.
-- **Padrões de Projeto:** Consulte [`docs/manuais/padroes-projeto.md`](docs/manuais/padroes-projeto.md) para aplicação obrigatória de Repository, State Pattern (FSM), Strategy, Chain of Responsibility e Compound Components.
+- **Padrões de Projeto:** Consulte [`docs/manuais/padroes-projeto.md`](docs/manuais/padroes-projeto.md) para aplicação obrigatória de Repository, State Pattern (FSM), Strategy, Chain of Responsibility, Compound Components e Snapshot de Contexto Histórico.
+- **Preservação Histórica e Bi-temporalidade:** O sistema guarda a história de como cada entidade chegou ao estado atual; **o passado não se apaga**. É proibido `DELETE` físico em tabelas de negócio e paradas de viagem; retificações usam trilha append-only (`supersedes_id`) com justificativa e evidência; viagens e decisões operacionais preservam o snapshot de contexto vigente na época. Consulte [`dados.md`](.agents/skills/principios/references/dados.md).
 - **Containers:** Docker & Docker Compose (`docker-compose.yml` com `db`, `backend`, `frontend`).
 
 ---

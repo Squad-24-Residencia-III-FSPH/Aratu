@@ -145,7 +145,7 @@
 <table>
   <thead>
     <tr>
-      <th scope="col">Perfil RBAC (<code>auth.users.role</code>)</th>
+      <th scope="col">Perfil RBAC (<code>auth.roles.name</code>)</th>
       <th scope="col">Ações Permitidas no Módulo</th>
       <th scope="col">Destino Pós-Login / Escopo Operacional</th>
     </tr>
@@ -208,15 +208,34 @@
         <code>name</code> (TEXT NOT NULL),<br>
         <code>email</code> (TEXT NOT NULL),<br>
         <code>password_hash</code> (TEXT NOT NULL),<br>
-        <code>role</code> (TEXT NOT NULL),<br>
+        <code>role_id</code> (BIGINT FK para <code>auth.roles</code>),<br>
         <code>active</code> (BOOLEAN NOT NULL DEFAULT true),<br>
         <code>revision</code> (INTEGER NOT NULL DEFAULT 1),<br>
-        <code>created_at</code> (TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp())
+        <code>created_at</code> (TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()),<br>
+        <code>updated_at</code> (TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp())
       </td>
       <td>
-        <code>CHECK (role IN ('ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO'))</code>;<br>
-        Índice único sargável: <code>CREATE UNIQUE INDEX auth_users_email_lower_unique ON auth.users (lower(email));</code>
+        FK <code>role_id REFERENCES auth.roles(id) ON DELETE RESTRICT</code>;<br>
+        Índices: <code>auth_users_email_lower_unique</code> e <code>auth_users_by_role</code>.
       </td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">auth.roles</span></td>
+      <td>Cada linha representa um perfil RBAC administrável do Aratu.</td>
+      <td><code>id</code>, <code>name</code>, <code>description</code>, <code>created_at</code></td>
+      <td>Nome único sem distinção de maiúsculas/minúsculas; seis perfis canônicos são provisionados no seed.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">auth.permissions</span></td>
+      <td>Cada linha representa uma permissão atômica para tela ou ação do sistema.</td>
+      <td><code>id</code>, <code>name</code>, <code>description</code>, <code>created_at</code></td>
+      <td>Nome único sem distinção de maiúsculas/minúsculas; suporta extensões sem alteração de schema.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">auth.role_permissions</span></td>
+      <td>Associa um perfil a uma permissão, formando a matriz RBAC editável.</td>
+      <td><code>id</code>, <code>role_id</code>, <code>permission_id</code>, <code>created_at</code></td>
+      <td>FKs com <code>ON DELETE CASCADE</code> e unicidade em <code>(role_id, permission_id)</code>.</td>
     </tr>
     <tr>
       <td><span class="badge-tabela">audit.logs</span></td>
@@ -283,6 +302,13 @@
       </td>
     </tr>
     <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/profiles</code></td>
+      <td><code>createProfileController::list</code></td>
+      <td>Somente <code>ADMINISTRADOR</code></td>
+      <td><strong>Sucesso (200 OK):</strong> <code>[{ id, name, description, createdAt }]</code>. <strong>Erros:</strong> <code>401 Unauthorized</code> sem JWT e <code>403 Forbidden</code> para outro perfil.</td>
+    </tr>
+    <tr>
       <td><span class="badge-http">POST</span></td>
       <td><code>/auth/logout</code></td>
       <td><code>createAuthController::logout</code></td>
@@ -331,7 +357,17 @@
     <tr>
       <td><code>UsersRepository</code></td>
       <td>Repository (<code>backend/src/repositories/users.repository.ts</code>)</td>
-      <td>Consulta parametrizada à tabela <code>auth.users</code> projetando <code>id::text AS id</code>, <code>name</code>, <code>email</code>, <code>password_hash</code>, <code>role</code> e <code>active AS is_active</code> sem <code>SELECT *</code>.</td>
+      <td>Consulta parametrizada de <code>auth.users</code> com <code>JOIN auth.roles</code>; expõe <code>password_hash</code somente no contrato interno de login.</td>
+    </tr>
+    <tr>
+      <td><code>RolesRepository</code> e <code>authorizeRoles</code></td>
+      <td>Repository / Middleware</td>
+      <td>Recupera perfis e permissões por associação N:N e restringe rotas por perfil após a validação JWT.</td>
+    </tr>
+    <tr>
+      <td>Scripts <code>db:migrate</code> e <code>db:seed</code></td>
+      <td>Database (CLI)</td>
+      <td><code>db:migrate</code> aplica DDL e provisiona a matriz RBAC canônica de forma idempotente; <code>db:seed</code> realiza o bootstrap seguro e auditado em <code>audit.logs</code> do Administrador inicial via variáveis de ambiente.</td>
     </tr>
     <tr>
       <td><code>AuditRepository</code></td>
@@ -405,6 +441,8 @@
       <li><code>npm run test:unit</code>: Executa apenas testes unitários em memória;</li>
       <li><code>npm run test:integration</code>: Executa testes de integração com PostgreSQL 18 real;</li>
       <li><code>npm run test:db:setup</code>: Provisiona o banco e aplica migrações avulsas via CLI.</li>
+      <li><code>npm run db:migrate</code>: Aplica migrações DDL e provisiona a matriz RBAC canônica de forma idempotente;</li>
+      <li><code>npm run db:seed</code>: Provisiona o Administrador inicial com auditoria atômica em <code>audit.logs</code> a partir do <code>.env</code>.</li>
     </ul>
   </li>
   <li><strong>Integração Contínua (CI):</strong> O workflow <code>.github/workflows/ci-cd.yml</code> conta com container de serviço <code>postgres:18-alpine</code> com healthcheck <code>pg_isready</code>, rodando a suíte com banco real a cada Pull Request.</li>

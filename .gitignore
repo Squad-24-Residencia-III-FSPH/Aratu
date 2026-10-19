@@ -144,3 +144,22 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Playwright MCP and test runner artifacts
+.playwright-mcp/
+.playwright/
+playwright-report/
+test-results/
+blob-report/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Agent session artifacts
+codex-session-*.md

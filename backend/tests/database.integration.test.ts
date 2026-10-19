@@ -1,174 +1,316 @@
-import assert from 'node:assert/strict';
-import { after, before, beforeEach, test } from 'node:test';
-import type { PoolClient } from 'pg';
-import { DatabaseMigrator } from '../src/database/migrator';
-import { UsersRepository } from '../src/repositories/users.repository';
+import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { after, before, beforeEach, test } from 'node:test'
+import type { Pool, PoolClient } from 'pg'
+import { DatabaseMigrator } from '../src/database/migrator'
+import { seedInitialAdmin, seedRolesAndPermissions } from '../src/database/scripts/seed'
+import { RolesRepository } from '../src/repositories/roles.repository'
+import { UsersRepository } from '../src/repositories/users.repository'
 import {
   closeTestPool,
   getTestPool,
   setupTestDatabase,
   truncateTestDatabase,
-} from './helpers/db-test';
+} from './helpers/db-test'
+
+const ADMIN_CONFIG = {
+  email: 'admin@example.test',
+  password: 'senha-ficticia-para-seed',
+  name: 'Administradora Fictícia',
+}
+
+async function getRoleId(pool: Pool, roleName: string): Promise<string> {
+  const { rows } = await pool.query<{ id: string }>(
+    `SELECT id::text AS id
+     FROM auth.roles
+     WHERE name = $1`,
+    [roleName],
+  )
+  const role = rows[0]
+  if (!role) throw new Error(`Perfil de teste ${roleName} não encontrado.`)
+  return role.id
+}
 
 before(async () => {
-  await setupTestDatabase();
-});
+  await setupTestDatabase()
+})
 
 beforeEach(async () => {
-  await truncateTestDatabase();
-});
+  const pool = getTestPool()
+  await truncateTestDatabase()
+  await seedRolesAndPermissions(pool)
+})
 
 after(async () => {
-  await closeTestPool();
-});
+  await closeTestPool()
+})
 
-test('IT01: conecta ao PostgreSQL 18 e confirma versão do banco de dados de testes', async () => {
-  const pool = getTestPool();
-  const { rows } = await pool.query<{ version: string }>('SELECT version();');
+test('IT01: conecta ao PostgreSQL 18 e confirma a versão do banco de testes', async () => {
+  const pool = getTestPool()
+  const { rows } = await pool.query<{ version: string }>('SELECT version()')
 
-  assert.equal(rows.length, 1);
-  const versionString = rows[0]?.version ?? '';
-  assert.match(versionString, /PostgreSQL 18/i);
-});
+  assert.equal(rows.length, 1)
+  assert.match(rows[0]?.version ?? '', /PostgreSQL 18/i)
+})
 
-test('IT02: DatabaseMigrator descobre e processa migrações de forma idempotente', async () => {
-  const pool = getTestPool();
-  const migrator = new DatabaseMigrator();
+test('IT02: aplica as migrações RBAC e cria tabelas e colunas esperadas', async () => {
+  const pool = getTestPool()
+  const migrator = new DatabaseMigrator()
+  const files = await migrator.loadFiles()
+  const results = await migrator.runMigrations(pool, { silent: true })
 
-  const files = await migrator.loadFiles();
-  assert.ok(files.length >= 2, 'Deve encontrar pelo menos 2 arquivos de migração .sql (users e audit)');
+  assert.equal(results.length, files.length)
+  assert.ok(results.every((result) => result.status === 'applied' || result.status === 'skipped'))
 
-  const results = await migrator.runMigrations(pool, { silent: true });
-  assert.equal(results.length, files.length);
-
-  for (const result of results) {
-    assert.ok(
-      result.status === 'applied' || result.status === 'skipped',
-      `Status deve ser applied ou skipped, recebido: ${result.status}`
-    );
-  }
-
-  // Verifica que ambas as tabelas (auth.users e audit.logs) foram provisionadas
-  const tableCheck = await pool.query<{ count: string }>(`
+  const { rows } = await pool.query<{ count: string }>(`
     SELECT count(*)::text AS count
-      FROM information_schema.tables
-     WHERE (table_schema = 'auth' AND table_name = 'users')
-        OR (table_schema = 'audit' AND table_name = 'logs');
-  `);
-  assert.equal(tableCheck.rows[0]?.count, '2');
-});
+    FROM information_schema.tables
+    WHERE (table_schema = 'auth' AND table_name IN ('users', 'roles', 'permissions', 'role_permissions'))
+       OR (table_schema = 'audit' AND table_name = 'logs')
+  `)
+  assert.equal(rows[0]?.count, '5')
 
-test('IT03: UsersRepository.findByEmail consulta registro real e normaliza e-mail', async () => {
-  const pool = getTestPool();
-  const repo = new UsersRepository(pool);
+  const columns = await pool.query<{ count: string }>(`
+    SELECT count(*)::text AS count
+    FROM information_schema.columns
+    WHERE table_schema = 'auth'
+      AND table_name = 'users'
+      AND column_name IN ('role_id', 'updated_at')
+  `)
+  assert.equal(columns.rows[0]?.count, '2')
+})
 
-  // Inserção com dados 100% fictícios (LGPD) na tabela padronizada auth.users
-  await pool.query(
-    `INSERT INTO auth.users (name, email, password_hash, role, active)
-     VALUES ($1, $2, $3, $4, $5);`,
-    [
-      'Servidora Fictícia Teste',
-      'servidora.teste@example.test',
-      '$2b$10$fictitiouspasswordhashforintegrationtesting12345',
-      'GESTOR',
-      true,
-    ]
-  );
+test('IT03: seed RBAC é idempotente e aplica as permissões iniciais', async () => {
+  const pool = getTestPool()
 
-  const found = await repo.findByEmail('  SERVIDORA.TESTE@EXAMPLE.TEST ');
-  assert.ok(found !== null, 'Usuário deve ser encontrado independentemente de maiúsculas/espaços');
-  assert.equal(found.name, 'Servidora Fictícia Teste');
-  assert.equal(found.email, 'servidora.teste@example.test');
-  assert.equal(found.role, 'GESTOR');
-  assert.equal(found.is_active, true);
-  assert.ok(typeof found.id === 'string' && found.id.length > 0);
-});
+  await seedRolesAndPermissions(pool)
+  const firstAdminSeed = await seedInitialAdmin(pool, ADMIN_CONFIG)
+  await seedRolesAndPermissions(pool)
+  const secondAdminSeed = await seedInitialAdmin(pool, ADMIN_CONFIG)
 
-test('IT04: rejeita inserção com e-mail duplicado acionando constraint 23505', async () => {
-  const pool = getTestPool();
+  const counts = await pool.query<{ roles: string; permissions: string; mappings: string; users: string }>(`
+    SELECT
+      (SELECT count(*)::text FROM auth.roles) AS roles,
+      (SELECT count(*)::text FROM auth.permissions) AS permissions,
+      (SELECT count(*)::text FROM auth.role_permissions) AS mappings,
+      (SELECT count(*)::text FROM auth.users) AS users
+  `)
+  assert.equal(firstAdminSeed, true)
+  assert.equal(secondAdminSeed, false)
+  assert.deepEqual(counts.rows[0], {
+    roles: '6',
+    permissions: '3',
+    mappings: '8',
+    users: '1',
+  })
 
-  await pool.query(
-    `INSERT INTO auth.users (name, email, password_hash, role, active)
-     VALUES ($1, $2, $3, $4, $5);`,
-    [
-      'Motorista Fictício Um',
-      'motorista.unico@example.test',
-      'hash_ficticio_1',
-      'MOTORISTA',
-      true,
-    ]
-  );
+  const permissions = await pool.query<{ role: string; permission: string }>(`
+    SELECT r.name AS role, p.name AS permission
+    FROM auth.role_permissions rp
+    JOIN auth.roles r ON r.id = rp.role_id
+    JOIN auth.permissions p ON p.id = rp.permission_id
+    ORDER BY r.name, p.name
+  `)
+  const mappingSet = new Set(permissions.rows.map(({ role, permission }) => `${role}:${permission}`))
+  assert.ok(mappingSet.has('ADMINISTRADOR:users:manage'))
+  assert.ok(mappingSet.has('ADMINISTRADOR:permissions:manage'))
+  assert.equal(
+    permissions.rows.filter(({ permission }) => permission === 'screens:access').length,
+    6,
+  )
+
+  const auditLogs = await pool.query<{ operation: string; reason: string; table: string }>(`
+    SELECT operation, reason, table_name AS "table"
+    FROM audit.logs
+    WHERE reason = 'BOOTSTRAP_INITIAL_ADMIN'
+  `)
+  assert.equal(auditLogs.rows.length, 1)
+  assert.equal(auditLogs.rows[0]?.operation, 'INSERT')
+  assert.equal(auditLogs.rows[0]?.table, 'auth.users')
+})
+
+test('IT04: RolesRepository lista perfis e recupera permissões por perfil', async () => {
+  const pool = getTestPool()
+  const repository = new RolesRepository(pool)
+  const roles = await repository.findAll()
+  const administrator = await repository.findByName('ADMINISTRADOR')
+
+  assert.equal(roles.length, 6)
+  assert.ok(administrator)
+  if (!administrator) return
+
+  const permissions = await repository.findPermissionsByRoleId(administrator.id)
+  assert.deepEqual(permissions.map((permission) => permission.name), [
+    'permissions:manage',
+    'screens:access',
+    'users:manage',
+  ])
+})
+
+test('IT05: UsersRepository encontra usuário por e-mail sem perder o perfil', async () => {
+  const pool = getTestPool()
+  const repository = new UsersRepository(pool)
+  const roleId = await getRoleId(pool, 'GESTOR')
+
+  await repository.create({
+    name: 'Servidora Fictícia Teste',
+    email: 'servidora.teste@example.test',
+    passwordHash: 'hash-ficticio-para-teste',
+    roleId,
+  })
+  const found = await repository.findByEmail('  SERVIDORA.TESTE@EXAMPLE.TEST ')
+
+  assert.ok(found)
+  assert.equal(found?.role, 'GESTOR')
+  assert.equal(found?.roleId, roleId)
+  assert.equal(found?.is_active, true)
+})
+
+test('IT06: findById retorna somente a projeção pública de usuário', async () => {
+  const pool = getTestPool()
+  const repository = new UsersRepository(pool)
+  const roleId = await getRoleId(pool, 'MOTORISTA')
+  const created = await repository.create({
+    name: 'Motorista Fictício',
+    email: 'motorista@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId,
+  })
+  const found = await repository.findById(created.id)
+
+  assert.ok(found)
+  assert.equal(found?.role, 'MOTORISTA')
+  assert.equal('passwordHash' in (found ?? {}), false)
+  assert.equal('password_hash' in (found ?? {}), false)
+})
+
+test('IT07: list filtra por perfil, status e termo sem expor hashes', async () => {
+  const pool = getTestPool()
+  const repository = new UsersRepository(pool)
+  const driverRoleId = await getRoleId(pool, 'MOTORISTA')
+  const managerRoleId = await getRoleId(pool, 'GESTOR')
+
+  await repository.create({ name: 'Ana Silva', email: 'ana.silva@example.test', passwordHash: 'hash-a', roleId: driverRoleId })
+  await repository.create({ name: 'Bruno Silva', email: 'bruno.silva@example.test', passwordHash: 'hash-b', roleId: driverRoleId })
+  await repository.create({ name: 'Carla Silva', email: 'carla.silva@example.test', passwordHash: 'hash-c', roleId: managerRoleId, active: false })
+
+  const result = await repository.list({ role: 'MOTORISTA', active: true, search: 'silva', page: 1, pageSize: 1 })
+
+  assert.equal(result.total, 2)
+  assert.equal(result.users.length, 1)
+  assert.equal(result.totalPages, 2)
+  assert.equal('passwordHash' in result.users[0]!, false)
+})
+
+test('IT08: create normaliza e-mail e respeita a unicidade case-insensitive', async () => {
+  const pool = getTestPool()
+  const repository = new UsersRepository(pool)
+  const roleId = await getRoleId(pool, 'SOLICITANTE')
+
+  const created = await repository.create({
+    name: 'Solicitante Fictícia',
+    email: '  SOLICITANTE@EXAMPLE.TEST ',
+    passwordHash: 'hash-ficticio',
+    roleId,
+  })
+  assert.equal(created.email, 'solicitante@example.test')
 
   await assert.rejects(
-    async () => {
-      await pool.query(
-        `INSERT INTO auth.users (name, email, password_hash, role, active)
-         VALUES ($1, $2, $3, $4, $5);`,
-        [
-          'Motorista Fictício Dois',
-          'MOTORISTA.UNICO@EXAMPLE.TEST',
-          'hash_ficticio_2',
-          'MOTORISTA',
-          true,
-        ]
-      );
-    },
-    (error: unknown) => {
-      const pgError = error as { code?: string };
-      return pgError.code === '23505';
-    }
-  );
-});
+    repository.create({
+      name: 'Solicitante Duplicada',
+      email: 'solicitante@example.test',
+      passwordHash: 'hash-ficticio',
+      roleId,
+    }),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+})
 
-test('IT05: atomicidade transacional com ROLLBACK não persiste dados na tabela', async () => {
-  const pool = getTestPool();
-  const client: PoolClient = await pool.connect();
+test('IT09: update altera somente os campos informados e incrementa a revisão', async () => {
+  const pool = getTestPool()
+  const repository = new UsersRepository(pool)
+  const roleId = await getRoleId(pool, 'ATENDENTE_SVO')
+  const created = await repository.create({
+    name: 'Atendente Fictícia',
+    email: 'atendente@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId,
+  })
+
+  const updated = await repository.update(created.id, {
+    name: 'Atendente Atualizada',
+    expectedRevision: created.revision,
+  })
+
+  assert.equal(updated.kind, 'updated')
+  if (updated.kind !== 'updated') throw new Error('A atualização deveria ter sido aceita.')
+  assert.equal(updated.user.name, 'Atendente Atualizada')
+  assert.equal(updated.user.revision, 2)
+  assert.ok(updated.user.updatedAt.getTime() >= created.createdAt.getTime())
+
+  const conflict = await repository.update(created.id, {
+    name: 'Atendente Desatualizada',
+    expectedRevision: created.revision,
+  })
+  assert.equal(conflict.kind, 'revision-conflict')
+})
+
+test('IT10: transação revertida não persiste usuário', async () => {
+  const pool = getTestPool()
+  const roleId = await getRoleId(pool, 'SOLICITANTE')
+  const client: PoolClient = await pool.connect()
 
   try {
-    await client.query('BEGIN;');
+    await client.query('BEGIN')
     await client.query(
-      `INSERT INTO auth.users (name, email, password_hash, role, active)
-       VALUES ($1, $2, $3, $4, $5);`,
-      [
-        'Usuário Provisório',
-        'provisorio.rollback@example.test',
-        'hash_rollback',
-        'SOLICITANTE',
-        true,
-      ]
-    );
-    await client.query('ROLLBACK;');
+      `INSERT INTO auth.users (name, email, password_hash, role_id, active)
+       VALUES ($1, $2, $3, $4, $5)`,
+      ['Usuário Provisório', 'provisorio.rollback@example.test', 'hash-ficticio', roleId, true],
+    )
+    await client.query('ROLLBACK')
   } finally {
-    client.release();
+    client.release()
   }
 
-  const repo = new UsersRepository(pool);
-  const found = await repo.findByEmail('provisorio.rollback@example.test');
-  assert.equal(found, null, 'Registro em transação abortada não deve existir no banco');
-});
+  const repository = new UsersRepository(pool)
+  assert.equal(await repository.findByEmail('provisorio.rollback@example.test'), null)
+})
 
-test('IT06: truncateTestDatabase esvazia registros preservando estrutura das tabelas', async () => {
-  const pool = getTestPool();
+test('IT11: rollback restaura as invariantes da coluna role legada', async () => {
+  const pool = getTestPool()
+  const rollbackPath = path.resolve(
+    __dirname,
+    '../src/database/migrations/202610180001_create_roles_permissions_and_update_users.down.sql',
+  )
+  const rollbackSql = await fs.readFile(rollbackPath, 'utf8')
 
-  await pool.query(
-    `INSERT INTO auth.users (name, email, password_hash, role, active)
-     VALUES ($1, $2, $3, $4, $5);`,
-    ['Usuário Antes do Truncate', 'truncate@example.test', 'hash', 'ATENDENTE_SVO', true]
-  );
+  await pool.query(rollbackSql)
+  await pool.query(`DELETE FROM schema_migrations WHERE version = '202610180001'`)
 
-  const beforeTruncate = await pool.query<{ count: string }>('SELECT count(*)::text as count FROM auth.users;');
-  assert.equal(beforeTruncate.rows[0]?.count, '1');
+  try {
+    const column = await pool.query<{ isNullable: string }>(`
+      SELECT is_nullable AS "isNullable"
+      FROM information_schema.columns
+      WHERE table_schema = 'auth'
+        AND table_name = 'users'
+        AND column_name = 'role'
+    `)
+    const constraint = await pool.query<{ definition: string }>(`
+      SELECT pg_get_constraintdef(c.oid) AS definition
+      FROM pg_constraint AS c
+      JOIN pg_class AS relation ON relation.oid = c.conrelid
+      JOIN pg_namespace AS schema ON schema.oid = relation.relnamespace
+      WHERE schema.nspname = 'auth'
+        AND relation.relname = 'users'
+        AND c.conname = 'auth_users_role_check'
+    `)
 
-  await truncateTestDatabase();
+    assert.equal(column.rows[0]?.isNullable, 'NO')
+    assert.match(constraint.rows[0]?.definition ?? '', /ADMINISTRADOR/)
+  } finally {
+    const migrator = new DatabaseMigrator()
+    await migrator.runMigrations(pool, { silent: true })
+  }
+})
 
-  const afterTruncate = await pool.query<{ count: string }>('SELECT count(*)::text as count FROM auth.users;');
-  assert.equal(afterTruncate.rows[0]?.count, '0');
-});
-
-test('IT07: encerramento limpo do pool de testes via closeTestPool', async () => {
-  // Verifica encerramento idempotente sem emissão de exceções não tratadas
-  await closeTestPool();
-  assert.equal(true, true);
-  // Reinstancia o pool para uso seguro no hook after()
-  getTestPool();
-});

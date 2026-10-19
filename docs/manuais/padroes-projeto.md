@@ -15,6 +15,7 @@ O objetivo deste guia é fornecer consistência arquitetural, desacoplamento e t
 | **Negócio / Domínio** | Máquina de Estados / Estado | *State Pattern (FSM)* | Controle do ciclo de vida imutável de solicitações e viagens, bloqueando transições ilegais em tempo de compilação e execução. |
 | **Algoritmos Variáveis** | Estratégia | *Strategy Pattern* | Variação dinâmica de algoritmos sem acoplamento nem `switch/case` extensos (ex: exportadores de relatórios em CSV, PDF e XLSX). |
 | **Segurança e HTTP** | Cadeia de Responsabilidade | *Chain of Responsibility* | Pipeline modular de middlewares Express 5: validação de token JWT → autorização RBAC → validação de schema → controller → tratamento global de erro. |
+| **Histórico e Auditoria** | Snapshot de Contexto + Trilha Append-Only | *Point-in-Time Context Snapshot + Append-Only Log* | Preservação imutável da história: retificações sem DELETE físico, bi-temporalidade e congelamento do contexto vigente na época da decisão. |
 | **Interface (React 19 + MUI)** | Hooks Customizados + Componentes Compostos | *Custom Hooks + Compound Components* | Desacoplamento de efeitos assíncronos e I/O de rede (Hooks) e composição semântica sobre Material UI (`@mui/material`) com tema unificado (`theme.ts`) e estado compartilhado (WCAG 2.2 AA). |
 
 ---
@@ -411,10 +412,30 @@ EntityCard.Actions = function EntityCardActions({ children }: { children: React.
 
 ---
 
-## 8. Antipadrões Proibidos no Sistema Aratu
+## 8. Snapshot de Contexto Histórico e Trilha por Acumulação (*Point-in-Time Context Snapshot & Append-Only Log*)
+
+### 8.1 Problema Resolvido
+No Sistema Aratu, consultas históricas precisam responder:
+1. *O que sabemos hoje?* (Estado vigente da entidade);
+2. *O que a equipe sabia no momento exato em que tomou a decisão?* (Contexto fático da época).
+
+Se uma viagem foi realizada com uma viatura de 16 lugares e, meses depois, a viatura teve seus assentos alterados para 12 lugares para acomodar macas ou equipamentos, **uma consulta à viagem antiga não pode recalcular lotações ou interpretar o passado com a capacidade atual**. Do mesmo modo, retificar um hodômetro incorreto não pode apagar o lançamento anterior nem a evidência original.
+
+### 8.2 Estrutura do Padrão
+1. **Trilha por Acumulação (Append-Only):**
+   - Entidades operacionais (leituras de hodômetro, paradas de viagem, abastecimentos, ocorrências SVO) nunca são deletadas via SQL `DELETE`.
+   - Modificações geram um novo registro com o valor corrigido referenciando o registro anterior via `supersedes_id`, acompanhado de justificativa textual obrigatória (`reason`), evidência (`evidence_description`, `attachment_url`), momento do fato (`occurred_at`), momento do registro (`registered_at`), informante (`reported_by`) e operador autenticado (`registered_by`).
+2. **Snapshot de Contexto:**
+   - No momento da confirmação de um ato operacional (ex: despacho de viagem em `trip.trips`), o serviço copia um snapshot estático dos dados relevantes do veículo (placa, capacidade, categoria) e do motorista (nome, CNH, categoria de habilitação).
+   - O relatório e a conferência da viagem leem o snapshot da época, garantindo fidelidade jurídica e operacional.
+
+---
+
+## 9. Antipadrões Proibidos no Sistema Aratu
 
 | Antipadrão | Por que é proibido no Aratu | O que fazer no lugar |
 |---|---|---|
+| **Apagar o Passado (*Destructive UPDATE/DELETE*)** | Destrói a rastreabilidade histórica, impede auditorias de órgãos de controle e altera retroativamente o contexto de decisões passadas. | Adotar o padrão **Trilha por Acumulação (Append-Only)**: retificações referenciam o lançamento anterior (`supersedes_id`) com justificativa e evidência; anulações usam flags (`is_annulled`) sem `DELETE` físico. |
 | **Fat Controller** | Acopla regras de negócio ao protocolo HTTP, impedindo testes isolados e reuso. | Mover todas as validações de domínio, cálculos e invariantes para a camada `Service`. |
 | **SQL em Controllers ou Services** | Viola a fronteira de persistência, gera duplicação de queries e risco de SQL Injection. | Centralizar todo acesso a dados em `repositories/` com queries parametrizadas (`$1, $2`). |
 | **God Service** | Um único serviço gerenciando múltiplos domínios (ex: `GeneralSystemService`). | Respeitar os limites dos domínios da FSPH/SVO (`FleetService`, `TripService`, `RequestService`, `SvoService`). |

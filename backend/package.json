@@ -9,7 +9,9 @@
     "test": "tsx --test tests/**/*.test.ts",
     "test:unit": "tsx --test tests/auth.test.ts",
     "test:integration": "tsx --test tests/*.integration.test.ts",
-    "test:db:setup": "tsx tests/helpers/db-test.ts"
+    "test:db:setup": "tsx tests/helpers/db-test.ts",
+    "db:migrate": "tsx src/database/scripts/migrate.ts",
+    "db:seed": "tsx src/database/scripts/seed.ts"
   },
   "keywords": [],
   "author": "",
