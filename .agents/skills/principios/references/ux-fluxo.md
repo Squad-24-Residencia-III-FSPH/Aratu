@@ -117,3 +117,19 @@ partir da estrutura das tabelas do banco de dados:
 1. **Cadastro e Monitoramento:** Consulta de veículos por placa, modelo, status e quilometragem atual.
 2. **Manutenção:** Abertura de ordens de serviço (preventiva ou corretiva), bloqueando temporariamente o veículo para novas viagens.
 3. **Retorno à Operação:** Registro de conclusão da manutenção e liberação do veículo para a frota ativa.
+
+---
+
+## Exibição da Linha do Tempo e Retificações (Transparência Histórica)
+
+No Aratu, a interface do usuário reflete o princípio de que **o passado não é apagado**:
+
+1. **Linha do Tempo Cronológica (*Timeline*):**
+   - Ao abrir um veículo ou motorista, disponibilize uma aba ou seção de histórico permitindo acompanhar todos os acontecimentos (manutenções, hodômetros, abastecimentos, contratos, afastamentos e viagens).
+2. **Visibilidade de Retificações na Tela:**
+   - A tela deve destacar a informação vigente correta (ex: hodômetro de 51.200 km), mas exibir indicador visual explícito (ex: `StatusChip` informativo `"Retificado"`);
+   - Ao clicar ou expandir, o usuário deve poder visualizar o lançamento anterior (52.000 km), quem informou, quem cadastrou, a justificativa do erro e a evidência anexada (ex: link para a foto do painel ou canal informado).
+3. **Paradas Canceladas não Desaparecem:**
+   - No itinerário da viagem, paradas canceladas continuam visíveis na listagem com estilo visual diferenciado (texto tachado ou chip `"Cancelada"`), exibindo a justificativa do cancelamento e quem o efetuou.
+4. **Reabertura Excepcional:**
+   - Viagens reabertas exibem um alerta de contexto destacando que a viagem foi encerrada anteriormente e reaberta por exceção administrativa, exibindo a justificativa do gestor.
