@@ -3,12 +3,16 @@ import cors from 'cors'
 import { error as logError } from 'node:console'
 import type { Pool } from 'pg'
 import { createAuthRouter } from './routes/auth.routes'
+import { createProfileRouter } from './routes/profile.routes'
 import type { JwtConfig } from './types/auth'
 import type { AuditRepositoryContract } from './types/audit.types'
 import { AuditRepository } from './repositories/audit.repository'
 import type { UserRepository } from './repositories/users.repository'
 import { UsersRepository } from './repositories/users.repository'
+import type { RoleRepositoryContract } from './repositories/roles.repository'
+import { RolesRepository } from './repositories/roles.repository'
 import { AuditService } from './services/audit.service'
+import { ProfileService } from './services/profile.service'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -18,6 +22,8 @@ export interface AppDependencies {
   jwtConfig: JwtConfig
   /** Repositório de usuários customizado (utilizado primariamente em testes unitários). */
   users?: UserRepository
+  /** Repositório de perfis RBAC customizado (utilizado primariamente em testes). */
+  roles?: RoleRepositoryContract
   /** Repositório de auditoria customizado para gravação em `audit.logs`. */
   audits?: AuditRepositoryContract
   /** Pool de conexões com o PostgreSQL 18 para instanciação dos repositórios padrão. */
@@ -34,10 +40,11 @@ export interface AppDependencies {
  * @returns Instância configurada do aplicativo Express.
  * @throws {Error} Se nem o repositório de usuários nem o pool PostgreSQL forem informados.
  */
-export function createApp({ jwtConfig, users, audits, pool }: AppDependencies) {
+export function createApp({ jwtConfig, users, roles, audits, pool }: AppDependencies) {
   const userRepository = users ?? (pool ? new UsersRepository(pool) : null)
   if (!userRepository) throw new Error('O repository de usuários ou o pool PostgreSQL é obrigatório.')
 
+  const rolesRepository = roles ?? (pool ? new RolesRepository(pool) : undefined)
   const auditRepository = audits ?? (pool ? new AuditRepository(pool) : undefined)
   const auditService = auditRepository ? new AuditService(auditRepository) : undefined
 
@@ -48,6 +55,9 @@ export function createApp({ jwtConfig, users, audits, pool }: AppDependencies) {
     res.json({ mensagem: 'Servidor Express rodando com sucesso no Docker!' })
   })
   app.use('/auth', createAuthRouter(userRepository, jwtConfig, auditService))
+  if (rolesRepository) {
+    app.use('/profiles', createProfileRouter(new ProfileService(rolesRepository), jwtConfig.secret))
+  }
   app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (res.headersSent) {
       next(error)

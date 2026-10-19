@@ -218,6 +218,7 @@ function buildSyntheticUser(overrides: Partial<UserForLogin> = {}): UserForLogin
     name: 'Motorista Sintético FSPH',
     email: 'motorista.auditoria@example.test',
     password_hash: passwordHash,
+    roleId: '4',
     role: 'MOTORISTA',
     is_active: true,
     ...overrides,

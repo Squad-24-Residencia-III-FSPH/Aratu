@@ -184,3 +184,125 @@ O backend do Aratu adota uma estratégia leve e rápida de testes automatizados 
 6. **Conformidade com LGPD e Sigilo SVO:**
    - Fixtures e testes utilizam exclusivamente dados sintéticos e e-mails fictícios (`@example.test`), sendo estritamente proibido transcrever dados reais de servidores, motoristas ou óbitos.
 
+---
+
+## 8. Ciclo de Vida do Banco de Dados: Migrações e Seeds (`db:migrate` e `db:seed`)
+
+O Sistema Aratu adota uma separação rigorosa de responsabilidades entre alterações de schema/catálogo e provisionamento operacional de contas:
+
+### 8.1 Migrações e Dados de Catálogo (`npm run db:migrate`)
+- **Arquivo Orquestrador:** `backend/src/database/scripts/migrate.ts` invocando `DatabaseMigrator`.
+- **Escopo Exclusivo:**
+  - Definição DDL (schemas nativos `auth`, `audit`, `fleet`, `trip`, `svo`, tabelas, constraints e índices);
+  - **Dados de Catálogo Estruturais (Lookups):** Os 6 perfis RBAC canônicos (`ADMINISTRADOR`, `GESTOR`, `SOLICITANTE`, `MOTORISTA`, `ATENDENTE_SVO`, `EQUIPE_SVO`), as permissões do sistema e suas associações N:N são provisionados diretamente nas migrações SQL (`INSERT ... ON CONFLICT DO NOTHING`).
+- **Segurança e Idempotência:**
+  - Cada arquivo de migração roda em transação atômica (`BEGIN ... COMMIT`);
+  - Toda migração aplicada é registrada na tabela `schema_migrations`;
+  - Seguro para rodar automaticamente na inicialização de containers e pipelines de CI/CD.
+
+### 8.2 Bootstrap Operacional de Ambiente (`npm run db:seed`)
+- **Arquivo Orquestrador:** `backend/src/database/scripts/seed.ts`.
+- **Escopo Exclusivo:**
+  - Criação do primeiro usuário `ADMINISTRADOR` do sistema quando a base de dados acabou de ser provisionada.
+- **Configuração via Variáveis de Ambiente:**
+  - `INITIAL_ADMIN_EMAIL`: E-mail normalizado do primeiro Administrador (ex: `admin@aratu.fsph.se.gov.br`).
+  - `INITIAL_ADMIN_PASSWORD`: Senha forte para o Administrador.
+  - `INITIAL_ADMIN_NAME`: Nome de exibição institucional (opcional, padrão: `Administrador do Sistema`).
+- **Padrões Mandatórios de Segurança:**
+  1. **Auditoria Transacional Obrigatória:** Toda criação do Administrador inicial gera imediatamente e na mesma transação um registro em `audit.logs` (`table = 'auth.users'`, `operation = 'INSERT'`, `reason = 'BOOTSTRAP_INITIAL_ADMIN'`), garantindo rastreabilidade completa perante a LGPD.
+  2. **Bloqueio em Produção:** Se `NODE_ENV === 'production'`, o script aborta a execução se `INITIAL_ADMIN_PASSWORD` contiver o placeholder do template (`replace-with-a-strong-password`) ou possuir menos de 8 caracteres.
+  3. **Idempotência Segura:** Se a conta já existir na base, o script não altera sua senha ou perfil, emitindo apenas confirmação de existência.
+  4. **Troca Obrigatória:** Em ambientes operacionais reais, a senha inicial deve ser alterada no primeiro acesso do Administrador.
+
+---
+
+## 9. Modelagem de Histórico, Bi-temporalidade e Preservação de Contexto
+
+No backend do Sistema Aratu, **o passado não é apagado**: consultas operacionais e de auditoria devem ser capazes de reconstruir tanto o estado vigente atual quanto o contexto conhecido pela equipe no instante exato de cada decisão histórica.
+
+### 9.1 Mandato Inegociável de Autoria do Histórico
+Toda linha gravada em tabelas de histórico ou eventos operacionais deve identificar explicitamente **qual usuário autenticado realizou a alteração**:
+- **`registered_by BIGINT NOT NULL REFERENCES auth.users(id)`:** Chave estrangeira que amarra a autoria à conta do usuário;
+- **`actor_snapshot JSONB NOT NULL`:** Snapshot imutável (`{ id, name, email, role }`) do usuário no instante da gravação. Previne que alterações cadastrais posteriores (troca de nome ou perfil) apaguem ou distorçam quem tomou a decisão;
+- **`reported_by TEXT NOT NULL`:** Fonte externa ou de campo (ex: *"Motorista em trânsito por telefone"* ou *"Guia nº 402"*).
+
+---
+
+### 9.2 Arquitetura Tripartite de Histórico
+
+#### Padrão A: Entidades Mestres — Estado Atual + Livro de Eventos (SCD Tipo 4)
+Para entidades de cadastro contínuo (**Veículos e Condutores**):
+- **Tabela Principal (Estado Vigente):** `fleet.vehicles` e `fleet.drivers` contêm os atributos atuais, garantindo que consultas operacionais rotineiras sejam indexadas e rápidas.
+- **Tabela de Eventos (Histórico Completo):** `fleet.vehicle_events` e `fleet.driver_events` registram cada mutação confirmada com histórico de antes/depois.
+
+```sql
+-- 1. Tabela Principal (Estado Atual)
+CREATE TABLE IF NOT EXISTS fleet.vehicles (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  license_plate TEXT NOT NULL,
+  capacity INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  current_odometer_km INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  revision INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+-- 2. Tabela de Histórico de Eventos (SCD Tipo 4)
+CREATE TABLE IF NOT EXISTS fleet.vehicle_events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles(id),
+  event_type TEXT NOT NULL,                  -- 'CAPACITY_CHANGE', 'MAINTENANCE', 'STATUS_CHANGE'
+  occurred_at TIMESTAMPTZ NOT NULL,          -- Momento real do fato
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  reported_by TEXT NOT NULL,                 -- Quem comunicou
+  registered_by BIGINT NOT NULL REFERENCES auth.users(id), -- Quem cadastrou
+  actor_snapshot JSONB NOT NULL,             -- Snapshot do operador ({ id, name, email, role })
+  reason TEXT NOT NULL,                      -- Justificativa da mudança
+  evidence_description TEXT,                 -- Canal ou descrição da evidência
+  attachment_url TEXT,                       -- Link para foto/documento
+  before_state JSONB,                        -- Snapshot do estado antes da mutação
+  after_state JSONB NOT NULL,                -- Snapshot do estado após a mutação
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+```
+
+#### Padrão B: Medições Operacionais — Encadeamento Append-Only (`supersedes_id`)
+Para dados de fluxo contínuo onde ocorrem retificações frequentes (**Hodômetros e Abastecimentos**):
+
+```sql
+CREATE TABLE IF NOT EXISTS fleet.vehicle_odometer_readings (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles(id),
+  odometer_km INTEGER NOT NULL CHECK (odometer_km >= 0),
+  occurred_at TIMESTAMPTZ NOT NULL,
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  reported_by TEXT NOT NULL,
+  registered_by BIGINT NOT NULL REFERENCES auth.users(id),
+  actor_snapshot JSONB NOT NULL,
+  reason TEXT,                               -- Obrigatório caso seja retificação
+  evidence_description TEXT,
+  attachment_url TEXT,                       -- Foto do painel
+  supersedes_id BIGINT REFERENCES fleet.vehicle_odometer_readings(id),
+  is_annulled BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+```
+
+#### Padrão C: Decisões e Contratos — Snapshot no Ponto de Consumo
+Para ações com validade jurídica (**Viagens e Ocorrências do SVO**):
+- Viagens (`trip.trips`) congelam em `vehicle_snapshot JSONB` e `driver_snapshot JSONB` a capacidade da viatura e a habilitação do condutor no instante do despacho.
+- Paradas de itinerário (`trip.trip_stops`) **nunca recebem `DELETE`**: recebem `status = 'CANCELLED'`, `cancelled_at`, `cancelled_by` e `cancellation_reason`.
+
+---
+
+### 9.3 Coordenação na Camada Service
+Mutação que altera uma entidade mestre (ex: alteração de capacidade) deve ser executada pelo `Service` em **uma única transação atômica** (`BEGIN ... COMMIT`):
+1. Trava a entidade mestre com `SELECT ... FOR UPDATE`;
+2. Atualiza a tabela principal (`UPDATE fleet.vehicles SET capacity = $1, revision = revision + 1 ...`);
+3. Insere o registro em `fleet.vehicle_events` contendo `before_state`, `after_state`, `registered_by` e `actor_snapshot` extraídos da sessão autenticada;
+4. Faz o `COMMIT` atômico. Se o histórico falhar, a mutação na tabela mestre sofre rollback imediato.
+
+
+

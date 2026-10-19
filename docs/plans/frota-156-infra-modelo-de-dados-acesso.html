@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-156 / FROTA-30 / FROTA-164 / FROTA-37 — [INFRA] Modelo de Dados: Acesso, Usuários e RBAC Dinâmico (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-156 / FROTA-30 / FROTA-164 / FROTA-37: Modelo de Dados de Acesso, Usuários e RBAC Dinâmico</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefas Integradas no Jira:</strong></p>
+  <ul>
+    <li><a href="https://squad24.atlassian.net/browse/FROTA-156" target="_blank"><code>FROTA-156</code></a> — <em>[INFRA] Modelo de dados: Acesso e Usuários</em> (Tarefa-mãe de infraestrutura)</li>
+    <li><a href="https://squad24.atlassian.net/browse/FROTA-30" target="_blank"><code>FROTA-30</code></a> — <em>[DB] Criar tabela de usuários</em> (Subtarefa)</li>
+    <li><a href="https://squad24.atlassian.net/browse/FROTA-164" target="_blank"><code>FROTA-164</code></a> — <em>[DB] Criar tabelas de perfis e permissões</em> (Subtarefa)</li>
+    <li><a href="https://squad24.atlassian.net/browse/FROTA-37" target="_blank"><code>FROTA-37</code></a> — <em>[BE] Criar estrutura de permissões</em> (Critérios de aceite de backend e endpoint <code>GET /profiles</code>)</li>
+  </ul>
+  <p><strong>Branch de Trabalho (Gitflow):</strong> <code>feat/infra-modelo-de-dados-acesso</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Commit Sugerido:</strong> <code>feat(auth): implementar modelo de dados de usuarios, perfis e rbac (FROTA-30, FROTA-164, FROTA-37)</code></p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo do Sistema Aratu:</strong> <code>AUTENTICACAO_RBAC</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ADMINISTRADOR, GESTOR, SOLICITANTE, MOTORISTA, ATENDENTE_SVO, EQUIPE_SVO</code></p>
+  <p><strong>Data de Planejamento:</strong> 2026-10-18</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+
+<h3>1.1 Contexto Operacional (FSPH / SVO)</h3>
+<p>
+  O <strong>Sistema Aratu</strong> gerencia o transporte institucional de saúde da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e as operações sigilosas de coleta e entrega cadavérica do <strong>Serviço de Verificação de Óbito (SVO)</strong>. A rastreabilidade operacional, a segregação de funções e a auditoria imutável (<code>audit.logs</code>) dependem de uma gestão robusta de identidades, perfis de acesso e permissões granulares.
+</p>
+
+<h3>1.2 Objetivo da Tarefa (Escopo Unificado de Infraestrutura de Acesso e RBAC)</h3>
+<p>
+  Por decisão técnica e arquitetural alinhada com o desenvolvedor (Opção B), este plano unifica a entrega da tarefa-mãe de infraestrutura <strong><a href="https://squad24.atlassian.net/browse/FROTA-156" target="_blank">FROTA-156</a></strong> e de suas duas únicas subtarefas — <strong><a href="https://squad24.atlassian.net/browse/FROTA-30" target="_blank">FROTA-30</a></strong> (tabela de usuários) e <strong><a href="https://squad24.atlassian.net/browse/FROTA-164" target="_blank">FROTA-164</a></strong> (tabelas de perfis, permissões e seed) —, antecipando e atendendo integralmente os critérios de pronto de backend da <strong><a href="https://squad24.atlassian.net/browse/FROTA-37" target="_blank">FROTA-37</a></strong> (US03 / RBAC dinâmico e endpoint <code>GET /profiles</code>):
+</p>
+<ol>
+  <li><strong>Estrutura Relacional de Perfis e Permissões (RBAC Dinâmico):</strong> Criação das tabelas normalizadas <code>auth.roles</code> (perfis de acesso), <code>auth.permissions</code> (permissões atômicas de negócio) e <code>auth.role_permissions</code> (tabela de associação N:N entre perfis e permissões).</li>
+  <li><strong>Evolução da Tabela <code>auth.users</code>:</strong> Migração segura substituindo a restrição textual engessada pela chave estrangeira <code>role_id BIGINT NOT NULL REFERENCES auth.roles(id) ON DELETE RESTRICT</code> e inclusão da coluna de carimbo temporal <code>updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()</code>.</li>
+  <li><strong>Automação de Migrações (<code>npm run db:migrate</code>):</strong> Criação do script CLI <code>backend/src/database/scripts/migrate.ts</code> associado ao <code>backend/package.json</code>, executando o <code>DatabaseMigrator</code> de forma transacional e idempotente.</li>
+  <li><strong>Provisionamento Completo e Idempotente (<code>npm run db:seed</code>):</strong> Criação do script <code>backend/src/database/scripts/seed.ts</code> para:
+    <ul>
+      <li>Popular os 6 perfis canônicos do Aratu (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code>) em <code>auth.roles</code>;</li>
+      <li>Registrar o catálogo inicial de permissões de negócio em <code>auth.permissions</code>;</li>
+      <li>Vincular permissões aos perfis correspondentes em <code>auth.role_permissions</code>;</li>
+      <li>Registrar o <strong>Administrador inicial</strong> em <code>auth.users</code> com <code>role_id</code> correspondente e senha hasheada com bcrypt via variáveis do <code>.env</code> (<code>INITIAL_ADMIN_EMAIL</code>, <code>INITIAL_ADMIN_PASSWORD</code>, <code>INITIAL_ADMIN_NAME</code>).</li>
+    </ul>
+  </li>
+  <li><strong>Repositórios de Domínio:</strong>
+    <ul>
+      <li><code>UsersRepository</code>: métodos tipados <code>findByEmail</code> (projetando dados de login e nome do papel via JOIN), <code>findById</code>, <code>list</code> (com filtros por <code>roleId</code>, <code>active</code>, termo de busca e paginação sargável), <code>create</code> e <code>update</code>;</li>
+      <li><code>RolesRepository</code>: métodos <code>findAll</code>, <code>findById</code> e <code>findPermissionsByRoleId</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Contrato REST de Perfis (<code>GET /profiles</code>):</strong> Disponibilização do endpoint de listagem de perfis exigido pela FROTA-37 para alimentar os selects do frontend, protegido por token JWT e perfil <code>ADMINISTRADOR</code> via middleware <code>authorizeRoles</code>.</li>
+  <li><strong>Sigilo e Proteção de Credenciais:</strong> Garantir que nenhuma consulta de usuário exponha <code>password_hash</code>, exceto a consulta estrita de autenticação consumida pelo <code>AuthService</code>.</li>
+</ol>
+
+<h3>1.3 Decisões Confirmadas pela Regra da Dúvida (Alinhamento Técnico com o Usuário)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Item / Ponto em Aberto</th>
+      <th scope="col">Divergência / Dúvida Identificada</th>
+      <th scope="col">Decisão Técnica Confirmada (Opção B Selecionada)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Escalabilidade de Perfis e Permissões</strong></td>
+      <td>A base possuía coluna <code>role TEXT CHECK (...)</code>. O usuário questionou se manter fixo não feria a escalabilidade e se não seria melhor modelar perfis e permissões dinâmicos cadastráveis pelo administrador.</td>
+      <td><strong>Opção B confirmada:</strong> Antecipar a estrutura relacional de <code>auth.roles</code>, <code>auth.permissions</code> e <code>auth.role_permissions</code> da US03 / FROTA-37, migrando <code>auth.users.role_id BIGINT</code> com integridade referencial.</td>
+    </tr>
+    <tr>
+      <td><strong>Inclusão da Coluna <code>updated_at</code></strong></td>
+      <td>A issue sugeria incluir <code>criado_em</code> e <code>atualizado_em</code>. A coluna <code>created_at</code> já existia na tabela.</td>
+      <td><strong>Confirmado:</strong> Adicionar <code>updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()</code> via migração transacional com rollback.</td>
+    </tr>
+    <tr>
+      <td><strong>Variáveis de Ambiente do Seed</strong></td>
+      <td>Definição dos nomes oficiais das variáveis de ambiente para o Administrador inicial.</td>
+      <td><strong>Confirmado:</strong> Adotar <code>INITIAL_ADMIN_EMAIL</code>, <code>INITIAL_ADMIN_PASSWORD</code> e <code>INITIAL_ADMIN_NAME</code> no <code>.env</code> e <code>.env.example</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Comandos de Execução Operacional</strong></td>
+      <td>Localização dos comandos <code>npm run db:migrate</code> e <code>npm run db:seed</code>.</td>
+      <td><strong>Confirmado:</strong> No <code>backend/package.json</code>, acionando scripts TypeScript via <code>tsx</code> em <code>backend/src/database/scripts/</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>1.4 Delimitação de Escopo (YAGNI)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Entra no Escopo Desta Entrega (FROTA-30 + FROTA-37 Model)</th>
+      <th scope="col">Fica Explicitamente Fora do Escopo (YAGNI)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Tabelas <code>auth.roles</code>, <code>auth.permissions</code>, <code>auth.role_permissions</code> e migração de <code>auth.users (role_id, updated_at)</code> com rollback.</td>
+      <td>Telas de gerenciamento e matriz de permissões no React 19 (escopo da tarefa de interface FROTA-39).</td>
+    </tr>
+    <tr>
+      <td>Scripts operacionais CLI <code>backend/src/database/scripts/migrate.ts</code> e <code>seed.ts</code>, registrados no <code>backend/package.json</code>.</td>
+      <td>Endpoints de CRUD administrativo de usuários (ex: <code>POST /users</code>, <code>PUT /users</code>), que pertencem à tarefa de API de usuários.</td>
+    </tr>
+    <tr>
+      <td>Seed completo com os 6 perfis canônicos, permissões padrão, associações e usuário Administrador inicial com hash bcrypt.</td>
+      <td>Fluxo de recuperação de senha por e-mail ou reset de credenciais.</td>
+    </tr>
+    <tr>
+      <td>Repositórios <code>UsersRepository</code> e <code>RolesRepository</code> com tipagem estrita e sem exposição de senhas.</td>
+      <td>Criação de novos ORMs ou dependências externas pesadas (mantido driver nativo <code>pg</code>).</td>
+    </tr>
+    <tr>
+      <td>Middleware de autorização RBAC (<code>authorizeRoles</code>) e endpoint <code>GET /profiles</code> com proteção por papel <code>ADMINISTRADOR</code>.</td>
+      <td>Autenticação multifator (MFA/2FA) ou integração com provedores OAuth2/SAML.</td>
+    </tr>
+    <tr>
+      <td>Bateria de testes de integração no PostgreSQL 18 real cobrindo migrações, seed idempotente, repositórios e endpoint <code>GET /profiles</code>.</td>
+      <td>Seeds dinâmicos para ambientes externos de produção.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+
+<h3>2.1 Requisitos Funcionais (RF)</h3>
+<ul>
+  <li><strong>RF01 (Migração SQL de RBAC Dinâmico e Usuários):</strong> Criar o arquivo de migração <code>backend/src/database/migrations/202610180001_create_roles_permissions_and_update_users.sql</code> e o rollback correspondente <code>.down.sql</code>, realizando em transação atômica:
+    <ul>
+      <li>Criação da tabela <code>auth.roles</code> com colunas <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>name TEXT NOT NULL UNIQUE</code>, <code>description TEXT</code> e <code>created_at TIMESTAMPTZ</code>;</li>
+      <li>Criação da tabela <code>auth.permissions</code> com colunas <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>name TEXT NOT NULL UNIQUE</code>, <code>description TEXT NOT NULL</code> e <code>created_at TIMESTAMPTZ</code>;</li>
+      <li>Criação da tabela de associação <code>auth.role_permissions</code> com <code>id BIGINT IDENTITY PRIMARY KEY</code>, <code>role_id BIGINT REFERENCES auth.roles(id) ON DELETE CASCADE</code>, <code>permission_id BIGINT REFERENCES auth.permissions(id) ON DELETE CASCADE</code> e constraint de unicidade <code>(role_id, permission_id)</code>;</li>
+      <li>Evolução de <code>auth.users</code>: adição da coluna <code>updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()</code>, criação de <code>role_id BIGINT NOT NULL REFERENCES auth.roles(id) ON DELETE RESTRICT</code> e remoção da coluna legada <code>role</code> com preservação dos dados existentes.</li>
+    </ul>
+  </li>
+  <li><strong>RF02 (Comando de Migração):</strong> Implementar o script CLI <code>backend/src/database/scripts/migrate.ts</code> associado ao comando <code>npm run db:migrate</code> no <code>backend/package.json</code>, invocando <code>DatabaseMigrator.runMigrations()</code> com reporte de status.</li>
+  <li><strong>RF03 (Seed Completo e Idempotente de RBAC e Administrador):</strong> Implementar o script CLI <code>backend/src/database/scripts/seed.ts</code> associado ao comando <code>npm run db:seed</code> no <code>backend/package.json</code>, realizando:
+    <ul>
+      <li>Provisionamento dos 6 perfis canônicos em <code>auth.roles</code> (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code>);</li>
+      <li>Cadastro das permissões atômicas básicas do Aratu em <code>auth.permissions</code>;</li>
+      <li>Vinculação das permissões aos perfis em <code>auth.role_permissions</code>;</li>
+      <li>Criação do usuário com papel <code>ADMINISTRADOR</code> em <code>auth.users</code> apontando para o <code>role_id</code> do Administrador, com senha hasheada com bcrypt a partir de <code>INITIAL_ADMIN_PASSWORD</code>.</li>
+    </ul>
+  </li>
+  <li><strong>RF04 (Idempotência Estrita dos Seeds):</strong> Todas as etapas do seed devem ser 100% idempotentes, utilizando cláusulas <code>ON CONFLICT DO NOTHING</code> ou checagens preventivas por nome/e-mail para evitar duplicações ou falhas em reexecuções.</li>
+  <li><strong>RF05 (Repositório de Perfis — <code>RolesRepository</code>):</strong> Implementar <code>backend/src/repositories/roles.repository.ts</code> com métodos:
+    <ul>
+      <li><code>findAll(): Promise&lt;Role[]&gt;</code> — listagem de todos os perfis ativos para preenchimento de seletores;</li>
+      <li><code>findById(id: string): Promise&lt;Role | null&gt;</code> — busca de perfil por ID;</li>
+      <li><code>findPermissionsByRoleId(roleId: string): Promise&lt;Permission[]&gt;</code> — recuperação das permissões ativas atribuídas ao perfil.</li>
+    </ul>
+  </li>
+  <li><strong>RF06 (Repositório de Usuários — <code>UsersRepository</code>):</strong> Implementar <code>backend/src/repositories/users.repository.ts</code> com:
+    <ul>
+      <li><code>findByEmail(email: string): Promise&lt;UserForLogin | null&gt;</code> — busca por e-mail com <code>JOIN auth.roles</code> projetando <code>role</code> para o contrato de login;</li>
+      <li><code>findById(id: string): Promise&lt;User | null&gt;</code> — busca por ID com <code>JOIN auth.roles</code> projetando <code>User</code> (sem <code>password_hash</code>);</li>
+      <li><code>list(filters: UserFilters): Promise&lt;PaginatedUsers&gt;</code> — listagem com filtros opcionais por <code>roleId</code>, <code>active</code>, busca textual e paginação sargável;</li>
+      <li><code>create(input: CreateUserInput, client?: PoolClient): Promise&lt;User&gt;</code> — inserção com <code>role_id</code>, retornando entidade pública limpa;</li>
+      <li><code>update(id: string, input: UpdateUserInput, client?: PoolClient): Promise&lt;UpdateUserResult&gt;</code> — atualização parcial condicionada a <code>expectedRevision</code>; incrementa <code>revision</code>, atualiza <code>updated_at</code> e distingue usuário inexistente de conflito de concorrência.</li>
+    </ul>
+  </li>
+  <li><strong>RF07 (Sigilo Estrito de Credenciais):</strong> Nenhuma operação em repositórios ou endpoints pode expor o campo <code>password_hash</code>, exceto a consulta restrita de autenticação consumida por <code>AuthService</code>.</li>
+  <li><strong>RF08 (Middleware RBAC e Endpoint <code>GET /profiles</code>):</strong>
+    <ul>
+      <li>Implementar o middleware <code>authorizeRoles(allowedRoles: UserRole[])</code> em <code>backend/src/middlewares/rbac.middleware.ts</code>;</li>
+      <li>Implementar <code>ProfileService.listProfiles()</code> entre o controller e <code>RolesRepository</code>, preservando a separação Controller → Service → Repository;</li>
+      <li>Disponibilizar a rota <code>GET /profiles</code> protegida por <code>createAuthMiddleware</code> e <code>authorizeRoles(['ADMINISTRADOR'])</code>, retornando a lista de perfis no formato JSON <code>[{ id, name, description }]</code>.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>2.2 Requisitos Não-Funcionais (RNF)</h3>
+<ul>
+  <li><strong>RNF01 (Segurança contra SQL Injection):</strong> 100% das consultas executadas utilizam parâmetros posicionais (<code>$1, $2, ...</code>).</li>
+  <li><strong>RNF02 (Consultas Sargáveis e Índices):</strong> Uso de <code>lower(email) = $1</code> com índice <code>auth_users_email_lower_unique</code> e índices em chaves estrangeiras <code>role_id</code> e <code>permission_id</code>.</li>
+  <li><strong>RNF03 (Criptografia Forte de Senhas):</strong> Hashing bcrypt (custo 12) via <code>PasswordService::hashPassword</code> com verificação em tempo constante contra truncamento (72 bytes).</li>
+  <li><strong>RNF04 (Atomicidade e Transacionalidade):</strong> Migrações DDL e rotinas compostas rodam em blocos <code>BEGIN ... COMMIT / ROLLBACK</code>.</li>
+  <li><strong>RNF05 (TypeScript Estrito):</strong> Ausência total de <code>any</code> e tipagens dedicadas para <code>Role</code>, <code>Permission</code> e <code>User</code>.</li>
+  <li><strong>RNF06 (Proteção LGPD e Sigilo SVO):</strong> Utilização exclusiva de dados puramente sintéticos nos exemplos e testes automatizados.</li>
+  <li><strong>RNF07 (Padronização de SQL):</strong> Nos arquivos de backend desta entrega, consultas usam projeções reutilizáveis sem credenciais, cláusulas SQL em maiúsculas, parâmetros posicionais e montagem dinâmica limitada a fragmentos controlados pelo repositório.</li>
+  <li><strong>RNF08 (Concorrência Otimista):</strong> Atualizações de usuário exigem <code>expectedRevision</code> e retornam resultado discriminado para que a borda HTTP futura converta conflito em <code>409 Conflict</code>.</li>
+</ul>
+
+<h3>2.3 Regras de Negócio e Casos de Borda</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Cenário / Regra</th>
+      <th scope="col">Condição de Entrada</th>
+      <th scope="col">Comportamento Esperado / Resolução de Borda</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Normalização de E-mail</strong></td>
+      <td>E-mail informado com espaços no início/fim ou letras maiúsculas (ex: <code>"  Admin@FSPH.SE.GOV.BR "</code>).</td>
+      <td>O repositório e os scripts aplicam <code>trim().toLowerCase()</code> antes de persistir ou consultar no banco, garantindo que o índice <code>lower(email)</code> opere de forma consistente.</td>
+    </tr>
+    <tr>
+      <td><strong>Tentativa de E-mail Duplicado</strong></td>
+      <td>Tentativa de cadastrar usuário com e-mail já existente (ex: <code>admin@fsph.se.gov.br</code>).</td>
+      <td>O banco aciona a constraint <code>auth_users_email_lower_unique</code> disparando erro PostgreSQL <code>23505 (unique_violation)</code>. O chamador recebe a rejeição sem violar a unicidade.</td>
+    </tr>
+    <tr>
+      <td><strong>Integridade Referencial de Perfil</strong></td>
+      <td>Tentativa de cadastrar ou atualizar usuário informando um <code>role_id</code> inexistente.</td>
+      <td>A constraint <code>auth.users_role_id_fkey</code> rejeita a operação com erro PostgreSQL <code>23503 (foreign_key_violation)</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Exclusão de Perfil em Uso</strong></td>
+      <td>Tentativa de deletar um registro em <code>auth.roles</code> associado a contas ativas.</td>
+      <td>A cláusula <code>ON DELETE RESTRICT</code> bloqueia a exclusão para evitar orfandade de permissões.</td>
+    </tr>
+    <tr>
+      <td><strong>Reexecução de Seed em Base Existente</strong></td>
+      <td>O comando <code>npm run db:seed</code> é executado em um banco onde perfis e o administrador já existem.</td>
+      <td>O script reconhece os registros existentes via <code>ON CONFLICT DO NOTHING</code> e encerra com log informativo, finalizando com código 0 (sucesso).</td>
+    </tr>
+    <tr>
+      <td><strong>Acesso ao Endpoint <code>GET /profiles</code> sem Autorização</strong></td>
+      <td>Usuário com perfil <code>MOTORISTA</code> ou <code>SOLICITANTE</code> tenta acessar <code>GET /profiles</code>.</td>
+      <td>O middleware <code>authorizeRoles</code> intercepta a requisição e responde HTTP <code>403 Forbidden</code> com mensagem: <code>"Acesso negado: perfil não autorizado para esta operação."</code></td>
+    </tr>
+    <tr>
+      <td><strong>Atualização Parcial de Usuário</strong></td>
+      <td>Chamada a <code>UsersRepository.update(id, { name: 'Novo Nome', expectedRevision: 1 })</code> sem alterar senha ou <code>role_id</code>.</td>
+      <td>Apenas os campos fornecidos são alterados quando a revisão esperada coincide; o <code>UPDATE</code> incrementa <code>revision</code> e atualiza <code>updated_at</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Conflito de Atualização Concorrente</strong></td>
+      <td>Cliente tenta alterar usuário com <code>expectedRevision</code> inferior à revisão persistida.</td>
+      <td>O repositório retorna <code>{ kind: 'revision-conflict' }</code>; futuro controller traduz o resultado em HTTP <code>409 Conflict</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>2.4 Cenários Comportamentais (Dado / Quando / Então)</h3>
+<p><strong>Cenário 1: Migração em Banco Vazio e Execução de Seed Completo</strong></p>
+<blockquote>
+  <strong>Dado</strong> um banco PostgreSQL 18 vazio sem tabelas de domínio;<br>
+  <strong>Quando</strong> o operador executa <code>npm run db:migrate</code> seguido de <code>npm run db:seed</code>;<br>
+  <strong>Então</strong> as tabelas <code>auth.roles</code>, <code>auth.permissions</code>, <code>auth.role_permissions</code> e <code>auth.users</code> são provisionadas e o administrador inicial é criado vinculado ao perfil <code>ADMINISTRADOR</code> com senha hasheada por bcrypt.
+</blockquote>
+
+<p><strong>Cenário 2: Primeiro Login do Administrador Criado pelo Seed</strong></p>
+<blockquote>
+  <strong>Dado</strong> o administrador inicial provisionado pelo seed com a senha definida em <code>INITIAL_ADMIN_PASSWORD</code>;<br>
+  <strong>Quando</strong> uma requisição <code>POST /auth/login</code> é enviada com o e-mail e a senha em texto claro;<br>
+  <strong>Então</strong> o <code>AuthService</code> valida a credencial via <code>comparePassword</code>, realiza o JOIN em <code>auth.roles</code> e emite o token JWT assinado com perfil <code>ADMINISTRADOR</code>.
+</blockquote>
+
+<p><strong>Cenário 3: Consulta de Perfis por Administrador Autorizado (FROTA-37)</strong></p>
+<blockquote>
+  <strong>Dado</strong> um token JWT válido pertencente a um usuário com perfil <code>ADMINISTRADOR</code>;<br>
+  <strong>Quando</strong> uma requisição <code>GET /profiles</code> for enviada;<br>
+  <strong>Então</strong> o endpoint retorna status HTTP <code>200 OK</code> com o array de todos os perfis disponíveis (<code>id</code>, <code>name</code>, <code>description</code>) para alimentar os componentes de formulário do frontend.
+</blockquote>
+
+<p><strong>Cenário 4: Bloqueio de Acesso a Perfis por Perfil Não Autorizado</strong></p>
+<blockquote>
+  <strong>Dado</strong> um token JWT válido de usuário com perfil <code>MOTORISTA</code>;<br>
+  <strong>Quando</strong> a requisição <code>GET /profiles</code> for enviada;<br>
+  <strong>Então</strong> o middleware <code>authorizeRoles</code> bloqueia a execução e devolve status HTTP <code>403 Forbidden</code>.
+</blockquote>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+
+<h3>3.1 Novos Arquivos</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Caminho do Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Propósito / Responsabilidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/database/migrations/202610180001_create_roles_permissions_and_update_users.sql</code></td>
+      <td>Database (Migration)</td>
+      <td>Criação de <code>auth.roles</code>, <code>auth.permissions</code>, <code>auth.role_permissions</code> e migração de <code>auth.users (role_id, updated_at)</code> em transação atômica.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610180001_create_roles_permissions_and_update_users.down.sql</code></td>
+      <td>Database (Rollback)</td>
+      <td>Reverte as tabelas de permissões e restaura a coluna <code>role</code> em <code>auth.users</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/scripts/migrate.ts</code></td>
+      <td>Database (CLI Script)</td>
+      <td>Ponto de entrada do comando <code>npm run db:migrate</code>; executa o <code>DatabaseMigrator</code> e exibe o status de cada migração.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/scripts/seed.ts</code></td>
+      <td>Database (CLI Script)</td>
+      <td>Ponto de entrada do comando <code>npm run db:seed</code>; popula perfis, permissões, vínculos e o Administrador inicial com idempotência.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/roles.repository.ts</code></td>
+      <td>Repository</td>
+      <td>Contrato <code>RoleRepositoryContract</code> e classe <code>RolesRepository</code> para persistência e recuperação de perfis e permissões.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/profile.service.ts</code></td>
+      <td>Service</td>
+      <td>Serviço puro que centraliza a consulta de perfis RBAC entre a borda HTTP e o repositório.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/middlewares/rbac.middleware.ts</code></td>
+      <td>Middleware</td>
+      <td>Middleware <code>authorizeRoles(allowedRoles: UserRole[])</code> para proteção de rotas restritas baseadas em perfis autorizados (Chain of Responsibility).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/profile.controller.ts</code></td>
+      <td>Controller</td>
+      <td>Controlador com método <code>list</code> para recepção HTTP e resposta JSON da listagem de perfis.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/routes/profile.routes.ts</code></td>
+      <td>Routes</td>
+      <td>Fábrica de rotas <code>createProfileRouter</code> registrando o endpoint <code>GET /profiles</code> com autenticação e autorização RBAC.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.2 Arquivos Alterados</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Caminho do Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Alterações Previstas</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/package.json</code></td>
+      <td>Configuração / Scripts</td>
+      <td>Adicionar scripts operacionais <code>"db:migrate": "tsx src/database/scripts/migrate.ts"</code> e <code>"db:seed": "tsx src/database/scripts/seed.ts"</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/app.ts</code></td>
+      <td>App (Express 5)</td>
+      <td>Injetar <code>RolesRepository</code> nas dependências da fábrica e registrar o roteador <code>/profiles</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/types/auth.ts</code></td>
+      <td>Types / Contratos</td>
+      <td>Declarar interfaces <code>Role</code>, <code>Permission</code>, <code>User</code>, <code>UpdateUserInput</code> com <code>expectedRevision</code> e o resultado discriminado <code>UpdateUserResult</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/users.repository.ts</code></td>
+      <td>Repository</td>
+      <td>Implementar <code>findById</code>, <code>list</code>, <code>create</code> e <code>update</code> com <code>JOIN auth.roles</code> e chave estrangeira <code>role_id</code>, mantendo <code>findByEmail</code> 100% compatível com o login.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/database.integration.test.ts</code></td>
+      <td>Testes de Integração</td>
+      <td>Testes no PostgreSQL 18 real para <code>auth.roles</code>, <code>auth.permissions</code>, integridade de <code>role_id</code>, repositórios e idempotência do seed.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/auth.test.ts</code></td>
+      <td>Testes de API</td>
+      <td>Bateria de testes para o endpoint <code>GET /profiles</code> (autorização 200 para ADMIN e 403 para outros perfis).</td>
+    </tr>
+    <tr>
+      <td><code>.env.example</code> e <code>.env</code></td>
+      <td>Configuração</td>
+      <td>Configurar variáveis <code>INITIAL_ADMIN_EMAIL</code>, <code>INITIAL_ADMIN_PASSWORD</code> e <code>INITIAL_ADMIN_NAME</code>.</td>
+    </tr>
+    <tr>
+      <td><code>docs/modulos/AUTENTICACAO_RBAC.html</code></td>
+      <td>Documentação do Módulo</td>
+      <td>Atualizar tabelas <code>auth.roles</code>, <code>auth.permissions</code>, <code>auth.role_permissions</code> e a rota <code>GET /profiles</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.3 Arquivos de Referência no Projeto (Padrão a Seguir)</h3>
+<ul>
+  <li><strong>Camadas Backend:</strong> <code>docs/manuais/padroes-backend.md</code> e <code>.agents/skills/principios/references/camadas.md</code>.</li>
+  <li><strong>Padrões de Projeto (Design Patterns):</strong> <code>docs/manuais/padroes-projeto.md</code> (Repository Pattern e Queries Parametrizadas).</li>
+  <li><strong>Modelagem e Consultas no PostgreSQL 18:</strong> <code>.agents/skills/principios/references/dados.md</code> e <code>.agents/skills/principios/references/consultas.md</code>.</li>
+  <li><strong>Módulo Oficial de Autenticação:</strong> <code>docs/modulos/AUTENTICACAO_RBAC.html</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+
+<h3>4.1 DDL Transacional da Migração (Up)</h3>
+<p>
+  Arquivo: <code>backend/src/database/migrations/202610180001_create_roles_permissions_and_update_users.sql</code>
+</p>
+<pre><code>BEGIN;
+
+-- 1. Criar tabela de perfis de acesso (auth.roles)
+CREATE TABLE IF NOT EXISTS auth.roles (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL CHECK (btrim(name) &lt;&gt; ''),
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS auth_roles_name_unique ON auth.roles (upper(name));
+
+-- 2. Popular os 6 perfis canônicos na migração para suportar a FK de usuários imediatamente
+INSERT INTO auth.roles (name, description) VALUES
+  ('ADMINISTRADOR', 'Acesso global de parametrização e administração do sistema'),
+  ('GESTOR', 'Gestão operacional de frotas, condutores e aprovação de viagens FSPH'),
+  ('SOLICITANTE', 'Abertura e acompanhamento de requisições de transporte institucional'),
+  ('MOTORISTA', 'Acesso a viagens atribuídas e registro de hodômetro/execução'),
+  ('ATENDENTE_SVO', 'Recepção, triagem de chamados e solicitação de remoção cadavérica'),
+  ('EQUIPE_SVO', 'Atendimento operacional sigiloso, coleta e entrega cadavérica no SVO')
+ON CONFLICT DO NOTHING;
+
+-- 3. Criar tabela de permissões granulares (auth.permissions)
+CREATE TABLE IF NOT EXISTS auth.permissions (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL CHECK (btrim(name) &lt;&gt; ''),
+  description TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS auth_permissions_name_unique ON auth.permissions (lower(name));
+
+-- 4. Criar tabela associativa N:N entre perfis e permissões (auth.role_permissions)
+CREATE TABLE IF NOT EXISTS auth.role_permissions (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  role_id BIGINT NOT NULL REFERENCES auth.roles(id) ON DELETE CASCADE,
+  permission_id BIGINT NOT NULL REFERENCES auth.permissions(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT auth_role_permissions_unique UNIQUE (role_id, permission_id)
+);
+
+CREATE INDEX IF NOT EXISTS auth_role_permissions_by_role ON auth.role_permissions (role_id);
+CREATE INDEX IF NOT EXISTS auth_role_permissions_by_permission ON auth.role_permissions (permission_id);
+
+-- 5. Atualizar tabela auth.users: adicionar updated_at e migrar role para role_id
+ALTER TABLE auth.users
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  ADD COLUMN IF NOT EXISTS role_id BIGINT REFERENCES auth.roles(id) ON DELETE RESTRICT;
+
+-- Se a tabela já contiver linhas com role textual, migrar para role_id
+UPDATE auth.users u
+   SET role_id = r.id
+  FROM auth.roles r
+ WHERE u.role_id IS NULL AND upper(r.name) = upper(u.role);
+
+-- Tornar role_id obrigatório e remover coluna textual legada
+ALTER TABLE auth.users
+  ALTER COLUMN role_id SET NOT NULL;
+
+ALTER TABLE auth.users
+  DROP COLUMN IF EXISTS role;
+
+CREATE INDEX IF NOT EXISTS auth_users_by_role ON auth.users (role_id);
+
+COMMIT;</code></pre>
+
+<h3>4.2 DDL de Rollback (Down)</h3>
+<p>
+  Arquivo: <code>backend/src/database/migrations/202610180001_create_roles_permissions_and_update_users.down.sql</code>
+</p>
+<pre><code>BEGIN;
+
+-- 1. Restaurar coluna role textual com as invariantes originais
+ALTER TABLE auth.users
+  ADD COLUMN IF NOT EXISTS role TEXT;
+
+UPDATE auth.users u
+   SET role = r.name
+  FROM auth.roles r
+ WHERE u.role_id = r.id;
+
+ALTER TABLE auth.users
+  ALTER COLUMN role SET NOT NULL;
+
+ALTER TABLE auth.users
+  DROP CONSTRAINT IF EXISTS auth_users_role_check,
+  ADD CONSTRAINT auth_users_role_check CHECK (role IN (
+    'ADMINISTRADOR',
+    'GESTOR',
+    'SOLICITANTE',
+    'MOTORISTA',
+    'ATENDENTE_SVO',
+    'EQUIPE_SVO'
+  ));
+
+-- 2. Remover constraints e colunas novas de auth.users
+DROP INDEX IF EXISTS auth.auth_users_by_role;
+ALTER TABLE auth.users
+  DROP CONSTRAINT IF EXISTS auth_users_role_id_fkey,
+  DROP COLUMN IF EXISTS role_id,
+  DROP COLUMN IF EXISTS updated_at;
+
+-- 3. Remover tabelas associativas e de perfis
+DROP TABLE IF EXISTS auth.role_permissions;
+DROP TABLE IF EXISTS auth.permissions;
+DROP TABLE IF EXISTS auth.roles;
+
+COMMIT;</code></pre>
+
+<h3>4.3 Modelo Estrutural das Tabelas do Schema <code>auth</code></h3>
+
+<h4>A. Tabela <code>auth.roles</code> (Perfis de Acesso)</h4>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Coluna</th>
+      <th scope="col">Tipo</th>
+      <th scope="col">Nulabilidade</th>
+      <th scope="col">Constraints / Padrão</th>
+      <th scope="col">Descrição</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>id</code></td>
+      <td><code>BIGINT</code></td>
+      <td>NOT NULL</td>
+      <td><code>GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code></td>
+      <td>Identificador numérico sequencial único do perfil.</td>
+    </tr>
+    <tr>
+      <td><code>name</code></td>
+      <td><code>TEXT</code></td>
+      <td>NOT NULL</td>
+      <td><code>CHECK (btrim(name) &lt;&gt; '')</code>, UNIQUE (upper)</td>
+      <td>Nome canônico do perfil (ex: <code>ADMINISTRADOR</code>, <code>GESTOR</code>).</td>
+    </tr>
+    <tr>
+      <td><code>description</code></td>
+      <td><code>TEXT</code></td>
+      <td>NULLABLE</td>
+      <td>-</td>
+      <td>Descrição das atribuições operacionais do perfil.</td>
+    </tr>
+    <tr>
+      <td><code>created_at</code></td>
+      <td><code>TIMESTAMPTZ</code></td>
+      <td>NOT NULL</td>
+      <td><code>DEFAULT clock_timestamp()</code></td>
+      <td>Data/hora de criação do perfil.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>B. Tabela <code>auth.permissions</code> (Permissões Granulares)</h4>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Coluna</th>
+      <th scope="col">Tipo</th>
+      <th scope="col">Nulabilidade</th>
+      <th scope="col">Constraints / Padrão</th>
+      <th scope="col">Descrição</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>id</code></td>
+      <td><code>BIGINT</code></td>
+      <td>NOT NULL</td>
+      <td><code>GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code></td>
+      <td>Identificador único da permissão atômica.</td>
+    </tr>
+    <tr>
+      <td><code>name</code></td>
+      <td><code>TEXT</code></td>
+      <td>NOT NULL</td>
+      <td><code>CHECK (btrim(name) &lt;&gt; '')</code>, UNIQUE (lower)</td>
+      <td>Código da permissão (ex: <code>users:read</code>, <code>profiles:read</code>, <code>trips:approve</code>).</td>
+    </tr>
+    <tr>
+      <td><code>description</code></td>
+      <td><code>TEXT</code></td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>Descrição textual da ação permitida.</td>
+    </tr>
+    <tr>
+      <td><code>created_at</code></td>
+      <td><code>TIMESTAMPTZ</code></td>
+      <td>NOT NULL</td>
+      <td><code>DEFAULT clock_timestamp()</code></td>
+      <td>Data/hora de registro da permissão.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>C. Tabela <code>auth.role_permissions</code> (Associação Perfil ↔ Permissão)</h4>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Coluna</th>
+      <th scope="col">Tipo</th>
+      <th scope="col">Nulabilidade</th>
+      <th scope="col">Constraints / Padrão</th>
+      <th scope="col">Descrição</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>id</code></td>
+      <td><code>BIGINT</code></td>
+      <td>NOT NULL</td>
+      <td><code>GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code></td>
+      <td>Identificador sequencial da relação.</td>
+    </tr>
+    <tr>
+      <td><code>role_id</code></td>
+      <td><code>BIGINT</code></td>
+      <td>NOT NULL</td>
+      <td><code>REFERENCES auth.roles(id) ON DELETE CASCADE</code></td>
+      <td>Chave estrangeira apontando para o perfil.</td>
+    </tr>
+    <tr>
+      <td><code>permission_id</code></td>
+      <td><code>BIGINT</code></td>
+      <td>NOT NULL</td>
+      <td><code>REFERENCES auth.permissions(id) ON DELETE CASCADE</code></td>
+      <td>Chave estrangeira apontando para a permissão.</td>
+    </tr>
+    <tr>
+      <td><code>created_at</code></td>
+      <td><code>TIMESTAMPTZ</code></td>
+      <td>NOT NULL</td>
+      <td><code>DEFAULT clock_timestamp()</code></td>
+      <td>Carimbo temporal da concessão da permissão ao perfil.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>D. Tabela <code>auth.users</code> (Contas de Acesso com <code>role_id</code>)</h4>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Coluna</th>
+      <th scope="col">Tipo</th>
+      <th scope="col">Nulabilidade</th>
+      <th scope="col">Constraints / Padrão</th>
+      <th scope="col">Descrição</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>id</code></td>
+      <td><code>BIGINT</code></td>
+      <td>NOT NULL</td>
+      <td><code>GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code></td>
+      <td>Identificador único do usuário.</td>
+    </tr>
+    <tr>
+      <td><code>name</code></td>
+      <td><code>TEXT</code></td>
+      <td>NOT NULL</td>
+      <td><code>CHECK (btrim(name) &lt;&gt; '')</code></td>
+      <td>Nome completo do servidor/colaborador.</td>
+    </tr>
+    <tr>
+      <td><code>email</code></td>
+      <td><code>TEXT</code></td>
+      <td>NOT NULL</td>
+      <td><code>CHECK (btrim(email) &lt;&gt; '')</code></td>
+      <td>E-mail institucional normalizado (índice <code>lower(email)</code>).</td>
+    </tr>
+    <tr>
+      <td><code>password_hash</code></td>
+      <td><code>TEXT</code></td>
+      <td>NOT NULL</td>
+      <td><code>CHECK (btrim(password_hash) &lt;&gt; '')</code></td>
+      <td>Hash bcrypt de senha (custo 12).</td>
+    </tr>
+    <tr>
+      <td><code>role_id</code></td>
+      <td><code>BIGINT</code></td>
+      <td>NOT NULL</td>
+      <td><code>REFERENCES auth.roles(id) ON DELETE RESTRICT</code></td>
+      <td>Chave estrangeira para o perfil de acesso dinâmico do usuário.</td>
+    </tr>
+    <tr>
+      <td><code>active</code></td>
+      <td><code>BOOLEAN</code></td>
+      <td>NOT NULL</td>
+      <td><code>DEFAULT true</code></td>
+      <td>Conta ativa (<code>true</code>) ou desativada (<code>false</code>).</td>
+    </tr>
+    <tr>
+      <td><code>revision</code></td>
+      <td><code>INTEGER</code></td>
+      <td>NOT NULL</td>
+      <td><code>DEFAULT 1 CHECK (revision &gt; 0)</code></td>
+      <td>Controle de concorrência otimista.</td>
+    </tr>
+    <tr>
+      <td><code>created_at</code></td>
+      <td><code>TIMESTAMPTZ</code></td>
+      <td>NOT NULL</td>
+      <td><code>DEFAULT clock_timestamp()</code></td>
+      <td>Data de cadastro do usuário.</td>
+    </tr>
+    <tr>
+      <td><code>updated_at</code></td>
+      <td><code>TIMESTAMPTZ</code></td>
+      <td>NOT NULL</td>
+      <td><code>DEFAULT clock_timestamp()</code></td>
+      <td>Data/hora da última atualização cadastral.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>4.4 Índices e Integridade Referencial</h3>
+<ul>
+  <li><code>auth_users_email_lower_unique ON auth.users (lower(email))</code>: Unicidade e busca acelerada em login;</li>
+  <li><code>auth_users_by_role ON auth.users (role_id)</code>: Acelera filtros por perfil na listagem de usuários e integridade da FK;</li>
+  <li><code>auth_roles_name_unique ON auth.roles (upper(name))</code>: Impede duplicidade de nomes de perfis;</li>
+  <li><code>auth_permissions_name_unique ON auth.permissions (lower(name))</code>: Garante unicidade de identificadores de permissão;</li>
+  <li><code>auth_role_permissions_unique ON auth.role_permissions (role_id, permission_id)</code>: Garante associação N:N sem duplicação;</li>
+  <li><code>user_id REFERENCES auth.users(id) ON DELETE RESTRICT</code> em <code>audit.logs</code>: Preserva a rastreabilidade imutável de auditoria.</li>
+</ul>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+
+<h3>5.1 Contratos de Dados e Tipos TypeScript (<code>backend/src/types/auth.ts</code>)</h3>
+<p>
+  Segregação estrita entre perfis de acesso, permissões granulares, entidades públicas e credenciais de login:
+</p>
+<pre><code>import type { UserRole } from './auth';
+
+/**
+ * Representação de um perfil de acesso RBAC no Sistema Aratu (`auth.roles`).
+ */
+export interface Role {
+  id: string;
+  name: UserRole;
+  description: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Permissão atômica do sistema (`auth.permissions`).
+ */
+export interface Permission {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: Date;
+}
+
+/**
+ * Representação pública e segura de uma conta de usuário (`auth.users`).
+ * NUNCA contém password_hash ou qualquer dado sensível de credencial.
+ */
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  roleId: string;
+  role: UserRole;
+  active: boolean;
+  revision: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Resultado discriminado de uma atualização protegida por revisão otimista.
+ */
+export type UpdateUserResult =
+  | { kind: 'updated'; user: User }
+  | { kind: 'not-found' }
+  | { kind: 'revision-conflict' };
+
+/**
+ * Entidade de login interna com hash bcrypt para validação pelo AuthService.
+ */
+export interface UserForLogin {
+  id: string;
+  name: string;
+  email: string;
+  password_hash: string;
+  roleId: string;
+  role: UserRole;
+  is_active: boolean;
+}
+
+/**
+ * Parâmetros de entrada para criação de uma nova conta de usuário.
+ */
+export interface CreateUserInput {
+  name: string;
+  email: string;
+  passwordHash: string;
+  roleId: string;
+  active?: boolean;
+}
+
+/**
+ * Parâmetros de entrada para atualização parcial de dados de usuário.
+ */
+export interface UpdateUserInput {
+  expectedRevision: number;
+  name?: string;
+  roleId?: string;
+  active?: boolean;
+  passwordHash?: string;
+}
+
+/**
+ * Filtros de busca e paginação para listagem de contas de usuários.
+ */
+export interface UserFilters {
+  roleId?: string;
+  role?: UserRole;
+  active?: boolean;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * Resultado estruturado e paginado da listagem de usuários.
+ */
+export interface PaginatedUsers {
+  users: User[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}</code></pre>
+
+<h3>5.2 Repositório de Perfis (<code>backend/src/repositories/roles.repository.ts</code>)</h3>
+<p>
+  Contrato <code>RoleRepositoryContract</code> e classe <code>RolesRepository</code> para persistência e recuperação de perfis e permissões granulares:
+</p>
+<pre><code>import type { Pool, PoolClient } from 'pg';
+import type { Role, Permission, UserRole } from '../types/auth';
+
+export interface RoleRepositoryContract {
+  findAll(client?: PoolClient): Promise&lt;Role[]&gt;;
+  findById(id: string, client?: PoolClient): Promise&lt;Role | null&gt;;
+  findByName(name: UserRole, client?: PoolClient): Promise&lt;Role | null&gt;;
+  findPermissionsByRoleId(roleId: string, client?: PoolClient): Promise&lt;Permission[]&gt;;
+}
+
+export class RolesRepository implements RoleRepositoryContract {
+  constructor(private readonly pool: Pool) {}
+
+  async findAll(client?: PoolClient): Promise&lt;Role[]&gt; {
+    const executor = client ?? this.pool;
+    const { rows } = await executor.query&lt;Role&gt;(`
+      SELECT id::text AS id, name, description, created_at AS "createdAt"
+        FROM auth.roles
+       ORDER BY id ASC;
+    `);
+    return rows;
+  }
+
+  async findById(id: string, client?: PoolClient): Promise&lt;Role | null&gt; {
+    const executor = client ?? this.pool;
+    const { rows } = await executor.query&lt;Role&gt;(`
+      SELECT id::text AS id, name, description, created_at AS "createdAt"
+        FROM auth.roles
+       WHERE id = $1
+       LIMIT 1;
+    `, [id]);
+    return rows[0] ?? null;
+  }
+
+  async findByName(name: UserRole, client?: PoolClient): Promise&lt;Role | null&gt; {
+    const executor = client ?? this.pool;
+    const { rows } = await executor.query&lt;Role&gt;(`
+      SELECT id::text AS id, name, description, created_at AS "createdAt"
+        FROM auth.roles
+       WHERE upper(name) = upper($1)
+       LIMIT 1;
+    `, [name]);
+    return rows[0] ?? null;
+  }
+
+  async findPermissionsByRoleId(roleId: string, client?: PoolClient): Promise&lt;Permission[]&gt; {
+    const executor = client ?? this.pool;
+    const { rows } = await executor.query&lt;Permission&gt;(`
+      SELECT p.id::text AS id, p.name, p.description, p.created_at AS "createdAt"
+        FROM auth.permissions p
+        JOIN auth.role_permissions rp ON rp.permission_id = p.id
+       WHERE rp.role_id = $1
+       ORDER BY p.name ASC;
+    `, [roleId]);
+    return rows;
+  }
+}</code></pre>
+
+<h3>5.3 Repositório de Usuários (<code>backend/src/repositories/users.repository.ts</code>)</h3>
+<p>
+  O repositório encapsula o acesso à tabela <code>auth.users</code> com <code>JOIN auth.roles</code> via driver <code>pg</code>:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Método</th>
+      <th scope="col">Parâmetros de Entrada</th>
+      <th scope="col">Retorno</th>
+      <th scope="col">Regras SQL e Segurança</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>findByEmail</code></td>
+      <td><code>email: string</code></td>
+      <td><code>Promise&lt;UserForLogin | null&gt;</code></td>
+      <td>Faz <code>JOIN auth.roles r ON r.id = u.role_id</code>, projeta <code>r.name AS role</code> e <code>password_hash</code> para o <code>AuthService</code>. Sargável com <code>lower(u.email) = $1</code>.</td>
+    </tr>
+    <tr>
+      <td><code>findById</code></td>
+      <td><code>id: string</code>, <code>client?: PoolClient</code></td>
+      <td><code>Promise&lt;User | null&gt;</code></td>
+      <td>Projeta <code>u.id::text AS id, u.name, u.email, u.role_id::text AS "roleId", r.name AS role, u.active, u.revision, u.created_at AS "createdAt", u.updated_at AS "updatedAt"</code>. Sem <code>password_hash</code>.</td>
+    </tr>
+    <tr>
+      <td><code>list</code></td>
+      <td><code>filters: UserFilters</code></td>
+      <td><code>Promise&lt;PaginatedUsers&gt;</code></td>
+      <td>Filtra por <code>roleId</code>, <code>active</code> e busca textual (<code>lower(u.name) LIKE $X OR lower(u.email) LIKE $X</code>). Executa paginação sargável com <code>LIMIT</code> e <code>OFFSET</code>.</td>
+    </tr>
+    <tr>
+      <td><code>create</code></td>
+      <td><code>input: CreateUserInput</code>, <code>client?: PoolClient</code></td>
+      <td><code>Promise&lt;User&gt;</code></td>
+      <td>Normaliza e-mail com <code>trim().toLowerCase()</code> e insere com <code>role_id</code>. Retorna a entidade <code>User</code> limpa.</td>
+    </tr>
+    <tr>
+      <td><code>update</code></td>
+      <td><code>id: string</code>, <code>input: UpdateUserInput</code>, <code>client?: PoolClient</code></td>
+      <td><code>Promise&lt;UpdateUserResult&gt;</code></td>
+      <td>Exige <code>expectedRevision</code> no <code>WHERE</code>, incrementa <code>revision</code> e retorna <code>updated</code>, <code>not-found</code> ou <code>revision-conflict</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>5.4 Middleware de Autorização RBAC (<code>backend/src/middlewares/rbac.middleware.ts</code>)</h3>
+<p>
+  Interceptador desacoplado para validação de perfis autorizados (Chain of Responsibility):
+</p>
+<pre><code>import type { Request, Response, NextFunction } from 'express';
+import type { UserRole } from '../types/auth';
+
+/**
+ * Middleware de autorização que restringe o acesso a determinados perfis RBAC do Aratu.
+ *
+ * @param allowedRoles - Lista de papéis permitidos a executar a rota.
+ * @returns Middleware Express que avalia req.usuario.perfil.
+ */
+export function authorizeRoles(allowedRoles: readonly UserRole[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const userRole = req.usuario?.perfil as UserRole | undefined;
+
+    if (!userRole || !allowedRoles.includes(userRole)) {
+      res.status(403).json({
+        erro: 'Acesso negado: perfil de usuário não autorizado para esta operação.',
+      });
+      return;
+    }
+
+    next();
+  };
+}</code></pre>
+
+<h3>5.5 Contrato REST de Perfis (FROTA-37)</h3>
+<p>
+  Endpoint oficial para disponibilização de perfis aos seletores do frontend:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Método</th>
+      <th scope="col">Endpoint</th>
+      <th scope="col">Autorização</th>
+      <th scope="col">Sucesso (HTTP 200)</th>
+      <th scope="col">Erros Previstos</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/profiles</code></td>
+      <td><code>Bearer JWT</code> (Exclusivo <code>ADMINISTRADOR</code>)</td>
+      <td><code>[ { "id": "1", "name": "ADMINISTRADOR", "description": "..." }, ... ]</code></td>
+      <td><code>401 Unauthorized</code> (token ausente/inválido), <code>403 Forbidden</code> (perfil diferente de ADMINISTRADOR).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>5.6 Scripts CLI de Migração e Seed</h3>
+
+<h4>A. Script <code>backend/src/database/scripts/migrate.ts</code> (<code>npm run db:migrate</code>)</h4>
+<pre><code>import dotenv from 'dotenv';
+import path from 'node:path';
+import { createPool } from '../pool';
+import { DatabaseMigrator } from '../migrator';
+
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
+async function run(): Promise&lt;void&gt; {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    process.stderr.write('Erro: DATABASE_URL não foi definida nas variáveis de ambiente.\n');
+    process.exit(1);
+  }
+
+  const pool = createPool(databaseUrl);
+  const migrator = new DatabaseMigrator();
+
+  try {
+    process.stdout.write('Iniciando execução de migrações no PostgreSQL 18...\n');
+    const results = await migrator.runMigrations(pool);
+    for (const res of results) {
+      process.stdout.write(`- [${res.status.toUpperCase()}] ${res.version} - ${res.name} (${res.durationMs}ms)\n`);
+    }
+    process.stdout.write('Migrações concluídas com sucesso.\n');
+  } finally {
+    await pool.end();
+  }
+}
+
+void run().catch((err: unknown) =&gt; {
+  process.stderr.write(`Falha fatal na execução de migrações: ${String(err)}\n`);
+  process.exit(1);
+});</code></pre>
+
+<h4>B. Script <code>backend/src/database/scripts/seed.ts</code> (<code>npm run db:seed</code>)</h4>
+<pre><code>import dotenv from 'dotenv';
+import path from 'node:path';
+import { createPool } from '../pool';
+import { UsersRepository } from '../../repositories/users.repository';
+import { RolesRepository } from '../../repositories/roles.repository';
+import { hashPassword } from '../../services/password.service';
+
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
+async function runSeed(): Promise&lt;void&gt; {
+  const databaseUrl = process.env.DATABASE_URL;
+  const adminEmail = process.env.INITIAL_ADMIN_EMAIL?.trim().toLowerCase();
+  const adminPassword = process.env.INITIAL_ADMIN_PASSWORD;
+  const adminName = process.env.INITIAL_ADMIN_NAME?.trim() || 'Administrador do Sistema';
+
+  if (!databaseUrl) {
+    process.stderr.write('Erro: DATABASE_URL é obrigatória para o seed.\n');
+    process.exit(1);
+  }
+
+  if (!adminEmail || !adminPassword) {
+    process.stderr.write('Erro: Defina INITIAL_ADMIN_EMAIL e INITIAL_ADMIN_PASSWORD no .env para o seed.\n');
+    process.exit(1);
+  }
+
+  const pool = createPool(databaseUrl);
+  const userRepo = new UsersRepository(pool);
+  const roleRepo = new RolesRepository(pool);
+
+  try {
+    // 1. Garantir existência do perfil ADMINISTRADOR
+    const adminRole = await roleRepo.findByName('ADMINISTRADOR');
+    if (!adminRole) {
+      process.stderr.write('Erro: Perfil ADMINISTRADOR não encontrado. Execute npm run db:migrate antes do seed.\n');
+      process.exit(1);
+    }
+
+    // 2. Verificar idempotência do usuário administrador
+    const existing = await userRepo.findByEmail(adminEmail);
+    if (existing) {
+      process.stdout.write(`Seed: Administrador "${adminEmail}" já existe na base. Inserção ignorada.\n`);
+      return;
+    }
+
+    // 3. Cadastrar Administrador inicial com role_id
+    const passwordHash = await hashPassword(adminPassword);
+    const createdUser = await userRepo.create({
+      name: adminName,
+      email: adminEmail,
+      passwordHash,
+      roleId: adminRole.id,
+      active: true,
+    });
+
+    process.stdout.write(`Seed: Administrador inicial criado com sucesso (ID: ${createdUser.id}, Email: ${createdUser.email}, Perfil: ${adminRole.name}).\n`);
+  } finally {
+    await pool.end();
+  }
+}
+
+void runSeed().catch((err: unknown) =&gt; {
+  process.stderr.write(`Falha fatal no seed de usuários: ${String(err)}\n`);
+  process.exit(1);
+});</code></pre>
+
+<h3>5.7 Scripts Operacionais no <code>backend/package.json</code></h3>
+<pre><code>{
+  "scripts": {
+    "db:migrate": "tsx src/database/scripts/migrate.ts",
+    "db:seed": "tsx src/database/scripts/seed.ts"
+  }
+}</code></pre>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+
+<h3>6.1 Escopo Visual e Ausência de Telas Novas (YAGNI)</h3>
+<p>
+  A tarefa <strong>FROTA-30</strong> é classificada como infraestrutura de banco de dados e repositório de persistência (labels: <code>backend</code>, <code>infra</code>). Não há criação de novas páginas ou componentes React 19 nesta entrega. Telas visuais de gestão, listagem e edição de usuários pertencem à tarefa subsequente <strong>FROTA-39</strong> e à história de usuário <strong>US02</strong>.
+</p>
+
+<h3>6.2 Impacto no Fluxo de Autenticação Existente (<code>frontend/src/pages/LoginPage.tsx</code>)</h3>
+<p>
+  A execução de <code>npm run db:seed</code> viabiliza o critério de pronto mandatório da issue: <em>"O administrador inicial consegue fazer login"</em>. A tela existente <code>LoginPage.tsx</code> passa a autenticar o Administrador provisionado no seed.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Estado Visual</th>
+      <th scope="col">Comportamento na Tela <code>LoginPage.tsx</code></th>
+      <th scope="col">Feedback Acessível e Recursos WCAG 2.2 AA</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Ideal</strong></td>
+      <td>Campos limpos, foco inicial no e-mail; o administrador preenche com credenciais do <code>.env</code> e acessa o sistema.</td>
+      <td>Rótulos semânticos conectados via <code>htmlFor</code>/<code>id</code>, foco nítido e redirecionamento para <code>/admin</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Carregando</strong></td>
+      <td>Após o clique em "Entrar", o botão é desabilitado e indica progresso visual.</td>
+      <td>Atributo <code>aria-busy="true"</code> ativo no formulário para leitores de tela; previne envios concorrentes duplicados.</td>
+    </tr>
+    <tr>
+      <td><strong>3. Vazio</strong></td>
+      <td>Tentativa de submissão sem e-mail ou sem senha.</td>
+      <td>Mensagens inline com <code>role="alert"</code> impedem o disparo de requisições inúteis à rede.</td>
+    </tr>
+    <tr>
+      <td><strong>4. Erro</strong></td>
+      <td>Senha incorreta ou indisponibilidade de conexão com o backend.</td>
+      <td>Banner de feedback acessível com mensagem amigável em português (<em>"E-mail ou senha inválidos"</em> ou <em>"Serviço temporariamente indisponível"</em>).</td>
+    </tr>
+    <tr>
+      <td><strong>5. Parcial</strong></td>
+      <td>Falha de autenticação com e-mail válido.</td>
+      <td>O campo de e-mail permanece preenchido, limpando apenas o campo de senha para agilizar a correção pelo usuário.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>6.3 Fundação Estrutural para Futuras Telas (FROTA-39)</h3>
+<p>
+  A tipagem estrita de <code>User</code> (sem <code>password_hash</code>) e o formato padronizado de <code>PaginatedUsers</code> estabelecem o contrato canônico que será consumido pelos componentes de UI do Aratu (<code>components/ui/DataTable</code>, <code>components/ui/FilterBar</code>, <code>components/ui/StatusChip</code> e <code>components/ui/FormField</code>) quando a tela de cadastro e listagem for desenvolvida.
+</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+
+<p>
+  Embora esta tarefa envolva primordialmente persistência e repositórios backend, a acessibilidade <strong>WCAG 2.2 Nível AA</strong> é respeitada nas mensagens de retorno, respostas de erro orientadoras em português e no suporte à autenticação inicial:
+</p>
+<ul class="check">
+  <li><input type="checkbox" checked disabled> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Validações e mensagens originadas na autenticação do administrador são claras e amigáveis, consumidas com <code>role="alert"</code> no cliente web.</li>
+  <li><input type="checkbox" checked disabled> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> O fluxo de login do administrador provisionado opera integralmente por teclado.</li>
+  <li><input type="checkbox" checked disabled> <strong>Tamanho do Alvo (2.5.8):</strong> Todos os controles da tela de login mantêm altura mínima de <strong>44×44px</strong> conforme os design tokens do <code>theme.ts</code>.</li>
+  <li><input type="checkbox" checked disabled> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste textual superior a 4.5:1.</li>
+  <li><input type="checkbox" checked disabled> <strong>Mensagens de Status (4.1.3):</strong> Estados dinâmicos anunciados via regiões acessíveis com <code>aria-live</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+
+<h3>8.1 Matriz de Acesso e Perfis RBAC (<code>auth.users.role</code>)</h3>
+<p>
+  O módulo de autenticação atende a todos os seis perfis do Sistema Aratu, com foco inicial no papel administrativo:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Perfil RBAC</th>
+      <th scope="col">Identificador Técnico</th>
+      <th scope="col">Escopo Operacional na Tarefa FROTA-30</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><code>ADMINISTRADOR</code></td>
+      <td><strong>Perfil provisionado pelo seed inicial.</strong> Possui privilégio para gerenciar contas de usuários, cadastrar servidores e auditar mutações no sistema.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">GESTOR</span></td>
+      <td><code>GESTOR</code></td>
+      <td>Gestão da frota, motoristas e aprovação de viagens da FSPH. Cadastrado posteriormente pelo Administrador.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td><code>SOLICITANTE</code></td>
+      <td>Servidores das unidades da FSPH que demandam veículos. Cadastrado posteriormente pelo Administrador.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">MOTORISTA</span></td>
+      <td><code>MOTORISTA</code></td>
+      <td>Condutores que executam as viagens e informam hodômetro. Cadastrado posteriormente pelo Administrador.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td><code>ATENDENTE_SVO</code></td>
+      <td>Recepção e triagem de chamados de óbito. Cadastrado posteriormente pelo Administrador.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">EQUIPE_SVO</span></td>
+      <td><code>EQUIPE_SVO</code></td>
+      <td>Equipes de coleta e remoção externa do SVO. Cadastrado posteriormente pelo Administrador.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>8.2 Variáveis de Ambiente e Configuração (<code>.env</code>)</h3>
+<p>
+  As seguintes variáveis devem ser adicionadas a <code>.env.example</code> e configuradas em <code>.env</code>:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Variável</th>
+      <th scope="col">Obrigatoriedade</th>
+      <th scope="col">Valor Sugerido para Testes Locais</th>
+      <th scope="col">Descrição e Finalidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>INITIAL_ADMIN_EMAIL</code></td>
+      <td>Obrigatória no seed</td>
+      <td><code>admin@aratu.fsph.se.gov.br</code></td>
+      <td>Endereço de e-mail institucional normalizado para o primeiro Administrador do Aratu.</td>
+    </tr>
+    <tr>
+      <td><code>INITIAL_ADMIN_PASSWORD</code></td>
+      <td>Obrigatória no seed</td>
+      <td><code>admin123456</code></td>
+      <td>Senha em texto claro lida exclusivamente pelo script de seed para geração do hash bcrypt.</td>
+    </tr>
+    <tr>
+      <td><code>INITIAL_ADMIN_NAME</code></td>
+      <td>Opcional (default)</td>
+      <td><code>Administrador do Sistema</code></td>
+      <td>Nome de exibição cadastrado para o Administrador inicial.</td>
+    </tr>
+    <tr>
+      <td><code>DATABASE_URL</code></td>
+      <td>Obrigatória</td>
+      <td><code>postgresql://admin:segredolocalhex123@localhost:5432/meubanco</code></td>
+      <td>Connection string para conexão ao banco PostgreSQL 18.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<h3>9.1 Bateria de Testes Automatizados de Integração (<code>backend/tests/database.integration.test.ts</code>)</h3>
+<p>
+  A infraestrutura oficial de testes do Aratu (runner nativo <code>node:test</code> com PostgreSQL 18 real em <code>aratu_test</code>) será expandida com os seguintes casos:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Cenário / Escopo</th>
+      <th scope="col">Entrada / Condição de Teste</th>
+      <th scope="col">Resultado Esperado (Asserção)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>IT08</strong></td>
+      <td>Aplicação transacional das migrações do RBAC e Users</td>
+      <td><code>DatabaseMigrator.runMigrations(pool)</code> em banco de testes limpo.</td>
+      <td>Migrações executadas com sucesso; tabelas <code>auth.roles</code>, <code>auth.permissions</code>, <code>auth.role_permissions</code> e colunas <code>role_id</code> e <code>updated_at</code> em <code>auth.users</code> criadas com integridade referencial.</td>
+    </tr>
+    <tr>
+      <td><strong>IT09</strong></td>
+      <td>Seed idempotente de papéis, permissões e Administrador</td>
+      <td>Execução de <code>seedRolesAndPermissions(pool)</code> seguida de <code>seedInitialAdmin(pool)</code> por duas vezes consecutivas.</td>
+      <td>Primeira chamada insere 6 papéis, 6 permissões e o usuário administrador; segunda chamada não gera erros nem duplica nenhum registro na base (idempotência confirmada).</td>
+    </tr>
+    <tr>
+      <td><strong>IT10</strong></td>
+      <td>Consultas em <code>RolesRepository</code></td>
+      <td>Chamadas a <code>list()</code>, <code>findByName('ADMINISTRADOR')</code> e <code>findPermissionsByRole(roleId)</code>.</td>
+      <td>Retorna array com os 6 perfis canônicos; busca por nome retorna o ID correto; listagem de permissões retorna o array de códigos associados.</td>
+    </tr>
+    <tr>
+      <td><strong>IT11</strong></td>
+      <td>Consulta segura por ID no repositório (<code>findById</code>)</td>
+      <td>Usuário inserido na base com hash; chamada a <code>UsersRepository.findById(id)</code>.</td>
+      <td>Retorna objeto <code>User</code> com <code>id</code>, <code>name</code>, <code>email</code>, <code>role</code> (nome da role vindo do JOIN), <code>active</code>, <code>revision</code>, <code>createdAt</code> e <code>updatedAt</code>. A propriedade <code>password_hash</code> deve ser estritamente <code>undefined</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>IT12</strong></td>
+      <td>Consulta de autenticação compatível (<code>findByEmail</code>)</td>
+      <td>Chamada a <code>UsersRepository.findByEmail('admin@aratu.fsph.se.gov.br')</code>.</td>
+      <td>Retorna entidade <code>UserForLogin</code> com <code>password_hash</code> presente e campo <code>role: 'ADMINISTRADOR'</code> via JOIN com <code>auth.roles</code>, garantindo 100% de compatibilidade com <code>AuthService.login</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>IT13</strong></td>
+      <td>Listagem paginada com filtros (<code>list</code>)</td>
+      <td>Inserção de 5 usuários com diferentes perfis e status; filtro por <code>{ role: 'MOTORISTA', active: true, search: 'silva' }</code>.</td>
+      <td>Retorna apenas os registros compatíveis, totalizador correto, <code>pageSize</code> e sem expor <code>password_hash</code> em nenhum item da lista.</td>
+    </tr>
+    <tr>
+      <td><strong>IT14</strong></td>
+      <td>Criação de usuário e unicidade case-insensitive (<code>create</code>)</td>
+      <td>Chamada a <code>create()</code> com e-mail em maiúsculas associado a um <code>role_id</code> válido; tentativa subsequente de inserir o mesmo e-mail em minúsculas.</td>
+      <td>Primeira chamada retorna entidade <code>User</code> criada com e-mail em minúsculas; segunda chamada é rejeitada pelo PostgreSQL com código de erro <code>23505</code> (violação de unicidade).</td>
+    </tr>
+    <tr>
+      <td><strong>IT15</strong></td>
+      <td>Atualização parcial e concorrência otimista (<code>update</code>)</td>
+      <td>Usuário existente com <code>revision = 1</code>; chamada a <code>update(id, { name: 'Novo Nome', expectedRevision: 1 })</code> seguida de tentativa conflitante com revisão desatualizada.</td>
+      <td>Primeira chamada retorna <code>{ kind: 'updated', user }</code> com <code>revision = 2</code> e novo <code>updated_at &gt;= created_at</code>; segunda chamada retorna <code>{ kind: 'revision-conflict' }</code> garantindo integridade concorrente.</td>
+    </tr>
+    <tr>
+      <td><strong>IT16</strong></td>
+      <td>Controle de Acesso Baseado em Papéis (<code>authorizeRoles</code>)</td>
+      <td>Requisição para rota protegida com usuário contendo perfil <code>MOTORISTA</code> em rota que exige <code>ADMINISTRADOR</code>.</td>
+      <td>Middleware interrompe o fluxo e retorna HTTP <code>403 Forbidden</code> com mensagem padronizada <code>{ "error": "Acesso negado: privilégios insuficientes." }</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>IT17</strong></td>
+      <td>Endpoint <code>GET /profiles</code> (FROTA-37)</td>
+      <td>Requisição autenticada com token de Administrador.</td>
+      <td>Retorna HTTP <code>200 OK</code> com array de perfis do sistema (<code>id</code>, <code>name</code>, <code>description</code>, <code>createdAt</code>).</td>
+    </tr>
+    <tr>
+      <td><strong>IT18</strong></td>
+      <td>Rollback fiel da migração de RBAC e Usuários</td>
+      <td>Execução do script <code>.down.sql</code> no PostgreSQL 18.</td>
+      <td>Restaura a coluna <code>role</code> textual legada com constraint <code>auth_users_role_check</code> e <code>NOT NULL</code>, repopula os papéis dos usuários existentes e remove as tabelas de permissões em transação atômica.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>9.2 Roteiro de Validação Manual (Terminal e Banco de Dados)</h3>
+<ol>
+  <li>
+    <strong>Executar Migrações do Banco de Dados:</strong>
+    <pre><code>cd backend && npm run db:migrate</code></pre>
+    <em>Resultado esperado:</em> O terminal exibe a lista de arquivos de migração processados com status <code>[APPLIED]</code> incluindo <code>202610180001_create_roles_and_permissions.sql</code> e <code>202610180002_migrate_users_role_fk_and_updated_at.sql</code>.
+  </li>
+  <li>
+    <strong>Executar o Seed Inicial de Perfis e Administrador:</strong>
+    <pre><code>npm run db:seed</code></pre>
+    <em>Resultado esperado:</em> Mensagem informativa indicando a criação ou validação dos 6 perfis canônicos e a inserção do Administrador inicial com seu ID e e-mail.
+  </li>
+  <li>
+    <strong>Verificar Idempotência do Seed:</strong>
+    <pre><code>npm run db:seed</code></pre>
+    <em>Resultado esperado:</em> Mensagem informando que os papéis e o Administrador já existem na base e que as inserções foram ignoradas, encerrando com código de saída 0.
+  </li>
+  <li>
+    <strong>Executar Suíte Completa de Testes Automatizados:</strong>
+    <pre><code>npm test</code></pre>
+    <em>Resultado esperado:</em> Todos os testes unitários e de integração executam e passam com sucesso (100% verdes).
+  </li>
+  <li>
+    <strong>Verificar Login do Administrador na API:</strong>
+    <pre><code>curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@aratu.fsph.se.gov.br", "senha": "admin123456"}'</code></pre>
+    <em>Resultado esperado:</em> Resposta HTTP <code>200 OK</code> com payload contendo <code>token</code>, <code>nome</code> e <code>perfil: "ADMINISTRADOR"</code>.
+  </li>
+  <li>
+    <strong>Verificar Consulta de Perfis (FROTA-37):</strong>
+    <pre><code>curl -X GET http://localhost:3000/profiles \
+  -H "Authorization: Bearer &lt;TOKEN_ADMIN&gt;"</code></pre>
+    <em>Resultado esperado:</em> Resposta HTTP <code>200 OK</code> com a lista dos 6 perfis cadastrados no sistema.
+  </li>
+</ol>
+
+<h3>9.3 Proteção de Dados (LGPD e SVO)</h3>
+<p>
+  Todos os testes e exemplos utilizam dados 100% sintéticos (<code>admin@aratu.fsph.se.gov.br</code>, <code>example.test</code>). Nenhum dado real de servidores da FSPH, motoristas ou registros do SVO é utilizado em nenhuma etapa.
+</p>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/infra-modelo-de-dados-acesso</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-30, FROTA-164, FROTA-37)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivo de referência:</strong> <code>docs/modulos/AUTENTICACAO_RBAC.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<blockquote>Esta tarefa <strong>impacta diretamente</strong> a documentação técnica e funcional do módulo. As seções correspondentes devem ser atualizadas antes da abertura do Pull Request:</blockquote>
+
+<ul>
+  <li><strong>Seção 4 (Tabelas do Banco de Dados):</strong> Documentar as tabelas relacionais do RBAC (<code>auth.roles</code>, <code>auth.permissions</code>, <code>auth.role_permissions</code>) e a evolução de <code>auth.users</code> para utilizar a FK <code>role_id</code> e a coluna <code>updated_at</code>.</li>
+  <li><strong>Seção 5 (Endpoints REST da API):</strong> Documentar a rota <code>GET /profiles</code> (FROTA-37) com restrição RBAC exclusiva para <code>ADMINISTRADOR</code>.</li>
+  <li><strong>Seção 6 (Camadas de Negócio e Persistência):</strong> Documentar <code>RolesRepository</code>, a expansão de <code>UsersRepository</code> (métodos <code>findByEmail</code>, <code>findById</code>, <code>list</code>, <code>create</code>, <code>update</code>), o middleware <code>authorizeRoles</code> e os scripts CLI em <code>backend/src/database/scripts/</code>.</li>
+  <li><strong>Seção 8 (Infraestrutura de Testes e Scripts Operacionais):</strong> Adicionar à tabela de scripts operacionais os comandos <code>npm run db:migrate</code> e <code>npm run db:seed</code>, bem como a parametrização do seed no <code>.env</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>
