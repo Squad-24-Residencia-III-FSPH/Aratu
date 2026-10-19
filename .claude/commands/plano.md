@@ -6,6 +6,7 @@ argument-hint: "[chave ou URL da issue no Jira (ex: FROTA-27) ou descrição da 
 Carregue e aplique obrigatoriamente a skill canônica `.agents/skills/principios/SKILL.md` (e todas as suas referências em `.agents/skills/principios/references/`) e execute integralmente o fluxo da skill `.agents/skills/plano/SKILL.md`.
 
 Se houver qualquer dúvida, ambiguidade ou informação inconclusiva, aplique a Regra da Dúvida e pergunte ao usuário antes de gerar o arquivo HTML em `docs/plans/`.
+Ao finalizar o preenchimento do plano SDD, abra o arquivo HTML gerado no navegador padrão do desenvolvedor (`Start-Process` no Windows ou `open`/`xdg-open`).
 
 Contexto / Argumentos da solicitação:
 $ARGUMENTS
