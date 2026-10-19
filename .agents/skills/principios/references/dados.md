@@ -22,11 +22,85 @@ A segunda é específica do **PostgreSQL 18** no ecossistema do Aratu.
 3. **Tipo é regra de negócio.** Hodômetro, identificação de veículo, login, papéis e estados
    não são simples strings ou inteiros genéricos: são tipos de domínio. Use constraints
    declarativas no banco e types/enums em inglês no TypeScript.
-4. **Histórico e auditoria:**
-   - Datas de eventos operacionais reais (`planned_departure`, `occurred_at`)
-     são dados de domínio; não confunda com `created_at` / `registered_at` (carimbos de inserção técnica).
-   - O que muda com o tempo (versão de solicitação, eventos de viagem, eventos de atendimento) exige registro histórico
-     e controle de revisão (`revision`).
+4. **Histórico, bi-temporalidade e imutabilidade do passado:**
+   - O sistema guarda a história de como cada entidade chegou ao estado atual; **o passado não é apagado**.
+   - Datas de eventos operacionais reais (`occurred_at`) são dados de domínio; não confunda com o momento do lançamento no banco (`registered_at` / `created_at`).
+   - Consulte e aplique rigorosamente a seção dedicada **Preservação Histórica, Bi-temporalidade e Imutabilidade do Passado** abaixo.
+
+---
+
+## Preservação Histórica, Bi-temporalidade e Imutabilidade do Passado
+
+O Sistema Aratu adota como princípio fundamental que **uma alteração posterior nunca apaga o que aconteceu antes**. As consultas do sistema devem responder a duas perguntas vitais da administração pública e da saúde (FSPH/SVO):
+1. **O que sabemos hoje?** (Estado vigente atualizado da entidade);
+2. **O que a equipe sabia quando tomou determinada decisão?** (Contexto e evidências vigentes na época do fato).
+
+### 1. As 5 Perguntas Obrigatórias de Cada Acontecimento Operacional
+Todo evento operacional confirmado (hodômetros, manutenções, abastecimentos, aprovações, viagens, paradas, afastamentos e ocorrências SVO) deve permitir responder:
+
+| # | Pergunta Essencial | Campo / Estrutura Técnica | Descrição e Requisito |
+|---|---|---|---|
+| **1** | **O que aconteceu ou mudou?** | `before` / `after` (ou colunas de estado anterior/novo) | Como estava a entidade antes da operação e como ficou após a confirmação. |
+| **2** | **Quando aconteceu e quando foi registrado?** | `occurred_at` vs `registered_at` | **Bi-temporalidade:** A data em que o fato ocorreu no mundo real (`occurred_at`) pode ser dias anterior ao momento em que o operador lançou a informação no sistema (`registered_at`). Ambos os carimbos devem ser preservados. |
+| **3** | **Quem informou e quem cadastrou?** | `reported_by` vs `registered_by` + `actor_snapshot` | **Autoria obrigatória:** Quem originou o dado no campo (`reported_by`) e **quem autenticou e registrou no sistema (`registered_by` + `actor_snapshot`)**. Proibido evento anônimo. |
+| **4** | **Por que houve a mudança?** | `reason` / `justification` | Justificativa obrigatória para decisões de negócio, especialmente em **correções, cancelamentos, anulações e reaberturas excepcionais**. |
+| **5** | **Qual é a evidência?** | `evidence_description` / `attachment_url` | Comprovante (foto, anexo, documento assinado) ou, na ausência de arquivo digital, a descrição detalhada do canal e meio pelo qual a informação foi recebida. |
+
+### 2. Mandato Inegociável de Autoria do Histórico (`registered_by` e `actor_snapshot`)
+Toda mutação e todo evento persistido no histórico deve identificar com absoluta precisão **qual usuário realizou a alteração**:
+- **`registered_by BIGINT NOT NULL REFERENCES auth.users(id)`:** Chave estrangeira obrigatória apontando para a conta de usuário que autenticou a requisição HTTP;
+- **`actor_snapshot JSONB NOT NULL`:** Snapshot imutável contendo `{ id, name, email, role }` no instante do registro. Isso impede que alterações cadastrais posteriores no usuário (mudança de nome, troca de perfil ou desativação) apaguem ou distorçam a autoria histórica da ação;
+- **Distinção semântica essencial:**
+  - `reported_by TEXT NOT NULL`: Fonte da informação fática (ex: *"Condutor João Santos via WhatsApp"*, *"Atendente Maria por telefone"*);
+  - `registered_by BIGINT NOT NULL`: Servidor ou operador autenticado que efetivamente abriu o sistema e gravou o lançamento.
+
+### 3. Arquitetura Tripartite de Histórico no Sistema Aratu
+A preservação histórica é implementada combinando três padrões complementares de acordo com a natureza da entidade:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                      ARQUITETURA TRIPARTITE DE HISTÓRICO NO ARATU                      │
+├────────────────────────────┬──────────────────────────────────┬────────────────────────┤
+│ Padrão de Modelagem        │ Estrutura no PostgreSQL 18       │ Aplicação no Domínio   │
+├────────────────────────────┼──────────────────────────────────┼────────────────────────┤
+│ A. Estado Atual + Eventos  │ Tabela Principal (rápida) +      │ Entidades Mestres      │
+│    (SCD Tipo 4)            │ Tabela de Eventos com FK         │ (fleet.vehicles,       │
+│                            │ (vehicle_events, driver_events)  │  fleet.drivers)        │
+├────────────────────────────┼──────────────────────────────────┼────────────────────────┤
+│ B. Encadeamento Append-Only│ Linhas imutáveis com encadeamento│ Medições Operacionais  │
+│    com Retificação         │ via supersedes_id e justificativa│ (odometer_readings,    │
+│                            │ (sem DELETE físico)              │  fuel_logs)            │
+├────────────────────────────┼──────────────────────────────────┼────────────────────────┤
+│ C. Snapshot no Ponto       │ Payload JSONB ou colunas estáticas│ Decisões e Contratos   │
+│    de Consumo              │ congelando contexto da época     │ (trip.trips,           │
+│                            │ (vehicle_snapshot, driver_snap)  │  svo.occurrences)      │
+└────────────────────────────┴──────────────────────────────────┴────────────────────────┘
+```
+
+#### A. Entidades Mestres: Estado Atual + Tabela de Eventos (`fleet.vehicles` + `fleet.vehicle_events`)
+- `fleet.vehicles` armazena o estado vigente (placa, capacidade atual, status, quilometragem atual). As consultas operacionais cotidianas são ultrarrápidas (`SELECT * FROM fleet.vehicles WHERE is_active = true`);
+- `fleet.vehicle_events` armazena cada mutação ocorrida desde o cadastro (mudança de capacidade, manutenções, transferências de lotação), associada por `vehicle_id` e contendo `occurred_at`, `registered_at`, `registered_by`, `actor_snapshot`, `before_state`, `after_state` e `reason`.
+- O mesmo vale para condutores (`fleet.drivers` + `fleet.driver_events`), registrando contratos anteriores, renovações de CNH, férias, afastamentos e períodos de atividade.
+
+#### B. Medições e Fatos Diários: Encadeamento de Retificações (`supersedes_id`)
+- Registros como hodômetro ou abastecimento são fatos contínuos.
+- Se João informou 52.000 km por engano e depois enviou foto mostrando 51.200 km:
+  1. O registro original de 52.000 km permanece gravado (`id = 101`);
+  2. A retificação gera um novo registro (`id = 102`) com 51.200 km, `supersedes_id = 101`, `reason = 'Condutor digitou 52.000 por engano'`, `evidence_description = 'Foto do painel'`, `registered_by` e `actor_snapshot` de Ana (operadora que corrigiu);
+  3. A consulta de quilometragem vigente lê o registro retificador, mas a auditoria preserva o lançamento original intacto.
+
+#### C. Decisões e Contratos: Snapshot de Contexto no Ponto de Consumo
+- Viagens (`trip.trips`) e atendimentos SVO (`svo.occurrences`) congelam o contexto fático no momento do despacho:
+  - Armazenam `vehicle_snapshot JSONB NOT NULL` e `driver_snapshot JSONB NOT NULL` com os dados daquele instante;
+  - Se a van mudar de capacidade no futuro ou o motorista for desligado, a viagem passada mantém fidelidade absoluta ao momento em que foi realizada.
+
+### 4. Ciclo de Vida de Viagens e Paradas
+- **Cancelamento de paradas:** Cancelar uma parada em uma viagem em andamento **não apaga a parada do banco** nem desfaz os atendimentos ou coletas já concluídos nela. A parada é marcada como cancelada (`cancelled_at`, `cancelled_by`, `cancellation_reason`), permanecendo visível no itinerário auditável.
+- **Reabertura excepcional de viagens:** Se uma viagem já encerrada precisar ser reaberta por exceção administrativa, o registro do encerramento anterior é preservado na linha do tempo, exigindo justificativa obrigatória e registro do responsável pela reabertura.
+
+### 5. Escopo e Delimitação
+- Este princípio aplica-se a **acontecimentos confirmados, submissões e mudanças relevantes** da operação e da administração.
+- **Não se aplica a:** digitação em tempo real, toques de teclado ou rascunhos locais que ainda não foram submetidos pelo usuário.
 
 ---
 

@@ -1,0 +1,29 @@
+# Padronização de line endings (LF) para compatibilidade entre Windows, Linux e Docker
+* text=auto eol=lf
+
+# Arquivos de código, configuração e scripts (sempre LF)
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.sql text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Arquivos binários mantidos intactos sem conversão de quebras de linha
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
