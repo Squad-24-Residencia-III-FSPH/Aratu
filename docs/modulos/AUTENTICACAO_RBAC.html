@@ -74,7 +74,7 @@
   <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/</code>, <code>backend/src/controllers/</code>, <code>backend/src/services/</code>, <code>backend/src/repositories/</code>, <code>backend/src/database/</code></p>
   <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/</code>, <code>frontend/src/auth/</code>, <code>frontend/src/api/</code></p>
   <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (container <code>db</code> — schemas <code>auth</code> e <code>audit</code> no banco <code>meubanco</code> e banco de testes <code>aratu_test</code>)</p>
-  <p><strong>Versão da documentação:</strong> 2026-10-18 (Atualizado para refletir FROTA-161: Testes Automatizados e Banco Isolado)</p>
+  <p><strong>Versão da documentação:</strong> 2026-10-18 (Atualizado para refletir FROTA-156: Modelo de Dados RBAC Dinâmico, Migrações e Auditoria, e FROTA-161: Testes Automatizados e Banco Isolado)</p>
 </div>
 
 <ol class="toc">
@@ -427,20 +427,28 @@
 
 <hr>
 
-<h2 id="testes-api">8. Infraestrutura Oficial de Testes Automatizados da API (FROTA-161)</h2>
+<h2 id="testes-api">8. Infraestrutura Oficial de Testes Automatizados da API (FROTA-161 / FROTA-40)</h2>
 <p>
   A infraestrutura padronizada pelo épico de infraestrutura de QA estabelece o alicerce oficial de testes automatizados do backend:
 </p>
 <ul>
-  <li><strong>Runner Nativo do Node.js:</strong> Execução rápida com <code>node:test</code> e <code>node:assert/strict</code> via <code>tsx --test</code>, eliminando overhead de dependências externas pesadas (Jest/Mocha).</li>
+  <li><strong>Runner Nativo do Node.js:</strong> Execução rápida com <code>node:test</code> e <code>node:assert/strict</code> via <code>tsx --test --test-concurrency=1</code>, eliminando overhead de dependências externas pesadas (Jest/Mocha) e garantindo isolamento sequencial de transações e truncates no banco PostgreSQL 18 de testes.</li>
   <li><strong>Banco de Testes Isolado:</strong> O banco <code>aratu_test</code> é configurado via <code>DATABASE_URL_TEST</code> no <code>.env</code> (ou derivado automaticamente via <code>getTestDatabaseUrl()</code>), garantindo que testes nunca modifiquem o banco de desenvolvimento.</li>
   <li><strong>Ciclo de Vida Limpo:</strong> O helper <code>backend/tests/helpers/db-test.ts</code> provê <code>setupTestDatabase()</code>, <code>truncateTestDatabase()</code> com <code>TRUNCATE ... RESTART IDENTITY CASCADE</code> dinâmico baseado em <code>information_schema</code> e <code>closeTestPool()</code> para liberação limpa de conexões.</li>
+  <li><strong>Suíte de Integração de Matriz RBAC (FROTA-40):</strong> O arquivo <code>backend/tests/rbac-access.integration.test.ts</code> valida formalmente os 6 perfis RBAC contra a API real conectada ao banco <code>aratu_test</code>, cobrindo 17 casos de teste automatizados:
+    <ul>
+      <li>12 casos de perfil (1 permitido [200] e 1 negado [403] para cada um dos 6 perfis);</li>
+      <li>Logout com sucesso [200] para todos os 6 perfis em <code>POST /auth/logout</code>;</li>
+      <li>Tratamento de integridade e rejeição com HTTP 401 para requisições sem token, tokens expirados, tokens forjados ou perfis fora do catálogo canônico;</li>
+      <li>Fixture centralizada em <code>backend/tests/fixtures/rbac-users.fixture.ts</code> para provisionamento dos 6 usuários e geração de tokens JWT válidos com dados 100% fictícios (LGPD).</li>
+    </ul>
+  </li>
   <li><strong>Scripts Operacionais no <code>package.json</code>:</strong>
     <ul>
-      <li><code>npm test</code>: Executa toda a suíte (unitários e integração);</li>
+      <li><code>npm test</code>: Executa toda a suíte (unitários e integração sequencial com <code>--test-concurrency=1</code>);</li>
       <li><code>npm run test:unit</code>: Executa apenas testes unitários em memória;</li>
       <li><code>npm run test:integration</code>: Executa testes de integração com PostgreSQL 18 real;</li>
-      <li><code>npm run test:db:setup</code>: Provisiona o banco e aplica migrações avulsas via CLI.</li>
+      <li><code>npm run test:db:setup</code>: Provisiona o banco e aplica migrações avulsas via CLI;</li>
       <li><code>npm run db:migrate</code>: Aplica migrações DDL e provisiona a matriz RBAC canônica de forma idempotente;</li>
       <li><code>npm run db:seed</code>: Provisiona o Administrador inicial com auditoria atômica em <code>audit.logs</code> a partir do <code>.env</code>.</li>
     </ul>
@@ -504,6 +512,16 @@
       <td><code>backend/tests/database.integration.test.ts</code></td>
       <td>Testes / Integração</td>
       <td>Validação no PostgreSQL 18 real de conexões, migrações, unicidade, rollback e repositório.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/rbac-access.integration.test.ts</code></td>
+      <td>Testes / Integração</td>
+      <td>Suíte oficial de integração para comprovação de acessos permitidos (200), negados (403) e integridade de token (401) para os 6 perfis RBAC.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/fixtures/rbac-users.fixture.ts</code></td>
+      <td>Testes / Fixture</td>
+      <td>Fábrica centralizada para provisionamento idempotente de usuários e emissão de tokens JWT com dados fictícios (LGPD).</td>
     </tr>
     <tr>
       <td><code>backend/tests/auth.test.ts</code></td>

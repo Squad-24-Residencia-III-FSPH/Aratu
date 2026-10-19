@@ -28,7 +28,7 @@ Antes de planejar, codificar, refatorar, corrigir defeitos ou revisar código, c
 - **[`buscar-tarefa`](.agents/skills/buscar-tarefa/SKILL.md)** (`/buscar-tarefa`): Coleta dados da issue no Jira via `node docs/scripts/jira-fetch.mjs` e estrutura o contexto Gitflow da tarefa (`develop` como base).
 - **[`plano`](.agents/skills/plano/SKILL.md)** (`/plano`): Planeja a tarefa aplicando a Regra da Dúvida e gera o SDD em `docs/plans/<chave-tarefa>-<slug>.html` a partir de `docs/plans/EXEMPLO_PLANO.html`.
 - **[`implementar`](.agents/skills/implementar/SKILL.md)** (`/implementar`): Implementa o plano SDD passo a passo em camadas seguindo rigorosamente a skill `principios`.
-- **[`testar`](.agents/skills/testar/SKILL.md)** (`/testar`): Executa a bateria de testes funcionais e casos de borda (API REST, UI React 19 operada via Playwright MCP ou `/browser`, PostgreSQL 18, RBAC e WCAG 2.2 AA).
+- **[`testar`](.agents/skills/testar/SKILL.md)** (`/testar`): Executa a bateria de testes funcionais, responsividade multi-dispositivo (monitores antigos 4:3 e 16:10, e celulares) e casos de borda (API REST, UI React 19 operada via Playwright MCP ou `/browser`, PostgreSQL 18, RBAC e acessibilidade WCAG 2.2 AA).
 - **[`revisar`](.agents/skills/revisar/SKILL.md)** (`/revisar`): Realiza a revisão automatizada do diff da branch da tarefa contra `develop` validando camadas, segurança SQL, concorrência, WCAG 2.2 AA e LGPD/SVO, e gera o relatório visual em `docs/reviews/<chave-tarefa>-<slug>.html` a partir de `docs/reviews/EXEMPLO_REVISAO.html`.
 - **[`documentar-modulo`](.agents/skills/documentar-modulo/SKILL.md)** (`/documentar-modulo`): Gera ou atualiza a documentação HTML do módulo em `docs/modulos/<MODULO>.html`.
 

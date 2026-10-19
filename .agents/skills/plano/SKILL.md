@@ -111,6 +111,12 @@ Se houver **qualquer dúvida**, interrompa e pergunte objetivamente ao usuário 
 11. **Atualização da Documentação do Módulo** (`docs/modulos/<MODULO>.html`);
 12. **Princípios de Desenvolvimento e Restrições de Implementação** *(pré-preenchida pelo script)*.
 
+3. **Abertura Automática do HTML no Navegador:**
+   - Assim que o arquivo HTML do plano (`docs/plans/<nome-do-plano>.html`) for gerado e preenchido, **abra-o imediatamente no navegador padrão do desenvolvedor** para conferência visual:
+     - No Windows (PowerShell/CMD): `cmd.exe /c start "" "$((Resolve-Path docs/plans/<nome-do-plano>.html).Path)"` (ou `explorer.exe "$((Resolve-Path docs/plans/<nome-do-plano>.html).Path)"`)
+     - No macOS: `open "docs/plans/<nome-do-plano>.html"`
+     - No Linux: `xdg-open "docs/plans/<nome-do-plano>.html"`
+
 ---
 
 ### Passo 6 — Criação da Branch da Tarefa e Próximo Passo (`/implementar`)
