@@ -1,7 +1,6 @@
 import { AppBar, Toolbar, Typography, Box, InputBase, Avatar, Badge, IconButton } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import DirectionsCar from '@mui/icons-material/DirectionsCar';
 import logoAratu from '../assets/aratu-logo.png';
 
 export default function Topbar() {

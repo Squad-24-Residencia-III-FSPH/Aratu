@@ -1,7 +1,7 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import GestorPage from './pages/GestorPage/GestorPage';
-import LoginPage from './pages/loginpage/LoginPage';
+import Layout from './components/layout';
+import GestorPage from './pages/gestorPage/GestorPage';
+import LoginPage from './pages/loginPage/LoginPage';
 
 export default function App() {
   return (

@@ -1,11 +1,11 @@
 import { Box, Typography, Paper, Grid, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
-import DirectionsCar from '@mui/icons-material/DirectionsCar';
 import Build from '@mui/icons-material/Build';
 import Assignment from '@mui/icons-material/Assignment';
 import SwapHoriz from '@mui/icons-material/SwapHoriz';
 import ArrowForward from '@mui/icons-material/ArrowForward';
 import Warning from '@mui/icons-material/Warning';
 import CheckCircle from '@mui/icons-material/CheckCircle';
+import DirectionsCar from '@mui/icons-material/DirectionsCar';
 
 export default function GestorPage() {
   return (
@@ -20,84 +20,88 @@ export default function GestorPage() {
       </Box>
 
       {/* Métricas Superiores */}
-      <Grid container spacing={2.5} sx={{ mb: 3 }} alignItems="stretch">
-        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
-          <Paper 
-            sx={{ 
-              p: 2.5, 
-              minHeight: '115px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              borderRadius: 2, 
-              boxShadow: '0 1px 3px rgba(0,0,0,0.05)', 
-              width: '100%', 
-              height: '100%' 
-            }}
-          >
-            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>12</Typography>
-              <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.85rem', mt: 0.5 }}>Veículos disponíveis</Typography>
-            </Box>
-            <Box sx={{ bgcolor: '#dcfce7', p: 1.5, borderRadius: 2, color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px', flexShrink: 0 }}>
-              <DirectionsCar />
-            </Box>
-          </Paper>
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
-          <Paper 
-            sx={{ 
-              p: 2.5, 
-              minHeight: '115px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              borderRadius: 2, 
-              boxShadow: '0 1px 3px rgba(0,0,0,0.05)', 
-              width: '100%', 
-              height: '100%' 
-            }}
-          >
-            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>3</Typography>
-              <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.85rem', mt: 0.5 }}>Em manutenção</Typography>
-            </Box>
-            <Box sx={{ bgcolor: '#fee2e2', p: 1.5, borderRadius: 2, color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px', flexShrink: 0 }}>
-              <Build />
-            </Box>
-          </Paper>
+      <Grid container spacing={2.5} sx={{ mb: 3, alignItems: 'stretch' }}>
+        <Grid size={{ xs: 12, lg: 9 }}>
+          <Grid container spacing={2.5} sx={{ height: '100%', alignItems: 'stretch' }}>
+            
+            {/* Veículos disponíveis */}
+            <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+              <Paper 
+                sx={{ 
+                  p: 2.5, 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  borderRadius: 2, 
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)', 
+                  width: '100%', 
+                  height: '100%' 
+                }}
+              >
+                <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>12</Typography>
+                  <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.85rem', mt: 0.5 }}>Veículos disponíveis</Typography>
+                </Box>
+                <Box sx={{ bgcolor: '#dcfce7', p: 1.5, borderRadius: 2, color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px', flexShrink: 0 }}>
+                  <DirectionsCar />
+                </Box>
+              </Paper>
+            </Grid>
+
+            {/* Em manutenção */}
+            <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+              <Paper 
+                sx={{ 
+                  p: 2.5, 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  borderRadius: 2, 
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)', 
+                  width: '100%', 
+                  height: '100%' 
+                }}
+              >
+                <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>3</Typography>
+                  <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.85rem', mt: 0.5 }}>Em manutenção</Typography>
+                </Box>
+                <Box sx={{ bgcolor: '#fee2e2', p: 1.5, borderRadius: 2, color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px', flexShrink: 0 }}>
+                  <Build />
+                </Box>
+              </Paper>
+            </Grid>
+
+            {/* Solicitações pendentes */}
+            <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+              <Paper 
+                sx={{ 
+                  p: 2.5, 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  borderRadius: 2, 
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)', 
+                  width: '100%', 
+                  height: '100%' 
+                }}
+              >
+                <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>5</Typography>
+                  <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.85rem', mt: 0.5 }}>Solicitações pendentes</Typography>
+                </Box>
+                <Box sx={{ bgcolor: '#fef3c7', p: 1.5, borderRadius: 2, color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px', flexShrink: 0 }}>
+                  <Assignment />
+                </Box>
+              </Paper>
+            </Grid>
+          </Grid>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+        <Grid size={{ xs: 12, lg: 3 }} sx={{ display: 'flex' }}>
           <Paper 
             sx={{ 
               p: 2.5, 
-              minHeight: '115px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              borderRadius: 2, 
-              boxShadow: '0 1px 3px rgba(0,0,0,0.05)', 
-              width: '100%', 
-              height: '100%' 
-            }}
-          >
-            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: 'calc(100% - 55px)' }}>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>5</Typography>
-              <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.85rem', mt: 0.5 }}>Solicitações pendentes</Typography>
-            </Box>
-            <Box sx={{ bgcolor: '#fef3c7', p: 1.5, borderRadius: 2, color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px', flexShrink: 0 }}>
-              <Assignment />
-            </Box>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
-          <Paper 
-            sx={{ 
-              p: 2.5, 
-              minHeight: '115px', 
               display: 'flex', 
               justifyContent: 'space-between', 
               alignItems: 'center', 
@@ -118,12 +122,12 @@ export default function GestorPage() {
         </Grid>
       </Grid>
 
-      {/* Seção de Ações Pendentes (Mais finas/compactas na altura) */}
+      {/* Seção de Ações Pendentes */}
       <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1e293b', mb: 1 }}>Ações pendentes</Typography>
       <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 2 }}>Itens que precisam da sua decisão</Typography>
       
-      <Grid container spacing={2.5} sx={{ mb: 4 }} alignItems="stretch">
-        <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+      <Grid container spacing={2.5} sx={{ mb: 4, alignItems: 'stretch' }}>
+        <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
           <Paper sx={{ py: 2, px: 2.5, borderRadius: 2, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -136,7 +140,7 @@ export default function GestorPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+        <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
           <Paper sx={{ py: 2, px: 2.5, borderRadius: 2, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -149,7 +153,7 @@ export default function GestorPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+        <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
           <Paper sx={{ py: 2, px: 2.5, borderRadius: 2, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -163,9 +167,9 @@ export default function GestorPage() {
         </Grid>
       </Grid>
 
-      {/* Grid Inferior: Agenda de hoje (Maior - lg={9}) e Status da Frota (lg={3}) */}
-      <Grid container spacing={3} alignItems="stretch">
-        <Grid item xs={12} lg={9} sx={{ display: 'flex' }}>
+      {/* Agenda de hoje */}
+      <Grid container spacing={3} sx={{ alignItems: 'stretch' }}>
+        <Grid size={{ xs: 12, lg: 9 }} sx={{ display: 'flex' }}>
           <Paper sx={{ p: 3, borderRadius: 2, width: '100%', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -213,7 +217,7 @@ export default function GestorPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} lg={3} sx={{ display: 'flex' }}>
+        <Grid size={{ xs: 12, lg: 3 }} sx={{ display: 'flex' }}>
           <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1e293b' }}>Status da frota</Typography>
