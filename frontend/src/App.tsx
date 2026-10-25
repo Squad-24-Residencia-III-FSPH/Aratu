@@ -1,17 +1,23 @@
-import { useAuth } from './auth/useAuth'
-import LoginPage from './pages/LoginPage'
-import ProfileHome from './pages/ProfileHome'
-import Redirect from './routing/Redirect'
-import { usePathname } from './routing/navigation'
-import { resolveRoute } from './routing/routeDecision'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Layout from './components/Layout';
+import GestorPage from './pages/GestorPage/GestorPage';
+import LoginPage from './pages/loginpage/LoginPage';
 
-function App() {
-  const { session } = useAuth()
-  const path = usePathname()
-  const route = resolveRoute(session, path)
-  if (route.kind === 'redirect') return <Redirect to={route.to} />
-  if (route.kind === 'login') return <LoginPage />
-  return <ProfileHome profile={route.profile} />
+export default function App() {
+  return (
+    <HashRouter>
+      <Routes>
+        {/* Rota de Login */}
+        <Route path="/login" element={<LoginPage />} />
+
+        {/* Rotas do Sistema protegidas/envoltas pelo Layout (Topbar + Sidebar) */}
+        <Route path="/" element={<Layout />}>
+          <Route index element={<GestorPage />} />
+        </Route>
+
+        {/* Redirecionamento para qualquer rota desconhecida */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </HashRouter>
+  );
 }
-
-export default App
