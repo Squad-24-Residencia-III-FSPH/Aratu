@@ -206,7 +206,7 @@ export default function GestorPage() {
                         <TableCell sx={{ fontSize: '0.85rem' }}>{row.dest}</TableCell>
                         <TableCell sx={{ fontSize: '0.85rem' }}>{row.car}</TableCell>
                         <TableCell>
-                          <Chip label={row.status} size="small" color={row.color as any} sx={{ height: 22, fontSize: '0.75rem', fontWeight: 600 }} />
+                          <Chip label={row.status} size="small" color={row.color as 'default'| 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'} sx={{ height: 22, fontSize: '0.75rem', fontWeight: 600 }} />
                         </TableCell>
                       </TableRow>
                     ))}
