@@ -2,8 +2,12 @@ import { AppBar, Toolbar, Typography, Box, InputBase, Avatar, Badge, IconButton 
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import logoAratu from '../assets/aratu-logo.png';
+import { useAuth } from '../auth/useAuth';
+import { profileInitials, profileLabel } from '../auth/profiles';
 
 export default function Topbar() {
+  const { session } = useAuth();
+  const nome = session?.nome ?? 'Usuário';
   return (
     <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, backgroundColor: '#FF6B00', boxShadow: 'none' }}>
       <Toolbar sx={{ justifyContent: 'space-between', minHeight: '64px !important' }}>
@@ -39,10 +43,10 @@ export default function Topbar() {
             </Badge>
           </IconButton>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', width: 36, height: 36, fontSize: '0.85rem', fontWeight: 700 }}>MV</Avatar>
+            <Avatar sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', width: 36, height: 36, fontSize: '0.85rem', fontWeight: 700 }}>{profileInitials(nome)}</Avatar>
             <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'right' }}>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: '#fff', lineHeight: 1.2 }}>Marcos Vieira</Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>Gestor de Frota</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: '#fff', lineHeight: 1.2 }}>{nome}</Typography>
+              {session && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{profileLabel(session.perfil)}</Typography>}
             </Box>
           </Box>
         </Box>
