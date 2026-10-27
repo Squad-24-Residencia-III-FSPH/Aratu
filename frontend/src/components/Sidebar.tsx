@@ -13,10 +13,13 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import BarChart from '@mui/icons-material/BarChart';
 import Security from '@mui/icons-material/Security';
 import Help from '@mui/icons-material/Help';
+import { useAuth } from '../auth/useAuth';
+import { profileLabel } from '../auth/profiles';
 
 const drawerWidth = 260;
 
 export default function Sidebar() {
+  const { session } = useAuth();
   return (
     <Drawer
       variant="permanent"
@@ -28,7 +31,7 @@ export default function Sidebar() {
     >
       <Box sx={{ overflow: 'auto', p: 2 }}>
         <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 1, display: 'block', mb: 1 }}>
-          Gestor de Frota
+          {session ? profileLabel(session.perfil) : 'Aratu'}
         </Typography>
 
         {/* Inicio */}

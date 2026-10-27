@@ -13,6 +13,9 @@ import type { RoleRepositoryContract } from './repositories/roles.repository'
 import { RolesRepository } from './repositories/roles.repository'
 import { AuditService } from './services/audit.service'
 import { ProfileService } from './services/profile.service'
+import { VehiclesRepository } from './repositories/vehicles.repository'
+import { VehiclesService } from './services/vehicles.service'
+import { createVehiclesRouter } from './routes/vehicles.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -57,6 +60,11 @@ export function createApp({ jwtConfig, users, roles, audits, pool }: AppDependen
   app.use('/auth', createAuthRouter(userRepository, jwtConfig, auditService))
   if (rolesRepository) {
     app.use('/profiles', createProfileRouter(new ProfileService(rolesRepository), jwtConfig.secret))
+  }
+  if (pool && auditService) {
+    const vehiclesRepository = new VehiclesRepository(pool)
+    const vehiclesService = new VehiclesService(vehiclesRepository, auditService)
+    app.use('/vehicles', createVehiclesRouter(vehiclesService, jwtConfig))
   }
   app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (res.headersSent) {
