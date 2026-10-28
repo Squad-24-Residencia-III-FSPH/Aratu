@@ -28,6 +28,25 @@ Copie `.env.example` para `.env` e substitua os placeholders. Use a mesma senha 
 
 No host, `DATABASE_URL` aponta para `localhost`. O Compose configura o backend para conectar ao serviço `db` dentro da rede Docker, reutilizando as credenciais `POSTGRES_*` do `.env`.
 
+### Variáveis de ambiente
+
+O backend e os scripts (`db:migrate`, `db:seed`, testes) carregam o `.env` da raiz do repositório. O frontend lê apenas `frontend/.env` (modelo em `frontend/.env.example`).
+
+| Variável | Obrigatória | Padrão / uso |
+|---|---|---|
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Sim (Compose) | Credenciais do container `db`. |
+| `DATABASE_URL` | Sim (API e scripts) | `localhost` no host; host `db` dentro do container. |
+| `NODE_ENV` | Não | Ausente equivale a desenvolvimento; `production` desabilita `/docs`. |
+| `PORT` | Não | `3000`. |
+| `JWT_SECRET` | Sim | Segredo exclusivo por ambiente. |
+| `JWT_EXPIRES_IN` | Não | `8h` (sufixos `s`, `m`, `h`, `d`). |
+| `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_ADMIN_NAME` | Sim para `db:seed` | Nome tem padrão `Administrador do Sistema`. |
+| `POSTGRES_DB_TEST` | Não | `aratu_test`. |
+| `DATABASE_URL_TEST` | Não | Se omitida, é derivada de `DATABASE_URL` com `POSTGRES_DB_TEST`. |
+| `VITE_API_BASE_URL` | Não | `/api`. |
+| `API_PROXY_TARGET` | Não | `http://localhost:3000` no host; `http://backend:3000` no Compose. |
+| `FRONTEND_PORT` | Não | `8080`; usada apenas no Compose de produção. |
+
 ### Subindo e gerenciando os serviços
 
 ```bash

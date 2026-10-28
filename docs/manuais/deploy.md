@@ -57,8 +57,13 @@ POSTGRES_DB=aratu
 DATABASE_URL=postgresql://usuario_do_banco:senha_segura@db:5432/aratu
 JWT_SECRET=segredo_aleatorio_longo
 JWT_EXPIRES_IN=8h
+INITIAL_ADMIN_EMAIL=admin@aratu.fsph.se.gov.br
+INITIAL_ADMIN_PASSWORD=senha_inicial_forte
+INITIAL_ADMIN_NAME=Administrador do Sistema
 FRONTEND_PORT=8080
 ```
+
+As variáveis `INITIAL_ADMIN_*` são exigidas por `npm run db:seed` para provisionar o primeiro Administrador; em produção a senha não pode ser o placeholder nem ter menos de 8 caracteres. `NODE_ENV` não precisa constar neste arquivo: o `backend/Dockerfile.prod` define `production` e o `docker-compose.prod.yml` reforça o valor explicitamente.
 
 Codifique caracteres reservados da senha do banco como URL encoding em `DATABASE_URL`. Não versione esse arquivo ou seus valores. A porta `8080` é publicada somente em `127.0.0.1`; configure um proxy reverso HTTPS existente no VPS para encaminhar tráfego público à porta local. A configuração de TLS/firewall desse proxy é responsabilidade do ambiente de hospedagem.
 

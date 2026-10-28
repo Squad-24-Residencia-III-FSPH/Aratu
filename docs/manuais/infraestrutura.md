@@ -32,7 +32,7 @@ O banco é organizado em **5 Schemas Nativos de Domínio**: `auth`, `audit`, `fl
 ### 1.2 Migrações e Operações Críticas
 
 - **DDL Transacional:** toda migration no PostgreSQL 18 deve rodar dentro de `BEGIN; ... COMMIT;` para garantir atomicidade.
-- Configure as credenciais locais em `.env` usando `.env.example` como referência. `docker-compose.yml` lê `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` e `POSTGRES_PORT`; a API executada no host usa `DATABASE_URL` apontando para `localhost`, enquanto o Compose injeta a URL com host interno `db`.
+- Configure as credenciais locais em `.env` usando `.env.example` como referência. `docker-compose.yml` lê `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` e `POSTGRES_PORT`; a API executada no host usa `DATABASE_URL` apontando para `localhost`, enquanto o Compose injeta a URL com host interno `db`. O backend também lê `NODE_ENV` (ausente equivale a desenvolvimento; `production` desabilita `/docs`) e `PORT` (padrão `3000`); a imagem de produção define `NODE_ENV=production` e o Compose de produção reforça o valor.
 - O backend pode ser iniciado diretamente no host com `npm --prefix backend run dev` depois de instalar as dependências; `JWT_SECRET` deve ser exclusivo do ambiente e `JWT_EXPIRES_IN` usa `8h` como padrão.
 - A migration inicial pode ser aplicada na raiz do repositório após iniciar o container do banco:
   ```bash

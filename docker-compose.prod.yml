@@ -22,6 +22,7 @@ services:
     restart: unless-stopped
     init: true
     environment:
+      NODE_ENV: production
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL com o host db no .env de produção}
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no .env de produção}
