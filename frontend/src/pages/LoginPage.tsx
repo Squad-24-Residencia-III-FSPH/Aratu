@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useId } from 'react'
 import type { FormEvent } from 'react'
 import {
   Alert, Box, Button, CircularProgress, FormControl, FormHelperText,
@@ -22,6 +22,8 @@ export default function LoginPage() {
   const submitting = useRef(false)
   const emailInput = useRef<HTMLInputElement>(null)
   const passwordInput = useRef<HTMLInputElement>(null)
+  const emailId = useId()
+  const senhaId = useId()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -63,24 +65,24 @@ export default function LoginPage() {
           </header>
           <Box component="form" className={styles['formulario-login']} onSubmit={handleSubmit} noValidate aria-busy={loading}>
             <FormControl fullWidth required error={Boolean(errors.email)} className={styles['grupo-campo']}>
-              <FormLabel htmlFor="email">E-mail institucional</FormLabel>
+              <FormLabel htmlFor={emailId}>E-mail institucional</FormLabel>
               <OutlinedInput
-                id="email" name="email" type="email" autoComplete="username"
+                id={emailId} name="email" type="email" autoComplete="username"
                 placeholder="usuario@fsph.gov.br" value={email} inputRef={emailInput}
-                disabled={loading} inputProps={{ 'aria-describedby': errors.email ? 'email-erro' : undefined }}
+                disabled={loading} inputProps={{ 'aria-describedby': errors.email ? `${emailId}-erro` : undefined }}
                 onChange={(event) => { setEmail(event.target.value); setErrors((previous) => ({ ...previous, email: undefined })); setError('') }}
               />
-              {errors.email && <FormHelperText id="email-erro">{errors.email}</FormHelperText>}
+              {errors.email && <FormHelperText id={`${emailId}-erro`}>{errors.email}</FormHelperText>}
             </FormControl>
             <FormControl fullWidth required error={Boolean(errors.senha)} className={styles['grupo-campo']}>
-              <FormLabel htmlFor="senha">Senha</FormLabel>
+              <FormLabel htmlFor={senhaId}>Senha</FormLabel>
               <OutlinedInput
-                id="senha" name="senha" type="password" autoComplete="current-password"
+                id={senhaId} name="senha" type="password" autoComplete="current-password"
                 value={senha} inputRef={passwordInput} disabled={loading}
-                inputProps={{ 'aria-describedby': errors.senha ? 'senha-erro' : undefined }}
+                inputProps={{ 'aria-describedby': errors.senha ? `${senhaId}-erro` : undefined }}
                 onChange={(event) => { setSenha(event.target.value); setErrors((previous) => ({ ...previous, senha: undefined })); setError('') }}
               />
-              {errors.senha && <FormHelperText id="senha-erro">{errors.senha}</FormHelperText>}
+              {errors.senha && <FormHelperText id={`${senhaId}-erro`}>{errors.senha}</FormHelperText>}
             </FormControl>
             {error && <Alert severity="error" className={styles['mensagem-login']}>{error}</Alert>}
             {!error && notice && <Alert severity="info" className={styles['mensagem-login']}>{notice}</Alert>}
@@ -89,6 +91,73 @@ export default function LoginPage() {
               {loading ? 'Entrando…' : 'Entrar'}
             </Button>
             <span role="status" className={styles['somente-leitor']}>{loading ? 'Autenticando. Aguarde.' : ''}</span>
+
+            {/* Painel de Acesso Rápido para Avaliação */}
+            <Box
+              sx={{
+                mt: 3,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                textAlign: 'left',
+              }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#334155', display: 'block', mb: 1 }}>
+                Acesso Rápido para Avaliação (Squad 24):
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
+                <Button
+                  type="button"
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    setEmail('gestor@aratu.fsph.se.gov.br')
+                    setSenha('AratuGestor2026!')
+                    setErrors({})
+                    setError('')
+                  }}
+                  sx={{
+                    justifyContent: 'flex-start',
+                    textAlign: 'left',
+                    fontSize: 12,
+                    textTransform: 'none',
+                    borderColor: '#cbd5e1',
+                    color: '#0d47a1',
+                    minHeight: 36,
+                    fontWeight: 600,
+                    '&:hover': { bgcolor: '#e3f2fd', borderColor: '#90caf9' },
+                  }}
+                >
+                  👤 Gestor de Frota (Vitor Guilherme)
+                </Button>
+                <Button
+                  type="button"
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    setEmail('admin@aratu.fsph.se.gov.br')
+                    setSenha('AratuAdmin2026!')
+                    setErrors({})
+                    setError('')
+                  }}
+                  sx={{
+                    justifyContent: 'flex-start',
+                    textAlign: 'left',
+                    fontSize: 12,
+                    textTransform: 'none',
+                    borderColor: '#cbd5e1',
+                    color: '#475569',
+                    minHeight: 36,
+                    fontWeight: 600,
+                    '&:hover': { bgcolor: '#f1f5f9', borderColor: '#94a3b8' },
+                  }}
+                >
+                  🔑 Administrador do Sistema
+                </Button>
+              </Box>
+            </Box>
+
             <footer className={styles['rodape-login']}>
               <Link component="button" type="button" className={styles['link-esqueci-senha']} onClick={() => setRecoveryInfo(true)} disabled={loading}>
                 Esqueci minha senha

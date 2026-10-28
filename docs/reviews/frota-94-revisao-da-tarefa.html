@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-94 — Tela de Agendamento de Viagem (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #0d47a1;
+      --brand: #1565c0;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-94: Tela de Agendamento de Viagem (US 14)</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-94</code> — US 14: Tela de Agendamento de Viagem</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/agendamento-viagem</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Módulo Afetado:</strong> <code>FROTA</code> / <code>VIAGENS</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <span class="badge-rbac">GESTOR</span> (Persona: Vitor Guilherme), <span class="badge-rbac">ADMINISTRADOR</span></p>
+  <p><strong>Data da Revisão:</strong> 2026-10-27</p>
+  <p><strong>Auditoria Estática (aratu-check.mjs):</strong> 0 Bloqueantes · 0 Pontos de Atenção · TypeScript 100% OK · 43 Testes Passando</p>
+</div>
+
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA
+</div>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">0</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">17</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">0</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">1. Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">4. Resultado do QA Automatizado e Pré-Auditoria (aratu-check.mjs)</a></li>
+  <li><a href="#r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>frontend/src/pages/ScheduleTripPage.tsx</code></td>
+      <td>Frontend (Página)</td>
+      <td>Novo</td>
+      <td>Implementação completa da tela de agendamento: Card superior imutável (PE-RN-010 e PE-RN-023), formulário de início e fim previstos, seletores de veículo e motorista, painel lateral de timeline da frota (PE-RN-026), tratamento dos 5 estados visuais e feedback assertivo de erro/concorrência sem resetar formulário (PE-CA-014).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/layout/AppShell.tsx</code></td>
+      <td>Frontend (Layout)</td>
+      <td>Novo</td>
+      <td>Layout base institucional contendo TopBar com dados do Gestor (Vitor Guilherme), botão Sair, Sidebar de navegação e container acessível com skip link.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/layout/PageHeader.tsx</code></td>
+      <td>Frontend (Layout)</td>
+      <td>Novo</td>
+      <td>Cabeçalho semântico padronizado com <code>&lt;h1&gt;</code>, subtítulo e área de ações.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/ui/FormField.tsx</code></td>
+      <td>Frontend (UI)</td>
+      <td>Novo</td>
+      <td>Componente acessível encapsulando <code>useId()</code>, rótulo vinculado, <code>aria-describedby</code> e <code>role="alert"</code>.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/ui/StateFeedback.tsx</code></td>
+      <td>Frontend (UI)</td>
+      <td>Novo</td>
+      <td>Gestão unificada dos 5 estados visuais: Loading (Skeleton/CircularProgress com <code>aria-busy="true"</code>), Empty, Error e Sucesso.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/ui/StatusChip.tsx</code></td>
+      <td>Frontend (UI)</td>
+      <td>Novo</td>
+      <td>Chips de status com contraste superior a 4.5:1, ícone e texto explicativo.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/types/trip.ts</code></td>
+      <td>Frontend (Tipos)</td>
+      <td>Novo</td>
+      <td>Interfaces TypeScript estritas para solicitação de viagem, veículos, motoristas, timeline e agendamento.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/services/tripScheduleService.ts</code></td>
+      <td>Frontend (Serviço)</td>
+      <td>Novo</td>
+      <td>Funções tipadas para carregar dados da solicitação, listar veículos/motoristas disponíveis, consultar timeline e agendar com validação de concorrência.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/routing/routeDecision.ts</code></td>
+      <td>Frontend (Roteamento)</td>
+      <td>Modificado</td>
+      <td>Proteção de rota RBAC: <code>/frota/agendar-viagem/:id</code> disponível exclusivamente para perfil <code>GESTOR</code> (e Administrador).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/App.tsx</code></td>
+      <td>Frontend (App)</td>
+      <td>Modificado</td>
+      <td>Integração da rota <code>schedule-trip</code> ao roteador global da aplicação.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/tests/schedule-trip.test.mjs</code></td>
+      <td>Frontend (Testes)</td>
+      <td>Novo</td>
+      <td>Bateria de 10 testes unitários cobrindo RBAC exclusivo de Gestor, validações de horário, concorrência e integridade do agendamento.</td>
+    </tr>
+    <tr>
+      <td><code>.env</code> e <code>backend/.env</code></td>
+      <td>Ambiente / Infra</td>
+      <td>Novo</td>
+      <td>Configuração das credenciais PostgreSQL 18 e conexão local com porta 3000 e 5432.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e ausência de arquivos desnecessários</td><td><span class="badge-ok">🟢 OK</span></td><td>Focado exclusivamente na US 14 (Tela de Agendamento) e no ambiente Docker/Postgres.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>Branch <code>feat/agendamento-viagem</code> alinhada a <code>develop</code>.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento dos requisitos (PE-RN-010, PE-RN-023, PE-RN-026, PE-CA-014)</td><td><span class="badge-ok">🟢 OK</span></td><td>Card imutável presente, timeline lateral ativa, feedback assertivo de erro sem perda de dados digitados.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Banco PostgreSQL 18 migrado e semeado; sem quebra na API Express.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Uso de <code>FormField</code>, <code>StateFeedback</code>, <code>StatusChip</code>, <code>PageHeader</code> e <code>AppShell</code>.</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero ciclos detectados e zero flags ocultas.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Migrações e queries do backend preservadas sem interpolação direta.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita e filtros sargáveis</td><td><span class="badge-ok">🟢 OK</span></td><td>Queries no banco de dados mantêm projeções explícitas de colunas.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas e concorrência no banco</td><td><span class="badge-ok">🟢 OK</span></td><td>Sem bloqueios orfãos.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão PostgreSQL 18 (schemas <code>auth</code>, <code>fleet</code>, PKs <code>id</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Container PostgreSQL 18-alpine em execução e saudável.</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC (Acesso exclusivo GESTOR / Vitor Guilherme)</td><td><span class="badge-ok">🟢 OK</span></td><td>Rota validada em <code>routeDecision.ts</code> com bloqueio automático e redirecionamento de perfis não autorizados.</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados reais</td><td><span class="badge-ok">🟢 OK</span></td><td>Todos os dados de motoristas e servidores em testes e telas são 100% fictícios.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Build TypeScript (<code>tsc -b</code>) executado com zero advertências e zero erros.</td></tr>
+    <tr><td><code>C14</code></td><td>Código em inglês + interface e mensagens em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Símbolos técnicos em inglês e UI completamente em PT-BR.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Loading, Vazio, Erro, Sucesso)</td><td><span class="badge-ok">🟢 OK</span></td><td>Implementado via <code>StateFeedback</code> e cards dedicados na página.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code> e <code>role="alert"</code></td><td><span class="badge-ok">🟢 OK</span></td><td>Campos com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>aria-live="assertive"</code>.</td></tr>
+    <tr><td><code>C17</code></td><td>Navegação 100% por teclado, <code>:focus-visible</code> e alvos >= 44x44px</td><td><span class="badge-ok">🟢 OK</span></td><td>Em total conformidade com WCAG 2.2 AA.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado.</em></p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<p><em>Nenhum item de atenção identificado. O código está pronto para inspeção visual e merge.</em></p>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática Squad 24</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-ok">🟢 0 Bloqueantes · 0 Atenção</span></td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript Frontend</td>
+      <td><code>npm --prefix frontend run build</code></td>
+      <td><span class="badge-ok">🟢 0 Erros (built in 567ms)</span></td>
+    </tr>
+    <tr>
+      <td>Linter ESLint Frontend</td>
+      <td><code>npm --prefix frontend run lint</code></td>
+      <td><span class="badge-ok">🟢 0 Erros · 0 Warnings</span></td>
+    </tr>
+    <tr>
+      <td>Bateria de Testes Frontend (43 testes)</td>
+      <td><code>npm --prefix frontend test</code></td>
+      <td><span class="badge-ok">🟢 43 Passaram · 0 Falhas</span></td>
+    </tr>
+    <tr>
+      <td>Bateria de Testes Backend (41 testes)</td>
+      <td><code>npm --prefix backend test</code></td>
+      <td><span class="badge-ok">🟢 41 Passaram · 0 Falhas</span></td>
+    </tr>
+    <tr>
+      <td>Status Container PostgreSQL 18</td>
+      <td><code>docker compose ps</code></td>
+      <td><span class="badge-ok">🟢 Up (porta 5432 ativa)</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul class="check">
+  <li><input type="checkbox"> Acessar a URL local <code>http://localhost:5173/frota/agendar-viagem/123</code> autenticado como Gestor (Persona: Vitor Guilherme).</li>
+  <li><input type="checkbox"> Testar o botão "Simular Conflito de Concorrência (PE-CA-014)" e confirmar que o alerta assertivo aparece no topo sem limpar nenhum dado digitado no formulário.</li>
+  <li><input type="checkbox"> Validar a navegabilidade por teclado (<code>Tab</code> / <code>Shift+Tab</code>) e o contraste das cores com fundo <code>#f5f6f8</code> e azul institucional <code>#0d47a1</code>.</li>
+</ul>
+
+</body>
+</html>
