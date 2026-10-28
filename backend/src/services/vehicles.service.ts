@@ -4,6 +4,7 @@ import {
   VEHICLE_CATEGORIES,
   VEHICLE_AUDIT_OPERATIONS,
   VEHICLE_OPERATION_TYPES,
+  VEHICLE_OWNERSHIP_TYPES,
   VEHICLE_STATUSES,
   VehicleServiceError,
 } from '../types/vehicle.types'
@@ -14,12 +15,15 @@ import type {
   VehicleActorSnapshot,
   VehicleAttributes,
   VehicleFilters,
+  VehicleOwnership,
   VehicleStatus,
   UpdateVehicleInput,
 } from '../types/vehicle.types'
 import type { VehiclesRepositoryContract } from '../repositories/vehicles.repository'
 
 const LICENSE_PLATE_PATTERN = /^(?:[A-Z]{3}\d{4}|[A-Z]{3}\d[A-Z]\d{2})$/
+const MIN_VEHICLE_YEAR = 1980
+const MAX_VEHICLE_YEAR = 2100
 const ALLOWED_TRANSITIONS: Readonly<Record<VehicleStatus, readonly VehicleStatus[]>> = {
   AVAILABLE: ['IN_MAINTENANCE', 'INACTIVE'],
   IN_MAINTENANCE: ['AVAILABLE', 'INACTIVE'],
@@ -34,11 +38,25 @@ function isOneOf<T extends string>(value: unknown, choices: readonly T[]): value
   return typeof value === 'string' && choices.some((choice) => choice === value)
 }
 
+function normalizeOptionalText(value: unknown, fieldLabel: string): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') {
+    throw new VehicleServiceError(400, `${fieldLabel} inválido.`)
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 function auditState(vehicle: Vehicle | null): Record<string, unknown> | null {
   if (!vehicle) return null
   return {
     id: vehicle.id,
     licensePlate: vehicle.licensePlate,
+    brand: vehicle.brand,
+    model: vehicle.model,
+    year: vehicle.year,
+    vehicleType: vehicle.vehicleType,
+    ownership: vehicle.ownership,
     categories: vehicle.categories,
     seats: vehicle.seats,
     bodyLimit: vehicle.bodyLimit,
@@ -236,6 +254,26 @@ export class VehiclesService {
     if (!LICENSE_PLATE_PATTERN.test(licensePlate)) {
       throw new VehicleServiceError(400, 'Placa inválida. Informe ABC1234 ou ABC1D23.')
     }
+    const brand = normalizeOptionalText(input.brand, 'Marca')
+    const model = normalizeOptionalText(input.model, 'Modelo')
+    const vehicleType = normalizeOptionalText(input.vehicleType, 'Tipo de veículo')
+    let year: number | null = null
+    if (input.year !== undefined && input.year !== null) {
+      if (!Number.isInteger(input.year) || input.year < MIN_VEHICLE_YEAR || input.year > MAX_VEHICLE_YEAR) {
+        throw new VehicleServiceError(
+          400,
+          `Ano do veículo inválido. Informe um valor inteiro entre ${MIN_VEHICLE_YEAR} e ${MAX_VEHICLE_YEAR}.`,
+        )
+      }
+      year = input.year
+    }
+    let ownership: VehicleOwnership = 'OWNED'
+    if (input.ownership !== undefined && input.ownership !== null) {
+      if (!isOneOf(input.ownership, VEHICLE_OWNERSHIP_TYPES)) {
+        throw new VehicleServiceError(400, 'Regime de propriedade inválido.')
+      }
+      ownership = input.ownership
+    }
     if (!Array.isArray(input.categories) || input.categories.length === 0
       || input.categories.some((category) => !isOneOf(category, VEHICLE_CATEGORIES))) {
       throw new VehicleServiceError(400, 'Informe ao menos uma categoria de veículo válida.')
@@ -252,6 +290,11 @@ export class VehiclesService {
     }
     return {
       licensePlate,
+      brand,
+      model,
+      year,
+      vehicleType,
+      ownership,
       categories: [...new Set(input.categories)],
       seats: input.seats,
       bodyLimit: input.bodyLimit,

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-157 — [INFRA] Modelo de dados: Gestão de Frota (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-157: [INFRA] Modelo de dados: Gestão de Frota</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <a href="https://squad24.atlassian.net/browse/FROTA-157" target="_blank"><code>FROTA-157</code></a> — [INFRA] Modelo de dados: Gestão de Frota (Subtarefas integradas: <code>FROTA-42</code>, <code>FROTA-48</code> e <code>FROTA-165</code>)</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/infra-modelo-de-dados-frota</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-157-infra-modelo-de-dados.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>FROTA</code>, <code>MOTORISTAS</code></p>
+  <p><strong>Perfis RBAC Impactados (nas APIs consumidoras):</strong> <span class="badge-rbac">ADMINISTRADOR</span> <span class="badge-rbac">GESTOR</span> <span class="badge-rbac">MOTORISTA</span> <span class="badge-rbac">ATENDENTE_SVO</span> <span class="badge-rbac">SOLICITANTE</span></p>
+  <p><strong>Data da Revisão:</strong> 2026-10-28</p>
+</div>
+
+<!-- PREENCHER_VEREDITO: Use class="verdict-approved" para APROVADO_PARA_REVISAO_HUMANA ou class="verdict-blocked" para BLOQUEADO_POR_PENDENCIAS -->
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA
+</div>
+
+<!-- PREENCHER_CONTADORES: Atualize os contadores de Bloqueantes, Atenção, OK e N/A -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">0</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">12</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">5</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<!-- PREENCHER_REVISAO_SECAO_1: Tabela de arquivos criados/alterados no diff contra develop -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280001_alter_vehicles_add_details.sql</code></td>
+      <td>Database (Migration SQL)</td>
+      <td>Novo</td>
+      <td>Adiciona colunas descritivas (<code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicle_type</code>, <code>ownership</code>) em <code>fleet.vehicles</code> com constraints declarativas e recria o índice único <code>fleet_vehicles_license_plate_unique</code> sobre <code>upper(license_plate)</code> (<code>FROTA-42</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280001_alter_vehicles_add_details.down.sql</code></td>
+      <td>Database (Rollback SQL)</td>
+      <td>Novo</td>
+      <td>Reverte o índice funcional de placa, restaura a constraint anterior e remove as 5 colunas descritivas de <code>fleet.vehicles</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280002_create_drivers.sql</code></td>
+      <td>Database (Migration SQL)</td>
+      <td>Novo</td>
+      <td>Cria <code>fleet.drivers</code> (com unicidade de CPF e índice único parcial para <code>user_id IS NOT NULL</code>) e a tabela histórica imutável <code>fleet.driver_events</code> protegida pela trigger <code>fleet_driver_events_append_only</code> (<code>FROTA-48</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280002_create_drivers.down.sql</code></td>
+      <td>Database (Rollback SQL)</td>
+      <td>Novo</td>
+      <td>Remove transacionalmente <code>fleet.driver_events</code>, a função de trigger append-only e <code>fleet.drivers</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280003_create_services.sql</code></td>
+      <td>Database (Migration SQL)</td>
+      <td>Novo</td>
+      <td>Cria <code>fleet.services</code> (com índice único funcional em <code>lower(btrim(name))</code> e validação de categorias) e a tabela associativa <code>fleet.vehicle_services</code> com <code>UNIQUE (vehicle_id, service_id)</code> e índices nas FKs (<code>FROTA-165</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280003_create_services.down.sql</code></td>
+      <td>Database (Rollback SQL)</td>
+      <td>Novo</td>
+      <td>Remove transacionalmente <code>fleet.vehicle_services</code> e <code>fleet.services</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/types/vehicle.types.ts</code></td>
+      <td>Backend (Types / DTOs)</td>
+      <td>Modificado</td>
+      <td>Declara <code>VEHICLE_OWNERSHIP_TYPES</code> (<code>'OWNED' | 'LEASED'</code>), <code>VehicleOwnership</code> e estende <code>Vehicle</code> e <code>VehicleAttributes</code> com <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicleType</code> e <code>ownership</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/vehicles.repository.ts</code></td>
+      <td>Backend (Repository)</td>
+      <td>Modificado</td>
+      <td>Projeta e persiste <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicle_type AS "vehicleType"</code> e <code>ownership</code> em todas as queries de <code>fleet.vehicles</code>, e atualiza <code>findByLicensePlate</code> para <code>WHERE upper(license_plate) = upper($1)</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/vehicles.service.ts</code></td>
+      <td>Backend (Service)</td>
+      <td>Modificado</td>
+      <td>Normaliza strings opcionais (<code>brand</code>, <code>model</code>, <code>vehicleType</code>), valida faixa de <code>year</code> (<code>1980..2100</code>) e <code>ownership</code> (default <code>'OWNED'</code>), e inclui os novos atributos no snapshot de auditoria (<code>auditState</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/scripts/seed.ts</code></td>
+      <td>Backend (Database Seed)</td>
+      <td>Modificado</td>
+      <td>Adiciona e exporta <code>seedInitialFleet(pool, adminEmail)</code> para provisionar de forma transacional e idempotente as 3 caminhonetes S10 fictícias do SVO (com eventos <code>CREATED</code> em <code>fleet.vehicle_events</code>), os 3 serviços iniciais e os vínculos em <code>fleet.vehicle_services</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/vehicles.service.test.ts</code></td>
+      <td>Backend (Unit Tests)</td>
+      <td>Modificado</td>
+      <td>Atualiza fixture base de veículo e adiciona teste unitário para normalização de <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicleType</code>, <code>ownership</code> e rejeição de ano fora do intervalo (<code>400</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/database.integration.test.ts</code></td>
+      <td>Backend (Integration Tests)</td>
+      <td>Modificado</td>
+      <td>Adiciona os testes de integração <code>IT12</code> a <code>IT16</code> no PostgreSQL 18 validando constraints, índices únicos case-insensitive, trigger append-only de <code>fleet.driver_events</code>, idempotência do seed da frota e rollbacks <code>.down.sql</code>.</td>
+    </tr>
+    <tr>
+      <td><code>docs/plans/frota-157-infra-modelo-de-dados.html</code></td>
+      <td>Documentação (SDD)</td>
+      <td>Novo</td>
+      <td>Plano Técnico de Implementação (SDD) unificando <code>FROTA-157</code>, <code>FROTA-42</code>, <code>FROTA-48</code> e <code>FROTA-165</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<!-- PREENCHER_REVISAO_SECAO_2: Status de cada critério C1 a C17 (badge-ok, badge-warn, badge-block, badge-na) -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>C1</code></td>
+      <td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>O diff de produção em TypeScript soma 266 linhas líquidas (+169 linhas de DDL SQL divididas nas 3 subtarefas <code>FROTA-42</code>, <code>FROTA-48</code> e <code>FROTA-165</code>), além de 281 linhas de testes automatizados (<code>IT12</code>–<code>IT16</code>). Não mistura refatoração estrutural com mudança de comportamento.</td>
+    </tr>
+    <tr>
+      <td><code>C2</code></td>
+      <td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Branch <code>feat/infra-modelo-de-dados-frota</code> criada a partir de <code>develop</code> e commitada seguindo Conventional Commits (<code>feat(fleet): implementar modelo de dados de veiculos, motoristas e servicos (FROTA-157, FROTA-42, FROTA-48, FROTA-165)</code>).</td>
+    </tr>
+    <tr>
+      <td><code>C3</code></td>
+      <td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>100% aderente ao SDD <code>docs/plans/frota-157-infra-modelo-de-dados.html</code> (RF01 a RF04 e cenários 1 a 6), sem criar endpoints ou abstrações fora do escopo das tarefas de infraestrutura.</td>
+    </tr>
+    <tr>
+      <td><code>C4</code></td>
+      <td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td><code>VehiclesService</code> mantém regras de validação puras sem depender de objetos HTTP; <code>VehiclesRepository</code> concentra todo o SQL parametrizado do domínio de veículos.</td>
+    </tr>
+    <tr>
+      <td><code>C5</code></td>
+      <td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td>
+      <td><span class="badge-na">⚪ N/A</span></td>
+      <td>Tarefa estritamente de banco de dados, migrações SQL e backend; nenhum arquivo em <code>frontend/</code> faz parte do escopo.</td>
+    </tr>
+    <tr>
+      <td><code>C6</code></td>
+      <td>Ausência de ciclos de importação e feature flags não autorizadas</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Grafo de importação unidirecional (<code>services</code> → <code>repositories</code> / <code>types</code>) e zero feature flags introduzidas.</td>
+    </tr>
+    <tr>
+      <td><code>C7</code></td>
+      <td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>100% das consultas em <code>vehicles.repository.ts</code>, <code>seed.ts</code> e <code>database.integration.test.ts</code> utilizam placeholders posicionais (<code>$1, $2, ...</code>) sem interpolação de strings.</td>
+    </tr>
+    <tr>
+      <td><code>C8</code></td>
+      <td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Zero uso de <code>SELECT *</code>. Projeções explícitas com aliases <code>camelCase</code> (<code>vehicle_type AS "vehicleType"</code>) e busca <code>WHERE upper(license_plate) = upper($1)</code> sargável pelo índice funcional <code>fleet_vehicles_license_plate_unique</code>.</td>
+    </tr>
+    <tr>
+      <td><code>C9</code></td>
+      <td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td><code>seedInitialFleet</code> em <code>seed.ts:254-372</code> executa dentro de bloco <code>BEGIN ... COMMIT / ROLLBACK</code> e garante <code>client.release()</code> no <code>finally</code>. <code>VehiclesRepository</code> preserva <code>SELECT ... FOR UPDATE</code> e controle otimista por <code>revision</code>.</td>
+    </tr>
+    <tr>
+      <td><code>C10</code></td>
+      <td>Padrão SQL PostgreSQL 18 (Schemas Nativos <code>auth</code>, <code>fleet</code>, etc., tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Tabelas qualificadas no schema nativo <code>fleet</code> no plural (<code>fleet.vehicles</code>, <code>fleet.drivers</code>, <code>fleet.driver_events</code>, <code>fleet.services</code>, <code>fleet.vehicle_services</code>), PK <code>id BIGINT GENERATED ALWAYS AS IDENTITY</code>, FKs com <code>ON DELETE RESTRICT</code>, índices sem prefixos <code>idx_</code>/<code>uq_</code>, trigger append-only e rollbacks <code>.down.sql</code> testados.</td>
+    </tr>
+    <tr>
+      <td><code>C11</code></td>
+      <td>Autorização RBAC validada no middleware do Backend</td>
+      <td><span class="badge-na">⚪ N/A</span></td>
+      <td>Nenhuma rota HTTP foi criada ou alterada nesta tarefa; as rotas existentes permanecem protegidas e os 17 testes de integração RBAC (<code>IT-RBAC-01</code> a <code>17</code>) passaram integralmente.</td>
+    </tr>
+    <tr>
+      <td><code>C12</code></td>
+      <td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Placas fictícias (<code>SVO1A01</code> a <code>SVO1A03</code>, <code>ABC1D23</code>), CPFs sintéticos (<code>11122233344</code>, <code>55566677788</code>) e e-mails <code>@example.test</code>. Zero dados reais ou segredos hardcoded.</td>
+    </tr>
+    <tr>
+      <td><code>C13</code></td>
+      <td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Compilação limpa em modo estrito (<code>npx tsc --noEmit</code> com 0 erros), sem uso de <code>any</code> ou <code>@ts-ignore</code>.</td>
+    </tr>
+    <tr>
+      <td><code>C14</code></td>
+      <td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Identificadores e literais (<code>'OWNED'</code>, <code>'LEASED'</code>, <code>'ACTIVE'</code>, <code>'INACTIVE'</code>, <code>'AWAY'</code>) 100% em inglês; TSDoc semântico em português em <code>seedInitialFleet</code>, <code>VehiclesRepository</code> e <code>VehiclesService</code>. Zero <code>console.log</code>.</td>
+    </tr>
+    <tr>
+      <td><code>C15</code></td>
+      <td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td>
+      <td><span class="badge-na">⚪ N/A</span></td>
+      <td>Sem alterações de interface React no escopo da <code>FROTA-157</code>.</td>
+    </tr>
+    <tr>
+      <td><code>C16</code></td>
+      <td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td>
+      <td><span class="badge-na">⚪ N/A</span></td>
+      <td>Sem formulários React no escopo; mensagens de validação do <code>VehiclesService</code> redigidas em português claro e orientador.</td>
+    </tr>
+    <tr>
+      <td><code>C17</code></td>
+      <td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td>
+      <td><span class="badge-na">⚪ N/A</span></td>
+      <td>Sem componentes visuais ou folhas de estilo no escopo da tarefa.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<!-- PREENCHER_REVISAO_SECAO_3: Detalhar bloqueantes e pontos de atenção (arquivo:linha, impacto e como corrigir) -->
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado no código ou nas migrações SQL da <code>FROTA-157</code>.</em></p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<p><em>Nenhum item de atenção no código ou no fluxo Git da <code>FROTA-157</code>.</em></p>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<!-- PREENCHER_REVISAO_SECAO_4: Resultado de aratu-check.mjs, tsc, lint, build e testes -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática e Regras Aratu (Camadas, SQL, TS, WCAG)</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-ok">🟢 0 Bloqueantes · 0 Violações Estáticas</span></td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript Estrita (Backend)</td>
+      <td><code>docker compose exec backend npx tsc --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Passou (Zero erros)</span></td>
+    </tr>
+    <tr>
+      <td>Suíte Completa de Testes Automatizados (Unitários + Integração PostgreSQL 18 + RBAC)</td>
+      <td><code>docker compose exec backend npm test</code></td>
+      <td><span class="badge-ok">🟢 Passou (50/50 testes aprovados, incluindo IT12–IT16)</span></td>
+    </tr>
+    <tr>
+      <td>Linter ESLint (Frontend)</td>
+      <td><code>docker compose exec frontend npm run lint</code></td>
+      <td><span class="badge-ok">🟢 Passou (Zero erros)</span></td>
+    </tr>
+    <tr>
+      <td>Testes Automatizados de Frontend</td>
+      <td><code>node --test frontend/tests/*.test.mjs</code></td>
+      <td><span class="badge-ok">🟢 Passou (33/33 testes aprovados)</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<!-- PREENCHER_REVISAO_SECAO_5: Pontos específicos que o par humano da Squad 24 deve validar -->
+<ul class="check">
+  <li><input type="checkbox"> Confirmar que o commit em Conventional Commits foi realizado na branch <code>feat/infra-modelo-de-dados-frota</code> antes do push e abertura do Pull Request para <code>develop</code>.</li>
+  <li><input type="checkbox"> Conferir se a modelagem unificada de <code>fleet.services</code> (que combina <code>description</code>/<code>active</code> da <code>FROTA-165</code> com <code>categories</code>, <code>requires_triage</code>, <code>requires_weight</code> e <code>requires_identification</code> de <code>padroes-codigo.md</code>) atende integralmente às próximas tarefas de backend (<code>FROTA-53</code> e <code>FROTA-54</code>).</li>
+  <li><input type="checkbox"> Validar a execução limpa de <code>npm run db:migrate</code> e <code>npm run db:seed</code> no banco de desenvolvimento local, verificando o provisionamento das 3 caminhonetes S10 do SVO (<code>SVO1A01</code>, <code>SVO1A02</code>, <code>SVO1A03</code>) e seus vínculos em <code>fleet.vehicle_services</code>.</li>
+</ul>
+
+</body>
+</html>
