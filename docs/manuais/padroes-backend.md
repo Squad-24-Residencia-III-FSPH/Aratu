@@ -304,5 +304,22 @@ Mutação que altera uma entidade mestre (ex: alteração de capacidade) deve se
 3. Insere o registro em `fleet.vehicle_events` contendo `before_state`, `after_state`, `registered_by` e `actor_snapshot` extraídos da sessão autenticada;
 4. Faz o `COMMIT` atômico. Se o histórico falhar, a mutação na tabela mestre sofre rollback imediato.
 
+---
+
+## 10. Documentação da API (OpenAPI)
+
+O contrato REST é a fonte única de verdade e fica versionado em [`backend/docs/openapi.yaml`](../../backend/docs/openapi.yaml). Em desenvolvimento, ele é servido interativamente em `/docs` e em formato bruto em `/docs/openapi.json`.
+
+Regras obrigatórias:
+
+1. **Toda rota nova ou alterada atualiza o `openapi.yaml` na mesma entrega.** Não deixe a especificação divergir do código.
+2. **A documentação não mora nas camadas de domínio.** Não adicione anotações Swagger em routes, controllers ou services; o contrato é mantido no arquivo dedicado.
+3. **Documente o contrato real.** Prefixos, payloads, status HTTP e perfis RBAC devem refletir o comportamento implementado, não o desejado.
+4. **Exemplos são fictícios.** É proibido usar credenciais, placas, nomes ou qualquer dado real da FSPH/SVO.
+5. **A rota `/docs` é exclusiva de desenvolvimento.** O backend só registra a documentação quando `NODE_ENV !== 'production'`.
+6. **Valide o contrato nos testes.** `backend/tests/openapi.test.ts` verifica paths obrigatórios, referências locais e esquema de segurança.
+
+Para testar manualmente, suba o backend, faça login em `POST /auth/login`, copie o token e use **Authorize** no Swagger UI para informar o Bearer token.
+
 
 

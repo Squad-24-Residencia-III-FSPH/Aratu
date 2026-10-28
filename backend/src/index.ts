@@ -9,29 +9,43 @@ dotenv.config({ path: '../.env' })
 
 const PORT = Number(process.env.PORT ?? 3000)
 const pool = createPool(process.env.DATABASE_URL ?? '')
-const jwtConfig = loadJwtConfig(process.env)
-const app = createApp({ pool, jwtConfig })
+const jwtConfig = loadJwtConfig(process.env)  
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  log(`Servidor rodando na porta ${PORT}`)
-})
+async function bootstrap(): Promise<void> {
+  const app = createApp({ pool, jwtConfig })
 
-function shutdown(): void {
-  server.close((serverError) => {
-    if (serverError) {
-      log('Falha ao encerrar o servidor HTTP:', serverError)
-      process.exit(1)
-      return
-    }
-    void pool.end().then(
-      () => process.exit(0),
-      (error: unknown) => {
-        log('Falha ao encerrar o pool PostgreSQL:', error)
-        process.exit(1)
-      },
-    )
+  if (process.env.NODE_ENV !== 'production') {
+    const { registerApiDocs } = await import('./docs/api-docs.js')
+    registerApiDocs(app)
+    log(`Documentação da API disponível em http://localhost:${PORT}/docs`)
+  }
+
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    log(`Servidor rodando na porta ${PORT}`)
   })
+
+  function shutdown(): void {
+    server.close((serverError) => {
+      if (serverError) {
+        log('Falha ao encerrar o servidor HTTP:', serverError)
+        process.exit(1)
+        return
+      }
+      void pool.end().then(
+        () => process.exit(0),
+        (error: unknown) => {
+          log('Falha ao encerrar o pool PostgreSQL:', error)
+          process.exit(1)
+        },
+      )
+    })
+  }
+
+  process.on('SIGINT', shutdown)
+  process.on('SIGTERM', shutdown)
 }
 
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
+void bootstrap().catch((error: unknown) => {
+  log('Falha ao iniciar o servidor:', error)
+  process.exit(1)
+})

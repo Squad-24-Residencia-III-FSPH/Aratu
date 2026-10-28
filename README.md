@@ -18,6 +18,26 @@ O projeto busca centralizar informações, reduzir controles manuais e melhorar 
 | Git e GitHub | Versionamento e colaboração. |
 
 
+## Documentação e teste da API
+
+O contrato REST fica versionado em [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml) e é a fonte única de verdade da API. Em desenvolvimento, o backend serve o **Swagger UI** em:
+
+```text
+http://localhost:3000/docs
+```
+
+O contrato bruto também fica disponível em `http://localhost:3000/docs/openapi.json`, podendo ser importado em clientes como Bruno ou Postman.
+
+Para testar uma rota protegida:
+
+1. Execute `POST /auth/login` com o Administrador provisionado pelo seed.
+2. Copie o campo `token` da resposta.
+3. Clique em **Authorize**, informe o token no esquema `bearerAuth` e confirme.
+4. Execute as demais operações pelo botão **Try it out**.
+
+A documentação interativa é habilitada somente quando `NODE_ENV` não é `production`; a imagem de produção não inclui a rota `/docs`. Todos os exemplos usam dados fictícios, em conformidade com a LGPD e o sigilo do SVO.
+
+
 ## Gitflow
 
 Para organizar o trabaho, será adotado um fluxo de branches inspirado no Gitflow.

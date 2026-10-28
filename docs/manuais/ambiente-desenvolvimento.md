@@ -84,6 +84,22 @@ docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\dt
 
 - **Frontend (React + Vite):** `http://localhost:5173`
 - **Backend (API REST Express):** `http://localhost:3000`
+- **Documentação interativa da API (Swagger UI):** `http://localhost:3000/docs`
+- **Contrato OpenAPI bruto:** `http://localhost:3000/docs/openapi.json`
+
+### Documentação e teste manual da API
+
+O contrato fica em [`backend/docs/openapi.yaml`](../../backend/docs/openapi.yaml) e é servido pelo Swagger UI apenas fora de produção (`NODE_ENV !== 'production'`). Para testar rotas protegidas:
+
+1. Faça `POST /auth/login` com o Administrador do seed e copie o `token` retornado.
+2. No Swagger UI, clique em **Authorize** e informe o token no esquema `bearerAuth`.
+3. Use **Try it out** nas operações de `/profiles` e `/vehicles`.
+
+Ao adicionar ou alterar dependências do backend, recrie o volume anônimo de `node_modules` para que o container de desenvolvimento instale os novos pacotes:
+
+```bash
+docker compose up -d --build -V backend
+```
 
 ### Diretrizes para testes locais e automação
 

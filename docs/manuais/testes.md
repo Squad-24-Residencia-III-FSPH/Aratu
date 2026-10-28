@@ -61,6 +61,17 @@ docker compose exec backend npm test
 - **Regra inegociável:** todos os dados utilizados em fixtures, mocks e seeds de teste devem ser **100% fictícios e sintéticos** (ex: placas fictícias, CPFs gerados apenas para validação matemática, nomes fictícios).
 - É terminantemente proibido copiar registros reais de servidores da FSPH, motoristas ou falecidos atendidos pelo SVO para dentro dos arquivos de teste.
 
+### 3.4 Validação do Contrato OpenAPI
+- O teste `backend/tests/openapi.test.ts` roda junto da suíte (`npm test`) e não exige banco de dados.
+- Ele verifica a versão do contrato, os paths e métodos esperados, a unicidade dos `operationId`, as referências locais e o esquema de segurança Bearer.
+- Toda rota nova ou alterada deve ser incluída em `backend/docs/openapi.yaml`; caso contrário, a suíte falha.
+
+### 3.5 Teste manual da API com Swagger UI
+- Em desenvolvimento, acesse `http://localhost:3000/docs`.
+- Faça login em `POST /auth/login` com o Administrador fictício do seed, copie o `token` e clique em **Authorize**.
+- Valide os cenários principais (200/201), autenticação ausente (401), perfil sem permissão (403), recurso inexistente (404), conflito de placa ou revisão (409) e transição inválida (422).
+- Use somente dados fictícios em todos os exemplos e corpos de requisição.
+
 ---
 
 ## 4. Roteiro de QA de Interface e Acessibilidade (WCAG 2.2 AA)
