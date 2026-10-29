@@ -504,6 +504,8 @@ test('IT15: seed inicial da frota (seedInitialFleet) é idempotente', async () =
 test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restauram o estado e permitem reaplicar', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202610280005_create_trips.down.sql',
+    '202610280004_create_trip_requests.down.sql',
     '202610280003_create_services.down.sql',
     '202610280002_create_drivers.down.sql',
     '202610280001_alter_vehicles_add_details.down.sql',
@@ -549,4 +551,510 @@ test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restaur
   `)
   assert.equal(restoredTables.rows[0]?.count, '6')
 })
+
+test('IT17: criação de trip.requests, exigência de justificativa na rejeição e imutabilidade de trip.request_events (FROTA-77)', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+  const requesterRoleId = await getRoleId(pool, 'SOLICITANTE')
+  const managerRoleId = await getRoleId(pool, 'GESTOR')
+
+  const requester = await usersRepository.create({
+    name: 'Solicitante FSPH Fictícia',
+    email: 'solicitante.viagem@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: requesterRoleId,
+  })
+  const manager = await usersRepository.create({
+    name: 'Gestor Frota Fictício',
+    email: 'gestor.viagem@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: managerRoleId,
+  })
+
+  const serviceRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.services (name, description, categories)
+     VALUES ('Transporte Institucional de Passageiros', 'Deslocamento entre unidades FSPH', ARRAY['PASSENGER']::TEXT[])
+     RETURNING id::text AS id`,
+  )
+  const serviceId = serviceRes.rows[0]!.id
+
+  const requestRes = await pool.query<{ id: string; status: string; passengers: number; revision: number }>(
+    `INSERT INTO trip.requests (
+       requester_id, service_id, requested_date, requested_time, origin, destination, purpose, passengers,
+       requester_snapshot, service_snapshot
+     )
+     VALUES ($1, $2, '2026-11-10', '08:30:00', 'Sede FSPH', 'Hemose', 'Reunião técnica laboratorial', 3, $3::jsonb, $4::jsonb)
+     RETURNING id::text AS id, status, passengers, revision`,
+    [
+      requester.id,
+      serviceId,
+      JSON.stringify({ id: requester.id, name: requester.name, role: requester.role }),
+      JSON.stringify({ id: serviceId, name: 'Transporte Institucional de Passageiros' }),
+    ],
+  )
+  const requestId = requestRes.rows[0]!.id
+  assert.equal(requestRes.rows[0]?.status, 'PENDING')
+  assert.equal(requestRes.rows[0]?.passengers, 3)
+  assert.equal(requestRes.rows[0]?.revision, 1)
+
+  await assert.rejects(
+    pool.query(
+      `UPDATE trip.requests
+       SET status = 'REJECTED', decided_by = $1, decided_at = clock_timestamp(), decision_reason = NULL
+       WHERE id = $2`,
+      [manager.id, requestId],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  await assert.rejects(
+    pool.query(
+      `UPDATE trip.requests
+       SET status = 'REJECTED', decided_by = $1, decided_at = clock_timestamp(), decision_reason = '   '
+       WHERE id = $2`,
+      [manager.id, requestId],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  const rejectedRes = await pool.query<{ status: string; decisionReason: string }>(
+    `UPDATE trip.requests
+     SET status = 'REJECTED',
+         decided_by = $1,
+         decided_at = clock_timestamp(),
+         decision_reason = 'Indisponibilidade de frota no turno solicitado',
+         revision = revision + 1
+     WHERE id = $2
+     RETURNING status, decision_reason AS "decisionReason"`,
+    [manager.id, requestId],
+  )
+  assert.equal(rejectedRes.rows[0]?.status, 'REJECTED')
+  assert.equal(rejectedRes.rows[0]?.decisionReason, 'Indisponibilidade de frota no turno solicitado')
+
+  const eventRes = await pool.query<{ id: string }>(
+    `INSERT INTO trip.request_events (
+       request_id, event_type, reported_by, registered_by, actor_snapshot, reason,
+       evidence_description, before_state, after_state
+     )
+     VALUES ($1, 'REJECTED', 'Gestão de Frota FSPH', $2, $3::jsonb, 'Indisponibilidade de frota no turno solicitado',
+             'Análise da escala diária no painel operacional', $4::jsonb, $5::jsonb)
+     RETURNING id::text AS id`,
+    [
+      requestId,
+      manager.id,
+      JSON.stringify({ id: manager.id, name: manager.name, email: manager.email, role: manager.role }),
+      JSON.stringify({ status: 'PENDING' }),
+      JSON.stringify({ status: 'REJECTED', decisionReason: 'Indisponibilidade de frota no turno solicitado' }),
+    ],
+  )
+  const eventId = eventRes.rows[0]!.id
+
+  await assert.rejects(
+    pool.query(`UPDATE trip.request_events SET reason = 'Mutação proibida' WHERE id = $1`, [eventId]),
+    /trip\.request_events is append-only/i,
+  )
+  await assert.rejects(
+    pool.query(`DELETE FROM trip.request_events WHERE id = $1`, [eventId]),
+    /trip\.request_events is append-only/i,
+  )
+})
+
+test('IT18: criação de trip.trips, bloqueio de período invertido, km regressivo e duplicidade de viagem IN_PROGRESS (FROTA-93)', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+  const requesterRoleId = await getRoleId(pool, 'SOLICITANTE')
+
+  const requester = await usersRepository.create({
+    name: 'Solicitante Agendamento Fictício',
+    email: 'solicitante.agenda@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: requesterRoleId,
+  })
+
+  const serviceRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.services (name, categories)
+     VALUES ('Coleta de Amostras Lacen', ARRAY['OTHER']::TEXT[])
+     RETURNING id::text AS id`,
+  )
+  const serviceId = serviceRes.rows[0]!.id
+
+  const vehicleRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.vehicles (license_plate, categories, seats, body_limit, operation_type)
+     VALUES ('VTR2B01', ARRAY['PASSENGER', 'OTHER']::TEXT[], 5, 0, 'ADMINISTRATIVE')
+     RETURNING id::text AS id`,
+  )
+  const vehicleId = vehicleRes.rows[0]!.id
+
+  const driverRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at)
+     VALUES ('Carlos Condutor Teste', '22233344455', '55443322110', 'B', '2029-10-15')
+     RETURNING id::text AS id`,
+  )
+  const driverId = driverRes.rows[0]!.id
+
+  const req1Res = await pool.query<{ id: string }>(
+    `INSERT INTO trip.requests (requester_id, service_id, requested_date, requested_time, origin, destination, purpose, status)
+     VALUES ($1, $2, '2026-11-12', '10:00:00', 'Lacen', 'Hospital Regional', 'Transporte de kits', 'APPROVED')
+     RETURNING id::text AS id`,
+    [requester.id, serviceId],
+  )
+  const req1Id = req1Res.rows[0]!.id
+
+  const req2Res = await pool.query<{ id: string }>(
+    `INSERT INTO trip.requests (requester_id, service_id, requested_date, requested_time, origin, destination, purpose, status)
+     VALUES ($1, $2, '2026-11-12', '14:00:00', 'Hemose', 'Sede FSPH', 'Retorno de malote', 'APPROVED')
+     RETURNING id::text AS id`,
+    [requester.id, serviceId],
+  )
+  const req2Id = req2Res.rows[0]!.id
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO trip.trips (request_id, vehicle_id, driver_id, scheduled_start, scheduled_end)
+       VALUES ($1, $2, $3, '2026-11-12T12:00:00Z', '2026-11-12T10:00:00Z')`,
+      [req1Id, vehicleId, driverId],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO trip.trips (request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, start_km, end_km)
+       VALUES ($1, $2, $3, '2026-11-12T10:00:00Z', '2026-11-12T12:00:00Z', 50000, 49950)`,
+      [req1Id, vehicleId, driverId],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  const trip1Res = await pool.query<{ id: string; status: string }>(
+    `INSERT INTO trip.trips (
+       request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status,
+       started_at, start_km, vehicle_snapshot, driver_snapshot
+     )
+     VALUES (
+       $1, $2, $3, '2026-11-12T10:00:00Z', '2026-11-12T12:00:00Z', 'IN_PROGRESS',
+       '2026-11-12T10:05:00Z', 50000, $4::jsonb, $5::jsonb
+     )
+     RETURNING id::text AS id, status`,
+    [
+      req1Id,
+      vehicleId,
+      driverId,
+      JSON.stringify({ id: vehicleId, licensePlate: 'VTR2B01', seats: 5 }),
+      JSON.stringify({ id: driverId, name: 'Carlos Condutor Teste', cnhCategory: 'B' }),
+    ],
+  )
+  assert.equal(trip1Res.rows[0]?.status, 'IN_PROGRESS')
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO trip.trips (request_id, vehicle_id, driver_id, scheduled_start, scheduled_end)
+       VALUES ($1, $2, $3, '2026-11-12T15:00:00Z', '2026-11-12T16:00:00Z')`,
+      [req1Id, vehicleId, driverId],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO trip.trips (request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status)
+       VALUES ($1, $2, $3, '2026-11-12T14:00:00Z', '2026-11-12T16:00:00Z', 'IN_PROGRESS')`,
+      [req2Id, vehicleId, driverId],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+})
+
+test('IT19: preservação histórica bi-temporal, retificação de hodômetro (supersedes_id), parada cancelada sem DELETE e snapshots da época', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+  const managerRoleId = await getRoleId(pool, 'GESTOR')
+
+  const operatorAna = await usersRepository.create({
+    name: 'Ana Operadora Fictícia',
+    email: 'ana.operadora@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: managerRoleId,
+  })
+  const anaSnapshot = JSON.stringify({
+    id: operatorAna.id,
+    name: operatorAna.name,
+    email: operatorAna.email,
+    role: operatorAna.role,
+  })
+
+  const serviceRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.services (name, categories)
+     VALUES ('Rota Interunidades FSPH', ARRAY['PASSENGER']::TEXT[])
+     RETURNING id::text AS id`,
+  )
+  const serviceId = serviceRes.rows[0]!.id
+
+  const vehicleRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.vehicles (license_plate, categories, seats, body_limit, operation_type)
+     VALUES ('VTR3C16', ARRAY['PASSENGER']::TEXT[], 16, 0, 'ADMINISTRATIVE')
+     RETURNING id::text AS id`,
+  )
+  const vehicleId = vehicleRes.rows[0]!.id
+
+  const driverRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at)
+     VALUES ('João Condutor Fictício', '33344455566', '66554433221', 'D', '2030-05-20')
+     RETURNING id::text AS id`,
+  )
+  const driverId = driverRes.rows[0]!.id
+
+  const reqRes = await pool.query<{ id: string }>(
+    `INSERT INTO trip.requests (requester_id, service_id, requested_date, requested_time, origin, destination, purpose, status)
+     VALUES ($1, $2, '2026-11-15', '07:00:00', 'Sede FSPH', 'Hemose / Lacen', 'Transporte de equipe técnica', 'SCHEDULED')
+     RETURNING id::text AS id`,
+    [operatorAna.id, serviceId],
+  )
+  const requestId = reqRes.rows[0]!.id
+
+  const tripRes = await pool.query<{ id: string }>(
+    `INSERT INTO trip.trips (
+       request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status,
+       vehicle_snapshot, driver_snapshot
+     )
+     VALUES (
+       $1, $2, $3, '2026-11-15T07:00:00Z', '2026-11-15T11:00:00Z', 'IN_PROGRESS',
+       $4::jsonb, $5::jsonb
+     )
+     RETURNING id::text AS id`,
+    [
+      requestId,
+      vehicleId,
+      driverId,
+      JSON.stringify({ id: vehicleId, licensePlate: 'VTR3C16', seats: 16 }),
+      JSON.stringify({ id: driverId, name: 'João Condutor Fictício', cnhCategory: 'D' }),
+    ],
+  )
+  const tripId = tripRes.rows[0]!.id
+
+  // 1. Leitura de hodômetro inicial informada por telefone (52.000 km) e retificada após foto do painel (51.200 km)
+  const reading1Res = await pool.query<{ id: string; odometerKm: number }>(
+    `INSERT INTO trip.odometer_readings (
+       vehicle_id, trip_id, reading_type, odometer_km, occurred_at, reported_by,
+       registered_by, actor_snapshot, reason, evidence_description
+     )
+     VALUES (
+       $1, $2, 'END', 52000, '2026-11-15T10:40:00Z', 'Condutor João Fictício via telefone',
+       $3, $4::jsonb, 'Encerramento informado por ligação', 'Relato verbal por telefone'
+     )
+     RETURNING id::text AS id, odometer_km AS "odometerKm"`,
+    [vehicleId, tripId, operatorAna.id, anaSnapshot],
+  )
+  const reading1Id = reading1Res.rows[0]!.id
+
+  const reading2Res = await pool.query<{ id: string; odometerKm: number; supersedesId: string }>(
+    `INSERT INTO trip.odometer_readings (
+       vehicle_id, trip_id, reading_type, odometer_km, occurred_at, reported_by,
+       registered_by, actor_snapshot, reason, evidence_description, attachment_url, supersedes_id
+     )
+     VALUES (
+       $1, $2, 'END', 51200, '2026-11-15T10:40:00Z', 'Condutor João Fictício via mensagem com foto',
+       $3, $4::jsonb, 'Condutor digitou 52.000 por engano; corrigido após envio da foto do painel',
+       'Foto do painel do veículo', 'https://storage.example.test/painel-51200.jpg', $5
+     )
+     RETURNING id::text AS id, odometer_km AS "odometerKm", supersedes_id::text AS "supersedesId"`,
+    [vehicleId, tripId, operatorAna.id, anaSnapshot, reading1Id],
+  )
+  assert.equal(reading2Res.rows[0]?.odometerKm, 51200)
+  assert.equal(reading2Res.rows[0]?.supersedesId, reading1Id)
+
+  await assert.rejects(
+    pool.query(`DELETE FROM trip.odometer_readings WHERE id = $1`, [reading1Id]),
+    /trip\.odometer_readings is append-only/i,
+  )
+
+  // 2. Paradas de viagem: cancelamento exige motivo e DELETE físico é proibido
+  const stopRes = await pool.query<{ id: string }>(
+    `INSERT INTO trip.trip_stops (trip_id, sequence_order, stop_type, location, status)
+     VALUES ($1, 1, 'PICKUP', 'Unidade Hemose', 'PLANNED')
+     RETURNING id::text AS id`,
+    [tripId],
+  )
+  const stopId = stopRes.rows[0]!.id
+
+  await assert.rejects(
+    pool.query(`UPDATE trip.trip_stops SET status = 'CANCELED' WHERE id = $1`, [stopId]),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  await pool.query(
+    `UPDATE trip.trip_stops
+     SET status = 'CANCELED',
+         cancelled_at = clock_timestamp(),
+         cancelled_by = $1,
+         cancellation_reason = 'Coleta transferida para a rota da tarde',
+         revision = revision + 1
+     WHERE id = $2`,
+    [operatorAna.id, stopId],
+  )
+
+  await assert.rejects(
+    pool.query(`DELETE FROM trip.trip_stops WHERE id = $1`, [stopId]),
+    /trip\.trip_stops cannot be physically deleted/i,
+  )
+
+  // 3. Alteração posterior na capacidade do veículo (16 -> 12 lugares) não altera o snapshot da viagem passada
+  await pool.query(`UPDATE fleet.vehicles SET seats = 12, revision = revision + 1 WHERE id = $1`, [vehicleId])
+
+  const preservedTrip = await pool.query<{ snapshotSeats: number; currentSeats: number }>(
+    `SELECT (t.vehicle_snapshot->>'seats')::int AS "snapshotSeats",
+            v.seats AS "currentSeats"
+     FROM trip.trips t
+     JOIN fleet.vehicles v ON v.id = t.vehicle_id
+     WHERE t.id = $1`,
+    [tripId],
+  )
+  assert.equal(preservedTrip.rows[0]?.snapshotSeats, 16)
+  assert.equal(preservedTrip.rows[0]?.currentSeats, 12)
+
+  // 4. Evento de viagem (STOP_CANCELED / ODOMETER_RECTIFIED) e bloqueio append-only
+  const tripEventRes = await pool.query<{ id: string }>(
+    `INSERT INTO trip.trip_events (
+       trip_id, event_type, reported_by, registered_by, actor_snapshot, reason,
+       evidence_description, attachment_url, before_state, after_state
+     )
+     VALUES (
+       $1, 'ODOMETER_RECTIFIED', 'Condutor João Fictício', $2, $3::jsonb,
+       'Retificação de 52.000 km para 51.200 km mediante foto',
+       'Foto do painel', 'https://storage.example.test/painel-51200.jpg',
+       '{"endKm": 52000}'::jsonb, '{"endKm": 51200}'::jsonb
+     )
+     RETURNING id::text AS id`,
+    [tripId, operatorAna.id, anaSnapshot],
+  )
+  const tripEventId = tripEventRes.rows[0]!.id
+
+  await assert.rejects(
+    pool.query(`UPDATE trip.trip_events SET reason = 'Alteração proibida' WHERE id = $1`, [tripEventId]),
+    /trip\.trip_events is append-only/i,
+  )
+  await assert.rejects(
+    pool.query(`DELETE FROM trip.trip_events WHERE id = $1`, [tripEventId]),
+    /trip\.trip_events is append-only/i,
+  )
+})
+
+test('IT20: consulta de conflito de agenda por período usando os índices de trip.trips', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+  const requesterRoleId = await getRoleId(pool, 'SOLICITANTE')
+
+  const requester = await usersRepository.create({
+    name: 'Solicitante Escala Fictícia',
+    email: 'escala.conflito@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: requesterRoleId,
+  })
+
+  const serviceRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.services (name, categories)
+     VALUES ('Serviço Escala Administrativa', ARRAY['PASSENGER']::TEXT[])
+     RETURNING id::text AS id`,
+  )
+  const serviceId = serviceRes.rows[0]!.id
+
+  const vehicleRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.vehicles (license_plate, categories, seats, body_limit, operation_type)
+     VALUES ('VTR9Z99', ARRAY['PASSENGER']::TEXT[], 4, 0, 'ADMINISTRATIVE')
+     RETURNING id::text AS id`,
+  )
+  const vehicleId = vehicleRes.rows[0]!.id
+
+  const driverRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at)
+     VALUES ('Marcos Escala Fictício', '77788899900', '12312312300', 'B', '2029-12-31')
+     RETURNING id::text AS id`,
+  )
+  const driverId = driverRes.rows[0]!.id
+
+  const reqRes = await pool.query<{ id: string }>(
+    `INSERT INTO trip.requests (requester_id, service_id, requested_date, requested_time, origin, destination, purpose, status)
+     VALUES ($1, $2, '2026-11-20', '14:00:00', 'Sede FSPH', 'Secretaria de Saúde', 'Entrega documental', 'SCHEDULED')
+     RETURNING id::text AS id`,
+    [requester.id, serviceId],
+  )
+
+  await pool.query(
+    `INSERT INTO trip.trips (request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status)
+     VALUES ($1, $2, $3, '2026-11-20T14:00:00Z', '2026-11-20T16:00:00Z', 'SCHEDULED')`,
+    [reqRes.rows[0]!.id, vehicleId, driverId],
+  )
+
+  const conflictQuery = `
+    SELECT id::text AS id
+    FROM trip.trips
+    WHERE vehicle_id = $1
+      AND status IN ('SCHEDULED', 'IN_PROGRESS')
+      AND scheduled_start < $3
+      AND scheduled_end > $2
+  `
+
+  const overlapping = await pool.query<{ id: string }>(conflictQuery, [
+    vehicleId,
+    '2026-11-20T15:00:00Z',
+    '2026-11-20T17:00:00Z',
+  ])
+  assert.equal(overlapping.rows.length, 1)
+
+  const adjacent = await pool.query<{ id: string }>(conflictQuery, [
+    vehicleId,
+    '2026-11-20T16:00:00Z',
+    '2026-11-20T18:00:00Z',
+  ])
+  assert.equal(adjacent.rows.length, 0)
+})
+
+test('IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e reaplicação limpa', async () => {
+  const pool = getTestPool()
+  const downFiles = [
+    '202610280005_create_trips.down.sql',
+    '202610280004_create_trip_requests.down.sql',
+  ]
+
+  try {
+    for (const fileName of downFiles) {
+      const sql = await fs.readFile(
+        path.resolve(__dirname, '../src/database/migrations', fileName),
+        'utf8',
+      )
+      await pool.query(sql)
+      const version = fileName.slice(0, 12)
+      await pool.query(`DELETE FROM schema_migrations WHERE version = $1`, [version])
+    }
+
+    const removedTripTables = await pool.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM information_schema.tables
+      WHERE table_schema = 'trip'
+        AND table_name IN ('requests', 'request_events', 'trips', 'trip_stops', 'odometer_readings', 'trip_events')
+    `)
+    assert.equal(removedTripTables.rows[0]?.count, '0')
+
+    const removedEventCols = await pool.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM information_schema.columns
+      WHERE table_schema = 'fleet'
+        AND table_name IN ('vehicle_events', 'driver_events')
+        AND column_name IN ('evidence_description', 'attachment_url', 'supersedes_id', 'is_annulled')
+    `)
+    assert.equal(removedEventCols.rows[0]?.count, '0')
+  } finally {
+    const migrator = new DatabaseMigrator()
+    await migrator.runMigrations(pool, { silent: true })
+  }
+
+  const restoredTripTables = await pool.query<{ count: string }>(`
+    SELECT count(*)::text AS count
+    FROM information_schema.tables
+    WHERE table_schema = 'trip'
+      AND table_name IN ('requests', 'request_events', 'trips', 'trip_stops', 'odometer_readings', 'trip_events')
+  `)
+  assert.equal(restoredTripTables.rows[0]?.count, '6')
+})
+
 
