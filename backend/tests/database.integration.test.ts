@@ -4,7 +4,12 @@ import path from 'node:path'
 import { after, before, beforeEach, test } from 'node:test'
 import type { Pool, PoolClient } from 'pg'
 import { DatabaseMigrator } from '../src/database/migrator'
-import { seedInitialAdmin, seedInitialFleet, seedRolesAndPermissions } from '../src/database/scripts/seed'
+import {
+  seedInitialAdmin,
+  seedInitialFleet,
+  seedInitialSvoTeam,
+  seedRolesAndPermissions,
+} from '../src/database/scripts/seed'
 import { RolesRepository } from '../src/repositories/roles.repository'
 import { UsersRepository } from '../src/repositories/users.repository'
 import {
@@ -504,6 +509,9 @@ test('IT15: seed inicial da frota (seedInitialFleet) é idempotente', async () =
 test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restauram o estado e permitem reaplicar', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202610280008_create_svo_execution_orders.down.sql',
+    '202610280007_create_svo_teams.down.sql',
+    '202610280006_create_svo_occurrences.down.sql',
     '202610280005_create_trips.down.sql',
     '202610280004_create_trip_requests.down.sql',
     '202610280003_create_services.down.sql',
@@ -1012,6 +1020,9 @@ test('IT20: consulta de conflito de agenda por período usando os índices de tr
 test('IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e reaplicação limpa', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202610280008_create_svo_execution_orders.down.sql',
+    '202610280007_create_svo_teams.down.sql',
+    '202610280006_create_svo_occurrences.down.sql',
     '202610280005_create_trips.down.sql',
     '202610280004_create_trip_requests.down.sql',
   ]
@@ -1056,5 +1067,471 @@ test('IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e r
   `)
   assert.equal(restoredTripTables.rows[0]?.count, '6')
 })
+
+test('IT22: criação de svo.occurrences, exigência de motivo no cancelamento, consistência de triagem e imutabilidade de svo.occurrence_events (FROTA-110)', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+  const attendantRoleId = await getRoleId(pool, 'ATENDENTE_SVO')
+
+  const attendant = await usersRepository.create({
+    name: 'Atendente SVO Fictícia',
+    email: 'atendente.svo@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: attendantRoleId,
+  })
+  const attendantSnapshot = JSON.stringify({
+    id: attendant.id,
+    name: attendant.name,
+    email: attendant.email,
+    role: 'ATENDENTE_SVO',
+  })
+
+  const occRes = await pool.query<{
+    id: string
+    status: string
+    requesterType: string
+    revision: number
+  }>(
+    `INSERT INTO svo.occurrences (
+       attendant_id, requester_name, requester_phone, requester_type,
+       location, description, attendant_snapshot
+     )
+     VALUES (
+       $1, 'Hospital Regional Fictício', '7932001000', 'HOSPITAL',
+       'Av. Tancredo Neves, 1000 - Aracaju/SE', 'Solicitação de remoção hospitalar para verificação de óbito', $2::jsonb
+     )
+     RETURNING id::text AS id, status, requester_type AS "requesterType", revision`,
+    [attendant.id, attendantSnapshot],
+  )
+  const occurrence = occRes.rows[0]!
+  assert.equal(occurrence.status, 'PENDING')
+  assert.equal(occurrence.requesterType, 'HOSPITAL')
+  assert.equal(occurrence.revision, 1)
+
+  // Cancelar sem motivo deve violar svo_occurrences_cancellation_requires_reason (23514)
+  await assert.rejects(
+    pool.query(`UPDATE svo.occurrences SET status = 'CANCELED' WHERE id = $1`, [occurrence.id]),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // Preencher triaged_at mantendo status PENDING deve violar svo_occurrences_triage_consistency (23514)
+  await assert.rejects(
+    pool.query(`UPDATE svo.occurrences SET triaged_at = clock_timestamp() WHERE id = $1`, [occurrence.id]),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // Confirmar na triagem sucede
+  await pool.query(
+    `UPDATE svo.occurrences
+     SET status = 'CONFIRMED',
+         triaged_at = clock_timestamp(),
+         triaged_by = $1,
+         revision = revision + 1,
+         updated_at = clock_timestamp()
+     WHERE id = $2`,
+    [attendant.id, occurrence.id],
+  )
+
+  // Registra evento de confirmação e valida proteção append-only
+  const eventRes = await pool.query<{ id: string }>(
+    `INSERT INTO svo.occurrence_events (
+       occurrence_id, event_type, reported_by, registered_by, actor_snapshot,
+       reason, before_state, after_state
+     )
+     VALUES (
+       $1, 'CONFIRMED', 'Plantão Hospital Regional Fictício', $2, $3::jsonb,
+       'Triagem confirmada após conferência de documentação médica',
+       '{"status": "PENDING"}'::jsonb, '{"status": "CONFIRMED"}'::jsonb
+     )
+     RETURNING id::text AS id`,
+    [occurrence.id, attendant.id, attendantSnapshot],
+  )
+  const eventId = eventRes.rows[0]!.id
+
+  await assert.rejects(
+    pool.query(`UPDATE svo.occurrence_events SET reason = 'Tentativa de alteração' WHERE id = $1`, [eventId]),
+    /svo\.occurrence_events is append-only/i,
+  )
+  await assert.rejects(
+    pool.query(`DELETE FROM svo.occurrence_events WHERE id = $1`, [eventId]),
+    /svo\.occurrence_events is append-only/i,
+  )
+})
+
+test('IT23: criação de svo.teams, svo.team_members, unicidade de nome/vínculo, preservação de histórico de saída e seed idempotente (FROTA-168)', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+  await seedInitialAdmin(pool, ADMIN_CONFIG)
+
+  // 1. Executa seedInitialSvoTeam duas vezes e garante idempotência
+  await seedInitialSvoTeam(pool, ADMIN_CONFIG.email)
+  await seedInitialSvoTeam(pool, ADMIN_CONFIG.email)
+
+  const seededTeams = await pool.query<{ id: string; name: string; active: boolean }>(
+    `SELECT id::text AS id, name, active FROM svo.teams WHERE lower(btrim(name)) = lower('Equipe Plantão SVO 01')`,
+  )
+  assert.equal(seededTeams.rows.length, 1)
+  const teamId = seededTeams.rows[0]!.id
+
+  const seededEvents = await pool.query<{ id: string; eventType: string }>(
+    `SELECT id::text AS id, event_type AS "eventType" FROM svo.team_events WHERE team_id = $1`,
+    [teamId],
+  )
+  assert.equal(seededEvents.rows.length, 1)
+  assert.equal(seededEvents.rows[0]?.eventType, 'CREATED')
+
+  // 2. Duplicidade case-insensitive de nome da equipe deve falhar com 23505
+  await assert.rejects(
+    pool.query(`INSERT INTO svo.teams (name) VALUES ('  equipe plantão svo 01  ')`),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+
+  // 3. Vincula membro à equipe e valida unicidade (team_id, user_id) e período (left_at >= joined_at)
+  const teamRoleId = await getRoleId(pool, 'EQUIPE_SVO')
+  const memberUser = await usersRepository.create({
+    name: 'Integrante Equipe SVO Fictício',
+    email: 'integrante.svo@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: teamRoleId,
+  })
+
+  await pool.query(
+    `INSERT INTO svo.team_members (team_id, user_id, joined_at)
+     VALUES ($1, $2, '2026-10-01T08:00:00Z')`,
+    [teamId, memberUser.id],
+  )
+
+  await assert.rejects(
+    pool.query(`INSERT INTO svo.team_members (team_id, user_id) VALUES ($1, $2)`, [teamId, memberUser.id]),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+
+  await assert.rejects(
+    pool.query(
+      `UPDATE svo.team_members SET left_at = '2026-09-30T08:00:00Z' WHERE team_id = $1 AND user_id = $2`,
+      [teamId, memberUser.id],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  await pool.query(
+    `UPDATE svo.team_members
+     SET active = false, left_at = '2026-10-28T18:00:00Z', updated_at = clock_timestamp()
+     WHERE team_id = $1 AND user_id = $2`,
+    [teamId, memberUser.id],
+  )
+
+  await assert.rejects(
+    pool.query(`DELETE FROM svo.team_events WHERE id = $1`, [seededEvents.rows[0]!.id]),
+    /svo\.team_events is append-only/i,
+  )
+})
+
+test('IT24: criação de svo.execution_orders, bloqueio de segunda ordem para mesma solicitação, exigência de failure_reason em NOT_PERFORMED e validação de hodômetro/período (FROTA-114)', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+  await seedInitialAdmin(pool, ADMIN_CONFIG)
+  await seedInitialFleet(pool, ADMIN_CONFIG.email)
+  await seedInitialSvoTeam(pool, ADMIN_CONFIG.email)
+
+  const attendantRoleId = await getRoleId(pool, 'ATENDENTE_SVO')
+  const attendant = await usersRepository.create({
+    name: 'Atendente Despacho SVO Fictício',
+    email: 'despacho.svo@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: attendantRoleId,
+  })
+
+  const occRes = await pool.query<{ id: string }>(
+    `INSERT INTO svo.occurrences (
+       attendant_id, requester_name, requester_phone, requester_type,
+       location, description, status, triaged_at, triaged_by
+     )
+     VALUES (
+       $1, 'UPA Zona Norte Fictícia', '7932119000', 'UPA',
+       'Rua Principal, 250 - Aracaju/SE', 'Óbito natural sem causa definida', 'CONFIRMED', clock_timestamp(), $1
+     )
+     RETURNING id::text AS id`,
+    [attendant.id],
+  )
+  const occurrenceId = occRes.rows[0]!.id
+
+  const teamRes = await pool.query<{ id: string }>(
+    `SELECT id::text AS id FROM svo.teams WHERE lower(btrim(name)) = lower('Equipe Plantão SVO 01') LIMIT 1`,
+  )
+  const teamId = teamRes.rows[0]!.id
+
+  const vehicleRes = await pool.query<{ id: string }>(
+    `SELECT id::text AS id FROM fleet.vehicles WHERE license_plate = 'SVO1A01' LIMIT 1`,
+  )
+  const vehicleId = vehicleRes.rows[0]!.id
+
+  const orderRes = await pool.query<{ id: string; status: string }>(
+    `INSERT INTO svo.execution_orders (
+       occurrence_id, team_id, vehicle_id, opened_at, created_by
+     )
+     VALUES ($1, $2, $3, '2026-10-28T10:00:00Z', $4)
+     RETURNING id::text AS id, status`,
+    [occurrenceId, teamId, vehicleId, attendant.id],
+  )
+  const orderId = orderRes.rows[0]!.id
+  assert.equal(orderRes.rows[0]?.status, 'OPEN')
+
+  // Segunda ordem para a mesma solicitação deve falhar com 23505 (occurrence_id UNIQUE)
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO svo.execution_orders (occurrence_id, team_id, vehicle_id, created_by)
+       VALUES ($1, $2, $3, $4)`,
+      [occurrenceId, teamId, vehicleId, attendant.id],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+
+  // Encerrar como NOT_PERFORMED sem failure_reason deve falhar com 23514
+  await assert.rejects(
+    pool.query(`UPDATE svo.execution_orders SET status = 'NOT_PERFORMED' WHERE id = $1`, [orderId]),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // closed_at anterior a opened_at deve falhar com 23514
+  await assert.rejects(
+    pool.query(
+      `UPDATE svo.execution_orders SET closed_at = '2026-10-28T09:00:00Z' WHERE id = $1`,
+      [orderId],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // end_km menor que start_km deve falhar com 23514
+  await assert.rejects(
+    pool.query(
+      `UPDATE svo.execution_orders SET start_km = 15000, end_km = 14950 WHERE id = $1`,
+      [orderId],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // Encerrar como NOT_PERFORMED informando failure_reason sucede
+  await pool.query(
+    `UPDATE svo.execution_orders
+     SET status = 'NOT_PERFORMED',
+         result = 'NOT_PERFORMED',
+         failure_reason = 'Declaração de óbito já emitida pelo médico assistente no local',
+         closed_at = '2026-10-28T11:30:00Z',
+         closed_by = $1,
+         start_km = 15000,
+         end_km = 15025,
+         revision = revision + 1
+     WHERE id = $2`,
+    [attendant.id, orderId],
+  )
+})
+
+test('IT25: preservação histórica no SVO: snapshots da época, retificação de hodômetro (supersedes_id), reabertura excepcional e imutabilidade de svo.execution_order_events', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+  await seedInitialAdmin(pool, ADMIN_CONFIG)
+  await seedInitialFleet(pool, ADMIN_CONFIG.email)
+  await seedInitialSvoTeam(pool, ADMIN_CONFIG.email)
+
+  const teamRoleId = await getRoleId(pool, 'EQUIPE_SVO')
+  const operatorSvo = await usersRepository.create({
+    name: 'Operadora Equipe SVO Fictícia',
+    email: 'operadora.svo@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: teamRoleId,
+  })
+  const operatorSnapshot = JSON.stringify({
+    id: operatorSvo.id,
+    name: operatorSvo.name,
+    email: operatorSvo.email,
+    role: 'EQUIPE_SVO',
+  })
+
+  const occRes = await pool.query<{ id: string }>(
+    `INSERT INTO svo.occurrences (
+       attendant_id, requester_name, requester_phone, requester_type,
+       location, description, status, triaged_at, triaged_by
+     )
+     VALUES (
+       $1, 'Família Fictícia Silva', '79999001122', 'FAMILY',
+       'Bairro Jardins - Aracaju/SE', 'Óbito domiciliar natural', 'CONFIRMED', clock_timestamp(), $1
+     )
+     RETURNING id::text AS id`,
+    [operatorSvo.id],
+  )
+  const occurrenceId = occRes.rows[0]!.id
+
+  const teamRes = await pool.query<{ id: string }>(
+    `SELECT id::text AS id FROM svo.teams WHERE lower(btrim(name)) = lower('Equipe Plantão SVO 01') LIMIT 1`,
+  )
+  const teamId = teamRes.rows[0]!.id
+
+  const vehicleRes = await pool.query<{ id: string }>(
+    `SELECT id::text AS id FROM fleet.vehicles WHERE license_plate = 'SVO1A02' LIMIT 1`,
+  )
+  const vehicleId = vehicleRes.rows[0]!.id
+
+  const orderRes = await pool.query<{ id: string }>(
+    `INSERT INTO svo.execution_orders (
+       occurrence_id, team_id, vehicle_id, status, created_by,
+       occurrence_snapshot, team_snapshot, vehicle_snapshot
+     )
+     VALUES (
+       $1, $2, $3, 'IN_PROGRESS', $4,
+       $5::jsonb, $6::jsonb, $7::jsonb
+     )
+     RETURNING id::text AS id`,
+    [
+      occurrenceId,
+      teamId,
+      vehicleId,
+      operatorSvo.id,
+      JSON.stringify({ id: occurrenceId, location: 'Bairro Jardins - Aracaju/SE' }),
+      JSON.stringify({ id: teamId, name: 'Equipe Plantão SVO 01' }),
+      JSON.stringify({ id: vehicleId, licensePlate: 'SVO1A02', bodyLimit: 2 }),
+    ],
+  )
+  const orderId = orderRes.rows[0]!.id
+
+  // 1. Leitura de hodômetro SVO informada por telefone (52.000 km) e retificada via foto (51.200 km)
+  const reading1 = await pool.query<{ id: string }>(
+    `INSERT INTO trip.odometer_readings (
+       vehicle_id, svo_execution_order_id, reading_type, odometer_km, occurred_at,
+       reported_by, registered_by, actor_snapshot, reason, evidence_description
+     )
+     VALUES (
+       $1, $2, 'END', 52000, '2026-10-28T15:00:00Z',
+       'Equipe SVO por telefone', $3, $4::jsonb,
+       'Retorno à base do SVO', 'Informado verbalmente por ligação'
+     )
+     RETURNING id::text AS id`,
+    [vehicleId, orderId, operatorSvo.id, operatorSnapshot],
+  )
+  const reading1Id = reading1.rows[0]!.id
+
+  const reading2 = await pool.query<{ id: string; supersedesId: string }>(
+    `INSERT INTO trip.odometer_readings (
+       vehicle_id, svo_execution_order_id, reading_type, odometer_km, occurred_at,
+       reported_by, registered_by, actor_snapshot, reason, evidence_description, attachment_url, supersedes_id
+     )
+     VALUES (
+       $1, $2, 'END', 51200, '2026-10-28T15:00:00Z',
+       'Equipe SVO via aplicativo', $3, $4::jsonb,
+       'Correção de digitação após conferência da foto do painel da viatura SVO1A02',
+       'Foto do hodômetro no encerramento', 'https://storage.example.test/svo-51200.jpg', $5
+     )
+     RETURNING id::text AS id, supersedes_id::text AS "supersedesId"`,
+    [vehicleId, orderId, operatorSvo.id, operatorSnapshot, reading1Id],
+  )
+  assert.equal(reading2.rows[0]?.supersedesId, reading1Id)
+
+  // 2. Mudança posterior do body_limit da viatura (2 -> 4) não altera o vehicle_snapshot da ordem histórica
+  await pool.query(`UPDATE fleet.vehicles SET body_limit = 4, revision = revision + 1 WHERE id = $1`, [vehicleId])
+
+  const snapshotCheck = await pool.query<{ snapshotBodyLimit: number; currentBodyLimit: number }>(
+    `SELECT (eo.vehicle_snapshot->>'bodyLimit')::int AS "snapshotBodyLimit",
+            v.body_limit AS "currentBodyLimit"
+     FROM svo.execution_orders eo
+     JOIN fleet.vehicles v ON v.id = eo.vehicle_id
+     WHERE eo.id = $1`,
+    [orderId],
+  )
+  assert.equal(snapshotCheck.rows[0]?.snapshotBodyLimit, 2)
+  assert.equal(snapshotCheck.rows[0]?.currentBodyLimit, 4)
+
+  // 3. Registra evento REOPENED em svo.execution_order_events e garante bloqueio append-only
+  const orderEventRes = await pool.query<{ id: string }>(
+    `INSERT INTO svo.execution_order_events (
+       execution_order_id, event_type, reported_by, registered_by, actor_snapshot,
+       reason, evidence_description, before_state, after_state
+     )
+     VALUES (
+       $1, 'REOPENED', 'Coordenação de Plantão SVO', $2, $3::jsonb,
+       'Reabertura excepcional para complementar observação e retificar hodômetro final',
+       'Despacho administrativo nº 18/2026',
+       '{"status": "COMPLETED", "endKm": 52000}'::jsonb,
+       '{"status": "IN_PROGRESS", "endKm": 51200}'::jsonb
+     )
+     RETURNING id::text AS id`,
+    [orderId, operatorSvo.id, operatorSnapshot],
+  )
+  const orderEventId = orderEventRes.rows[0]!.id
+
+  await assert.rejects(
+    pool.query(`UPDATE svo.execution_order_events SET reason = 'Mutação proibida' WHERE id = $1`, [orderEventId]),
+    /svo\.execution_order_events is append-only/i,
+  )
+  await assert.rejects(
+    pool.query(`DELETE FROM svo.execution_order_events WHERE id = $1`, [orderEventId]),
+    /svo\.execution_order_events is append-only/i,
+  )
+})
+
+test('IT26: rollbacks (.down.sql) das migrations 202610280008, 202610280007 e 202610280006 e reaplicação limpa', async () => {
+  const pool = getTestPool()
+  const downFiles = [
+    '202610280008_create_svo_execution_orders.down.sql',
+    '202610280007_create_svo_teams.down.sql',
+    '202610280006_create_svo_occurrences.down.sql',
+  ]
+
+  try {
+    for (const fileName of downFiles) {
+      const sql = await fs.readFile(
+        path.resolve(__dirname, '../src/database/migrations', fileName),
+        'utf8',
+      )
+      await pool.query(sql)
+      const version = fileName.slice(0, 12)
+      await pool.query(`DELETE FROM schema_migrations WHERE version = $1`, [version])
+    }
+
+    const removedSvoTables = await pool.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM information_schema.tables
+      WHERE table_schema = 'svo'
+        AND table_name IN (
+          'occurrences',
+          'occurrence_events',
+          'teams',
+          'team_members',
+          'team_events',
+          'execution_orders',
+          'execution_order_events'
+        )
+    `)
+    assert.equal(removedSvoTables.rows[0]?.count, '0')
+
+    const removedOdometerCol = await pool.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM information_schema.columns
+      WHERE table_schema = 'trip'
+        AND table_name = 'odometer_readings'
+        AND column_name = 'svo_execution_order_id'
+    `)
+    assert.equal(removedOdometerCol.rows[0]?.count, '0')
+  } finally {
+    const migrator = new DatabaseMigrator()
+    await migrator.runMigrations(pool, { silent: true })
+  }
+
+  const restoredSvoTables = await pool.query<{ count: string }>(`
+    SELECT count(*)::text AS count
+    FROM information_schema.tables
+    WHERE table_schema = 'svo'
+      AND table_name IN (
+        'occurrences',
+        'occurrence_events',
+        'teams',
+        'team_members',
+        'team_events',
+        'execution_orders',
+        'execution_order_events'
+      )
+  `)
+  assert.equal(restoredSvoTables.rows[0]?.count, '7')
+})
+
 
 
