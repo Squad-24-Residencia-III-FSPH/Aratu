@@ -1,4 +1,3 @@
-
 .page {
   width: 100%;
   max-width: 1400px;
@@ -14,40 +13,28 @@
 }
 
 .tableContainer table {
-  min-width: 1050px;
+  min-width: 760px;
   table-layout: fixed;
 }
 
 .tableContainer tr > :not([colspan]):nth-child(1) {
-  width: 150px;
+  width: 220px;
 }
 
 .tableContainer tr > :not([colspan]):nth-child(2) {
-  width: 200px;
+  width: 260px;
 }
 
 .tableContainer tr > :not([colspan]):nth-child(3) {
-  width: 100px;
+  width: 180px;
 }
 
 .tableContainer tr > :not([colspan]):nth-child(4) {
-  width: 130px;
-}
-
-.tableContainer tr > :not([colspan]):nth-child(5) {
-  width: 150px;
-}
-
-.tableContainer tr > :not([colspan]):nth-child(6) {
   width: 110px;
 }
 
-.tableContainer tr > :not([colspan]):nth-child(7) {
-  width: 80px;
-}
-
-.tableContainer tr > :not([colspan]):nth-child(8) {
-  width: 130px;
+.tableContainer tr > :not([colspan]):nth-child(5) {
+  width: 190px;
 }
 
 @media (max-width: 768px) {
