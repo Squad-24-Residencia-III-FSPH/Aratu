@@ -509,6 +509,10 @@ test('IT15: seed inicial da frota (seedInitialFleet) é idempotente', async () =
 test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restauram o estado e permitem reaplicar', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202610280012_create_fines.down.sql',
+    '202610280011_create_vehicle_documents.down.sql',
+    '202610280010_create_fuelings.down.sql',
+    '202610280009_create_maintenance_orders.down.sql',
     '202610280008_create_svo_execution_orders.down.sql',
     '202610280007_create_svo_teams.down.sql',
     '202610280006_create_svo_occurrences.down.sql',
@@ -1020,6 +1024,10 @@ test('IT20: consulta de conflito de agenda por período usando os índices de tr
 test('IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e reaplicação limpa', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202610280012_create_fines.down.sql',
+    '202610280011_create_vehicle_documents.down.sql',
+    '202610280010_create_fuelings.down.sql',
+    '202610280009_create_maintenance_orders.down.sql',
     '202610280008_create_svo_execution_orders.down.sql',
     '202610280007_create_svo_teams.down.sql',
     '202610280006_create_svo_occurrences.down.sql',
@@ -1471,6 +1479,10 @@ test('IT25: preservação histórica no SVO: snapshots da época, retificação 
 test('IT26: rollbacks (.down.sql) das migrations 202610280008, 202610280007 e 202610280006 e reaplicação limpa', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202610280012_create_fines.down.sql',
+    '202610280011_create_vehicle_documents.down.sql',
+    '202610280010_create_fuelings.down.sql',
+    '202610280009_create_maintenance_orders.down.sql',
     '202610280008_create_svo_execution_orders.down.sql',
     '202610280007_create_svo_teams.down.sql',
     '202610280006_create_svo_occurrences.down.sql',
@@ -1532,6 +1544,529 @@ test('IT26: rollbacks (.down.sql) das migrations 202610280008, 202610280007 e 20
   `)
   assert.equal(restoredSvoTables.rows[0]?.count, '7')
 })
+
+test('IT27: criação de fleet.maintenance_orders, bloqueio de custo negativo/datas invertidas/cancelamento sem motivo e imutabilidade de fleet.maintenance_order_events (FROTA-58)', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+
+  const managerRoleId = await getRoleId(pool, 'GESTOR')
+  const manager = await usersRepository.create({
+    name: 'Gestora Manutenção Fictícia',
+    email: 'gestora.manutencao@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: managerRoleId,
+  })
+  const managerSnapshot = JSON.stringify({
+    id: manager.id,
+    name: manager.name,
+    email: manager.email,
+    role: 'GESTOR',
+  })
+
+  const vehicleRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.vehicles (license_plate, categories, seats, body_limit, operation_type)
+     VALUES ('FSP4A10', ARRAY['PASSENGER']::TEXT[], 15, 0, 'ADMINISTRATIVE')
+     RETURNING id::text AS id`,
+  )
+  const vehicleId = vehicleRes.rows[0]!.id
+
+  const orderRes = await pool.query<{ id: string; status: string }>(
+    `INSERT INTO fleet.maintenance_orders (
+       vehicle_id, type, description, blocks_vehicle, odometer_km, workshop,
+       opened_at, created_by, vehicle_snapshot
+     )
+     VALUES (
+       $1, 'CORRECTIVE', 'Substituição de pastilhas de freio e revisão de suspensão', true,
+       48500, 'Oficina Credenciada Fictícia', '2026-10-28T08:00:00Z', $2, $3::jsonb
+     )
+     RETURNING id::text AS id, status`,
+    [vehicleId, manager.id, JSON.stringify({ id: vehicleId, licensePlate: 'FSP4A10', seats: 15 })],
+  )
+  const orderId = orderRes.rows[0]!.id
+  assert.equal(orderRes.rows[0]?.status, 'OPEN')
+
+  // Custo negativo deve falhar com 23514
+  await assert.rejects(
+    pool.query(`UPDATE fleet.maintenance_orders SET cost = -10.50 WHERE id = $1`, [orderId]),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // closed_at anterior a opened_at deve falhar com 23514
+  await assert.rejects(
+    pool.query(
+      `UPDATE fleet.maintenance_orders SET closed_at = '2026-10-28T07:00:00Z' WHERE id = $1`,
+      [orderId],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // Cancelamento sem motivo deve falhar com 23514
+  await assert.rejects(
+    pool.query(`UPDATE fleet.maintenance_orders SET status = 'CANCELED' WHERE id = $1`, [orderId]),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // Encerramento com custo válido e posteriormente reabertura excepcional preservando histórico
+  await pool.query(
+    `UPDATE fleet.maintenance_orders
+     SET status = 'DONE',
+         cost = 850.00,
+         closed_at = '2026-10-28T16:30:00Z',
+         closed_by = $1,
+         revision = revision + 1
+     WHERE id = $2`,
+    [manager.id, orderId],
+  )
+
+  const eventRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.maintenance_order_events (
+       maintenance_order_id, event_type, reported_by, registered_by, actor_snapshot,
+       reason, evidence_description, attachment_url, before_state, after_state
+     )
+     VALUES (
+       $1, 'REOPENED', 'Chefe de Oficina Credenciada por ofício', $2, $3::jsonb,
+       'Reabertura excepcional para incluir nota complementar de alinhamento e balanceamento',
+       'Nota fiscal complementar nº 9042', 'https://storage.example.test/nf-9042.pdf',
+       '{"status": "DONE", "cost": 850.00}'::jsonb,
+       '{"status": "IN_PROGRESS", "cost": 980.00}'::jsonb
+     )
+     RETURNING id::text AS id`,
+    [orderId, manager.id, managerSnapshot],
+  )
+  const eventId = eventRes.rows[0]!.id
+
+  await assert.rejects(
+    pool.query(`UPDATE fleet.maintenance_order_events SET reason = 'Alteração proibida' WHERE id = $1`, [eventId]),
+    /fleet\.maintenance_order_events is append-only/i,
+  )
+  await assert.rejects(
+    pool.query(`DELETE FROM fleet.maintenance_order_events WHERE id = $1`, [eventId]),
+    /fleet\.maintenance_order_events is append-only/i,
+  )
+})
+
+test('IT28: criação de fleet.fuelings, validação de litros/valor/km, retificação encadeada (52.000 km -> 51.200 km), integração com trip.odometer_readings e imutabilidade de fleet.fueling_events (FROTA-63)', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+
+  const managerRoleId = await getRoleId(pool, 'GESTOR')
+  const manager = await usersRepository.create({
+    name: 'Operadora Abastecimento Fictícia',
+    email: 'operadora.abastecimento@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: managerRoleId,
+  })
+  const managerSnapshot = JSON.stringify({
+    id: manager.id,
+    name: manager.name,
+    email: manager.email,
+    role: 'GESTOR',
+  })
+
+  const vehicleRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.vehicles (license_plate, categories, seats, body_limit, operation_type)
+     VALUES ('FSP4A10', ARRAY['PASSENGER']::TEXT[], 15, 0, 'ADMINISTRATIVE')
+     RETURNING id::text AS id`,
+  )
+  const vehicleId = vehicleRes.rows[0]!.id
+
+  const driverRes = await pool.query<{ id: string; name: string }>(
+    `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at)
+     VALUES ('Condutor Abastecimento Fictício', '44455566677', '77665544332', 'D', '2030-08-15')
+     RETURNING id::text AS id, name`,
+  )
+  const driverId = driverRes.rows[0]!.id
+
+  // Litros <= 0, valor <= 0 ou km < 0 devem falhar com 23514
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO fleet.fuelings (vehicle_id, driver_id, fuel_type, liters, total_value, odometer_km, created_by)
+       VALUES ($1, $2, 'DIESEL_S10', 0, 250.00, 51200, $3)`,
+      [vehicleId, driverId, manager.id],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO fleet.fuelings (vehicle_id, driver_id, fuel_type, liters, total_value, odometer_km, created_by)
+       VALUES ($1, $2, 'DIESEL_S10', 45.5, -10, 51200, $3)`,
+      [vehicleId, driverId, manager.id],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO fleet.fuelings (vehicle_id, driver_id, fuel_type, liters, total_value, odometer_km, created_by)
+       VALUES ($1, $2, 'DIESEL_S10', 45.5, 250.00, -1, $3)`,
+      [vehicleId, driverId, manager.id],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // Lançamento original informado por telefone (52.000 km)
+  const fueling1 = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.fuelings (
+       vehicle_id, driver_id, fueled_at, fuel_type, liters, total_value, odometer_km,
+       station, reported_by, created_by, actor_snapshot, reason, evidence_description,
+       vehicle_snapshot, driver_snapshot
+     )
+     VALUES (
+       $1, $2, '2026-10-28T11:00:00Z', 'DIESEL_S10', 45.500, 272.55, 52000,
+       'Posto Credenciado Fictício', 'Motorista por telefone', $3, $4::jsonb,
+       'Abastecimento em rota intermunicipal', 'Informado verbalmente por telefone',
+       $5::jsonb, $6::jsonb
+     )
+     RETURNING id::text AS id`,
+    [
+      vehicleId,
+      driverId,
+      manager.id,
+      managerSnapshot,
+      JSON.stringify({ id: vehicleId, licensePlate: 'FSP4A10' }),
+      JSON.stringify({ id: driverId, name: driverRes.rows[0]!.name }),
+    ],
+  )
+  const fueling1Id = fueling1.rows[0]!.id
+
+  // Lançamento retificador (51.200 km) apontando supersedes_id para o original sem apagá-lo
+  const fueling2 = await pool.query<{ id: string; supersedesId: string }>(
+    `INSERT INTO fleet.fuelings (
+       vehicle_id, driver_id, fueled_at, fuel_type, liters, total_value, odometer_km,
+       station, reported_by, created_by, actor_snapshot, reason, evidence_description,
+       attachment_url, supersedes_id
+     )
+     VALUES (
+       $1, $2, '2026-10-28T11:00:00Z', 'DIESEL_S10', 45.500, 272.55, 51200,
+       'Posto Credenciado Fictício', 'Motorista via foto do cupom', $3, $4::jsonb,
+       'Retificação de hodômetro digitado como 52.000 km por engano no relato telefônico',
+       'Foto do cupom fiscal e painel do veículo', 'https://storage.example.test/cupom-51200.jpg', $5
+     )
+     RETURNING id::text AS id, supersedes_id::text AS "supersedesId"`,
+    [vehicleId, driverId, manager.id, managerSnapshot, fueling1Id],
+  )
+  assert.equal(fueling2.rows[0]?.supersedesId, fueling1Id)
+
+  // Anular lançamento sem annulment_reason deve falhar com 23514
+  await assert.rejects(
+    pool.query(`UPDATE fleet.fuelings SET is_annulled = true WHERE id = $1`, [fueling1Id]),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // Integração com trip.odometer_readings usando reading_type = 'FUELING' e fueling_id
+  const odometerRes = await pool.query<{ id: string; readingType: string }>(
+    `INSERT INTO trip.odometer_readings (
+       vehicle_id, fueling_id, reading_type, odometer_km, occurred_at,
+       reported_by, registered_by, actor_snapshot, reason, evidence_description
+     )
+     VALUES (
+       $1, $2, 'FUELING', 51200, '2026-10-28T11:00:00Z',
+       'Motorista via foto do cupom', $3, $4::jsonb,
+       'Leitura de hodômetro conferida no abastecimento', 'Cupom fiscal nº 1184'
+     )
+     RETURNING id::text AS id, reading_type AS "readingType"`,
+    [vehicleId, fueling2.rows[0]!.id, manager.id, managerSnapshot],
+  )
+  assert.equal(odometerRes.rows[0]?.readingType, 'FUELING')
+
+  // Imutabilidade de fleet.fueling_events
+  const eventRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.fueling_events (
+       fueling_id, event_type, reported_by, registered_by, actor_snapshot,
+       reason, evidence_description, before_state, after_state
+     )
+     VALUES (
+       $1, 'RECTIFIED', 'Motorista via foto do cupom', $2, $3::jsonb,
+       'Retificação de hodômetro de 52.000 km para 51.200 km',
+       'Foto do painel e cupom', '{"odometerKm": 52000}'::jsonb, '{"odometerKm": 51200}'::jsonb
+     )
+     RETURNING id::text AS id`,
+    [fueling1Id, manager.id, managerSnapshot],
+  )
+
+  await assert.rejects(
+    pool.query(`DELETE FROM fleet.fueling_events WHERE id = $1`, [eventRes.rows[0]!.id]),
+    /fleet\.fueling_events is append-only/i,
+  )
+})
+
+test('IT29: criação de fleet.vehicle_documents, bloqueio de vencimento anterior à emissão, renovação encadeada e imutabilidade de fleet.vehicle_document_events (FROTA-68)', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+
+  const managerRoleId = await getRoleId(pool, 'GESTOR')
+  const manager = await usersRepository.create({
+    name: 'Gestora Documentação Fictícia',
+    email: 'gestora.documentos@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: managerRoleId,
+  })
+  const managerSnapshot = JSON.stringify({
+    id: manager.id,
+    name: manager.name,
+    email: manager.email,
+    role: 'GESTOR',
+  })
+
+  const vehicleRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.vehicles (license_plate, categories, seats, body_limit, operation_type)
+     VALUES ('FSP4A10', ARRAY['PASSENGER']::TEXT[], 15, 0, 'ADMINISTRATIVE')
+     RETURNING id::text AS id`,
+  )
+  const vehicleId = vehicleRes.rows[0]!.id
+
+  // expires_at anterior a issued_at deve falhar com 23514
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO fleet.vehicle_documents (
+         vehicle_id, document_type, document_number, issued_at, expires_at, created_by
+       )
+       VALUES ($1, 'CRLV', 'CRLV-2026-0001', '2026-06-10', '2026-05-01', $2)`,
+      [vehicleId, manager.id],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  const doc2026 = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.vehicle_documents (
+       vehicle_id, document_type, document_number, issued_at, expires_at, created_by, vehicle_snapshot
+     )
+     VALUES (
+       $1, 'CRLV', 'CRLV-2026-0001', '2026-01-10', '2026-12-31', $2, $3::jsonb
+     )
+     RETURNING id::text AS id`,
+    [vehicleId, manager.id, JSON.stringify({ id: vehicleId, licensePlate: 'FSP4A10' })],
+  )
+  const doc2026Id = doc2026.rows[0]!.id
+
+  const doc2027 = await pool.query<{ id: string; supersedesId: string }>(
+    `INSERT INTO fleet.vehicle_documents (
+       vehicle_id, document_type, document_number, issued_at, expires_at, supersedes_id, created_by
+     )
+     VALUES (
+       $1, 'CRLV', 'CRLV-2027-0001', '2027-01-08', '2027-12-31', $2, $3
+     )
+     RETURNING id::text AS id, supersedes_id::text AS "supersedesId"`,
+    [vehicleId, doc2026Id, manager.id],
+  )
+  assert.equal(doc2027.rows[0]?.supersedesId, doc2026Id)
+
+  const eventRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.vehicle_document_events (
+       vehicle_document_id, event_type, reported_by, registered_by, actor_snapshot,
+       reason, evidence_description, before_state, after_state
+     )
+     VALUES (
+       $1, 'RENEWED', 'Setor de Licenciamento DETRAN/SE', $2, $3::jsonb,
+       'Renovação anual do licenciamento e emissão do CRLV 2027',
+       'Documento digital CRLV-e 2027',
+       '{"documentNumber": "CRLV-2026-0001", "expiresAt": "2026-12-31"}'::jsonb,
+       '{"documentNumber": "CRLV-2027-0001", "expiresAt": "2027-12-31"}'::jsonb
+     )
+     RETURNING id::text AS id`,
+    [doc2027.rows[0]!.id, manager.id, managerSnapshot],
+  )
+
+  await assert.rejects(
+    pool.query(`UPDATE fleet.vehicle_document_events SET reason = 'Alteração proibida' WHERE id = $1`, [
+      eventRes.rows[0]!.id,
+    ]),
+    /fleet\.vehicle_document_events is append-only/i,
+  )
+})
+
+test('IT30: criação de fleet.fines, identificação posterior de motorista/viagem, preservação dos snapshots da época e imutabilidade de fleet.fine_events (FROTA-72)', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+
+  const managerRoleId = await getRoleId(pool, 'GESTOR')
+  const manager = await usersRepository.create({
+    name: 'Gestora Multas Fictícia',
+    email: 'gestora.multas@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: managerRoleId,
+  })
+  const managerSnapshot = JSON.stringify({
+    id: manager.id,
+    name: manager.name,
+    email: manager.email,
+    role: 'GESTOR',
+  })
+
+  const vehicleRes = await pool.query<{ id: string; seats: number }>(
+    `INSERT INTO fleet.vehicles (license_plate, categories, seats, body_limit, operation_type)
+     VALUES ('FSP4A10', ARRAY['PASSENGER']::TEXT[], 15, 0, 'ADMINISTRATIVE')
+     RETURNING id::text AS id, seats`,
+  )
+  const vehicleId = vehicleRes.rows[0]!.id
+  const initialSeats = vehicleRes.rows[0]!.seats
+
+  const driverRes = await pool.query<{ id: string; name: string; cnhNumber: string }>(
+    `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at)
+     VALUES ('Condutor Multa Fictício', '55566677788', '88776655443', 'D', '2030-09-10')
+     RETURNING id::text AS id, name, cnh_number AS "cnhNumber"`,
+  )
+  const driverId = driverRes.rows[0]!.id
+
+  // Valor negativo deve falhar com 23514
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO fleet.fines (
+         vehicle_id, infraction_at, infraction_code, description, amount, created_by
+       )
+       VALUES ($1, '2026-10-20T14:20:00Z', '7455-0', 'Transitar em velocidade superior à máxima em até 20%', -130.16, $2)`,
+      [vehicleId, manager.id],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  const fineRes = await pool.query<{ id: string; status: string }>(
+    `INSERT INTO fleet.fines (
+       vehicle_id, infraction_at, infraction_code, description, location,
+       amount, due_at, created_by, vehicle_snapshot
+     )
+     VALUES (
+       $1, '2026-10-20T14:20:00Z', '7455-0',
+       'Transitar em velocidade superior à máxima permitida em até 20%',
+       'Av. Beira Mar - Aracaju/SE', 130.16, '2026-11-30', $2, $3::jsonb
+     )
+     RETURNING id::text AS id, status`,
+    [
+      vehicleId,
+      manager.id,
+      JSON.stringify({ id: vehicleId, licensePlate: 'FSP4A10', seats: initialSeats }),
+    ],
+  )
+  const fineId = fineRes.rows[0]!.id
+  assert.equal(fineRes.rows[0]?.status, 'PENDING')
+
+  // Cancelamento sem motivo deve falhar com 23514
+  await assert.rejects(
+    pool.query(`UPDATE fleet.fines SET status = 'CANCELED' WHERE id = $1`, [fineId]),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+
+  // Identificação posterior do condutor infrator e congelamento do driver_snapshot
+  await pool.query(
+    `UPDATE fleet.fines
+     SET driver_id = $1,
+         driver_snapshot = $2::jsonb,
+         revision = revision + 1
+     WHERE id = $3`,
+    [
+      driverId,
+      JSON.stringify({
+        id: driverId,
+        name: driverRes.rows[0]!.name,
+        cnhNumber: driverRes.rows[0]!.cnhNumber,
+      }),
+      fineId,
+    ],
+  )
+
+  // Alteração posterior da capacidade da viatura não altera o vehicle_snapshot da época da infração
+  await pool.query(`UPDATE fleet.vehicles SET seats = 10, revision = revision + 1 WHERE id = $1`, [vehicleId])
+
+  const snapshotCheck = await pool.query<{ snapshotSeats: number; currentSeats: number }>(
+    `SELECT (f.vehicle_snapshot->>'seats')::int AS "snapshotSeats",
+            v.seats AS "currentSeats"
+     FROM fleet.fines f
+     JOIN fleet.vehicles v ON v.id = f.vehicle_id
+     WHERE f.id = $1`,
+    [fineId],
+  )
+  assert.equal(snapshotCheck.rows[0]?.snapshotSeats, initialSeats)
+  assert.equal(snapshotCheck.rows[0]?.currentSeats, 10)
+
+  const eventRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.fine_events (
+       fine_id, event_type, reported_by, registered_by, actor_snapshot,
+       reason, evidence_description, before_state, after_state
+     )
+     VALUES (
+       $1, 'DRIVER_IDENTIFIED', 'Setor de Controle de Tráfego FSPH', $2, $3::jsonb,
+       'Identificação do condutor responsável cruzando o horário da autuação com a escala de viagens',
+       'Formulário de indicação de condutor assinado',
+       '{"driverId": null}'::jsonb,
+       $4::jsonb
+     )
+     RETURNING id::text AS id`,
+    [fineId, manager.id, managerSnapshot, JSON.stringify({ driverId })],
+  )
+
+  await assert.rejects(
+    pool.query(`DELETE FROM fleet.fine_events WHERE id = $1`, [eventRes.rows[0]!.id]),
+    /fleet\.fine_events is append-only/i,
+  )
+})
+
+test('IT31: rollbacks (.down.sql) das migrations 202610280012, 202610280011, 202610280010 e 202610280009 e reaplicação limpa', async () => {
+  const pool = getTestPool()
+  const downFiles = [
+    '202610280012_create_fines.down.sql',
+    '202610280011_create_vehicle_documents.down.sql',
+    '202610280010_create_fuelings.down.sql',
+    '202610280009_create_maintenance_orders.down.sql',
+  ]
+
+  try {
+    for (const fileName of downFiles) {
+      const sql = await fs.readFile(
+        path.resolve(__dirname, '../src/database/migrations', fileName),
+        'utf8',
+      )
+      await pool.query(sql)
+      const version = fileName.slice(0, 12)
+      await pool.query(`DELETE FROM schema_migrations WHERE version = $1`, [version])
+    }
+
+    const removedTables = await pool.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM information_schema.tables
+      WHERE table_schema = 'fleet'
+        AND table_name IN (
+          'maintenance_orders',
+          'maintenance_order_events',
+          'fuelings',
+          'fueling_events',
+          'vehicle_documents',
+          'vehicle_document_events',
+          'fines',
+          'fine_events'
+        )
+    `)
+    assert.equal(removedTables.rows[0]?.count, '0')
+
+    const removedOdometerCols = await pool.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM information_schema.columns
+      WHERE table_schema = 'trip'
+        AND table_name = 'odometer_readings'
+        AND column_name IN ('maintenance_order_id', 'fueling_id')
+    `)
+    assert.equal(removedOdometerCols.rows[0]?.count, '0')
+  } finally {
+    const migrator = new DatabaseMigrator()
+    await migrator.runMigrations(pool, { silent: true })
+  }
+
+  const restoredTables = await pool.query<{ count: string }>(`
+    SELECT count(*)::text AS count
+    FROM information_schema.tables
+    WHERE table_schema = 'fleet'
+      AND table_name IN (
+        'maintenance_orders',
+        'maintenance_order_events',
+        'fuelings',
+        'fueling_events',
+        'vehicle_documents',
+        'vehicle_document_events',
+        'fines',
+        'fine_events'
+      )
+  `)
+  assert.equal(restoredTables.rows[0]?.count, '8')
+})
+
 
 
 
