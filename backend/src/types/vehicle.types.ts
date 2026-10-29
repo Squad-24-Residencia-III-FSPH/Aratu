@@ -10,6 +10,10 @@ export type VehicleStatus = typeof VEHICLE_STATUSES[number]
 export const VEHICLE_OPERATION_TYPES = ['ADMINISTRATIVE', 'SVO'] as const
 export type VehicleOperationType = typeof VEHICLE_OPERATION_TYPES[number]
 
+/** Regimes de propriedade suportados pelo cadastro de veículos. */
+export const VEHICLE_OWNERSHIP_TYPES = ['OWNED', 'LEASED'] as const
+export type VehicleOwnership = typeof VEHICLE_OWNERSHIP_TYPES[number]
+
 /** Operações de auditoria associadas às mutações de veículo. */
 export const VEHICLE_AUDIT_OPERATIONS = {
   create: 'CREATE',
@@ -21,6 +25,11 @@ export const VEHICLE_AUDIT_OPERATIONS = {
 export interface Vehicle {
   id: string
   licensePlate: string
+  brand: string | null
+  model: string | null
+  year: number | null
+  vehicleType: string | null
+  ownership: VehicleOwnership
   categories: VehicleCategory[]
   seats: number
   bodyLimit: number
@@ -41,6 +50,11 @@ export interface VehicleChangeMetadata {
 /** Campos editáveis no cadastro de um veículo. */
 export interface VehicleAttributes {
   licensePlate: string
+  brand?: string | null
+  model?: string | null
+  year?: number | null
+  vehicleType?: string | null
+  ownership?: VehicleOwnership
   categories: VehicleCategory[]
   seats: number
   bodyLimit: number

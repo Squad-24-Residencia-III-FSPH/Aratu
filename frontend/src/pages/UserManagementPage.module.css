@@ -1,0 +1,63 @@
+
+.page {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px 32px;
+  box-sizing: border-box;
+  color: #1e293b;
+}
+
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.tableContainer table {
+  min-width: 1050px;
+  table-layout: fixed;
+}
+
+.tableContainer tr > :not([colspan]):nth-child(1) {
+  width: 150px;
+}
+
+.tableContainer tr > :not([colspan]):nth-child(2) {
+  width: 200px;
+}
+
+.tableContainer tr > :not([colspan]):nth-child(3) {
+  width: 100px;
+}
+
+.tableContainer tr > :not([colspan]):nth-child(4) {
+  width: 130px;
+}
+
+.tableContainer tr > :not([colspan]):nth-child(5) {
+  width: 150px;
+}
+
+.tableContainer tr > :not([colspan]):nth-child(6) {
+  width: 110px;
+}
+
+.tableContainer tr > :not([colspan]):nth-child(7) {
+  width: 80px;
+}
+
+.tableContainer tr > :not([colspan]):nth-child(8) {
+  width: 130px;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 0 8px 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 0 4px 20px;
+  }
+}

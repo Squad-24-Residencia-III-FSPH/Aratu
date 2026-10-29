@@ -7,6 +7,7 @@ import { useAuth } from './auth/useAuth';
 import { PROFILE_HOMES } from './auth/profiles';
 import type { Profile } from './auth/profiles';
 import { resolveRoute } from './routing/routeDecision';
+import UserManagementPage from './pages/UserManagementPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -19,6 +20,7 @@ function LoginRoute() {
 
 function ProfileHome({ profile }: { profile: Profile }) {
   if (profile === 'GESTOR') return <GestorPage />;
+  if (profile === 'ADMINISTRADOR') return <UserManagementPage />;
   return <PlaceholderPage title={PROFILE_HOMES[profile].title} />;
 }
 

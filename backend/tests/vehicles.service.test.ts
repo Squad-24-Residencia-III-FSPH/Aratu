@@ -27,6 +27,11 @@ function createVehicle(overrides: Partial<Vehicle> = {}): Vehicle {
   return {
     id: '21',
     licensePlate: 'ABC1234',
+    brand: null,
+    model: null,
+    year: null,
+    vehicleType: null,
+    ownership: 'OWNED',
     categories: ['PASSENGER'],
     seats: 4,
     bodyLimit: 0,
@@ -162,4 +167,42 @@ test('transições bloqueiam inativo para manutenção e disponibilidade respeit
   assert.equal(await context.service.isAvailableForAllocation('21'), false)
   assert.equal(context.events.length, 2)
   assert.equal(context.audits.length, 2)
+})
+
+test('normaliza campos descritivos (brand, model, year, vehicleType, ownership) e rejeita ano inválido', async () => {
+  const context = setup(null)
+  const created = await context.service.createVehicle({
+    licensePlate: 'SVO1A99',
+    brand: '  Chevrolet ',
+    model: ' S10 ',
+    year: 2024,
+    vehicleType: ' PICKUP_SVO ',
+    ownership: 'LEASED',
+    categories: ['BODY'],
+    seats: 2,
+    bodyLimit: 2,
+    weightLimit: null,
+    operationType: 'SVO',
+    ...changeMetadata,
+  }, actor.id)
+
+  assert.equal(created.brand, 'Chevrolet')
+  assert.equal(created.model, 'S10')
+  assert.equal(created.year, 2024)
+  assert.equal(created.vehicleType, 'PICKUP_SVO')
+  assert.equal(created.ownership, 'LEASED')
+
+  await assert.rejects(
+    context.service.createVehicle({
+      licensePlate: 'SVO1A98',
+      year: 1950,
+      categories: ['BODY'],
+      seats: 2,
+      bodyLimit: 2,
+      weightLimit: null,
+      operationType: 'SVO',
+      ...changeMetadata,
+    }, actor.id),
+    (error: unknown) => error instanceof VehicleServiceError && error.statusCode === 400,
+  )
 })
