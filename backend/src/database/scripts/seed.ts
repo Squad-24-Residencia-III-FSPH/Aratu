@@ -372,6 +372,79 @@ export async function seedInitialFleet(pool: Pool, adminEmail: string): Promise<
   }
 }
 
+/**
+ * Provisiona de forma idempotente a equipe inicial de plantão do SVO (`Equipe Plantão SVO 01`)
+ * e registra seu evento de criação em `svo.team_events` assinado pelo Administrador inicial.
+ *
+ * @param pool - Pool PostgreSQL com as migrações do schema `svo` aplicadas.
+ * @param adminEmail - E-mail do Administrador inicial usado para compor o snapshot de autoria.
+ */
+export async function seedInitialSvoTeam(pool: Pool, adminEmail: string): Promise<void> {
+  const client = await pool.connect()
+
+  try {
+    await client.query('BEGIN')
+
+    const adminResult = await client.query<{
+      id: string
+      name: string
+      email: string
+      role: string
+    }>(
+      `SELECT u.id::text AS id, u.name, u.email, r.name AS role
+         FROM auth.users u
+         JOIN auth.roles r ON r.id = u.role_id
+        WHERE lower(u.email) = lower($1)
+        LIMIT 1`,
+      [adminEmail.trim()],
+    )
+    const adminActor = adminResult.rows[0]
+    if (!adminActor) {
+      throw new Error(`Administrador inicial (${adminEmail}) não encontrado para assinar o seed da equipe SVO.`)
+    }
+
+    const insertTeam = await client.query<{
+      id: string
+      name: string
+      active: boolean
+      revision: number
+      createdAt: Date
+      updatedAt: Date
+    }>(
+      `INSERT INTO svo.teams (name, active)
+       VALUES ($1, true)
+       ON CONFLICT (lower(btrim(name))) DO NOTHING
+       RETURNING id::text AS id, name, active, revision,
+                 created_at AS "createdAt", updated_at AS "updatedAt"`,
+      ['Equipe Plantão SVO 01'],
+    )
+
+    const createdTeam = insertTeam.rows[0]
+    if (createdTeam) {
+      await client.query(
+        `INSERT INTO svo.team_events (
+           team_id, event_type, occurred_at, reported_by, registered_by,
+           actor_snapshot, reason, before_state, after_state
+         )
+         VALUES ($1, 'CREATED', clock_timestamp(), 'Bootstrap do Sistema Aratu', $2, $3::jsonb, 'BOOTSTRAP_INITIAL_SVO_TEAM', NULL, $4::jsonb)`,
+        [
+          createdTeam.id,
+          adminActor.id,
+          JSON.stringify(adminActor),
+          JSON.stringify(createdTeam),
+        ],
+      )
+    }
+
+    await client.query('COMMIT')
+  } catch (error: unknown) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
 function loadInitialAdminConfig(): InitialAdminConfig | null {
   const email = process.env.INITIAL_ADMIN_EMAIL?.trim().toLowerCase()
   const password = process.env.INITIAL_ADMIN_PASSWORD
@@ -404,8 +477,9 @@ async function runSeed(): Promise<void> {
     await seedRolesAndPermissions(pool)
     const created = await seedInitialAdmin(pool, adminConfig)
     await seedInitialFleet(pool, adminConfig.email)
+    await seedInitialSvoTeam(pool, adminConfig.email)
     const status = created ? 'criado e auditado com sucesso' : 'já existe na base'
-    process.stdout.write(`Seed: matriz RBAC e frota inicial conferidas; Administrador "${adminConfig.email}" ${status}.\n`)
+    process.stdout.write(`Seed: matriz RBAC, frota e equipe SVO iniciais conferidas; Administrador "${adminConfig.email}" ${status}.\n`)
     if (created && process.env.NODE_ENV === 'production') {
       process.stdout.write('Aviso de Segurança: Altere a senha do Administrador no primeiro acesso ao sistema.\n')
     }
