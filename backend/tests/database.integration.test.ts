@@ -4,7 +4,7 @@ import path from 'node:path'
 import { after, before, beforeEach, test } from 'node:test'
 import type { Pool, PoolClient } from 'pg'
 import { DatabaseMigrator } from '../src/database/migrator'
-import { seedInitialAdmin, seedRolesAndPermissions } from '../src/database/scripts/seed'
+import { seedInitialAdmin, seedInitialFleet, seedRolesAndPermissions } from '../src/database/scripts/seed'
 import { RolesRepository } from '../src/repositories/roles.repository'
 import { UsersRepository } from '../src/repositories/users.repository'
 import {
@@ -312,5 +312,241 @@ test('IT11: rollback restaura as invariantes da coluna role legada', async () =>
     const migrator = new DatabaseMigrator()
     await migrator.runMigrations(pool, { silent: true })
   }
+})
+
+test('IT12: evolução de fleet.vehicles e unicidade case-insensitive da placa (FROTA-42)', async () => {
+  const pool = getTestPool()
+
+  const inserted = await pool.query<{
+    id: string
+    brand: string | null
+    model: string | null
+    year: number | null
+    vehicleType: string | null
+    ownership: string
+  }>(
+    `INSERT INTO fleet.vehicles (
+       license_plate, brand, model, year, vehicle_type, categories, seats, body_limit, operation_type
+     )
+     VALUES ($1, $2, $3, $4, $5, ARRAY['BODY']::TEXT[], 2, 2, 'SVO')
+     RETURNING id::text AS id, brand, model, year, vehicle_type AS "vehicleType", ownership`,
+    ['ABC1D23', 'Chevrolet', 'S10', 2024, 'PICKUP_SVO'],
+  )
+
+  assert.equal(inserted.rows[0]?.brand, 'Chevrolet')
+  assert.equal(inserted.rows[0]?.model, 'S10')
+  assert.equal(inserted.rows[0]?.year, 2024)
+  assert.equal(inserted.rows[0]?.vehicleType, 'PICKUP_SVO')
+  assert.equal(inserted.rows[0]?.ownership, 'OWNED')
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO fleet.vehicles (license_plate, categories, seats, body_limit, operation_type)
+       VALUES ($1, ARRAY['PASSENGER']::TEXT[], 4, 0, 'ADMINISTRATIVE')`,
+      ['abc1d23'],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO fleet.vehicles (license_plate, year, categories, seats, body_limit, operation_type)
+       VALUES ($1, 1950, ARRAY['PASSENGER']::TEXT[], 4, 0, 'ADMINISTRATIVE')`,
+      ['XYZ9A88'],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
+})
+
+test('IT13: tabela fleet.drivers e fleet.driver_events append-only (FROTA-48)', async () => {
+  const pool = getTestPool()
+  const usersRepository = new UsersRepository(pool)
+  const driverRoleId = await getRoleId(pool, 'MOTORISTA')
+
+  const user = await usersRepository.create({
+    name: 'Condutora Autenticada Fictícia',
+    email: 'condutora.ficticia@example.test',
+    passwordHash: 'hash-ficticio',
+    roleId: driverRoleId,
+  })
+
+  const firstDriver = await pool.query<{ id: string; status: string; revision: number }>(
+    `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at, phone, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6, NULL)
+     RETURNING id::text AS id, status, revision`,
+    ['Maria Condutora Teste', '11122233344', '99887766554', 'D', '2028-12-31', '79999990000'],
+  )
+  assert.equal(firstDriver.rows[0]?.status, 'ACTIVE')
+  assert.equal(firstDriver.rows[0]?.revision, 1)
+
+  const secondDriver = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at, user_id)
+     VALUES ($1, $2, $3, $4, $5, NULL)
+     RETURNING id::text AS id`,
+    ['João Condutor Teste', '55566677788', '11223344556', 'B', '2029-06-30'],
+  )
+  assert.ok(secondDriver.rows[0]?.id)
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      ['Duplicado CPF', '11122233344', '00001111222', 'B', '2028-12-31'],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+
+  await pool.query(`UPDATE fleet.drivers SET user_id = $1 WHERE id = $2`, [user.id, firstDriver.rows[0]!.id])
+  await assert.rejects(
+    pool.query(`UPDATE fleet.drivers SET user_id = $1 WHERE id = $2`, [user.id, secondDriver.rows[0]!.id]),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+
+  const eventInsert = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.driver_events (
+       driver_id, event_type, reported_by, registered_by, actor_snapshot, reason, before_state, after_state
+     )
+     VALUES ($1, 'CREATED', 'RH Fictício', $2, $3::jsonb, 'Admissão inicial', NULL, $4::jsonb)
+     RETURNING id::text AS id`,
+    [
+      firstDriver.rows[0]!.id,
+      user.id,
+      JSON.stringify({ id: user.id, name: user.name, email: user.email, role: user.role }),
+      JSON.stringify({ id: firstDriver.rows[0]!.id, status: 'ACTIVE' }),
+    ],
+  )
+  const eventId = eventInsert.rows[0]!.id
+
+  await assert.rejects(
+    pool.query(`UPDATE fleet.driver_events SET reason = 'Alteração proibida' WHERE id = $1`, [eventId]),
+    /fleet\.driver_events is append-only/i,
+  )
+  await assert.rejects(
+    pool.query(`DELETE FROM fleet.driver_events WHERE id = $1`, [eventId]),
+    /fleet\.driver_events is append-only/i,
+  )
+})
+
+test('IT14: tabelas fleet.services e fleet.vehicle_services (FROTA-165)', async () => {
+  const pool = getTestPool()
+
+  const vehicleRes = await pool.query<{ id: string }>(
+    `INSERT INTO fleet.vehicles (license_plate, categories, seats, body_limit, operation_type)
+     VALUES ('VTR1A01', ARRAY['PASSENGER']::TEXT[], 4, 0, 'ADMINISTRATIVE')
+     RETURNING id::text AS id`,
+  )
+  const vehicleId = vehicleRes.rows[0]!.id
+
+  const serviceRes = await pool.query<{ id: string; active: boolean; revision: number }>(
+    `INSERT INTO fleet.services (name, description, categories, requires_triage)
+     VALUES ('Transporte de Pacientes', 'Deslocamento assistencial', ARRAY['PASSENGER']::TEXT[], true)
+     RETURNING id::text AS id, active, revision`,
+  )
+  const serviceId = serviceRes.rows[0]!.id
+  assert.equal(serviceRes.rows[0]?.active, true)
+  assert.equal(serviceRes.rows[0]?.revision, 1)
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO fleet.services (name, categories)
+       VALUES ('  transporte de pacientes ', ARRAY['PASSENGER']::TEXT[])`,
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+
+  await pool.query(
+    `INSERT INTO fleet.vehicle_services (vehicle_id, service_id) VALUES ($1, $2)`,
+    [vehicleId, serviceId],
+  )
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO fleet.vehicle_services (vehicle_id, service_id) VALUES ($1, $2)`,
+      [vehicleId, serviceId],
+    ),
+    (error: unknown) => (error as { code?: string }).code === '23505',
+  )
+
+  await assert.rejects(
+    pool.query(`DELETE FROM fleet.vehicles WHERE id = $1`, [vehicleId]),
+    (error: unknown) => ['23001', '23503'].includes((error as { code?: string }).code ?? ''),
+  )
+})
+
+test('IT15: seed inicial da frota (seedInitialFleet) é idempotente', async () => {
+  const pool = getTestPool()
+
+  await seedInitialAdmin(pool, ADMIN_CONFIG)
+  await seedInitialFleet(pool, ADMIN_CONFIG.email)
+  await seedInitialFleet(pool, ADMIN_CONFIG.email)
+
+  const counts = await pool.query<{
+    vehicles: string
+    events: string
+    services: string
+    links: string
+  }>(`
+    SELECT
+      (SELECT count(*)::text FROM fleet.vehicles) AS vehicles,
+      (SELECT count(*)::text FROM fleet.vehicle_events WHERE reason = 'BOOTSTRAP_INITIAL_FLEET') AS events,
+      (SELECT count(*)::text FROM fleet.services) AS services,
+      (SELECT count(*)::text FROM fleet.vehicle_services) AS links
+  `)
+
+  assert.deepEqual(counts.rows[0], {
+    vehicles: '3',
+    events: '3',
+    services: '3',
+    links: '3',
+  })
+})
+
+test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restauram o estado e permitem reaplicar', async () => {
+  const pool = getTestPool()
+  const downFiles = [
+    '202610280003_create_services.down.sql',
+    '202610280002_create_drivers.down.sql',
+    '202610280001_alter_vehicles_add_details.down.sql',
+  ]
+
+  try {
+    for (const fileName of downFiles) {
+      const sql = await fs.readFile(
+        path.resolve(__dirname, '../src/database/migrations', fileName),
+        'utf8',
+      )
+      await pool.query(sql)
+      const version = fileName.slice(0, 12)
+      await pool.query(`DELETE FROM schema_migrations WHERE version = $1`, [version])
+    }
+
+    const removedTables = await pool.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM information_schema.tables
+      WHERE table_schema = 'fleet'
+        AND table_name IN ('drivers', 'driver_events', 'services', 'vehicle_services')
+    `)
+    assert.equal(removedTables.rows[0]?.count, '0')
+
+    const removedColumns = await pool.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM information_schema.columns
+      WHERE table_schema = 'fleet'
+        AND table_name = 'vehicles'
+        AND column_name IN ('brand', 'model', 'year', 'vehicle_type', 'ownership')
+    `)
+    assert.equal(removedColumns.rows[0]?.count, '0')
+  } finally {
+    const migrator = new DatabaseMigrator()
+    await migrator.runMigrations(pool, { silent: true })
+  }
+
+  const restoredTables = await pool.query<{ count: string }>(`
+    SELECT count(*)::text AS count
+    FROM information_schema.tables
+    WHERE table_schema = 'fleet'
+      AND table_name IN ('vehicles', 'vehicle_events', 'drivers', 'driver_events', 'services', 'vehicle_services')
+  `)
+  assert.equal(restoredTables.rows[0]?.count, '6')
 })
 

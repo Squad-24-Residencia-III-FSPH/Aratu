@@ -49,6 +49,11 @@ export class VehiclesRepository implements VehiclesRepositoryContract {
     const result = await this.pool.query<Vehicle>(
       `SELECT id::text AS id,
               license_plate AS "licensePlate",
+              brand,
+              model,
+              year,
+              vehicle_type AS "vehicleType",
+              ownership,
               categories,
               seats,
               body_limit AS "bodyLimit",
@@ -72,7 +77,8 @@ export class VehiclesRepository implements VehiclesRepositoryContract {
   async findById(id: string, client?: PoolClient): Promise<Vehicle | null> {
     const executor = client ?? this.pool
     const result = await executor.query<Vehicle>(
-      `SELECT id::text AS id, license_plate AS "licensePlate", categories, seats,
+      `SELECT id::text AS id, license_plate AS "licensePlate", brand, model, year,
+              vehicle_type AS "vehicleType", ownership, categories, seats,
               body_limit AS "bodyLimit", weight_limit::double precision AS "weightLimit",
               operation_type AS "operationType", status, revision,
               created_at AS "createdAt", updated_at AS "updatedAt"
@@ -85,7 +91,8 @@ export class VehiclesRepository implements VehiclesRepositoryContract {
   /** Busca e bloqueia o registro para serializar mudanças concorrentes. */
   async findByIdForUpdate(id: string, client: PoolClient): Promise<Vehicle | null> {
     const result = await client.query<Vehicle>(
-      `SELECT id::text AS id, license_plate AS "licensePlate", categories, seats,
+      `SELECT id::text AS id, license_plate AS "licensePlate", brand, model, year,
+              vehicle_type AS "vehicleType", ownership, categories, seats,
               body_limit AS "bodyLimit", weight_limit::double precision AS "weightLimit",
               operation_type AS "operationType", status, revision,
               created_at AS "createdAt", updated_at AS "updatedAt"
@@ -95,15 +102,16 @@ export class VehiclesRepository implements VehiclesRepositoryContract {
     return result.rows[0] ?? null
   }
 
-  /** Busca a placa normalizada para fornecer conflito amigável antes do índice único. */
+  /** Busca a placa de forma case-insensitive aproveitando o índice funcional upper(license_plate). */
   async findByLicensePlate(licensePlate: string, client?: PoolClient): Promise<Vehicle | null> {
     const executor = client ?? this.pool
     const result = await executor.query<Vehicle>(
-      `SELECT id::text AS id, license_plate AS "licensePlate", categories, seats,
+      `SELECT id::text AS id, license_plate AS "licensePlate", brand, model, year,
+              vehicle_type AS "vehicleType", ownership, categories, seats,
               body_limit AS "bodyLimit", weight_limit::double precision AS "weightLimit",
               operation_type AS "operationType", status, revision,
               created_at AS "createdAt", updated_at AS "updatedAt"
-         FROM fleet.vehicles WHERE license_plate = $1 LIMIT 1`,
+         FROM fleet.vehicles WHERE upper(license_plate) = upper($1) LIMIT 1`,
       [licensePlate],
     )
     return result.rows[0] ?? null
@@ -113,14 +121,21 @@ export class VehiclesRepository implements VehiclesRepositoryContract {
   async create(attributes: VehicleAttributes, client: PoolClient): Promise<Vehicle> {
     const result = await client.query<Vehicle>(
       `INSERT INTO fleet.vehicles (
-         license_plate, categories, seats, body_limit, weight_limit, operation_type, status
-       ) VALUES ($1, $2, $3, $4, $5, $6, 'AVAILABLE')
-       RETURNING id::text AS id, license_plate AS "licensePlate", categories, seats,
+         license_plate, brand, model, year, vehicle_type, ownership,
+         categories, seats, body_limit, weight_limit, operation_type, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'AVAILABLE')
+       RETURNING id::text AS id, license_plate AS "licensePlate", brand, model, year,
+                 vehicle_type AS "vehicleType", ownership, categories, seats,
                  body_limit AS "bodyLimit", weight_limit::double precision AS "weightLimit",
                  operation_type AS "operationType", status, revision,
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         attributes.licensePlate,
+        attributes.brand ?? null,
+        attributes.model ?? null,
+        attributes.year ?? null,
+        attributes.vehicleType ?? null,
+        attributes.ownership ?? 'OWNED',
         attributes.categories,
         attributes.seats,
         attributes.bodyLimit,
@@ -143,20 +158,31 @@ export class VehiclesRepository implements VehiclesRepositoryContract {
     const result = await client.query<Vehicle>(
       `UPDATE fleet.vehicles
           SET license_plate = $1,
-              categories = $2,
-              seats = $3,
-              body_limit = $4,
-              weight_limit = $5,
-              operation_type = $6,
+              brand = $2,
+              model = $3,
+              year = $4,
+              vehicle_type = $5,
+              ownership = $6,
+              categories = $7,
+              seats = $8,
+              body_limit = $9,
+              weight_limit = $10,
+              operation_type = $11,
               revision = revision + 1,
               updated_at = clock_timestamp()
-        WHERE id = $7 AND revision = $8
-        RETURNING id::text AS id, license_plate AS "licensePlate", categories, seats,
+        WHERE id = $12 AND revision = $13
+        RETURNING id::text AS id, license_plate AS "licensePlate", brand, model, year,
+                  vehicle_type AS "vehicleType", ownership, categories, seats,
                   body_limit AS "bodyLimit", weight_limit::double precision AS "weightLimit",
                   operation_type AS "operationType", status, revision,
                   created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         attributes.licensePlate,
+        attributes.brand ?? null,
+        attributes.model ?? null,
+        attributes.year ?? null,
+        attributes.vehicleType ?? null,
+        attributes.ownership ?? 'OWNED',
         attributes.categories,
         attributes.seats,
         attributes.bodyLimit,
@@ -185,7 +211,8 @@ export class VehiclesRepository implements VehiclesRepositoryContract {
               revision = revision + 1,
               updated_at = clock_timestamp()
         WHERE id = $2 AND revision = $3
-        RETURNING id::text AS id, license_plate AS "licensePlate", categories, seats,
+        RETURNING id::text AS id, license_plate AS "licensePlate", brand, model, year,
+                  vehicle_type AS "vehicleType", ownership, categories, seats,
                   body_limit AS "bodyLimit", weight_limit::double precision AS "weightLimit",
                   operation_type AS "operationType", status, revision,
                   created_at AS "createdAt", updated_at AS "updatedAt"`,

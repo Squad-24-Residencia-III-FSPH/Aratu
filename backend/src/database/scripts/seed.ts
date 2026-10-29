@@ -28,6 +28,39 @@ const PERMISSION_SEEDS = [
 
 const ADMIN_ONLY_PERMISSIONS = ['users:manage', 'permissions:manage'] as const
 
+const INITIAL_SVO_VEHICLES = [
+  { licensePlate: 'SVO1A01', brand: 'Chevrolet', model: 'S10', year: 2024, vehicleType: 'PICKUP_SVO' },
+  { licensePlate: 'SVO1A02', brand: 'Chevrolet', model: 'S10', year: 2024, vehicleType: 'PICKUP_SVO' },
+  { licensePlate: 'SVO1A03', brand: 'Chevrolet', model: 'S10', year: 2024, vehicleType: 'PICKUP_SVO' },
+] as const
+
+const INITIAL_FLEET_SERVICES = [
+  {
+    name: 'Remoção Cadavérica SVO',
+    description: 'Coleta e remoção cadavérica operacional pelo Serviço de Verificação de Óbito',
+    categories: ['BODY'],
+    requiresTriage: true,
+    requiresWeight: false,
+    requiresIdentification: true,
+  },
+  {
+    name: 'Transporte Institucional de Passageiros',
+    description: 'Deslocamento institucional de servidores e equipes da FSPH',
+    categories: ['PASSENGER'],
+    requiresTriage: false,
+    requiresWeight: false,
+    requiresIdentification: false,
+  },
+  {
+    name: 'Transporte de Amostras e Insumos',
+    description: 'Logística de materiais biológicos, amostras laboratoriais e insumos hospitalares',
+    categories: ['OTHER'],
+    requiresTriage: false,
+    requiresWeight: true,
+    requiresIdentification: false,
+  },
+] as const
+
 export interface InitialAdminConfig {
   email: string
   password: string
@@ -207,6 +240,138 @@ export async function seedInitialAdmin(pool: Pool, config: InitialAdminConfig): 
   }
 }
 
+/**
+ * Provisiona de forma idempotente as viaturas iniciais do SVO, o catálogo básico de
+ * tipos de serviço e a matriz de compatibilidade veículo × serviço.
+ *
+ * Registra o evento `CREATED` em `fleet.vehicle_events` para cada viatura inserida,
+ * vinculando a autoria ao Administrador inicial do sistema.
+ *
+ * @param pool - Pool PostgreSQL com as migrações do schema `fleet` aplicadas.
+ * @param adminEmail - E-mail do Administrador inicial usado para compor o snapshot de autoria.
+ */
+export async function seedInitialFleet(pool: Pool, adminEmail: string): Promise<void> {
+  const client = await pool.connect()
+
+  try {
+    await client.query('BEGIN')
+
+    const adminResult = await client.query<{
+      id: string
+      name: string
+      email: string
+      role: string
+    }>(
+      `SELECT u.id::text AS id, u.name, u.email, r.name AS role
+         FROM auth.users u
+         JOIN auth.roles r ON r.id = u.role_id
+        WHERE lower(u.email) = lower($1)
+        LIMIT 1`,
+      [adminEmail.trim()],
+    )
+    const adminActor = adminResult.rows[0]
+    if (!adminActor) {
+      throw new Error(`Administrador inicial (${adminEmail}) não encontrado para assinar o seed da frota.`)
+    }
+
+    for (const vehicleSeed of INITIAL_SVO_VEHICLES) {
+      const insertVehicle = await client.query<{
+        id: string
+        licensePlate: string
+        brand: string | null
+        model: string | null
+        year: number | null
+        vehicleType: string | null
+        ownership: string
+        categories: string[]
+        seats: number
+        bodyLimit: number
+        weightLimit: number | null
+        operationType: string
+        status: string
+        revision: number
+        createdAt: Date
+        updatedAt: Date
+      }>(
+        `INSERT INTO fleet.vehicles (
+           license_plate, brand, model, year, vehicle_type, ownership,
+           categories, seats, body_limit, weight_limit, operation_type, status
+         )
+         VALUES ($1, $2, $3, $4, $5, 'OWNED', ARRAY['BODY']::TEXT[], 2, 2, NULL, 'SVO', 'AVAILABLE')
+         ON CONFLICT (upper(license_plate)) DO NOTHING
+         RETURNING id::text AS id, license_plate AS "licensePlate", brand, model, year,
+                   vehicle_type AS "vehicleType", ownership, categories, seats,
+                   body_limit AS "bodyLimit", weight_limit::double precision AS "weightLimit",
+                   operation_type AS "operationType", status, revision,
+                   created_at AS "createdAt", updated_at AS "updatedAt"`,
+        [
+          vehicleSeed.licensePlate,
+          vehicleSeed.brand,
+          vehicleSeed.model,
+          vehicleSeed.year,
+          vehicleSeed.vehicleType,
+        ],
+      )
+
+      const createdVehicle = insertVehicle.rows[0]
+      if (createdVehicle) {
+        await client.query(
+          `INSERT INTO fleet.vehicle_events (
+             vehicle_id, event_type, occurred_at, reported_by, registered_by,
+             actor_snapshot, reason, before_state, after_state
+           )
+           VALUES ($1, 'CREATED', clock_timestamp(), 'Bootstrap do Sistema Aratu', $2, $3::jsonb, 'BOOTSTRAP_INITIAL_FLEET', NULL, $4::jsonb)`,
+          [
+            createdVehicle.id,
+            adminActor.id,
+            JSON.stringify(adminActor),
+            JSON.stringify(createdVehicle),
+          ],
+        )
+      }
+    }
+
+    for (const serviceSeed of INITIAL_FLEET_SERVICES) {
+      await client.query(
+        `INSERT INTO fleet.services (
+           name, description, categories, requires_triage, requires_weight, requires_identification, active
+         )
+         VALUES ($1, $2, $3::TEXT[], $4, $5, $6, true)
+         ON CONFLICT (lower(btrim(name))) DO NOTHING`,
+        [
+          serviceSeed.name,
+          serviceSeed.description,
+          serviceSeed.categories,
+          serviceSeed.requiresTriage,
+          serviceSeed.requiresWeight,
+          serviceSeed.requiresIdentification,
+        ],
+      )
+    }
+
+    await client.query(
+      `INSERT INTO fleet.vehicle_services (vehicle_id, service_id)
+       SELECT v.id, s.id
+         FROM fleet.vehicles v
+         CROSS JOIN fleet.services s
+        WHERE upper(v.license_plate) = ANY($1::TEXT[])
+          AND lower(btrim(s.name)) = lower(btrim($2))
+       ON CONFLICT (vehicle_id, service_id) DO NOTHING`,
+      [
+        INITIAL_SVO_VEHICLES.map((v) => v.licensePlate),
+        'Remoção Cadavérica SVO',
+      ],
+    )
+
+    await client.query('COMMIT')
+  } catch (error: unknown) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
 function loadInitialAdminConfig(): InitialAdminConfig | null {
   const email = process.env.INITIAL_ADMIN_EMAIL?.trim().toLowerCase()
   const password = process.env.INITIAL_ADMIN_PASSWORD
@@ -238,8 +403,9 @@ async function runSeed(): Promise<void> {
   try {
     await seedRolesAndPermissions(pool)
     const created = await seedInitialAdmin(pool, adminConfig)
+    await seedInitialFleet(pool, adminConfig.email)
     const status = created ? 'criado e auditado com sucesso' : 'já existe na base'
-    process.stdout.write(`Seed: matriz RBAC conferida; Administrador "${adminConfig.email}" ${status}.\n`)
+    process.stdout.write(`Seed: matriz RBAC e frota inicial conferidas; Administrador "${adminConfig.email}" ${status}.\n`)
     if (created && process.env.NODE_ENV === 'production') {
       process.stdout.write('Aviso de Segurança: Altere a senha do Administrador no primeiro acesso ao sistema.\n')
     }
