@@ -23,11 +23,26 @@ export interface UserRepository {
 }
 
 /**
+ * Contrato de persistência usado pelo gerenciamento administrativo de usuários.
+ *
+ * Mantém a interface de autenticação (`UserRepository`) enxuta e permite que testes
+ * de service substituam apenas as operações efetivamente consumidas.
+ */
+export interface UsersRepositoryContract {
+  withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
+  findById(id: string, client?: PoolClient): Promise<User | null>
+  findByIdForUpdate(id: string, client: PoolClient): Promise<User | null>
+  list(filters: UserFilters): Promise<PaginatedUsers>
+  create(input: CreateUserInput, client?: PoolClient): Promise<User>
+  save(id: string, input: UpdateUserInput, client?: PoolClient): Promise<UpdateUserResult>
+}
+
+/**
  * Repositório de acesso a dados da tabela `auth.users` no PostgreSQL 18 utilizando consultas parametrizadas.
  *
  * Realiza JOIN com `auth.roles` para projetar o nome do perfil RBAC nos contratos de saída.
  */
-export class UsersRepository implements UserRepository {
+export class UsersRepository implements UserRepository, UsersRepositoryContract {
   private readonly pool: Pool
 
   /**
@@ -37,6 +52,28 @@ export class UsersRepository implements UserRepository {
    */
   constructor(pool: Pool) {
     this.pool = pool
+  }
+
+  /**
+   * Executa uma unidade de trabalho em transação, garantindo commit/rollback e
+   * devolução da conexão ao pool mesmo em falha.
+   *
+   * @param work - Callback que recebe o cliente transacional para executar as operações.
+   * @returns Resultado produzido pelo callback após o commit.
+   */
+  async withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect()
+    try {
+      await client.query('BEGIN')
+      const result = await work(client)
+      await client.query('COMMIT')
+      return result
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
   }
 
   /**
@@ -90,6 +127,38 @@ export class UsersRepository implements UserRepository {
        FROM auth.users u
        JOIN auth.roles r ON r.id = u.role_id
        WHERE u.id = $1
+       LIMIT 1`,
+      [id],
+    )
+    return result.rows[0] ?? null
+  }
+
+  /**
+   * Busca e trava a linha do usuário para leitura seguida de mutação.
+   *
+   * O `FOR UPDATE OF u` serializa alterações concorrentes de inativação, reativação
+   * e edição, impedindo que dois administradores sobrescrevam a mesma conta.
+   *
+   * @param id - Identificador do usuário.
+   * @param client - Cliente transacional obrigatório.
+   * @returns Usuário travado para atualização ou `null`.
+   */
+  async findByIdForUpdate(id: string, client: PoolClient): Promise<User | null> {
+    const result = await client.query<User>(
+      `SELECT
+         u.id::text AS id,
+         u.name,
+         u.email,
+         u.role_id::text AS "roleId",
+         r.name AS role,
+         u.active,
+         u.revision,
+         u.created_at AS "createdAt",
+         u.updated_at AS "updatedAt"
+       FROM auth.users u
+       JOIN auth.roles r ON r.id = u.role_id
+       WHERE u.id = $1
+       FOR UPDATE OF u
        LIMIT 1`,
       [id],
     )
@@ -220,6 +289,18 @@ export class UsersRepository implements UserRepository {
   }
 
   /**
+   * Persiste alterações em um usuário existente por meio do contrato de gerenciamento.
+   *
+   * @param id - Identificador do usuário a atualizar.
+   * @param input - Campos a serem alterados.
+   * @param client - Cliente transacional opcional.
+   * @returns Resultado discriminado que separa usuário inexistente de conflito de revisão.
+   */
+  async save(id: string, input: UpdateUserInput, client?: PoolClient): Promise<UpdateUserResult> {
+    return this.update(id, input, client)
+  }
+
+  /**
    * Atualiza parcialmente os dados de um usuário existente.
    *
    * Incrementa automaticamente `revision` e atualiza `updated_at`.
@@ -239,6 +320,11 @@ export class UsersRepository implements UserRepository {
     if (input.name !== undefined) {
       setClauses.push(`name = $${paramIndex++}`)
       params.push(input.name)
+    }
+
+    if (input.email !== undefined) {
+      setClauses.push(`email = $${paramIndex++}`)
+      params.push(input.email.trim().toLowerCase())
     }
 
     if (input.roleId !== undefined) {
