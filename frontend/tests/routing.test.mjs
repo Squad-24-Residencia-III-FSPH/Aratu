@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { resolveRoute } from '../src/routing/routeDecision.ts'
-import { resolveProfile } from '../src/auth/profiles.ts'
+import { PROFILE_PERMISSIONS_PATH, resolveProfile } from '../src/auth/profiles.ts'
 import { sessionFor } from './fixtures.mjs'
 
 const destinations = [
@@ -18,6 +18,12 @@ for (const [profile, path] of destinations) {
     const session = sessionFor(profile)
     assert.deepEqual(resolveRoute(session, '/login'), { kind: 'redirect', to: path })
     assert.deepEqual(resolveRoute(session, path), { kind: 'home', profile })
+    assert.deepEqual(
+      resolveRoute(session, PROFILE_PERMISSIONS_PATH),
+      profile === 'ADMINISTRADOR'
+        ? { kind: 'profile-permissions', profile }
+        : { kind: 'redirect', to: path },
+    )
     for (const [, otherPath] of destinations) {
       if (otherPath !== path) assert.deepEqual(resolveRoute(session, otherPath), { kind: 'redirect', to: path })
     }
@@ -25,7 +31,7 @@ for (const [profile, path] of destinations) {
 }
 
 test('sem login e após logout, todas as rotas internas voltam ao login', () => {
-  for (const [, path] of destinations) {
+  for (const [, path] of [...destinations, ['ADMINISTRADOR', PROFILE_PERMISSIONS_PATH]]) {
     assert.deepEqual(resolveRoute(null, path), { kind: 'redirect', to: '/login' })
   }
   assert.deepEqual(resolveRoute(null, '/login'), { kind: 'login' })
@@ -33,6 +39,7 @@ test('sem login e após logout, todas as rotas internas voltam ao login', () => 
 
 test('token expirado e sessão adulterada não abrem telas internas', () => {
   assert.deepEqual(resolveRoute(sessionFor('MOTORISTA', -1), '/viagens/minhas'), { kind: 'redirect', to: '/login' })
+  assert.deepEqual(resolveRoute(sessionFor('ADMINISTRADOR', -1), PROFILE_PERMISSIONS_PATH), { kind: 'redirect', to: '/login' })
   assert.deepEqual(resolveRoute({ ...sessionFor(), perfil: 'MOTORISTA' }, '/viagens/minhas'), { kind: 'redirect', to: '/login' })
 })
 

@@ -110,6 +110,7 @@ test('updateUser e ações de situação usam PUT/PATCH e codificam o identifica
     ['/users/7/deactivate', 'PATCH'],
     ['/users/7/activate', 'PATCH'],
   ])
+  assert.equal(JSON.parse(calls[0].options.body).roleId, '2')
   assert.equal(JSON.parse(calls[0].options.body).revision, 2)
 })
 
