@@ -9,6 +9,8 @@ export const PROFILE_HOMES = {
   EQUIPE_SVO: { label: 'Equipe SVO', title: 'Ordens SVO', path: '/svo/ordens' },
 } as const
 
+export const PROFILE_PERMISSIONS_PATH = '/administracao/perfis'
+
 export type Profile = keyof typeof PROFILE_HOMES
 
 const aliases: Record<string, Profile> = {
