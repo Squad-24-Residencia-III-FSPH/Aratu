@@ -36,3 +36,23 @@ test('user form accepts a password at the backend bcrypt byte limit', () => {
     roleId: '1',
   }), {})
 })
+
+test('edição não exige senha, mas ainda valida nome, e-mail e perfil', () => {
+  assert.deepEqual(validateUserForm({
+    name: 'Usuário Sintético',
+    email: 'usuario@example.test',
+    password: '',
+    roleId: '1',
+  }, 'edit'), {})
+
+  const errors = validateUserForm({
+    name: '',
+    email: 'invalido',
+    password: '',
+    roleId: '',
+  }, 'edit')
+  assert.equal(errors.name, 'Informe o nome do usuário.')
+  assert.equal(errors.email, 'Informe um e-mail válido.')
+  assert.equal(errors.roleId, 'Selecione um perfil de acesso.')
+  assert.equal(errors.password, undefined)
+})

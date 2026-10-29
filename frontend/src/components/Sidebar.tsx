@@ -14,7 +14,7 @@ import BarChart from '@mui/icons-material/BarChart';
 import Security from '@mui/icons-material/Security';
 import Help from '@mui/icons-material/Help';
 import { useAuth } from '../auth/useAuth';
-import { profileLabel } from '../auth/profiles';
+import { PROFILE_HOMES, profileLabel } from '../auth/profiles';
 
 const drawerWidth = 260;
 
@@ -73,6 +73,14 @@ export default function Sidebar() {
 
         <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, mt: 2, display: 'block', fontSize: '0.7rem' }}>GESTÃO</Typography>
         <List dense>
+          {session?.perfil === 'ADMINISTRADOR' && (
+            <ListItem disablePadding>
+              <ListItemButton component="a" href={`#${PROFILE_HOMES.ADMINISTRADOR.path}`} sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><Security fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Usuários" />
+              </ListItemButton>
+            </ListItem>
+          )}
           <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><DashboardIcon fontSize="small" /></ListItemIcon><ListItemText primary="Dashboard" /></ListItemButton></ListItem>
           <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><BarChart fontSize="small" /></ListItemIcon><ListItemText primary="Relatórios" /></ListItemButton></ListItem>
           <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Security fontSize="small" /></ListItemIcon><ListItemText primary="Auditoria" /></ListItemButton></ListItem>

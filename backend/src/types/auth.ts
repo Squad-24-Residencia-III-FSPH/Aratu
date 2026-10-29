@@ -160,6 +160,8 @@ export interface UpdateUserInput {
   expectedRevision: number
   /** Novo nome completo (opcional). */
   name?: string
+  /** Novo e-mail institucional normalizado (opcional). */
+  email?: string
   /** Novo perfil RBAC (opcional). */
   roleId?: string
   /** Ativar ou desativar a conta (opcional). */
