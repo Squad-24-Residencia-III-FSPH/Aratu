@@ -3,6 +3,8 @@ import Layout from './components/layout';
 import GestorPage from './pages/gestorPage/GestorPage';
 import LoginPage from './pages/loginPage/LoginPage';
 import PlaceholderPage from './pages/placeholderPage/PlaceholderPage';
+import VeiculosPage from './pages/veiculosPage/VeiculosPage';
+import ManutencaoPage from './pages/ManuPage/ManutencaoPage';
 import { useAuth } from './auth/useAuth';
 import { PROFILE_HOMES } from './auth/profiles';
 import type { Profile } from './auth/profiles';
@@ -19,7 +21,12 @@ function LoginRoute() {
 }
 
 function ProfileHome({ profile }: { profile: Profile }) {
-  if (profile === 'GESTOR') return <GestorPage />;
+  const { pathname } = useLocation();
+  if (profile === 'GESTOR') {
+    if (pathname === '/manutencao') return <ManutencaoPage />;
+    if (pathname === '/veiculos') return <VeiculosPage />;
+    return <GestorPage />;
+  }
   if (profile === 'ADMINISTRADOR') return <UserManagementPage />;
   return <PlaceholderPage title={PROFILE_HOMES[profile].title} />;
 }
@@ -39,11 +46,22 @@ function PrivateRoute() {
 
 export default function App() {
   return (
-    <HashRouter>
+    <HashRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <Routes>
         <Route path="/login" element={<LoginRoute />} />
+        <Route path="/veiculos" element={<PrivateRouteWrapper><VeiculosPage /></PrivateRouteWrapper>} />
+        <Route path="/manutencao" element={<PrivateRouteWrapper><ManutencaoPage /></PrivateRouteWrapper>} />
         <Route path="*" element={<PrivateRoute />} />
       </Routes>
     </HashRouter>
   );
+}
+
+function PrivateRouteWrapper({ children }: { children: React.ReactNode }) {
+  return <Layout>{children}</Layout>;
 }
