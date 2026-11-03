@@ -1,25 +1,111 @@
-import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Divider } from '@mui/material';
-import Home from '@mui/icons-material/Home';
-import Assignment from '@mui/icons-material/Assignment';
-import LocalShipping from '@mui/icons-material/LocalShipping';
-import CheckCircle from '@mui/icons-material/CheckCircle';
-import DirectionsCar from '@mui/icons-material/DirectionsCar';
-import Person from '@mui/icons-material/Person';
-import Build from '@mui/icons-material/Build';
-import LocalGasStation from '@mui/icons-material/LocalGasStation';
-import Description from '@mui/icons-material/Description';
-import Warning from '@mui/icons-material/Warning';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import BarChart from '@mui/icons-material/BarChart';
-import Security from '@mui/icons-material/Security';
-import Help from '@mui/icons-material/Help';
-import { useAuth } from '../auth/useAuth';
-import { PROFILE_HOMES, profileLabel } from '../auth/profiles';
+import { Box, Divider, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material'
+import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings'
+import Assignment from '@mui/icons-material/Assignment'
+import BarChart from '@mui/icons-material/BarChart'
+import Build from '@mui/icons-material/Build'
+import CheckCircle from '@mui/icons-material/CheckCircle'
+import DashboardIcon from '@mui/icons-material/Dashboard'
+import Description from '@mui/icons-material/Description'
+import DirectionsCar from '@mui/icons-material/DirectionsCar'
+import Help from '@mui/icons-material/Help'
+import Home from '@mui/icons-material/Home'
+import LocalShipping from '@mui/icons-material/LocalShipping'
+import LocalGasStation from '@mui/icons-material/LocalGasStation'
+import Person from '@mui/icons-material/Person'
+import Security from '@mui/icons-material/Security'
+import Warning from '@mui/icons-material/Warning'
+import type { SvgIconComponent } from '@mui/icons-material'
+import { Link as RouterLink, useLocation } from 'react-router-dom'
+import { useAuth } from '../auth/useAuth'
+import { profileLabel, resolveProfile } from '../auth/profiles'
+import { getSidebarNavigation } from './sidebarNavigation'
+import type { SidebarIconName, SidebarMenuItem } from './sidebarNavigation'
 
-const drawerWidth = 260;
+const drawerWidth = 260
+
+const icons: Record<SidebarIconName, SvgIconComponent> = {
+  home: Home,
+  users: Person,
+  permissions: AdminPanelSettings,
+  audit: Security,
+  settings: Build,
+  requests: Assignment,
+  trips: LocalShipping,
+  confirmTrips: CheckCircle,
+  vehicles: DirectionsCar,
+  drivers: Person,
+  serviceTypes: Assignment,
+  maintenance: Build,
+  fuel: LocalGasStation,
+  documents: Description,
+  warnings: Warning,
+  dashboard: DashboardIcon,
+  reports: BarChart,
+  help: Help,
+}
+
+function SidebarItem({ item, pathname }: { item: SidebarMenuItem; pathname: string }) {
+  const Icon = icons[item.icon]
+  const isSelectedHome = item.selected && item.icon === 'home'
+  const icon = <ListItemIcon sx={{ minWidth: 36, ...(isSelectedHome ? { color: '#FF6B00' } : {}) }}><Icon fontSize="small" /></ListItemIcon>
+
+  if (item.behavior === 'static') {
+    return (
+      <ListItem disablePadding key={item.label}>
+        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: 48, px: 2 }}>
+          {icon}
+          <ListItemText primary={item.label} />
+        </Box>
+      </ListItem>
+    )
+  }
+
+  const buttonStyles = {
+    borderRadius: 1,
+    '&:hover': { backgroundColor: '#df68061e' },
+    ...(item.selected ? {
+      backgroundColor: 'rgba(255, 107, 0, 0.08) !important',
+      color: '#111827',
+      '&:hover': { backgroundColor: 'rgba(255, 107, 0, 0.12)' },
+    } : {}),
+  }
+
+  if (item.behavior === 'link' && item.path) {
+    return (
+      <ListItem disablePadding key={item.label}>
+        <ListItemButton
+          component={RouterLink}
+          to={item.path}
+          selected={pathname === item.path}
+          sx={buttonStyles}
+        >
+          {icon}
+          <ListItemText primary={item.label} />
+        </ListItemButton>
+      </ListItem>
+    )
+  }
+
+  return (
+    <ListItem disablePadding key={item.label} sx={isSelectedHome ? { mb: 0.5 } : undefined}>
+      <ListItemButton selected={item.selected} sx={buttonStyles}>
+        {icon}
+        <ListItemText
+          primary={item.selected && item.icon === 'home'
+            ? <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>{item.label}</Typography>
+            : item.label}
+        />
+      </ListItemButton>
+    </ListItem>
+  )
+}
 
 export default function Sidebar() {
-  const { session } = useAuth();
+  const { session } = useAuth()
+  const { pathname } = useLocation()
+  const profile = session ? resolveProfile(session.perfil) : null
+  const navigation = getSidebarNavigation(profile)
+
   return (
     <Drawer
       variant="permanent"
@@ -34,64 +120,28 @@ export default function Sidebar() {
           {session ? profileLabel(session.perfil) : 'Aratu'}
         </Typography>
 
-        {/* Inicio */}
         <List disablePadding>
-          <ListItem disablePadding sx={{ mb: 0.5 }}>
-            <ListItemButton selected sx={{ borderRadius: 1, backgroundColor: 'rgba(255, 107, 0, 0.08) !important', color: '#111827', '&:hover': { backgroundColor: 'rgba(255, 107, 0, 0.12)' } }}>
-              <ListItemIcon sx={{ color: '#FF6B00', minWidth: 36 }}><Home fontSize="small" /></ListItemIcon>
-              <ListItemText primary={
-          <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>
-                 Início
-          </Typography>} />
-            </ListItemButton>
-          </ListItem>
+          {navigation.topItems.map((item) => <SidebarItem key={item.label} item={item} pathname={pathname} />)}
         </List>
+
+        {navigation.showDividerAfterTop && <Divider sx={{ my: 2 }} />}
+
+        {navigation.sections.map((section) => (
+          <Box key={section.label}>
+            <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, mt: section.spaced ? 2 : 0, display: 'block', fontSize: '0.7rem' }}>
+              {section.label}
+            </Typography>
+            <List dense>
+              {section.items.map((item) => <SidebarItem key={item.label} item={item} pathname={pathname} />)}
+            </List>
+          </Box>
+        ))}
 
         <Divider sx={{ my: 2 }} />
-        {/* Funçoes */}
-        <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, fontSize: '0.7rem' }}>OPERAÇÃO</Typography>
         <List dense>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Assignment fontSize="small" /></ListItemIcon><ListItemText primary="Solicitações" /></ListItemButton></ListItem>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><LocalShipping fontSize="small" /></ListItemIcon><ListItemText primary="Viagens" /></ListItemButton></ListItem>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><CheckCircle fontSize="small" /></ListItemIcon><ListItemText primary="Confirmar viagens" /></ListItemButton></ListItem>
-        </List>
-
-        <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, mt: 2, display: 'block', fontSize: '0.7rem' }}>FROTA</Typography>
-        <List dense>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><DirectionsCar fontSize="small" /></ListItemIcon><ListItemText primary="Veículos" /></ListItemButton></ListItem>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Person fontSize="small" /></ListItemIcon><ListItemText primary="Motoristas" /></ListItemButton></ListItem>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Assignment fontSize="small" /></ListItemIcon><ListItemText primary="Tipos de serviço" /></ListItemButton></ListItem>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Build fontSize="small" /></ListItemIcon><ListItemText primary="Manutenção" /></ListItemButton></ListItem>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><LocalGasStation fontSize="small" /></ListItemIcon><ListItemText primary="Abastecimento" /></ListItemButton></ListItem>
-        </List>
-
-        <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, mt: 2, display: 'block', fontSize: '0.7rem' }}>CONTROLE</Typography>
-        <List dense>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Description fontSize="small" /></ListItemIcon><ListItemText primary="Documentos" /></ListItemButton></ListItem>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Warning fontSize="small" /></ListItemIcon><ListItemText primary="Multas e Infrações" /></ListItemButton></ListItem>
-        </List>
-
-        <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, mt: 2, display: 'block', fontSize: '0.7rem' }}>GESTÃO</Typography>
-        <List dense>
-          {session?.perfil === 'ADMINISTRADOR' && (
-            <ListItem disablePadding>
-              <ListItemButton component="a" href={`#${PROFILE_HOMES.ADMINISTRADOR.path}`} sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}>
-                <ListItemIcon sx={{ minWidth: 36 }}><Security fontSize="small" /></ListItemIcon>
-                <ListItemText primary="Usuários" />
-              </ListItemButton>
-            </ListItem>
-          )}
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><DashboardIcon fontSize="small" /></ListItemIcon><ListItemText primary="Dashboard" /></ListItemButton></ListItem>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><BarChart fontSize="small" /></ListItemIcon><ListItemText primary="Relatórios" /></ListItemButton></ListItem>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Security fontSize="small" /></ListItemIcon><ListItemText primary="Auditoria" /></ListItemButton></ListItem>
-        </List>
-
-        <Divider sx={{ my: 2 }} />
-
-        <List dense>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Help fontSize="small" /></ListItemIcon><ListItemText primary="Ajuda" /></ListItemButton></ListItem>
+          {navigation.footerItems.map((item) => <SidebarItem key={item.label} item={item} pathname={pathname} />)}
         </List>
       </Box>
     </Drawer>
-  );
+  )
 }

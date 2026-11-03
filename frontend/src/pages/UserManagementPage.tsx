@@ -42,6 +42,10 @@ import {
   updateUser,
 } from '../services/usersService'
 import type { ManagedUser } from '../users/userTypes'
+import {
+  resolveProfileChangeConfirmation,
+  shouldConfirmProfileChange,
+} from '../users/profileChangeConfirmation'
 import { validateUserForm } from '../users/userFormValidation'
 import type { UserFormErrors, UserFormValues } from '../users/userFormValidation'
 import styles from './UserManagementPage.module.css'
@@ -135,6 +139,7 @@ export default function UserManagementPage() {
   const [formValues, setFormValues] = useState<UserFormValues>(initialFormValues)
   const [formErrors, setFormErrors] = useState<UserFormErrors>({})
   const [formError, setFormError] = useState('')
+  const [profileChangeConfirmationOpen, setProfileChangeConfirmationOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [pendingStatus, setPendingStatus] = useState<PendingStatus | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -233,6 +238,7 @@ export default function UserManagementPage() {
   }
 
   function openCreateForm() {
+    setProfileChangeConfirmationOpen(false)
     setFormMode('create')
     setEditingUser(null)
     setFormValues(initialFormValues)
@@ -243,6 +249,7 @@ export default function UserManagementPage() {
   }
 
   function openEditForm(user: ManagedUser) {
+    setProfileChangeConfirmationOpen(false)
     setFormMode('edit')
     setEditingUser(user)
     setFormValues({
@@ -260,6 +267,7 @@ export default function UserManagementPage() {
 
   function closeForm() {
     if (saving) return
+    setProfileChangeConfirmationOpen(false)
     setFormOpen(false)
     setEditingUser(null)
     setFormValues(initialFormValues)
@@ -282,12 +290,7 @@ export default function UserManagementPage() {
     setPage(nextPage)
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const errors = validateUserForm(formValues, formMode)
-    setFormErrors(errors)
-    if (Object.keys(errors).length > 0) return
-
+  async function saveUserForm() {
     setSaving(true)
     setFormError('')
     try {
@@ -320,6 +323,30 @@ export default function UserManagementPage() {
     }
   }
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const errors = validateUserForm(formValues, formMode)
+    setFormErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
+    if (shouldConfirmProfileChange(formMode, editingUser?.roleId ?? null, formValues.roleId)) {
+      setProfileChangeConfirmationOpen(true)
+      return
+    }
+
+    await saveUserForm()
+  }
+
+  async function handleConfirmProfileChange() {
+    setProfileChangeConfirmationOpen(false)
+    await resolveProfileChangeConfirmation('confirmed', saveUserForm)
+  }
+
+  async function handleCancelProfileChange() {
+    setProfileChangeConfirmationOpen(false)
+    await resolveProfileChangeConfirmation('cancelled', saveUserForm)
+  }
+
   async function handleConfirmStatus() {
     if (!pendingStatus) return
     setConfirming(true)
@@ -344,6 +371,7 @@ export default function UserManagementPage() {
   }
 
   const hasFilters = Boolean(search.trim() || roleFilter || statusFilter)
+  const selectedProfile = profiles.find(({ id: profileId }) => profileId === formValues.roleId)
 
   return (
     <Box className={styles.page}>
@@ -839,6 +867,45 @@ export default function UserManagementPage() {
             </Button>
           </DialogActions>
         </Box>
+      </Dialog>
+
+      <Dialog
+        open={profileChangeConfirmationOpen}
+        onClose={() => { if (!saving) setProfileChangeConfirmationOpen(false) }}
+        fullWidth
+        maxWidth="xs"
+        aria-labelledby={`${id}-profile-change-title`}
+        aria-describedby={`${id}-profile-change-description`}
+        slotProps={{ paper: { sx: { borderRadius: 2 } } }}
+      >
+        <DialogTitle id={`${id}-profile-change-title`} sx={{ color: colors.heading, fontWeight: 700 }}>
+          Confirmar mudança de perfil
+        </DialogTitle>
+        <DialogContent>
+          <Typography id={`${id}-profile-change-description`} variant="body2" sx={{ color: colors.text, lineHeight: 1.7 }}>
+            {editingUser && (
+              <>Confirme a alteração do perfil de {editingUser.name} de {profileLabel(editingUser.role)} para {selectedProfile ? profileLabel(selectedProfile.name) : 'perfil selecionado'}. A mudança será enviada à API ao confirmar.</>
+            )}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, pt: 1, gap: 1 }}>
+          <Button
+            autoFocus
+            onClick={() => void handleCancelProfileChange()}
+            disabled={saving}
+            sx={{ ...buttonSx, color: colors.text }}
+          >
+            Cancelar alteração
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void handleConfirmProfileChange()}
+            disabled={saving}
+            sx={{ ...buttonSx, backgroundColor: colors.primary, boxShadow: 'none', '&:hover': { backgroundColor: '#e85d00', boxShadow: 'none' } }}
+          >
+            Confirmar mudança de perfil
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Dialog
