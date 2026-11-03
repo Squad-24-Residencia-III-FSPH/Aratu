@@ -62,6 +62,10 @@ interface Manutencao {
   servicosRealizados: Servico[];
 }
 
+const getTodayDate = () => {
+  return new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
+
 const initialManutencoes: Manutencao[] = [
   {
     id: 1,
@@ -126,8 +130,10 @@ export default function ManutencaoPage() {
   const [veiculoSelecionado, setVeiculoSelecionado] = useState('');
   const [tipoRevisao, setTipoRevisao] = useState('Corretiva');
   const [oficina, setOficina] = useState('');
-  const [previsao, setPrevisao] = useState(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10));
+  const [previsao, setPrevisao] = useState(() => getTodayDate());
   const [impeditiva, setImpeditiva] = useState(false);
+
+  const minDate = useMemo(() => getTodayDate(), []);
 
   const veiculosDisponiveis = listaVeiculosDisponiveis.filter(v =>
     !manutencoesList.some(m => m.placa === v.placa && m.status !== 'Concluída') || v.placa === veiculoSelecionado
@@ -139,8 +145,7 @@ export default function ManutencaoPage() {
       return;
     }
 
-    const hoje = new Date();
-    const hojeIso = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const hojeIso = getTodayDate();
     if (!previsao || previsao < hojeIso) {
       alert('A data de previsão de término deve ser hoje ou uma data futura');
       return;
@@ -167,7 +172,7 @@ export default function ManutencaoPage() {
       tipo: tipoFinal,
       descricao: tipoRevisao,
       oficina,
-      entrada: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10),
+      entrada: getTodayDate(),
       previsao: previsao,
       custo: custoTotal,
       impeditiva,
@@ -418,9 +423,9 @@ export default function ManutencaoPage() {
                         startIcon={<ReceiptLongIcon fontSize="small" />}
                         onClick={() => setSelectedManutencao(row)}
                         sx={{
-                          textTransform: 'none', borderColor: '#cbd5e1', color: '#1d4ed8',
+                          textTransform: 'none', borderColor: '#cbd5e1', color: '#FF6B00',
                           fontWeight: 600, fontSize: '0.75rem', py: 0.3, px: 1.2,
-                          '&:hover': { bgcolor: '#eff6ff', borderColor: '#2563eb' },
+                          '&:hover': { bgcolor: '#eff6ff', borderColor: '#FF6B00' },
                         }}
                       >
                         Ver Orçamento
@@ -489,7 +494,7 @@ export default function ManutencaoPage() {
                   slotProps={{
                     inputLabel: { shrink: true },
                     htmlInput: {
-                      min: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10),
+                      min: minDate,
                     },
                   }}
                 />
@@ -702,8 +707,8 @@ export default function ManutencaoPage() {
                 </TableContainer>
 
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1e293b' }}>
-                    Custo Total da Manutenção: <span style={{ color: '#FF6B00' }}>R$ {selectedManutencao.custo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                    Custo Total da OS: <span style={{ color: '#FF6B00' }}>R$ {selectedManutencao.custo.toFixed(2)}</span>
                   </Typography>
                 </Box>
               </DialogContent>

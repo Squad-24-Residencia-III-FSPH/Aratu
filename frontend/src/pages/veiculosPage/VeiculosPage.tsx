@@ -477,7 +477,6 @@ export default function VeiculosPage() {
                 onChange={(e) => setModelo(e.target.value)}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
-              {/* ano */}
               <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
                 <TextField
                   label="Ano de Fabricação"
@@ -496,7 +495,6 @@ export default function VeiculosPage() {
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Stack>
-              {/* placa */}
               <TextField
                 label="Placa"
                 fullWidth
@@ -505,7 +503,6 @@ export default function VeiculosPage() {
                 onChange={(e) => setPlaca(e.target.value)}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
-              {/* Chassi */}
               <TextField
                 label="Chassi"
                 fullWidth
@@ -514,7 +511,6 @@ export default function VeiculosPage() {
                 onChange={(e) => setChassi(e.target.value)}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
-              {/* tipos */}
               <FormControl size="small" fullWidth>
                 <InputLabel shrink>Tipo de Veículo</InputLabel>
                 <Select
@@ -530,7 +526,6 @@ export default function VeiculosPage() {
                 </Select>
               </FormControl>
 
-              {/* data ipva */}
               <TextField
                 label="Data de IPVA"
                 placeholder="DD/MM/AAAA"
