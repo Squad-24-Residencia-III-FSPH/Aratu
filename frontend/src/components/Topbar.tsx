@@ -24,17 +24,6 @@ export default function Topbar() {
               </Typography>
         </Box>
 
-        {/* Barra de Pesquisa */}
-        <Box sx={{ position: 'relative', borderRadius: 1, backgroundColor: 'rgb(255, 255, 255)', '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.25)' }, mr: 2, width: '400px', display: { xs: 'none', md: 'block' } }}>
-          <Box sx={{ p: '0 16px', height: '100%', position: 'absolute', pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-          </Box>
-          <InputBase
-            placeholder="Pesquisar..."
-            sx={{ color: 'inherit', width: '100%', '& .MuiInputBase-input': { padding: '8px 8px 8px 45px', fontSize: '0.9rem' } }}
-          />
-        </Box>
-
         {/* Perfil e Notificações */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <IconButton color="inherit">
