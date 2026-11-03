@@ -67,6 +67,7 @@ export default function App() {
   return (
     <HashRouter>
       <Routes>
+        <Route path="/" element={<Navigate to="/preview/agendamento" replace />} />
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/preview/agendamento" element={<PreviewScheduleRoute />} />
         <Route path="/preview/agendamento/:requestId" element={<PreviewScheduleRoute />} />

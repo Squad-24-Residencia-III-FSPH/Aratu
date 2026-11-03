@@ -9,6 +9,12 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Garante redirecionamento para HashRouter caso acesse rota direta sem '#'
+      if (window.location.pathname.startsWith('/preview/agendamento')) {
+        window.location.replace('/#' + window.location.pathname);
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -164,6 +164,25 @@ export default function LoginPage() {
               </Link>
               {recoveryInfo && <Alert severity="info" className={styles['mensagem-login']}>A recuperação de senha ainda não está disponível.</Alert>}
               <Typography component="p" className={styles['informacao-seguranca']}>Aratu · Ambiente seguro FSPH</Typography>
+              <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid #e2e8f0', width: '100%' }}>
+                <Button
+                  component="a"
+                  href="#/preview/agendamento"
+                  variant="contained"
+                  fullWidth
+                  sx={{
+                    bgcolor: '#FF6B00',
+                    color: '#ffffff',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    py: 1,
+                    '&:hover': { bgcolor: '#ea580c' },
+                  }}
+                >
+                  📅 Visualizar Agendamento de Viagem (Preview FROTA-94)
+                </Button>
+              </Box>
             </footer>
           </Box>
         </section>

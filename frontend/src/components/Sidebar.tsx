@@ -51,8 +51,8 @@ export default function Sidebar() {
         {/* Funçoes */}
         <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, fontSize: '0.7rem' }}>OPERAÇÃO</Typography>
         <List dense>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Assignment fontSize="small" /></ListItemIcon><ListItemText primary="Solicitações" /></ListItemButton></ListItem>
-          <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><LocalShipping fontSize="small" /></ListItemIcon><ListItemText primary="Viagens" /></ListItemButton></ListItem>
+          <ListItem disablePadding><ListItemButton component="a" href="#/preview/agendamento" sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><Assignment fontSize="small" /></ListItemIcon><ListItemText primary="Solicitações" /></ListItemButton></ListItem>
+          <ListItem disablePadding><ListItemButton component="a" href="#/preview/agendamento" sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><LocalShipping fontSize="small" /></ListItemIcon><ListItemText primary="Viagens" /></ListItemButton></ListItem>
           <ListItem disablePadding><ListItemButton sx={{ borderRadius: 1, '&:hover': { backgroundColor: '#df68061e', } }}><ListItemIcon sx={{ minWidth: 36 }}><CheckCircle fontSize="small" /></ListItemIcon><ListItemText primary="Confirmar viagens" /></ListItemButton></ListItem>
         </List>
 
