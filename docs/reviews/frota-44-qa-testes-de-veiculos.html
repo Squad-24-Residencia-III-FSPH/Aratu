@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-44 — QA — Testes de veículos (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-44: QA — Testes de veículos</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-44</code> — QA — Testes de veículos</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/vehicles-qa-tests</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-44-qa-testes-de-veiculos.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>FROTA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR, ATENDENTE_SVO, SOLICITANTE</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-10-29</p>
+</div>
+
+<!-- PREENCHER_VEREDITO: Use class="verdict-approved" para APROVADO_PARA_REVISAO_HUMANA ou class="verdict-blocked" para BLOQUEADO_POR_PENDENCIAS -->
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA — 3 pontos de atenção não bloqueantes
+</div>
+
+<!-- PREENCHER_CONTADORES: Atualize os contadores de Bloqueantes, Atenção, OK e N/A -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">3</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">9</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">5</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<!-- PREENCHER_REVISAO_SECAO_1: Tabela de arquivos criados/alterados no diff contra develop -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/tests/vehicles.integration.test.ts</code></td>
+      <td>Testes de integração (backend)</td>
+      <td>Novo</td>
+      <td>Suíte FROTA-44 com 11 testes (IT-VEH-01 a IT-VEH-11): CRUD, filtros, unicidade de placa, FSM, revision, RBAC, concorrência, disponibilidade e rollback transacional. Sem alteração em código de produção.</td>
+    </tr>
+    <tr>
+      <td><code>docs/plans/frota-44-qa-testes-de-veiculos.html</code></td>
+      <td>Documentação / SDD</td>
+      <td>Novo</td>
+      <td>Plano técnico da tarefa: requisitos, contratos REST, matriz RBAC, 11 cenários e checklist pré-PR. Declara explicitamente que frontend, migrations e WCAG de interface são fora de escopo.</td>
+    </tr>
+    <tr>
+      <td><code>docs/reviews/frota-44-qa-testes-de-veiculos.html</code></td>
+      <td>Documentação / Revisão</td>
+      <td>Novo</td>
+      <td>Este relatório de code review, gerado a partir de <code>docs/reviews/EXEMPLO_REVISAO.html</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<!-- PREENCHER_REVISAO_SECAO_2: Status de cada critério C1 a C17 (badge-ok, badge-warn, badge-block, badge-na) -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Suíte de 490 linhas + SDD de 286 linhas. Acima da diretriz de 400, mas o tamanho é justificado por 11 cenários de integração e pela ausência de alteração em produção. Registrar a justificativa no PR.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Branch <code>feat/vehicles-qa-tests</code> válida e criada a partir de <code>develop</code>; ainda não há commits, portanto o padrão Conventional Commits só pode ser validado após o commit.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-ok">🟢 OK</span></td><td>Os 11 testes cobrem os requisitos do SDD: CRUD, filtros, placa, FSM, revision, RBAC, concorrência, disponibilidade, atomicidade e rollback. Nenhum endpoint, migration ou regra nova foi introduzida.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>O fluxo HTTP é exercitado via <code>createApp</code>; <code>VehiclesService</code> e <code>VehiclesRepository</code> reais são instanciados apenas para <code>isAvailableForAllocation</code>. Não há SQL em controller nem regra de negócio no teste.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhum arquivo de <code>frontend/</code> foi alterado. FROTA-46 é de outra equipe (SDD §6).</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Sem novos ciclos de importação, feature flags ou variáveis de ambiente. Apenas imports de teste e reutilização das fixtures existentes.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Todas as consultas de inspeção usam <code>$1</code>. O literal <code>'fleet.vehicles'</code> é constante de código, não entrada de usuário.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Projeções explícitas, sem <code>SELECT *</code>. Porém as asserções de auditoria em IT-VEH-01 (linhas 182-186), IT-VEH-06 (289-293) e IT-VEH-08 (374-377) filtram apenas <code>record_id</code>; o helper <code>countVehicleRows</code> (129-132) já usa <code>table_name = 'fleet.vehicles'</code>, que deveria ser replicado.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-ok">🟢 OK</span></td><td>Os testes de concorrência (IT-VEH-10) e rollback com ator inativado (IT-VEH-11) exercitam as transações reais do Service, que usam <code>FOR UPDATE</code> e liberam a conexão no <code>finally</code>. Nenhum client do pool é aberto no teste.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (Schemas Nativos <code>auth</code>, <code>fleet</code>, etc., tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhuma migration ou DDL foi criada/alterada; a suíte usa as migrations existentes de <code>fleet</code>, <code>auth</code> e <code>audit</code>.</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-ok">🟢 OK</span></td><td>RBAC exercitado via HTTP com JWT real: <code>401</code> sem token, <code>403</code> para <code>SOLICITANTE</code>, <code>200</code> de leitura e <code>403</code> de escrita para <code>ATENDENTE_SVO</code>, <code>201</code> para <code>GESTOR</code>/<code>ADMINISTRADOR</code>.</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>Fixtures e payloads 100% fictícios (<code>@example.test</code>, “Fictício QA”); nenhum dado de motorista, servidor ou falecido. Nenhum segredo real hardcoded.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero <code>any</code> e zero <code>@ts-ignore</code>. Tipos importados de <code>src/types</code>; <code>npx tsc --noEmit</code> no backend passou sem erros.</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Identificadores em inglês, estados em <code>UPPER_SNAKE_CASE</code> e descrições de teste em português (texto, não identificador). Sem <code>console.log</code>, código morto ou TSDoc obrigatório pendente em Service/Middleware.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-na">⚪ N/A</span></td><td>Não há tela ou listagem React no escopo desta tarefa.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-na">⚪ N/A</span></td><td>Não há formulário ou controle de UI alterado.</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem interação visual/teclado nesta entrega; alvos de toque e foco não se aplicam.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<!-- PREENCHER_REVISAO_SECAO_3: Detalhar bloqueantes e pontos de atenção (arquivo:linha, impacto e como corrigir) -->
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado.</em></p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Item</th>
+      <th scope="col">Arquivo:linha</th>
+      <th scope="col">Impacto</th>
+      <th scope="col">Como corrigir</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>C1 — Tamanho do diff</strong></td>
+      <td><code>backend/tests/vehicles.integration.test.ts</code> (490 linhas) + SDD (286 linhas)</td>
+      <td>O PR fica acima da diretriz de 400 linhas, aumentando o custo de revisão. Não há risco funcional; a suíte é coesa e cobre 11 cenários.</td>
+      <td>Justificar o tamanho na descrição do PR. Se a Squad exigir redução, extrair <code>vehiclePayload</code>, <code>api</code> e <code>createVehicle</code> para um helper de teste; não fragmentar os cenários sem necessidade.</td>
+    </tr>
+    <tr>
+      <td><strong>C2 — Commit pendente</strong></td>
+      <td>Branch <code>feat/vehicles-qa-tests</code> (0 commits)</td>
+      <td>O Gitflow está correto, mas o Conventional Commits ainda não pode ser auditado e o PR não pode ser aberto sem commit.</td>
+      <td>Criar o commit antes do PR, por exemplo: <code>test(vehicles): cobrir crud, situacao e disponibilidade de veiculos (FROTA-44)</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>C8 — Filtro das asserções de auditoria</strong></td>
+      <td><code>backend/tests/vehicles.integration.test.ts:182-186, 289-293, 374-377</code></td>
+      <td>As consultas filtram apenas <code>record_id</code>. Se outra tabela gerar auditoria com o mesmo id numérico (por exemplo, login/usuário), a asserção falha por motivo errado. Na execução live, a ausência do filtro chegou a contabilizar logins no mesmo <code>record_id</code>.</td>
+      <td>Adicionar <code>AND table_name = 'fleet.vehicles'</code> nas três consultas, como já feito em <code>countVehicleRows</code> (linhas 129-132). A alteração é mecânica e não muda o comportamento da suíte.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<!-- PREENCHER_REVISAO_SECAO_4: Resultado de aratu-check.mjs, tsc, lint, build e testes -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática e Regras Aratu</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-ok">🟢 0 bloqueantes · 0 atenções</span> — Gitflow válido, 1 arquivo de código auditado.</td>
+    </tr>
+    <tr>
+      <td>TypeScript backend</td>
+      <td><code>cd backend &amp;&amp; npx tsc --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Zero erros</span></td>
+    </tr>
+    <tr>
+      <td>TypeScript frontend</td>
+      <td><code>cd frontend &amp;&amp; npx tsc -b --noEmit</code></td>
+      <td><span class="badge-warn">🟡 Bloqueado por ambiente</span> — <code>EACCES</code> em <code>frontend/node_modules/.tmp</code> (diretório de <code>root</code>). Não há alteração em <code>frontend/</code> neste diff.</td>
+    </tr>
+    <tr>
+      <td>Testes automatizados backend</td>
+      <td><code>cd backend &amp;&amp; npm test</code></td>
+      <td><span class="badge-ok">🟢 90/90 passaram</span> — inclui os 11 testes de FROTA-44 (IT-VEH-01 a IT-VEH-11).</td>
+    </tr>
+    <tr>
+      <td>Testes automatizados frontend</td>
+      <td><code>node --test tests/*.test.mjs</code></td>
+      <td><span class="badge-ok">🟢 Sucesso</span> — executado pelo <code>aratu-check</code>.</td>
+    </tr>
+    <tr>
+      <td>Smoke live da API e PostgreSQL</td>
+      <td><code>node /tmp/opencode/frota44-live.cjs</code> (script não versionado)</td>
+      <td><span class="badge-ok">🟢 24/24 verificações</span> — CRUD, FSM, revision, RBAC, concorrência, disponibilidade, histórico e auditoria.</td>
+    </tr>
+  </tbody>
+</table>
+<div class="notice-block">
+  <strong>Ambiente:</strong> o banco de desenvolvimento (<code>meubanco</code>) estava com 12 migrations pendentes, incluindo <code>202610280001_alter_vehicles_add_details</code>. A migração foi aplicada via <code>npm run db:migrate</code> para viabilizar o smoke live; não há DDL no diff desta tarefa.
+</div>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<!-- PREENCHER_REVISAO_SECAO_5: Pontos específicos que o par humano da Squad 24 deve validar -->
+<ul class="check">
+  <li><input type="checkbox"> Validar funcionalmente a regra de negócio no navegador (<code>http://localhost:5173</code>) com os perfis RBAC impactados.</li>
+  <li><input type="checkbox"> Confirmar a navegação por teclado (<code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Esc</code>) e a clareza das mensagens em português.</li>
+</ul>
+
+</body>
+</html>

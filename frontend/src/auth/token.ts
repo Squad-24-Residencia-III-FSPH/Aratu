@@ -14,6 +14,19 @@ function decodePart(part: string): Record<string, unknown> | null {
 
 // A assinatura é validada pelo backend, nunca pelo cliente. Aqui verificamos
 // apenas formato, perfil e expiração para não manter uma sessão inválida na UI.
+/** Extrai o identificador do usuário do payload do JWT, sem validar a assinatura. */
+export function tokenUserId(token: string): string | null {
+  const parts = token.split('.')
+  if (parts.length !== 3 || parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part))) return null
+  const payload = decodePart(parts[1])
+  if (!payload) return null
+  if (typeof payload.id === 'string' && payload.id.trim()) return payload.id
+  if (typeof payload.id === 'number' && Number.isSafeInteger(payload.id) && payload.id > 0) {
+    return String(payload.id)
+  }
+  return null
+}
+
 export function tokenExpiresAt(token: string, perfil: string): number | null {
   const parts = token.split('.')
   if (parts.length !== 3 || parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part))) return null

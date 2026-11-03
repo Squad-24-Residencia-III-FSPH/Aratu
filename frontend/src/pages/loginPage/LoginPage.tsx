@@ -4,11 +4,11 @@ import {
   Alert, Box, Button, CircularProgress, FormControl, FormHelperText,
   FormLabel, Link, OutlinedInput, Typography,
 } from '@mui/material'
-import { useAuth } from '../auth/useAuth'
-import { validateLogin } from '../auth/validation'
-import type { LoginErrors } from '../auth/validation'
-import { SERVICE_UNAVAILABLE } from '../auth/loginService'
-import logo from '../assets/aratu-logo.png'
+import { useAuth } from '../../auth/useAuth'
+import { validateLogin } from '../../auth/validation'
+import type { LoginErrors } from '../../auth/validation'
+import { SERVICE_UNAVAILABLE } from '../../auth/loginService'
+import logo from '../../assets/aratu-logo.png'
 import styles from './LoginPage.module.css'
 
 export default function LoginPage() {

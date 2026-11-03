@@ -25,3 +25,14 @@ export function resolveProfile(value: string): Profile | null {
   if (Object.hasOwn(PROFILE_HOMES, key)) return key as Profile
   return Object.hasOwn(aliases, key) ? aliases[key] : null
 }
+
+export function profileLabel(value: string): string {
+  const profile = resolveProfile(value)
+  return profile ? PROFILE_HOMES[profile].label : 'Usuário'
+}
+
+export function profileInitials(name: string): string {
+  const initials = name.trim().split(/\s+/).filter(Boolean)
+    .map((part) => part[0]).slice(0, 2).join('').toUpperCase()
+  return initials || 'AR'
+}

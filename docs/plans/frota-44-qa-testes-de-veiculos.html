@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-44 — QA — Testes de veículos (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-44: QA — Testes de veículos</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-44</code> — QA — Testes de veículos</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/vehicles-qa-tests</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>FROTA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR, ATENDENTE_SVO</code></p>
+  <p><strong>Data:</strong> 2026-10-29</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p>Comprovar, por testes automatizados de integração, que o gerenciamento de veículos da frota da FSPH/SVO (US04) respeita os critérios das FROTA-43 e FROTA-45: cadastro e edição rastreáveis, unicidade da placa, filtros, máquina de estados da situação, concorrência, disponibilidade para alocação e RBAC. A entrega dá à Squad confiança para evoluir agendamento, SVO e manutenção sobre uma base já validada.</p>
+<p><strong>Entra no escopo:</strong> novo <code>backend/tests/vehicles.integration.test.ts</code>, cobrindo API REST, PostgreSQL 18, auditoria, histórico append-only, RBAC e <code>isAvailableForAllocation</code>. <strong>Fica fora:</strong> telas React da FROTA-46 (outra equipe, apenas contexto), novos endpoints, migrations e alterações de regra de negócio.</p>
+<div class="notice-block"><strong>Auditoria dos concluídos:</strong> FROTA-43 e FROTA-45 estão conformes no código atual; não há mudança obrigatória em produção. Decisões confirmadas pela Regra da Dúvida: (1) manter o contrato <code>expectedRevision</code> e documentá-lo; (2) incluir casos extras de concorrência, idempotência e atomicidade; (3) validar disponibilidade instanciando o <code>VehiclesService</code> real no teste, sem criar endpoint novo.</div>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<h3>Requisitos funcionais (Dado / Quando / Então)</h3>
+<ul>
+  <li><strong>Dado</strong> um gestor autenticado, <strong>quando</strong> cadastra veículo com placa válida, <strong>então</strong> recebe <span class="badge-http">201</span>, <code>status=AVAILABLE</code>, <code>revision=1</code>, evento <code>CREATED</code> e auditoria <code>CREATE</code>.</li>
+  <li><strong>Dado</strong> placa <code>ABC-1234</code>, <code>AB1234</code> ou <code>ABC12345</code>, <strong>quando</strong> cadastra, <strong>então</strong> recebe <span class="badge-http">400</span>.</li>
+  <li><strong>Dado</strong> veículo <code>ABC1D23</code>, <strong>quando</strong> cadastra <code>abc1d23</code>, <strong>então</strong> recebe <span class="badge-http">409</span> com <code>{ "erro": "Placa já cadastrada" }</code>.</li>
+  <li><strong>Dado</strong> ID inexistente, <strong>quando</strong> consulta, <strong>então</strong> recebe <span class="badge-http">404</span> com <code>{ "erro": "Veículo não encontrado." }</code>; ID malformado retorna <span class="badge-http">400</span>.</li>
+  <li><strong>Dado</strong> filtro <code>?status=IN_MAINTENANCE</code>, <strong>quando</strong> lista, <strong>então</strong> retorna somente veículos nesse estado; filtro inválido retorna <span class="badge-http">400</span>.</li>
+  <li><strong>Dado</strong> edição com <code>expectedRevision</code> atual, <strong>então</strong> <span class="badge-http">200</span>, <code>revision+1</code>, evento <code>UPDATED</code> e auditoria <code>UPDATE</code>; revisão antiga retorna <span class="badge-http">409</span>.</li>
+  <li><strong>Dado</strong> as transições <code>AVAILABLE → IN_MAINTENANCE → INACTIVE → AVAILABLE</code>, <strong>então</strong> <span class="badge-http">200</span>; <code>INACTIVE → IN_MAINTENANCE</code> retorna <span class="badge-http">422</span>; repetir o mesmo status é idempotente.</li>
+  <li><strong>Dado</strong> <code>isAvailableForAllocation</code>, <strong>então</strong> <code>true</code> apenas para <code>AVAILABLE</code>; <code>false</code> para <code>IN_MAINTENANCE</code> e <code>INACTIVE</code>; ID ausente resulta em erro <span class="badge-http">404</span>.</li>
+  <li><strong>Dado</strong> perfil <code>SOLICITANTE</code>, <strong>então</strong> <span class="badge-http">403</span> na leitura e escrita; <code>ATENDENTE_SVO</code> lê (<span class="badge-http">200</span>), mas não escreve (<span class="badge-http">403</span>); sem token retorna <span class="badge-http">401</span>.</li>
+</ul>
+<h3>Requisitos não-funcionais e casos de borda</h3>
+<ul>
+  <li><strong>Concorrência:</strong> duas edições simultâneas com a mesma revision resultam em exatamente uma <span class="badge-http">200</span> e uma <span class="badge-http">409</span>, graças a <code>SELECT ... FOR UPDATE</code> + incremento de revision.</li>
+  <li><strong>Atomicidade:</strong> falha de domínio não deixa evento em <code>fleet.vehicle_events</code> nem log em <code>audit.logs</code>; ator inativado faz rollback integral.</li>
+  <li><strong>Isolamento:</strong> cada teste roda com banco truncado, roles e usuários RBAC fictícios; nenhum dado pessoal real (LGPD/SVO).</li>
+</ul>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<table>
+  <thead><tr><th>Arquivo</th><th>Ação</th><th>Responsabilidade</th></tr></thead>
+  <tbody>
+    <tr><td><code>backend/tests/vehicles.integration.test.ts</code></td><td>Criar</td><td>Suíte de integração da FROTA-44: HTTP, PostgreSQL, auditoria, histórico, RBAC, concorrência e disponibilidade.</td></tr>
+    <tr><td><code>backend/tests/helpers/db-test.ts</code></td><td>Reutilizar</td><td>Provisionamento, truncate e pool do banco de testes.</td></tr>
+    <tr><td><code>backend/tests/fixtures/rbac-users.fixture.ts</code></td><td>Reutilizar</td><td>Usuários e tokens fictícios dos 6 perfis RBAC.</td></tr>
+    <tr><td><code>backend/src/services/vehicles.service.ts</code></td><td>Sem alteração</td><td>Fonte das regras e de <code>isAvailableForAllocation</code>.</td></tr>
+    <tr><td><code>backend/src/repositories/vehicles.repository.ts</code></td><td>Sem alteração</td><td>Persistência real usada pela integração.</td></tr>
+    <tr><td><code>frontend/src/</code></td><td>Sem alteração</td><td>FROTA-46 é de outra equipe; usada apenas como contexto.</td></tr>
+  </tbody>
+</table>
+<h3>Estrutura interna do teste</h3>
+<ul>
+  <li><code>before</code>: <code>setupTestDatabase()</code>, <code>createApp({ pool, jwtConfig: RBAC_JWT_CONFIG })</code> e <code>listen(0)</code>.</li>
+  <li><code>beforeEach</code>: <code>truncateTestDatabase()</code>, <code>seedRolesAndPermissions()</code> e <code>seedRbacTestUsers()</code>.</li>
+  <li><code>after</code>: fechamento do servidor e <code>closeTestPool()</code>.</li>
+  <li>Helpers <code>api()</code>, <code>getUser()</code>, <code>vehiclePayload()</code> e <code>createAvailabilityService()</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p><strong>Não se aplica.</strong> A FROTA-44 é uma tarefa de QA e não cria nem altera schema. A suíte usa as migrations já existentes:</p>
+<ul>
+  <li><code>202610210001_create_vehicles.sql</code>: <span class="badge-tabela">fleet.vehicles</span> e <span class="badge-tabela">fleet.vehicle_events</span>, constraints de domínio e trigger append-only.</li>
+  <li><code>202610280001_alter_vehicles_add_details.sql</code>: <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicle_type</code>, <code>ownership</code> e unicidade em <code>upper(license_plate)</code>.</li>
+  <li><span class="badge-tabela">auth.users</span>, <span class="badge-tabela">auth.roles</span> e <span class="badge-tabela">audit.logs</span> para RBAC e auditoria.</li>
+</ul>
+<p><strong>Plano de rollback:</strong> não há DDL a reverter. O isolamento é feito por <code>truncateTestDatabase()</code> antes de cada teste, preservando schemas e reiniciando identidades. Se a suíte falhar no meio, o próximo <code>beforeEach</code> restaura o estado limpo.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<h3>Contratos exercitados (sem alteração)</h3>
+<table>
+  <thead><tr><th>Método e rota</th><th>Perfis</th><th>Contrato / resultado</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge-http">GET</span> <code>/vehicles</code></td><td>GESTOR, ADMINISTRADOR, ATENDENTE_SVO</td><td>200 com array filtrado por <code>status</code>, <code>category</code> e <code>operationType</code>; 400 para filtro inválido.</td></tr>
+    <tr><td><span class="badge-http">GET</span> <code>/vehicles/:id</code></td><td>idem</td><td>200 veículo; 404 inexistente; 400 ID malformado.</td></tr>
+    <tr><td><span class="badge-http">POST</span> <code>/vehicles</code></td><td>GESTOR, ADMINISTRADOR</td><td>201, <code>AVAILABLE</code>, <code>revision=1</code>; 400 inválido; 409 placa duplicada.</td></tr>
+    <tr><td><span class="badge-http">PUT</span> <code>/vehicles/:id</code></td><td>GESTOR, ADMINISTRADOR</td><td>200 com <code>expectedRevision</code> atual; 404; 409 revisão divergente ou placa duplicada.</td></tr>
+    <tr><td><span class="badge-http">PATCH</span> <code>/vehicles/:id/status</code></td><td>GESTOR, ADMINISTRADOR</td><td>200; 404; 409 revisão; 422 transição proibida; 400 situação inválida.</td></tr>
+    <tr><td><span class="badge-http">DELETE</span> <code>/vehicles/:id</code></td><td>—</td><td>404: não existe exclusão física.</td></tr>
+  </tbody>
+</table>
+<p>O contrato de escrita usa <strong><code>reportedBy</code></strong>, <strong><code>reason</code></strong> e <strong><code>expectedRevision</code></strong>. Decisão confirmada: manter <code>expectedRevision</code> (não renomear para <code>revision</code>) e registrar a diferença em relação ao módulo de usuários.</p>
+<h3>Detalhamento por camada no teste</h3>
+<ul>
+  <li><strong>Types/DTOs:</strong> reutiliza <code>Vehicle</code>, <code>VehicleStatus</code> e <code>VehicleServiceError</code> de <code>backend/src/types/vehicle.types.ts</code>.</li>
+  <li><strong>Repository:</strong> <code>VehiclesRepository</code> real sobre o pool de testes, incluindo <code>findByIdForUpdate</code> e <code>findByLicensePlate</code>.</li>
+  <li><strong>Service:</strong> <code>VehiclesService</code> real com <code>AuditService</code> para validar <code>isAvailableForAllocation</code> e a matriz de transições.</li>
+  <li><strong>Controller/Routes/Middlewares:</strong> exercitados via HTTP com <code>createApp</code>, JWT e <code>authorizeRoles</code> reais.</li>
+  <li><strong>Inspeção SQL:</strong> queries parametrizadas somente leitura em <code>fleet.vehicles</code>, <code>fleet.vehicle_events</code> e <code>audit.logs</code> para comprovar efeitos colaterais.</li>
+</ul>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p><strong>Não se aplica.</strong> Nenhum arquivo de <code>frontend/</code> é alterado. A FROTA-46 (interface de cadastro e consulta) pertence a outra equipe e é usada apenas como contexto de contrato. Os cinco estados visuais (Ideal, Carregando, Vazio, Erro e Parcial) permanecem escopo da FROTA-46 e não são implementados aqui.</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p><strong>Não se aplica a interface.</strong> A FROTA-44 valida somente a API REST; não há tela, formulário ou componente visual nesta entrega. No backend, as mensagens de erro permanecem textuais e claras (<code>400</code>, <code>404</code>, <code>409</code>, <code>422</code>), permitindo que o cliente da FROTA-46 as exiba com rótulo textual e <code>role="alert"</code>, sem depender exclusivamente de cor.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<table>
+  <thead><tr><th>Perfil</th><th>Leitura (<code>GET</code>)</th><th>Escrita (<code>POST</code>, <code>PUT</code>, <code>PATCH</code>)</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge-rbac">GESTOR</span></td><td>200</td><td>200/201</td></tr>
+    <tr><td><span class="badge-rbac">ADMINISTRADOR</span></td><td>200</td><td>200/201</td></tr>
+    <tr><td><span class="badge-rbac">ATENDENTE_SVO</span></td><td>200</td><td>403</td></tr>
+    <tr><td><span class="badge-rbac">SOLICITANTE</span></td><td>403</td><td>403</td></tr>
+    <tr><td>Sem token</td><td>401</td><td>401</td></tr>
+  </tbody>
+</table>
+<p>Nenhuma variável de ambiente nova, feature flag ou middleware novo. O teste usa <code>RBAC_JWT_CONFIG</code> e a fixture <code>rbac-users.fixture.ts</code> com dados fictícios. Requer PostgreSQL de testes acessível via <code>DATABASE_URL</code> ou <code>DATABASE_URL_TEST</code>, conforme <code>tests/helpers/db-test.ts</code>.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<h3>Suíte automatizada — <code>backend/tests/vehicles.integration.test.ts</code> (11 testes, 14 cenários cobertos)</h3>
+<table>
+  <thead><tr><th>ID</th><th>Cenário</th><th>Verificação principal</th></tr></thead>
+  <tbody>
+    <tr><td>IT-VEH-01</td><td>Cadastro válido</td><td>201, <code>AVAILABLE</code>, <code>revision=1</code>, evento <code>CREATED</code>, auditoria <code>CREATE</code></td></tr>
+    <tr><td>IT-VEH-02</td><td>Placas inválidas</td><td>400 para <code>ABC-1234</code>, <code>AB1234</code> e <code>ABC12345</code></td></tr>
+    <tr><td>IT-VEH-03</td><td>Duplicidade com minúsculas</td><td>409 com <code>{ "erro": "Placa já cadastrada" }</code></td></tr>
+    <tr><td>IT-VEH-04</td><td>Detalhe inexistente e ID malformado</td><td>404 e 400</td></tr>
+    <tr><td>IT-VEH-05</td><td>Listagem por situação, categoria e operação; filtro inválido</td><td>Array correto; 400</td></tr>
+    <tr><td>IT-VEH-06</td><td>Edição válida</td><td>200, campos novos, <code>revision=2</code>, evento <code>UPDATED</code>, auditoria <code>UPDATE</code></td></tr>
+    <tr><td>IT-VEH-07</td><td>Edição com revision antiga</td><td>409</td></tr>
+    <tr><td>IT-VEH-08</td><td>Matriz de transições permitidas, transição proibida, idempotência e disponibilidade nos três estados + ID ausente</td><td>200 em cada etapa; 422 em <code>INACTIVE→IN_MAINTENANCE</code>; repetição sem evento novo; <code>true</code>/<code>false</code>/<code>false</code>; erro 404</td></tr>
+    <tr><td>IT-VEH-09</td><td>RBAC</td><td>401 sem token; 403 SOLICITANTE; 200 leitura ATENDENTE_SVO; 403 escrita ATENDENTE_SVO; 201 GESTOR/ADMIN; 404 em DELETE</td></tr>
+    <tr><td>IT-VEH-10</td><td>Concorrência de edição</td><td>Uma 200 e uma 409 com a mesma revision; revision final 2</td></tr>
+    <tr><td>IT-VEH-11</td><td>Rollback com ator inativado</td><td>401 e zero linhas em veículo/evento/auditoria</td></tr>
+  </tbody>
+</table>
+<h3>Comandos de verificação</h3>
+<pre><code>cd backend &amp;&amp; npm run test:db:setup
+cd backend &amp;&amp; npm test
+cd backend &amp;&amp; npm run test:integration
+cd backend &amp;&amp; npx tsc --noEmit</code></pre>
+<h3>Roteiro manual complementar</h3>
+<p>Com dados 100% fictícios: <code>POST /vehicles</code>, <code>GET /vehicles?status=AVAILABLE</code>, <code>PUT</code> com revision correta, <code>PATCH /vehicles/:id/status</code> para <code>IN_MAINTENANCE</code> e <code>INACTIVE</code>, conferindo 422 ao tentar voltar direto para manutenção; inspecionar <code>fleet.vehicle_events</code> e <code>audit.logs</code>. Nunca usar dados reais de motoristas, servidores ou falecidos (LGPD/SVO).</p>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-44)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivo de referência:</strong> <code>docs/modulos/FROTA.html</code> não existe no repositório; a visão do módulo está em <code>docs/manuais/modulos.md</code>.</p>
+<blockquote>Esta tarefa <strong>não impacta</strong> o contrato funcional do módulo, pois não altera endpoints nem regras. A única documentação a registrar é a decisão de contrato já refletida neste SDD e no PR: <code>PUT /vehicles/:id</code> e <code>PATCH /vehicles/:id/status</code> usam <code>expectedRevision</code>. Se a Squad desejar, adicionar essa observação ao item <code>FROTA</code> de <code>docs/manuais/modulos.md</code>.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

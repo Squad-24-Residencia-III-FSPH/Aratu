@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-157 — [INFRA] Modelo de dados: Gestão de Frota (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-157 / FROTA-42 / FROTA-48 / FROTA-165: [INFRA] Modelo de Dados de Gestão de Frota</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefas Integradas no Jira:</strong></p>
+  <ul>
+    <li><a href="https://squad24.atlassian.net/browse/FROTA-157" target="_blank"><code>FROTA-157</code></a> — <em>[INFRA] Modelo de dados: Gestão de Frota</em> (Tarefa-mãe de infraestrutura)</li>
+    <li><a href="https://squad24.atlassian.net/browse/FROTA-42" target="_blank"><code>FROTA-42</code></a> — <em>[DB] Criar tabela de veículos</em> (Complemento descritivo e índice case-insensitive em <code>fleet.vehicles</code>)</li>
+    <li><a href="https://squad24.atlassian.net/browse/FROTA-48" target="_blank"><code>FROTA-48</code></a> — <em>[DB] Criar tabela de motoristas</em> (<code>fleet.drivers</code> e histórico append-only <code>fleet.driver_events</code>)</li>
+    <li><a href="https://squad24.atlassian.net/browse/FROTA-165" target="_blank"><code>FROTA-165</code></a> — <em>[DB] Criar tabelas de tipos de serviço e compatibilidade com veículos</em> (<code>fleet.services</code> e <code>fleet.vehicle_services</code>)</li>
+  </ul>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/infra-modelo-de-dados-frota</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Commit Sugerido:</strong> <code>feat(fleet): implementar modelo de dados de veiculos, motoristas e servicos (FROTA-157, FROTA-42, FROTA-48, FROTA-165)</code></p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulos Impactados:</strong> <code>FROTA</code>, <code>MOTORISTAS</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ADMINISTRADOR, GESTOR, MOTORISTA, ATENDENTE_SVO, SOLICITANTE</code></p>
+  <p><strong>Data:</strong> 2026-10-28</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+
+<h3>1.1 Contexto Operacional (FSPH / SVO)</h3>
+<p>
+  O <strong>Sistema Aratu</strong> sustenta a gestão operacional da frota institucional da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e as operações prioritárias de remoção cadavérica do <strong>Serviço de Verificação de Óbito (SVO)</strong>. Para que as histórias do Épico E02 (<strong>US04 — Veículos</strong>, <strong>US05 — Motoristas</strong> e <strong>US06 — Tipos de Serviço e Compatibilidade</strong>) funcionem com integridade relacional, concorrência otimista (<code>revision</code>) e preservação histórica imutável (<em>SCD Tipo 4 / Append-Only</em>), o schema nativo <code>fleet</code> no PostgreSQL 18 precisa prover todas as tabelas, constraints declarativas, índices sargáveis e dados iniciais de homologação.
+</p>
+
+<h3>1.2 Objetivo da Tarefa</h3>
+<p>
+  Concluir integralmente o modelo relacional do schema <span class="badge-tabela">fleet</span> no PostgreSQL 18 executando na ordem das três subtarefas da <code>FROTA-157</code>:
+</p>
+<ol>
+  <li><strong><code>FROTA-42</code> — Evolução compatível de <code>fleet.vehicles</code> e sincronização da camada de Veículos:</strong> A migration base <code>202610210001_create_vehicles.sql</code> já está ativa na branch <code>develop</code> atendendo às APIs de <code>FROTA-43</code> e <code>FROTA-45</code>. Será criada uma migration complementar adicionando as colunas descritivas previstas na <code>FROTA-42</code>/<code>FROTA-46</code> (<code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicle_type</code> e <code>ownership</code>) com valores opcionais/default seguros, atualizando o índice único <code>fleet_vehicles_license_plate_unique</code> para expressão case-insensitive <code>upper(license_plate)</code> e adaptando <code>vehicle.types.ts</code>, <code>vehicles.repository.ts</code> e <code>vehicles.service.ts</code> para projetar, validar e persistir essas colunas e buscar placas com <code>upper(license_plate) = upper($1)</code>.</li>
+  <li><strong><code>FROTA-48</code> — Criação de <code>fleet.drivers</code> e <code>fleet.driver_events</code>:</strong> Criar a tabela de condutores (<code>name</code>, <code>cpf</code>, <code>cnh_number</code>, <code>cnh_category</code>, <code>cnh_expires_at</code>, <code>phone</code>, <code>status</code>, <code>user_id</code> opcional para <code>auth.users</code>, <code>revision</code>, <code>created_at</code>, <code>updated_at</code>) sem vínculo fixo com veículo, acompanhada da tabela histórica imutável <code>fleet.driver_events</code> com trigger de bloqueio contra <code>UPDATE</code>/<code>DELETE</code> (padrão <em>SCD Tipo 4</em> idêntico a <code>fleet.vehicle_events</code>).</li>
+  <li><strong><code>FROTA-165</code> — Criação de <code>fleet.services</code> e <code>fleet.vehicle_services</code>:</strong> Criar o catálogo de tipos de serviço unificando os atributos da <code>FROTA-165</code> e de <code>docs/manuais/padroes-codigo.md</code> (<code>name</code> com unicidade em <code>lower(name)</code>, <code>description</code>, <code>categories</code>, <code>requires_triage</code>, <code>requires_weight</code>, <code>requires_identification</code>, <code>active</code>, <code>revision</code>, <code>created_at</code>, <code>updated_at</code>) e a tabela associativa <code>fleet.vehicle_services</code> (<code>id</code>, <code>vehicle_id</code>, <code>service_id</code>, <code>created_at</code>) com constraint <code>UNIQUE (vehicle_id, service_id)</code> e índices nas duas FKs.</li>
+  <li><strong>Provisionamento Idempotente (<code>npm run db:seed</code>):</strong> Estender <code>backend/src/database/scripts/seed.ts</code> com a função idempotente <code>seedInitialFleet(pool)</code> para popular exemplos fictícios de homologação (incluindo as <strong>três caminhonetes S10 do SVO</strong> sugeridas na issue, tipos de serviço iniciais e seus respectivos vínculos em <code>fleet.vehicle_services</code>).</li>
+</ol>
+
+<h3>1.3 Decisões Confirmadas pela Regra da Dúvida</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Ponto Analisado</th>
+      <th scope="col">Divergência Encontrada entre Jira e Base de Código</th>
+      <th scope="col">Decisão Confirmada pelo Usuário</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Tabela <code>fleet.vehicles</code> e Camada TS (<code>FROTA-42</code>)</strong></td>
+      <td>A migration <code>202610210001_create_vehicles.sql</code> e o <code>VehiclesRepository</code> já existem na <code>develop</code>, mas sem <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicle_type</code> e <code>ownership</code> citados na <code>FROTA-42</code>/<code>FROTA-46</code>, e com índice/busca simples em <code>license_plate</code>.</td>
+      <td>Criar migration complementar em <code>fleet.vehicles</code> adicionando <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicle_type</code> e <code>ownership</code>, converter o índice único para <code>upper(license_plate)</code> e adaptar <code>vehicle.types.ts</code>, <code>vehicles.repository.ts</code> e <code>vehicles.service.ts</code> de forma retrocompatível.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Tabela <code>fleet.drivers</code> (<code>FROTA-48</code>)</strong></td>
+      <td>Diferença entre as colunas de <code>FROTA-48/49</code> (<code>cpf</code>, <code>cnh_expires_at</code>, <code>phone</code>, <code>status</code>, <code>user_id</code>) e a tabela resumida de <code>padroes-codigo.md</code>, além do padrão <code>fleet.driver_events</code> descrito em <code>dados.md</code>.</td>
+      <td>Seguir <code>FROTA-48/49</code> (<code>name</code>, <code>cpf</code>, <code>cnh_number</code>, <code>cnh_category</code>, <code>cnh_expires_at DATE</code>, <code>phone</code>, <code>status IN ('ACTIVE', 'INACTIVE', 'AWAY')</code>, <code>user_id</code> FK opcional para <code>auth.users</code>, <code>revision</code>, timestamps) e criar também a tabela histórica append-only <code>fleet.driver_events</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>3. Tabelas <code>fleet.services</code> e <code>fleet.vehicle_services</code> (<code>FROTA-165</code>)</strong></td>
+      <td><code>FROTA-165</code> especificava <code>(id, name, description, active, created_at)</code>, enquanto <code>padroes-codigo.md</code> previa também <code>categories</code>, <code>requires_triage</code>, <code>requires_weight</code>, <code>requires_identification</code> e <code>revision</code>.</td>
+      <td>Unificar <code>FROTA-165</code> com <code>padroes-codigo.md</code> em <code>fleet.services</code> (incluindo <code>categories</code>, <code>requires_triage</code>, <code>requires_weight</code> e <code>requires_identification</code> com defaults seguros, além de <code>description</code>, <code>active</code>, <code>revision</code> e timestamps) e manter <code>fleet.vehicle_services</code> conforme <code>FROTA-165</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>4. Escopo da <code>FROTA-157</code> e Seed</strong></td>
+      <td>Definição sobre incluir seed de frota no <code>npm run db:seed</code> e se Repositories/APIs de motoristas e serviços entrariam nesta entrega ou nas tarefas filhas de backend.</td>
+      <td>Escopo focado nas migrations SQL (<code>.sql</code> e <code>.down.sql</code>), seed idempotente no <code>npm run db:seed</code> (3 S10 do SVO + serviços iniciais) e testes de integração no PostgreSQL 18 (deixando APIs/Repositories de motoristas e serviços para <code>FROTA-49</code>, <code>FROTA-53</code> e <code>FROTA-54</code>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>1.4 Delimitação de Escopo (YAGNI)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Entra no Escopo Desta Entrega (<code>FROTA-157</code>)</th>
+      <th scope="col">Fica Explicitamente Fora do Escopo (YAGNI)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Migration complementar de <code>fleet.vehicles</code> (<code>202610280001_alter_vehicles_add_details.sql</code> e <code>.down.sql</code>) e adaptação retrocompatível de <code>vehicle.types.ts</code>, <code>vehicles.repository.ts</code> e <code>vehicles.service.ts</code> para suportar <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicleType</code>, <code>ownership</code> e busca <code>upper(license_plate)</code>.</td>
+      <td>Telas React de cadastro e consulta de veículos (escopo da tarefa de frontend <code>FROTA-46</code>).</td>
+    </tr>
+    <tr>
+      <td>Migration de <code>fleet.drivers</code> e <code>fleet.driver_events</code> (<code>202610280002_create_drivers.sql</code> e <code>.down.sql</code>) com trigger append-only e índices únicos de CPF e <code>user_id</code>.</td>
+      <td>Endpoints REST, Service e Repository de motoristas (escopo exclusivo da <code>FROTA-49</code>).</td>
+    </tr>
+    <tr>
+      <td>Migration de <code>fleet.services</code> e <code>fleet.vehicle_services</code> (<code>202610280003_create_services.sql</code> e <code>.down.sql</code>) com unicidade em <code>lower(name)</code> e par <code>(vehicle_id, service_id)</code>.</td>
+      <td>Endpoints REST, Service e Repository de tipos de serviço e vínculo de compatibilidade (escopo das tarefas <code>FROTA-53</code> e <code>FROTA-54</code>).</td>
+    </tr>
+    <tr>
+      <td>Função idempotente <code>seedInitialFleet(pool)</code> integrada ao comando <code>npm run db:seed</code> com as 3 caminhonetes S10 do SVO (placas fictícias), tipos de serviço iniciais e compatibilidades.</td>
+      <td>Tabelas de ordens de manutenção (<code>FROTA-58</code>), abastecimentos (<code>FROTA-63</code>), documentos (<code>FROTA-68</code>) ou multas (<code>FROTA-72</code>).</td>
+    </tr>
+    <tr>
+      <td>Testes automatizados de integração no PostgreSQL 18 (<code>backend/tests/database.integration.test.ts</code>) validando migrations, constraints, índices únicos, triggers append-only, rollbacks (<code>.down.sql</code>) e idempotência do seed.</td>
+      <td>Qualquer uso de dados reais de servidores, motoristas ou placas oficiais (estrito cumprimento da LGPD).</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+
+<h3>2.1 Requisitos Funcionais (RF)</h3>
+<ul>
+  <li><strong>RF01 (Complemento de <code>fleet.vehicles</code> — <code>FROTA-42</code>):</strong>
+    <ul>
+      <li>Adicionar em <code>fleet.vehicles</code> as colunas <code>brand TEXT</code>, <code>model TEXT</code>, <code>year INTEGER</code>, <code>vehicle_type TEXT</code> e <code>ownership TEXT NOT NULL DEFAULT 'OWNED'</code>;</li>
+      <li>Aplicar constraints declarativas: <code>year IS NULL OR (year &gt;= 1980 AND year &lt;= 2100)</code> e <code>ownership IN ('OWNED', 'LEASED')</code>;</li>
+      <li>Recriar o índice <code>fleet_vehicles_license_plate_unique</code> sobre a expressão <code>(upper(license_plate))</code>, bloqueando duplicidades independentemente de caixa alta/baixa (ex.: <code>abc1d23</code> vs <code>ABC1D23</code>) mesmo em inserções diretas no banco;</li>
+      <li>Relaxar a constraint de formato <code>fleet_vehicles_license_plate_format</code> para avaliar <code>upper(license_plate) ~ '^[A-Z]{3}([0-9]{4}|[0-9][A-Z][0-9]{2})$'</code>, permitindo que o índice único case-insensitive seja exercitado e testado diretamente no PostgreSQL 18.</li>
+    </ul>
+  </li>
+  <li><strong>RF02 (Tabela <code>fleet.drivers</code> e Histórico <code>fleet.driver_events</code> — <code>FROTA-48</code>):</strong>
+    <ul>
+      <li>Criar <code>fleet.drivers</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>name TEXT NOT NULL</code>, <code>cpf TEXT NOT NULL</code> (exatamente 11 dígitos numéricos <code>^[0-9]{11}$</code>), <code>cnh_number TEXT NOT NULL</code>, <code>cnh_category TEXT NOT NULL</code> (valores permitidos: <code>'A'</code>, <code>'B'</code>, <code>'C'</code>, <code>'D'</code>, <code>'E'</code>, <code>'AB'</code>, <code>'AC'</code>, <code>'AD'</code>, <code>'AE'</code>), <code>cnh_expires_at DATE NOT NULL</code>, <code>phone TEXT</code>, <code>status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'AWAY'))</code>, <code>user_id BIGINT REFERENCES auth.users(id) ON DELETE RESTRICT</code> (opcional), <code>revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0)</code>, <code>created_at TIMESTAMPTZ</code> e <code>updated_at TIMESTAMPTZ</code>;</li>
+      <li>Não criar coluna de veículo em <code>fleet.drivers</code> (o vínculo motorista × veículo ocorre por viagem/escala, nunca de forma fixa no cadastro);</li>
+      <li>Criar índice único <code>fleet_drivers_cpf_unique ON fleet.drivers (cpf)</code> e índice único parcial <code>fleet_drivers_user_id_unique ON fleet.drivers (user_id) WHERE user_id IS NOT NULL</code>;</li>
+      <li>Criar tabela histórica append-only <code>fleet.driver_events</code> (com FK <code>driver_id REFERENCES fleet.drivers(id) ON DELETE RESTRICT</code>, <code>event_type IN ('CREATED', 'UPDATED', 'STATUS_CHANGED')</code>, <code>occurred_at</code>, <code>registered_at</code>, <code>reported_by</code>, <code>registered_by REFERENCES auth.users(id) ON DELETE RESTRICT</code>, <code>actor_snapshot JSONB</code>, <code>reason</code>, <code>before_state JSONB</code>, <code>after_state JSONB</code>) protegida por trigger <code>fleet_driver_events_append_only</code>.</li>
+    </ul>
+  </li>
+  <li><strong>RF03 (Tabelas <code>fleet.services</code> e <code>fleet.vehicle_services</code> — <code>FROTA-165</code>):</strong>
+    <ul>
+      <li>Criar <code>fleet.services</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>name TEXT NOT NULL</code> (não vazio), <code>description TEXT</code>, <code>categories TEXT[] NOT NULL DEFAULT ARRAY['PASSENGER']::TEXT[]</code> (subconjunto válido de <code>PASSENGER</code>, <code>BODY</code>, <code>OTHER</code>), <code>requires_triage BOOLEAN NOT NULL DEFAULT false</code>, <code>requires_weight BOOLEAN NOT NULL DEFAULT false</code>, <code>requires_identification BOOLEAN NOT NULL DEFAULT false</code>, <code>active BOOLEAN NOT NULL DEFAULT true</code>, <code>revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0)</code>, <code>created_at TIMESTAMPTZ</code> e <code>updated_at TIMESTAMPTZ</code>;</li>
+      <li>Criar índice único case-insensitive <code>fleet_services_name_lower_unique ON fleet.services (lower(btrim(name)))</code>;</li>
+      <li>Criar <code>fleet.vehicle_services</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles(id) ON DELETE RESTRICT</code>, <code>service_id BIGINT NOT NULL REFERENCES fleet.services(id) ON DELETE RESTRICT</code> e <code>created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()</code>;</li>
+      <li>Garantir unicidade do par com <code>CONSTRAINT fleet_vehicle_services_pair_unique UNIQUE (vehicle_id, service_id)</code> e índices nas duas FKs (<code>fleet_vehicle_services_by_vehicle</code> e <code>fleet_vehicle_services_by_service</code>).</li>
+    </ul>
+  </li>
+  <li><strong>RF04 (Seed Inicial Idempotente da Frota — <code>npm run db:seed</code>):</strong>
+    <ul>
+      <li>Adicionar em <code>backend/src/database/scripts/seed.ts</code> a função exportada <code>seedInitialFleet(pool: Pool)</code> executada após o seed do Administrador inicial;</li>
+      <li>Inserir de forma idempotente (<code>ON CONFLICT DO NOTHING</code>) as <strong>três caminhonetes S10 do SVO</strong> com placas Mercosul fictícias (ex.: <code>SVO1A01</code>, <code>SVO1A02</code>, <code>SVO1A03</code>, marca <code>Chevrolet</code>, modelo <code>S10</code>, <code>operation_type = 'SVO'</code>, <code>categories = ARRAY['BODY']</code>, <code>seats = 2</code>, <code>body_limit = 2</code>), acompanhadas de seus eventos iniciais <code>CREATED</code> em <code>fleet.vehicle_events</code> e dos tipos de serviço base (<code>Remoção Cadavérica SVO</code>, <code>Transporte Institucional de Passageiros</code>, <code>Transporte de Amostras e Insumos</code>) e respectivos vínculos em <code>fleet.vehicle_services</code>.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>2.2 Cenários de Negócio e Casos de Borda (Dado / Quando / Então)</h3>
+<ul>
+  <li><strong>Cenário 1 — Unicidade case-insensitive de placa em <code>fleet.vehicles</code> (<code>FROTA-42</code>):</strong>
+    <br><em>Dado</em> que existe um veículo cadastrado com placa <code>ABC1D23</code>,
+    <br><em>Quando</em> uma instrução SQL tenta inserir outro veículo com placa <code>abc1d23</code>,
+    <br><em>Então</em> o PostgreSQL 18 rejeita a operação com erro de violação de unicidade (<code>SQLSTATE 23505</code>) no índice <code>fleet_vehicles_license_plate_unique</code>.
+  </li>
+  <li><strong>Cenário 2 — Compatibilidade retroativa com <code>VehiclesRepository</code> (<code>FROTA-43/45</code>):</strong>
+    <br><em>Dado</em> que o <code>VehiclesRepository.create()</code> atual insere apenas <code>(license_plate, categories, seats, body_limit, weight_limit, operation_type, status)</code>,
+    <br><em>Quando</em> um veículo é criado pela API existente sem informar <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicle_type</code> ou <code>ownership</code>,
+    <br><em>Então</em> o registro é gravado com sucesso assumindo <code>ownership = 'OWNED'</code> e <code>NULL</code> nas demais colunas opcionais, mantendo todos os testes de <code>vehicles.service.test.ts</code> passando.
+  </li>
+  <li><strong>Cenário 3 — Unicidade de CPF e vínculo opcional <code>user_id</code> em <code>fleet.drivers</code> (<code>FROTA-48</code>):</strong>
+    <br><em>Dado</em> que existe um motorista com CPF <code>12345678901</code> e <code>user_id = NULL</code>,
+    <br><em>Quando</em> se tenta inserir outro motorista com o mesmo CPF <code>12345678901</code>, <em>Então</em> falha com <code>23505</code> em <code>fleet_drivers_cpf_unique</code>;
+    <br><em>E quando</em> se insere um segundo motorista com outro CPF (<code>98765432100</code>) e também <code>user_id = NULL</code>, <em>Então</em> a inserção é aceita (múltiplos motoristas sem conta de usuário), mas vincular o mesmo <code>user_id</code> preenchido a dois motoristas falha com <code>23505</code> em <code>fleet_drivers_user_id_unique</code>.
+  </li>
+  <li><strong>Cenário 4 — Imutabilidade de <code>fleet.driver_events</code> (Append-Only):</strong>
+    <br><em>Dado</em> um evento registrado em <code>fleet.driver_events</code>,
+    <br><em>Quando</em> qualquer comando <code>UPDATE</code> ou <code>DELETE</code> é executado contra a linha,
+    <br><em>Então</em> a trigger <code>fleet_driver_events_append_only</code> aborta a operação lançando exceção <code>fleet.driver_events is append-only</code>.
+  </li>
+  <li><strong>Cenário 5 — Unicidade de Tipo de Serviço e Par Veículo × Serviço (<code>FROTA-165</code>):</strong>
+    <br><em>Dado</em> o serviço <code>Remoção Cadavérica SVO</code> cadastrado em <code>fleet.services</code> e vinculado ao veículo <code>V1</code> em <code>fleet.vehicle_services</code>,
+    <br><em>Quando</em> se tenta inserir <code>remoção cadavérica svo</code> (em minúsculas) em <code>fleet.services</code> ou repetir o par <code>(V1, S1)</code> em <code>fleet.vehicle_services</code>,
+    <br><em>Então</em> o banco bloqueia ambas as duplicações com <code>SQLSTATE 23505</code>.
+  </li>
+  <li><strong>Cenário 6 — Reversibilidade limpa via Rollback (<code>.down.sql</code>):</strong>
+    <br><em>Dado</em> que as migrações <code>202610280001</code>, <code>202610280002</code> e <code>202610280003</code> foram aplicadas,
+    <br><em>Quando</em> seus respectivos arquivos <code>.down.sql</code> são executados em ordem reversa e as migrações são reaplicadas,
+    <br><em>Então</em> o banco retorna ao estado anterior sem resíduos e reaplica todo o schema sem erros.
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Ação</th>
+      <th scope="col">Caminho do Arquivo</th>
+      <th scope="col">Responsabilidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Novo</strong></td>
+      <td><code>backend/src/database/migrations/202610280001_alter_vehicles_add_details.sql</code></td>
+      <td>Migration transacional (<code>FROTA-42</code>) adicionando <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicle_type</code> e <code>ownership</code> em <code>fleet.vehicles</code> e convertendo <code>fleet_vehicles_license_plate_unique</code> para <code>upper(license_plate)</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Novo</strong></td>
+      <td><code>backend/src/database/migrations/202610280001_alter_vehicles_add_details.down.sql</code></td>
+      <td>Rollback transacional restaurando o índice e constraint anteriores e removendo as colunas adicionadas em <code>fleet.vehicles</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Novo</strong></td>
+      <td><code>backend/src/database/migrations/202610280002_create_drivers.sql</code></td>
+      <td>Migration transacional (<code>FROTA-48</code>) criando <code>fleet.drivers</code>, índices únicos (<code>cpf</code> e <code>user_id</code> parcial), <code>fleet.driver_events</code> e trigger append-only.</td>
+    </tr>
+    <tr>
+      <td><strong>Novo</strong></td>
+      <td><code>backend/src/database/migrations/202610280002_create_drivers.down.sql</code></td>
+      <td>Rollback transacional removendo <code>fleet.driver_events</code>, função de trigger e <code>fleet.drivers</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Novo</strong></td>
+      <td><code>backend/src/database/migrations/202610280003_create_services.sql</code></td>
+      <td>Migration transacional (<code>FROTA-165</code>) criando <code>fleet.services</code> e <code>fleet.vehicle_services</code> com constraints e índices.</td>
+    </tr>
+    <tr>
+      <td><strong>Novo</strong></td>
+      <td><code>backend/src/database/migrations/202610280003_create_services.down.sql</code></td>
+      <td>Rollback transacional removendo <code>fleet.vehicle_services</code> e <code>fleet.services</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Modificar</strong></td>
+      <td><code>backend/src/types/vehicle.types.ts</code></td>
+      <td>Inclusão de <code>VEHICLE_OWNERSHIP_TYPES</code> (<code>'OWNED' | 'LEASED'</code>) e dos atributos opcionais <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicleType</code> e <code>ownership</code> em <code>Vehicle</code> e <code>VehicleAttributes</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Modificar</strong></td>
+      <td><code>backend/src/repositories/vehicles.repository.ts</code></td>
+      <td>Projeção e persistência de <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicle_type AS "vehicleType"</code> e <code>ownership</code>, além de busca <code>WHERE upper(license_plate) = upper($1)</code> em <code>findByLicensePlate</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Modificar</strong></td>
+      <td><code>backend/src/services/vehicles.service.ts</code></td>
+      <td>Normalização e validação opcional de <code>brand</code>, <code>model</code>, <code>year</code> (<code>1980..2100</code>), <code>vehicleType</code> e <code>ownership</code> (default <code>'OWNED'</code>) preservando total compatibilidade com os chamadores atuais.</td>
+    </tr>
+    <tr>
+      <td><strong>Modificar</strong></td>
+      <td><code>backend/src/database/scripts/seed.ts</code></td>
+      <td>Adição da função idempotente <code>seedInitialFleet(pool)</code> populando as 3 S10 fictícias do SVO, serviços iniciais e vínculos <code>fleet.vehicle_services</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Modificar</strong></td>
+      <td><code>backend/tests/vehicles.service.test.ts</code></td>
+      <td>Cobertura unitária dos novos campos descritivos de veículos (<code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicleType</code>, <code>ownership</code>) e validação de ano fora da faixa permitida.</td>
+    </tr>
+    <tr>
+      <td><strong>Modificar</strong></td>
+      <td><code>backend/tests/database.integration.test.ts</code></td>
+      <td>Novos testes de integração validando <code>fleet.vehicles</code> (unicidade case-insensitive e novas colunas), <code>fleet.drivers</code> / <code>fleet.driver_events</code>, <code>fleet.services</code> / <code>fleet.vehicle_services</code>, rollbacks <code>.down.sql</code> e idempotência de <code>seedInitialFleet</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Arquivos de referência no projeto (padrão a seguir)</h3>
+<ul>
+  <li><strong>Migrations existentes:</strong> <code>backend/src/database/migrations/202610210001_create_vehicles.sql</code> e <code>202610180001_create_roles_permissions_and_update_users.sql</code>.</li>
+  <li><strong>Modelagem e Consultas PostgreSQL 18:</strong> <code>.agents/skills/principios/references/dados.md</code>, <code>.agents/skills/principios/references/consultas.md</code> e <code>docs/manuais/padroes-codigo.md</code>.</li>
+  <li><strong>Padrões de Projeto (Design Patterns):</strong> <code>docs/manuais/padroes-projeto.md</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+
+<h3>4.1 Migration 1 — Complemento de Veículos (<code>FROTA-42</code>)</h3>
+<p><strong>Arquivo:</strong> <code>backend/src/database/migrations/202610280001_alter_vehicles_add_details.sql</code></p>
+<pre><code>BEGIN;
+
+ALTER TABLE fleet.vehicles
+  ADD COLUMN IF NOT EXISTS brand TEXT CHECK (brand IS NULL OR btrim(brand) &lt;&gt; ''),
+  ADD COLUMN IF NOT EXISTS model TEXT CHECK (model IS NULL OR btrim(model) &lt;&gt; ''),
+  ADD COLUMN IF NOT EXISTS year INTEGER CHECK (year IS NULL OR (year &gt;= 1980 AND year &lt;= 2100)),
+  ADD COLUMN IF NOT EXISTS vehicle_type TEXT CHECK (vehicle_type IS NULL OR btrim(vehicle_type) &lt;&gt; ''),
+  ADD COLUMN IF NOT EXISTS ownership TEXT NOT NULL DEFAULT 'OWNED'
+    CHECK (ownership IN ('OWNED', 'LEASED'));
+
+ALTER TABLE fleet.vehicles
+  DROP CONSTRAINT fleet_vehicles_license_plate_format;
+
+ALTER TABLE fleet.vehicles
+  ADD CONSTRAINT fleet_vehicles_license_plate_format
+    CHECK (upper(license_plate) ~ '^[A-Z]{3}([0-9]{4}|[0-9][A-Z][0-9]{2})$');
+
+DROP INDEX IF EXISTS fleet.fleet_vehicles_license_plate_unique;
+
+CREATE UNIQUE INDEX fleet_vehicles_license_plate_unique
+  ON fleet.vehicles (upper(license_plate));
+
+COMMIT;</code></pre>
+
+<p><strong>Rollback:</strong> <code>backend/src/database/migrations/202610280001_alter_vehicles_add_details.down.sql</code></p>
+<pre><code>BEGIN;
+
+UPDATE fleet.vehicles
+   SET license_plate = upper(license_plate)
+ WHERE license_plate &lt;&gt; upper(license_plate);
+
+DROP INDEX IF EXISTS fleet.fleet_vehicles_license_plate_unique;
+
+CREATE UNIQUE INDEX fleet_vehicles_license_plate_unique
+  ON fleet.vehicles (license_plate);
+
+ALTER TABLE fleet.vehicles
+  DROP CONSTRAINT fleet_vehicles_license_plate_format;
+
+ALTER TABLE fleet.vehicles
+  ADD CONSTRAINT fleet_vehicles_license_plate_format
+    CHECK (license_plate ~ '^[A-Z]{3}([0-9]{4}|[0-9][A-Z][0-9]{2})$');
+
+ALTER TABLE fleet.vehicles
+  DROP COLUMN IF EXISTS ownership,
+  DROP COLUMN IF EXISTS vehicle_type,
+  DROP COLUMN IF EXISTS year,
+  DROP COLUMN IF EXISTS model,
+  DROP COLUMN IF EXISTS brand;
+
+COMMIT;</code></pre>
+
+<h3>4.2 Migration 2 — Motoristas e Histórico de Eventos (<code>FROTA-48</code>)</h3>
+<p><strong>Arquivo:</strong> <code>backend/src/database/migrations/202610280002_create_drivers.sql</code></p>
+<pre><code>BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS fleet;
+
+CREATE TABLE fleet.drivers (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL CHECK (btrim(name) &lt;&gt; ''),
+  cpf TEXT NOT NULL,
+  cnh_number TEXT NOT NULL CHECK (btrim(cnh_number) &lt;&gt; ''),
+  cnh_category TEXT NOT NULL
+    CHECK (cnh_category IN ('A', 'B', 'C', 'D', 'E', 'AB', 'AC', 'AD', 'AE')),
+  cnh_expires_at DATE NOT NULL,
+  phone TEXT CHECK (phone IS NULL OR btrim(phone) &lt;&gt; ''),
+  status TEXT NOT NULL DEFAULT 'ACTIVE'
+    CHECK (status IN ('ACTIVE', 'INACTIVE', 'AWAY')),
+  user_id BIGINT REFERENCES auth.users (id) ON DELETE RESTRICT,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_drivers_cpf_format
+    CHECK (cpf ~ '^[0-9]{11}$')
+);
+
+CREATE UNIQUE INDEX fleet_drivers_cpf_unique
+  ON fleet.drivers (cpf);
+
+CREATE UNIQUE INDEX fleet_drivers_user_id_unique
+  ON fleet.drivers (user_id)
+  WHERE user_id IS NOT NULL;
+
+CREATE INDEX fleet_drivers_by_status_name
+  ON fleet.drivers (status, name, id);
+
+CREATE TABLE fleet.driver_events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  driver_id BIGINT NOT NULL REFERENCES fleet.drivers (id) ON DELETE RESTRICT,
+  event_type TEXT NOT NULL CHECK (event_type IN ('CREATED', 'UPDATED', 'STATUS_CHANGED')),
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  reported_by TEXT NOT NULL CHECK (btrim(reported_by) &lt;&gt; ''),
+  registered_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  actor_snapshot JSONB NOT NULL,
+  reason TEXT NOT NULL CHECK (btrim(reason) &lt;&gt; ''),
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE INDEX fleet_driver_events_by_driver
+  ON fleet.driver_events (driver_id, occurred_at DESC, id DESC);
+
+CREATE FUNCTION fleet.prevent_driver_event_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'fleet.driver_events is append-only';
+END;
+$$;
+
+CREATE TRIGGER fleet_driver_events_append_only
+  BEFORE UPDATE OR DELETE ON fleet.driver_events
+  FOR EACH ROW EXECUTE FUNCTION fleet.prevent_driver_event_mutation();
+
+COMMIT;</code></pre>
+
+<p><strong>Rollback:</strong> <code>backend/src/database/migrations/202610280002_create_drivers.down.sql</code></p>
+<pre><code>BEGIN;
+
+DROP TABLE IF EXISTS fleet.driver_events;
+DROP FUNCTION IF EXISTS fleet.prevent_driver_event_mutation();
+DROP TABLE IF EXISTS fleet.drivers;
+
+COMMIT;</code></pre>
+
+<h3>4.3 Migration 3 — Tipos de Serviço e Compatibilidade Veículo × Serviço (<code>FROTA-165</code>)</h3>
+<p><strong>Arquivo:</strong> <code>backend/src/database/migrations/202610280003_create_services.sql</code></p>
+<pre><code>BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS fleet;
+
+CREATE TABLE fleet.services (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL CHECK (btrim(name) &lt;&gt; ''),
+  description TEXT CHECK (description IS NULL OR btrim(description) &lt;&gt; ''),
+  categories TEXT[] NOT NULL DEFAULT ARRAY['PASSENGER']::TEXT[],
+  requires_triage BOOLEAN NOT NULL DEFAULT false,
+  requires_weight BOOLEAN NOT NULL DEFAULT false,
+  requires_identification BOOLEAN NOT NULL DEFAULT false,
+  active BOOLEAN NOT NULL DEFAULT true,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_services_categories_valid
+    CHECK (cardinality(categories) &gt; 0 AND categories &lt;@ ARRAY['PASSENGER', 'BODY', 'OTHER']::TEXT[])
+);
+
+CREATE UNIQUE INDEX fleet_services_name_lower_unique
+  ON fleet.services (lower(btrim(name)));
+
+CREATE INDEX fleet_services_by_active_name
+  ON fleet.services (active, name, id);
+
+CREATE TABLE fleet.vehicle_services (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles (id) ON DELETE RESTRICT,
+  service_id BIGINT NOT NULL REFERENCES fleet.services (id) ON DELETE RESTRICT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_vehicle_services_pair_unique
+    UNIQUE (vehicle_id, service_id)
+);
+
+CREATE INDEX fleet_vehicle_services_by_vehicle
+  ON fleet.vehicle_services (vehicle_id);
+
+CREATE INDEX fleet_vehicle_services_by_service
+  ON fleet.vehicle_services (service_id);
+
+COMMIT;</code></pre>
+
+<p><strong>Rollback:</strong> <code>backend/src/database/migrations/202610280003_create_services.down.sql</code></p>
+<pre><code>BEGIN;
+
+DROP TABLE IF EXISTS fleet.vehicle_services;
+DROP TABLE IF EXISTS fleet.services;
+
+COMMIT;</code></pre>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+
+<h3>5.1 Sincronização Retrocompatível de Veículos (<code>vehicle.types.ts</code>, <code>vehicles.repository.ts</code> e <code>vehicles.service.ts</code>)</h3>
+<ul>
+  <li><strong><code>backend/src/types/vehicle.types.ts</code>:</strong>
+    <ul>
+      <li>Adicionar <code>export const VEHICLE_OWNERSHIP_TYPES = ['OWNED', 'LEASED'] as const</code> e <code>export type VehicleOwnership = typeof VEHICLE_OWNERSHIP_TYPES[number]</code>;</li>
+      <li>Em <code>Vehicle</code>: incluir <code>brand: string | null</code>, <code>model: string | null</code>, <code>year: number | null</code>, <code>vehicleType: string | null</code> e <code>ownership: VehicleOwnership</code>;</li>
+      <li>Em <code>VehicleAttributes</code>: incluir os mesmos 5 campos como opcionais (<code>brand?: string | null</code>, <code>model?: string | null</code>, <code>year?: number | null</code>, <code>vehicleType?: string | null</code>, <code>ownership?: VehicleOwnership</code>) para manter compatibilidade total com chamadas existentes.</li>
+    </ul>
+  </li>
+  <li><strong><code>backend/src/repositories/vehicles.repository.ts</code>:</strong>
+    <ul>
+      <li>Projetar <code>brand, model, year, vehicle_type AS "vehicleType", ownership</code> em <code>list</code>, <code>findById</code>, <code>findByIdForUpdate</code>, <code>findByLicensePlate</code>, <code>create</code>, <code>saveAttributes</code> e <code>saveStatus</code>;</li>
+      <li>Em <code>findByLicensePlate</code>: consultar <code>WHERE upper(license_plate) = upper($1) LIMIT 1</code> (aproveitando diretamente o índice funcional <code>fleet_vehicles_license_plate_unique</code>);</li>
+      <li>Em <code>create</code> e <code>saveAttributes</code>: persistir os 5 campos (aplicando <code>ownership ?? 'OWNED'</code> e <code>null</code> quando omitidos).</li>
+    </ul>
+  </li>
+  <li><strong><code>backend/src/services/vehicles.service.ts</code>:</strong>
+    <ul>
+      <li>Em <code>validateAttributes</code>: normalizar strings opcionais (<code>brand</code>, <code>model</code>, <code>vehicleType</code>) com <code>trim()</code>, validar <code>year</code> inteiro entre <code>1980</code> e <code>2100</code> quando informado (retornando <code>400</code> se inválido) e validar <code>ownership</code> em <code>VEHICLE_OWNERSHIP_TYPES</code> (default <code>'OWNED'</code>);</li>
+      <li>Em <code>auditState</code>: incluir <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicleType</code> e <code>ownership</code> no snapshot de auditoria.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>5.2 Detalhamento do Seed Idempotente (<code>backend/src/database/scripts/seed.ts</code>)</h3>
+<p>
+  Será adicionada e exportada a função <code>seedInitialFleet(pool: Pool, adminEmail: string): Promise&lt;void&gt;</code> dentro de <code>backend/src/database/scripts/seed.ts</code>:
+</p>
+<ul>
+  <li>Executa em transação explícita (<code>BEGIN ... COMMIT / ROLLBACK</code> com <code>client.release()</code> no <code>finally</code>);</li>
+  <li>Localiza o usuário Administrador inicial para preencher com precisão o <code>registered_by</code> e o <code>actor_snapshot</code> dos eventos iniciais de veículos;</li>
+  <li>Provisiona de forma idempotente (<code>ON CONFLICT (upper(license_plate)) DO NOTHING</code>) as <strong>3 viaturas S10 do SVO</strong> com dados fictícios:
+    <ul>
+      <li><code>SVO1A01</code>, <code>SVO1A02</code> e <code>SVO1A03</code> — <code>brand: 'Chevrolet'</code>, <code>model: 'S10'</code>, <code>year: 2024</code>, <code>vehicle_type: 'PICKUP_SVO'</code>, <code>ownership: 'OWNED'</code>, <code>categories: ['BODY']</code>, <code>seats: 2</code>, <code>body_limit: 2</code>, <code>operation_type: 'SVO'</code>, <code>status: 'AVAILABLE'</code>;</li>
+      <li>Para cada viatura recém-inserida no seed, grava o respectivo evento <code>CREATED</code> em <code>fleet.vehicle_events</code> com <code>reason: 'BOOTSTRAP_INITIAL_FLEET'</code>;</li>
+    </ul>
+  </li>
+  <li>Provisiona de forma idempotente (<code>ON CONFLICT (lower(btrim(name))) DO NOTHING</code>) 3 tipos de serviço iniciais em <code>fleet.services</code>:
+    <ul>
+      <li><code>Remoção Cadavérica SVO</code> (<code>categories: ['BODY']</code>, <code>requires_triage: true</code>, <code>requires_identification: true</code>);</li>
+      <li><code>Transporte Institucional de Passageiros</code> (<code>categories: ['PASSENGER']</code>);</li>
+      <li><code>Transporte de Amostras e Insumos</code> (<code>categories: ['OTHER']</code>, <code>requires_weight: true</code>);</li>
+    </ul>
+  </li>
+  <li>Vincula as 3 caminhonetes S10 do SVO ao serviço <code>Remoção Cadavérica SVO</code> em <code>fleet.vehicle_services</code> com <code>ON CONFLICT (vehicle_id, service_id) DO NOTHING</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p>
+  <strong>Não se aplica a esta tarefa:</strong> entrega estritamente de banco de dados, migrações SQL e script de seed no backend. As interfaces de usuário correspondentes serão desenvolvidas nas subtarefas de frontend <code>FROTA-46</code> (Veículos), <code>FROTA-51</code> (Motoristas) e <code>FROTA-56</code> (Tipos de Serviço).
+</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>
+  <em>Nota de escopo:</em> Por tratar-se de tarefa de modelagem de dados e migrações SQL sem telas ou endpoints novos, os itens de interface abaixo permanecem como referência para as tarefas consumidoras (<code>FROTA-46</code>, <code>FROTA-51</code>, <code>FROTA-56</code>), garantindo-se nesta entrega que nomes de constraints e estruturas suportem mensagens de erro claras e semânticas.
+</p>
+<ul class="check">
+  <li><input type="checkbox" checked disabled> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Todos os campos usam <code>useId()</code> conectando <code>&lt;label htmlFor&gt;</code> ao <code>&lt;input id&gt;</code>, <code>aria-invalid</code> e mensagem de erro com <code>role="alert"</code>.</li>
+  <li><input type="checkbox" checked disabled> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Operável integralmente via <code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Espaço</code> e <code>Esc</code>, com <code>:focus-visible</code> nítido.</li>
+  <li><input type="checkbox" checked disabled> <strong>Tamanho do Alvo (2.5.8):</strong> Botões e controles interativos possuem área mínima de <strong>44×44px</strong> em telas operacionais.</li>
+  <li><input type="checkbox" checked disabled> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste de texto &gt;= 4.5:1 e status acompanhado de rótulo textual além da cor.</li>
+  <li><input type="checkbox" checked disabled> <strong>Mensagens de Status (4.1.3):</strong> Feedbacks dinâmicos anunciados via <code>role="status"</code> ou <code>aria-live="polite"</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Tabela / Recurso</th>
+      <th scope="col">Perfis com Leitura (nas APIs consumidoras)</th>
+      <th scope="col">Perfis com Escrita (nas APIs consumidoras)</th>
+      <th scope="col">Mecanismo de Rastreabilidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-tabela">fleet.vehicles</span> / <span class="badge-tabela">fleet.vehicle_events</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span> <span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>SCD Tipo 4 (<code>fleet.vehicle_events</code> append-only) + <code>audit.logs</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.drivers</span> / <span class="badge-tabela">fleet.driver_events</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span> <span class="badge-rbac">MOTORISTA</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>SCD Tipo 4 (<code>fleet.driver_events</code> append-only) + <code>audit.logs</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.services</span> / <span class="badge-tabela">fleet.vehicle_services</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span> <span class="badge-rbac">SOLICITANTE</span> <span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Controle de revisão (<code>revision</code>), inativação lógica (<code>active</code>) + <code>audit.logs</code></td>
+    </tr>
+  </tbody>
+</table>
+<p>
+  <strong>Variáveis de ambiente:</strong> Nenhuma nova variável de ambiente é introduzida. Os scripts <code>npm run db:migrate</code> e <code>npm run db:seed</code> reutilizam <code>DATABASE_URL</code> e as credenciais <code>INITIAL_ADMIN_*</code> já padronizadas na <code>FROTA-156</code>.
+</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<h3>9.1 Testes Automatizados de Integração no PostgreSQL 18 (<code>backend/tests/database.integration.test.ts</code>)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Cenário de Teste</th>
+      <th scope="col">Dados Fictícios (LGPD)</th>
+      <th scope="col">Resultado Esperado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>IT12</strong></td>
+      <td>Evolução de <code>fleet.vehicles</code> e unicidade case-insensitive da placa (<code>FROTA-42</code>)</td>
+      <td>Inserção de <code>ABC1D23</code> seguida de tentativa com <code>abc1d23</code>; validação de colunas <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicle_type</code> e default <code>ownership = 'OWNED'</code>.</td>
+      <td>Primeira inserção sucede; segunda falha com <code>code === '23505'</code> em <code>fleet_vehicles_license_plate_unique</code>; CHECK de ano inválido (<code>1950</code>) falha com <code>23514</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>IT13</strong></td>
+      <td>Tabela <code>fleet.drivers</code> e <code>fleet.driver_events</code> append-only (<code>FROTA-48</code>)</td>
+      <td>Condutora fictícia <code>Maria Condutora Teste</code>, CPF <code>11122233344</code>, CNH <code>99887766554</code>, categoria <code>D</code>, validade <code>2028-12-31</code>.</td>
+      <td>Inserção sucede; CPF duplicado falha com <code>23505</code>; dois motoristas com <code>user_id = NULL</code> sucedem, mas mesmo <code>user_id</code> preenchido falha com <code>23505</code>; <code>UPDATE</code> ou <code>DELETE</code> em <code>fleet.driver_events</code> falha pela trigger append-only.</td>
+    </tr>
+    <tr>
+      <td><strong>IT14</strong></td>
+      <td>Tabelas <code>fleet.services</code> e <code>fleet.vehicle_services</code> (<code>FROTA-165</code>)</td>
+      <td>Serviço <code>Transporte de Pacientes</code> e vínculo com veículo <code>VTR1A01</code>.</td>
+      <td>Nome duplicado em caixa diferente (<code>transporte de pacientes</code>) falha com <code>23505</code>; par <code>(vehicle_id, service_id)</code> repetido em <code>fleet.vehicle_services</code> falha com <code>23505</code>; <code>DELETE</code> de veículo com vínculo ativo é bloqueado por <code>ON DELETE RESTRICT</code> (<code>23503</code>).</td>
+    </tr>
+    <tr>
+      <td><strong>IT15</strong></td>
+      <td>Seed inicial da frota (<code>seedInitialFleet</code>) é idempotente</td>
+      <td>Execução dupla de <code>seedInitialFleet(pool, ADMIN_CONFIG.email)</code>.</td>
+      <td>As 3 caminhonetes S10 do SVO (<code>SVO1A01</code>, <code>SVO1A02</code>, <code>SVO1A03</code>), os 3 serviços iniciais e os 3 vínculos em <code>fleet.vehicle_services</code> são criados na 1ª execução e não duplicam na 2ª execução.</td>
+    </tr>
+    <tr>
+      <td><strong>IT16</strong></td>
+      <td>Rollbacks (<code>.down.sql</code>) das 3 novas migrations do schema <code>fleet</code></td>
+      <td>Execução reversa de <code>202610280003.down.sql</code>, <code>202610280002.down.sql</code> e <code>202610280001.down.sql</code> seguida de <code>migrator.runMigrations()</code>.</td>
+      <td>Os rollbacks executam sem erro, removem as tabelas/colunas adicionadas e a reaplicação restaura integralmente o schema <code>fleet</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>9.2 Roteiro de Verificação via CLI</h3>
+<pre><code># 1. Aplicar todas as migrations no banco local
+cd backend &amp;&amp; npm run db:migrate
+
+# 2. Executar o seed idempotente (RBAC + Admin + Frota SVO e Serviços)
+cd backend &amp;&amp; npm run db:seed
+
+# 3. Executar a suíte completa de testes automatizados e auditoria estática
+cd backend &amp;&amp; npm test
+node docs/scripts/aratu-check.mjs</code></pre>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-157)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivos de referência:</strong> <code>docs/manuais/modulos.md</code>, <code>docs/modulos/FROTA.html</code> e <code>docs/modulos/MOTORISTAS.html</code> (baseados em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica dos módulos <code>FROTA</code> e <code>MOTORISTAS</code> no tocante às tabelas do PostgreSQL 18 (<code>fleet.vehicles</code>, <code>fleet.drivers</code>, <code>fleet.driver_events</code>, <code>fleet.services</code> e <code>fleet.vehicle_services</code>). Atualize a seção de Banco de Dados quando a documentação HTML do módulo for gerada com <code>/documentar-modulo</code>.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

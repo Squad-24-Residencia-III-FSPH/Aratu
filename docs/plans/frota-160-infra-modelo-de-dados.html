@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-160 — [INFRA] Modelo de dados: Controle Operacional (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-160: [INFRA] Modelo de dados: Controle Operacional</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-160</code> — [INFRA] Modelo de dados: Controle Operacional (Subtarefas: <code>FROTA-58</code>, <code>FROTA-63</code>, <code>FROTA-68</code> e <code>FROTA-72</code>)</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/infra-modelo-de-dados-controle-operacional</code> (criada a partir de <code>develop</code> incorporando <code>feat/infra-modelo-de-dados-svo</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulos Impactados:</strong> <code>MANUTENCOES</code>, <code>FROTA</code> e <code>MOTORISTAS</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR</code>, <code>MOTORISTA</code> e <code>ADMINISTRADOR</code></p>
+  <p><strong>Data:</strong> 2026-10-28</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+
+<h3>1.1 Contexto e Objetivo no Domínio FSPH / SVO</h3>
+<p>
+  Consolidar no PostgreSQL 18 o modelo de dados relacional do controle operacional no schema nativo <code>fleet</code> exigido pelo Épico <strong>E05 — Controle Operacional (US07 a US10)</strong>, em continuidade direta às entregas <code>FROTA-157</code> (branch <code>feat/infra-modelo-de-dados-frota</code>: <code>fleet.vehicles</code>, <code>fleet.drivers</code>, <code>fleet.services</code> e <code>fleet.vehicle_services</code>), <code>FROTA-158</code> (branch <code>feat/infra-modelo-de-dados-viagens</code>: <code>trip.requests</code>, <code>trip.trips</code>, <code>trip.trip_stops</code> e <code>trip.odometer_readings</code>) e <code>FROTA-159</code> (branch <code>feat/infra-modelo-de-dados-svo</code>: <code>svo.occurrences</code>, <code>svo.teams</code>, <code>svo.team_members</code> e <code>svo.execution_orders</code>).
+</p>
+<p>
+  Seguindo rigorosamente a diretriz arquitetural do Sistema Aratu (<code>.agents/skills/principios/references/dados.md</code>), o modelo guarda <strong>a história completa de como cada entidade chegou ao estado atual</strong>, garantindo que nenhuma alteração posterior apague o que aconteceu antes. Ao abrir um veículo, torna-se possível acompanhar todas as suas manutenções, abastecimentos, leituras de quilometragem, documentos/renovações, multas, viagens e mudanças de capacidade desde o cadastro; ao abrir um motorista, ficam preservados seus períodos de condução, abastecimentos e eventuais infrações vinculadas. As tabelas principais (<code>fleet.maintenance_orders</code>, <code>fleet.fuelings</code>, <code>fleet.vehicle_documents</code> e <code>fleet.fines</code>) respondem rapidamente "o que sabemos hoje" (em até 2s para indicadores e relatórios via índices estratégicos por veículo, motorista e data), enquanto suas tabelas gêmeas de eventos append-only (<code>fleet.maintenance_order_events</code>, <code>fleet.fueling_events</code>, <code>fleet.vehicle_document_events</code> e <code>fleet.fine_events</code>), o encadeamento de retificações (<code>supersedes_id</code>) e os snapshots de contexto congelam "o que a equipe sabia quando tomou determinada decisão" e respondem às <strong>5 perguntas obrigatórias</strong> de cada acontecimento operacional confirmado:
+</p>
+<ul>
+  <li><strong>1. O que aconteceu ou mudou?</strong> (<code>event_type</code>, <code>before_state JSONB</code> e <code>after_state JSONB</code>);</li>
+  <li><strong>2. Quando aconteceu e quando foi registrado?</strong> (bi-temporalidade explícita: <code>occurred_at TIMESTAMPTZ</code> / <code>opened_at</code> / <code>fueled_at</code> / <code>infraction_at</code> vs. <code>registered_at TIMESTAMPTZ</code>);</li>
+  <li><strong>3. Quem informou e quem cadastrou?</strong> (<code>reported_by TEXT</code> identificando quem comunicou no campo, oficina ou telefone vs. <code>registered_by BIGINT REFERENCES auth.users(id)</code> + <code>actor_snapshot JSONB</code> imutável do usuário autenticado que gravou);</li>
+  <li><strong>4. Por que houve a mudança?</strong> (<code>reason TEXT</code> obrigatório — especialmente em correções de leitura de quilometragem ou litros/valores de abastecimento, cancelamentos de ordens de manutenção, identificação/alteração de condutor infrator, recursos de multas, anulações e reaberturas excepcionais);</li>
+  <li><strong>5. Qual é a evidência?</strong> (<code>evidence_description TEXT</code> e <code>attachment_url TEXT</code>, além do encadeamento de retificações via <code>supersedes_id</code> e flag de anulação justificada <code>is_annulled</code> sem jamais apagar o lançamento original).</li>
+</ul>
+
+<h3>1.2 Subtarefas e Integração com <code>FROTA-157</code>, <code>FROTA-158</code> e <code>FROTA-159</code></h3>
+<ol>
+  <li><strong><code>FROTA-58</code> — Ordens de Manutenção e Histórico (<code>fleet.maintenance_orders</code> e <code>fleet.maintenance_order_events</code>):</strong>
+    <ul>
+      <li>Tabela <code>fleet.maintenance_orders</code> para manutenções preventivas e corretivas (<code>type IN ('PREVENTIVE', 'CORRECTIVE')</code>), flag de manutenção impeditiva (<code>blocks_vehicle BOOLEAN NOT NULL DEFAULT false</code>), ciclo de vida controlado (<code>status IN ('OPEN', 'IN_PROGRESS', 'DONE', 'CANCELED')</code>), quilometragem na oficina (<code>odometer_km</code>), custo monetário preciso (<code>cost NUMERIC(12, 2) CHECK (cost IS NULL OR cost &gt;= 0)</code>), oficina (<code>workshop</code>), datas de abertura/encerramento (<code>closed_at &gt;= opened_at</code>), motivo obrigatório em cancelamento (<code>cancellation_reason</code>), snapshot congelado do veículo na época (<code>vehicle_snapshot JSONB</code>) e índices por veículo/data e status (<code>fleet_maintenance_orders_by_vehicle</code>, <code>fleet_maintenance_orders_by_status_opened</code>);</li>
+      <li>Tabela histórica imutável <code>fleet.maintenance_order_events</code> (append-only via trigger) preservando abertura, início, atualização de orçamento/itens, encerramento, cancelamento, retificações (<code>supersedes_id</code>), anulações (<code>is_annulled</code>) e reaberturas excepcionais (mantendo o encerramento anterior e o motivo da reabertura).</li>
+    </ul>
+  </li>
+  <li><strong><code>FROTA-63</code> — Abastecimentos, Retificações e Integração com Hodômetro (<code>fleet.fuelings</code> e <code>fleet.fueling_events</code>):</strong>
+    <ul>
+      <li>Tabela <code>fleet.fuelings</code> vinculada ao veículo (<code>vehicle_id REFERENCES fleet.vehicles(id)</code>) e opcionalmente ao motorista (<code>driver_id REFERENCES fleet.drivers(id)</code>), com data/hora do abastecimento (<code>fueled_at TIMESTAMPTZ</code>), tipo de combustível (<code>fuel_type IN ('GASOLINE', 'ETHANOL', 'DIESEL', 'DIESEL_S10', 'GNV', 'FLEX', 'OTHER')</code>), volume em litros (<code>liters NUMERIC(10, 3) CHECK (liters &gt; 0)</code>), valor total (<code>total_value NUMERIC(12, 2) CHECK (total_value &gt; 0)</code>), hodômetro (<code>odometer_km INTEGER CHECK (odometer_km &gt;= 0)</code>), posto (<code>station</code>), autoria bi-temporal (<code>reported_by</code>, <code>registered_at</code>, <code>created_by</code>, <code>actor_snapshot</code>, <code>reason</code>, <code>evidence_description</code>, <code>attachment_url</code>), suporte direto a retificação encadeada (<code>supersedes_id REFERENCES fleet.fuelings(id)</code>) e anulação justificada (<code>is_annulled</code>, <code>annulment_reason</code>) para que cálculos de consumo (km/L) e gastos considerem apenas lançamentos vigentes enquanto a auditoria preserva o lançamento original;</li>
+      <li>Snapshots congelados da época (<code>vehicle_snapshot JSONB</code>, <code>driver_snapshot JSONB</code>) e índices por veículo/data (<code>fleet_fuelings_by_vehicle</code>) e motorista (<code>fleet_fuelings_by_driver</code>);</li>
+      <li>Tabela histórica imutável <code>fleet.fueling_events</code> (append-only via trigger);</li>
+      <li>Evolução compatível de <code>trip.odometer_readings</code> (vinda das <code>FROTA-158</code> e <code>FROTA-159</code>) adicionando <code>maintenance_order_id BIGINT REFERENCES fleet.maintenance_orders(id)</code> e <code>fueling_id BIGINT REFERENCES fleet.fuelings(id)</code> e expandindo os tipos de leitura para <code>('START', 'END', 'CHECK', 'FUELING', 'MAINTENANCE')</code>, consolidando a linha do tempo unificada de quilometragem do veículo.</li>
+    </ul>
+  </li>
+  <li><strong><code>FROTA-68</code> — Documentos dos Veículos, Vencimentos e Histórico (<code>fleet.vehicle_documents</code> e <code>fleet.vehicle_document_events</code>):</strong>
+    <ul>
+      <li>Tabela <code>fleet.vehicle_documents</code> vinculada a <code>fleet.vehicles(id)</code> para controle de CRLV, licenciamento, IPVA, seguro e contrato de locação (<code>document_type IN ('CRLV', 'LICENSING', 'IPVA', 'INSURANCE', 'LEASE_CONTRACT', 'OTHER')</code>), número do documento (<code>document_number</code>), emissão e vencimento (<code>issued_at DATE</code>, <code>expires_at DATE NOT NULL</code> com <code>CHECK (issued_at IS NULL OR expires_at &gt;= issued_at)</code>), encadeamento de renovações/retificações (<code>supersedes_id REFERENCES fleet.vehicle_documents(id)</code>), anulação justificada (<code>is_annulled</code>, <code>annulment_reason</code>), snapshot do veículo na época (<code>vehicle_snapshot JSONB</code>) e índices para alertas rápidos de vencimento (<code>fleet_vehicle_documents_by_expiration</code>, <code>fleet_vehicle_documents_by_vehicle</code>);</li>
+      <li>Tabela histórica imutável <code>fleet.vehicle_document_events</code> (append-only via trigger) registrando cadastro, renovação, retificação e anulação com as 5 perguntas obrigatórias.</li>
+    </ul>
+  </li>
+  <li><strong><code>FROTA-72</code> — Multas, Infrações e Histórico (<code>fleet.fines</code> e <code>fleet.fine_events</code>):</strong>
+    <ul>
+      <li>Tabela <code>fleet.fines</code> vinculada ao veículo (<code>vehicle_id REFERENCES fleet.vehicles(id)</code>), opcionalmente ao motorista responsável (<code>driver_id REFERENCES fleet.drivers(id)</code>), opcionalmente à viagem institucional (<code>trip_id REFERENCES trip.trips(id)</code>) e opcionalmente à ordem de execução SVO (<code>svo_execution_order_id REFERENCES svo.execution_orders(id)</code>), com data/hora da infração (<code>infraction_at TIMESTAMPTZ</code>), código e descrição (<code>infraction_code</code>, <code>description</code>), local (<code>location</code>), valor monetário (<code>amount NUMERIC(12, 2) CHECK (amount &gt;= 0)</code>), vencimento (<code>due_at DATE</code>), pagamento (<code>paid_at TIMESTAMPTZ</code>), ciclo de vida (<code>status IN ('PENDING', 'PAID', 'CONTESTED', 'CANCELED')</code>), motivo obrigatório em cancelamento (<code>cancellation_reason</code>), snapshots congelados da época da infração (<code>vehicle_snapshot JSONB</code>, <code>driver_snapshot JSONB</code>, <code>trip_snapshot JSONB</code>) e índices por veículo/data, motorista e status (<code>fleet_fines_by_vehicle</code>, <code>fleet_fines_by_driver</code>, <code>fleet_fines_by_status_due</code>);</li>
+      <li>Tabela histórica imutável <code>fleet.fine_events</code> (append-only via trigger) registrando autuação, identificação/alteração de condutor responsável, interposição de recurso (<code>CONTESTED</code>), pagamento, cancelamento, retificações (<code>supersedes_id</code>) e anulações (<code>is_annulled</code>).</li>
+    </ul>
+  </li>
+</ol>
+
+<h3>1.3 Decisões Confirmadas pela Regra da Dúvida</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Ponto Analisado</th>
+      <th scope="col">Contexto / Divergência Analisada</th>
+      <th scope="col">Decisão Confirmada pelo Usuário</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Continuidade das branches <code>157</code>, <code>158</code> e <code>159</code> e integridade referencial das FKs</strong></td>
+      <td>As subtarefas <code>FROTA-63</code> (abastecimentos) e <code>FROTA-72</code> (multas) referenciam <code>fleet.drivers(id)</code> e <code>trip.trips(id)</code>, que foram implementadas nas branches recém-enviadas <code>feat/infra-modelo-de-dados-frota</code> (<code>FROTA-157</code>), <code>feat/infra-modelo-de-dados-viagens</code> (<code>FROTA-158</code>) e <code>feat/infra-modelo-de-dados-svo</code> (<code>FROTA-159</code>).</td>
+      <td>Criar a branch da <code>FROTA-160</code> incorporando <code>feat/infra-modelo-de-dados-svo</code> (que já acumula <code>157</code>, <code>158</code> e <code>159</code>), declarando chaves estrangeiras reais <code>ON DELETE RESTRICT</code> para <code>fleet.vehicles(id)</code>, <code>fleet.drivers(id)</code>, <code>trip.trips(id)</code> e <code>svo.execution_orders(id)</code> nas migrations <code>202610280009</code> a <code>202610280012</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Preservação Histórica, Bi-temporalidade, Retificações e Contexto da Época</strong></td>
+      <td>O usuário reforçou que o sistema deve guardar <strong>a história de como cada entidade chegou ao estado atual</strong> sem jamais apagar o passado (5 perguntas obrigatórias, correção de leitura de km mantendo o lançamento original e explicando o engano, anulação com justificativa mantendo a evidência e preservação do contexto da época em que a decisão foi tomada).</td>
+      <td>
+        1) Criar as tabelas de eventos append-only <code>fleet.maintenance_order_events</code>, <code>fleet.fueling_events</code>, <code>fleet.vehicle_document_events</code> e <code>fleet.fine_events</code> com triggers bloqueando <code>UPDATE</code> e <code>DELETE</code>;<br>
+        2) Suportar encadeamento de retificações (<code>supersedes_id</code>) e anulação justificada (<code>is_annulled</code>, <code>annulment_reason</code>) tanto nas tabelas de eventos quanto nos registros de abastecimentos (<code>fleet.fuelings</code>) e documentos (<code>fleet.vehicle_documents</code>);<br>
+        3) Preservar snapshots congelados da época (<code>vehicle_snapshot</code>, <code>driver_snapshot</code>, <code>trip_snapshot</code>);<br>
+        4) Integrar <code>trip.odometer_readings</code> às ordens de manutenção (<code>maintenance_order_id</code>) e abastecimentos (<code>fueling_id</code>).
+      </td>
+    </tr>
+    <tr>
+      <td><strong>3. Escopo da <code>FROTA-160</code> e Valores de Domínio (<code>UPPER_SNAKE_CASE</code>)</strong></td>
+      <td>Alinhamento de escopo com as tarefas de infraestrutura anteriores (<code>157</code>, <code>158</code>, <code>159</code>) e padronização de enums no PostgreSQL 18.</td>
+      <td>Entregar os 4 pares de migrations transacionais (<code>202610280009</code> a <code>202610280012</code> com <code>.down.sql</code>) e os testes automatizados de integração no PostgreSQL 18 (<code>IT27</code> a <code>IT31</code>), mantendo todos os status e tipos em inglês <code>UPPER_SNAKE_CASE</code> e deixando Repositories, Services e Controllers para as subtarefas de API (<code>FROTA-59</code>, <code>FROTA-64</code>, <code>FROTA-69</code> e <code>FROTA-73</code>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>1.4 Delimitação de Escopo (YAGNI)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Entra no Escopo Desta Entrega (<code>FROTA-160</code>)</th>
+      <th scope="col">Fica Explicitamente Fora do Escopo (YAGNI)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Migration <code>202610280009_create_maintenance_orders.sql</code> (e <code>.down.sql</code>) criando <code>fleet.maintenance_orders</code> e <code>fleet.maintenance_order_events</code> (append-only).</td>
+      <td>Endpoints REST, Services e Controllers de manutenções (escopo da <code>FROTA-59</code> — US07) e tela React (<code>FROTA-60</code>).</td>
+    </tr>
+    <tr>
+      <td>Migration <code>202610280010_create_fuelings.sql</code> (e <code>.down.sql</code>) criando <code>fleet.fuelings</code>, <code>fleet.fueling_events</code> (append-only) e integrando <code>trip.odometer_readings</code> com <code>maintenance_order_id</code> e <code>fueling_id</code>.</td>
+      <td>Endpoints REST, Services e Controllers de abastecimentos (escopo da <code>FROTA-64</code> — US08), tela React (<code>FROTA-66</code>) e integração externa com cartão Prime.</td>
+    </tr>
+    <tr>
+      <td>Migration <code>202610280011_create_vehicle_documents.sql</code> (e <code>.down.sql</code>) criando <code>fleet.vehicle_documents</code> e <code>fleet.vehicle_document_events</code> (append-only).</td>
+      <td>Endpoints REST, Services e Controllers de documentos e alertas de vencimento (escopo da <code>FROTA-69</code> — US09) e tela React (<code>FROTA-70</code>).</td>
+    </tr>
+    <tr>
+      <td>Migration <code>202610280012_create_fines.sql</code> (e <code>.down.sql</code>) criando <code>fleet.fines</code> e <code>fleet.fine_events</code> (append-only).</td>
+      <td>Endpoints REST, Services e Controllers de multas (escopo da <code>FROTA-73</code> — US10) e tela React (<code>FROTA-74</code>).</td>
+    </tr>
+    <tr>
+      <td>Testes automatizados de integração em <code>backend/tests/database.integration.test.ts</code> (<code>IT27</code> a <code>IT31</code>) validando constraints, índices, imutabilidade append-only, retificações, snapshots e rollbacks <code>.down.sql</code>.</td>
+      <td>Dashboards gerenciais e exportadores de relatórios (escopo do E06 — US21 e US22).</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+
+<h3>2.1 Requisitos Funcionais (RF)</h3>
+<ul>
+  <li><strong>RF01 (Ordens de Manutenção e Histórico — <code>FROTA-58</code>):</strong>
+    <ul>
+      <li>Criar <code>fleet.maintenance_orders</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles(id) ON DELETE RESTRICT</code>, <code>type TEXT NOT NULL CHECK (type IN ('PREVENTIVE', 'CORRECTIVE'))</code>, <code>description TEXT NOT NULL CHECK (btrim(description) &lt;&gt; '')</code>, <code>blocks_vehicle BOOLEAN NOT NULL DEFAULT false</code>, <code>status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PROGRESS', 'DONE', 'CANCELED'))</code>, <code>odometer_km INTEGER CHECK (odometer_km IS NULL OR odometer_km &gt;= 0)</code>, <code>cost NUMERIC(12, 2) CHECK (cost IS NULL OR cost &gt;= 0)</code>, <code>workshop TEXT CHECK (workshop IS NULL OR btrim(workshop) &lt;&gt; '')</code>, <code>opened_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()</code>, <code>closed_at TIMESTAMPTZ</code>, <code>cancellation_reason TEXT CHECK (cancellation_reason IS NULL OR btrim(cancellation_reason) &lt;&gt; '')</code>, <code>notes TEXT CHECK (notes IS NULL OR btrim(notes) &lt;&gt; '')</code>, <code>created_by BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT</code>, <code>closed_by BIGINT REFERENCES auth.users(id) ON DELETE RESTRICT</code>, <code>vehicle_snapshot JSONB</code>, <code>revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0)</code>, <code>created_at TIMESTAMPTZ</code> e <code>updated_at TIMESTAMPTZ</code>;</li>
+      <li>Impor as constraints declarativas <code>fleet_maintenance_orders_period_valid CHECK (closed_at IS NULL OR closed_at &gt;= opened_at)</code> e <code>fleet_maintenance_orders_cancellation_requires_reason CHECK (status &lt;&gt; 'CANCELED' OR (cancellation_reason IS NOT NULL AND btrim(cancellation_reason) &lt;&gt; ''))</code>;</li>
+      <li>Criar os índices <code>fleet_maintenance_orders_by_vehicle ON fleet.maintenance_orders (vehicle_id, opened_at DESC, id DESC)</code> e <code>fleet_maintenance_orders_by_status_opened ON fleet.maintenance_orders (status, opened_at DESC, id DESC)</code>;</li>
+      <li>Criar a tabela histórica imutável <code>fleet.maintenance_order_events</code> com suporte às 5 perguntas obrigatórias, encadeamento de retificações (<code>supersedes_id</code>), anulação justificada (<code>is_annulled</code>) e trigger <code>fleet_maintenance_order_events_append_only</code> bloqueando <code>UPDATE</code> e <code>DELETE</code>.</li>
+    </ul>
+  </li>
+  <li><strong>RF02 (Abastecimentos, Retificações e Hodômetro — <code>FROTA-63</code>):</strong>
+    <ul>
+      <li>Criar <code>fleet.fuelings</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles(id) ON DELETE RESTRICT</code>, <code>driver_id BIGINT REFERENCES fleet.drivers(id) ON DELETE RESTRICT</code>, <code>fueled_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()</code>, <code>fuel_type TEXT NOT NULL CHECK (fuel_type IN ('GASOLINE', 'ETHANOL', 'DIESEL', 'DIESEL_S10', 'GNV', 'FLEX', 'OTHER'))</code>, <code>liters NUMERIC(10, 3) NOT NULL CHECK (liters &gt; 0)</code>, <code>total_value NUMERIC(12, 2) NOT NULL CHECK (total_value &gt; 0)</code>, <code>odometer_km INTEGER NOT NULL CHECK (odometer_km &gt;= 0)</code>, <code>station TEXT CHECK (station IS NULL OR btrim(station) &lt;&gt; '')</code>, <code>notes TEXT CHECK (notes IS NULL OR btrim(notes) &lt;&gt; '')</code>, <code>reported_by TEXT NOT NULL DEFAULT 'Registro Operacional' CHECK (btrim(reported_by) &lt;&gt; '')</code>, <code>registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()</code>, <code>created_by BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT</code>, <code>actor_snapshot JSONB</code>, <code>reason TEXT CHECK (reason IS NULL OR btrim(reason) &lt;&gt; '')</code>, <code>evidence_description TEXT CHECK (evidence_description IS NULL OR btrim(evidence_description) &lt;&gt; '')</code>, <code>attachment_url TEXT CHECK (attachment_url IS NULL OR btrim(attachment_url) &lt;&gt; '')</code>, <code>supersedes_id BIGINT REFERENCES fleet.fuelings(id) ON DELETE RESTRICT</code>, <code>is_annulled BOOLEAN NOT NULL DEFAULT false</code>, <code>annulment_reason TEXT CHECK (annulment_reason IS NULL OR btrim(annulment_reason) &lt;&gt; '')</code>, <code>vehicle_snapshot JSONB</code>, <code>driver_snapshot JSONB</code>, <code>revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0)</code>, <code>created_at TIMESTAMPTZ</code> e <code>updated_at TIMESTAMPTZ</code>;</li>
+      <li>Impor as constraints <code>fleet_fuelings_no_self_supersede CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id)</code> e <code>fleet_fuelings_annulment_requires_reason CHECK (is_annulled = false OR (annulment_reason IS NOT NULL AND btrim(annulment_reason) &lt;&gt; ''))</code>;</li>
+      <li>Criar os índices <code>fleet_fuelings_by_vehicle ON fleet.fuelings (vehicle_id, fueled_at DESC, id DESC)</code>, <code>fleet_fuelings_by_driver ON fleet.fuelings (driver_id, fueled_at DESC, id DESC) WHERE driver_id IS NOT NULL</code> e <code>fleet_fuelings_by_supersedes ON fleet.fuelings (supersedes_id) WHERE supersedes_id IS NOT NULL</code>;</li>
+      <li>Criar a tabela histórica imutável <code>fleet.fueling_events</code> (append-only via trigger <code>fleet_fueling_events_append_only</code>);</li>
+      <li>Evoluir <code>trip.odometer_readings</code> adicionando <code>maintenance_order_id BIGINT REFERENCES fleet.maintenance_orders(id) ON DELETE RESTRICT</code> e <code>fueling_id BIGINT REFERENCES fleet.fuelings(id) ON DELETE RESTRICT</code>, expandindo a constraint de <code>reading_type</code> para <code>('START', 'END', 'CHECK', 'FUELING', 'MAINTENANCE')</code> e criando os índices parciais correspondentes.</li>
+    </ul>
+  </li>
+  <li><strong>RF03 (Documentos dos Veículos e Vencimentos — <code>FROTA-68</code>):</strong>
+    <ul>
+      <li>Criar <code>fleet.vehicle_documents</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles(id) ON DELETE RESTRICT</code>, <code>document_type TEXT NOT NULL CHECK (document_type IN ('CRLV', 'LICENSING', 'IPVA', 'INSURANCE', 'LEASE_CONTRACT', 'OTHER'))</code>, <code>document_number TEXT CHECK (document_number IS NULL OR btrim(document_number) &lt;&gt; '')</code>, <code>issued_at DATE</code>, <code>expires_at DATE NOT NULL</code>, <code>notes TEXT CHECK (notes IS NULL OR btrim(notes) &lt;&gt; '')</code>, <code>supersedes_id BIGINT REFERENCES fleet.vehicle_documents(id) ON DELETE RESTRICT</code>, <code>is_annulled BOOLEAN NOT NULL DEFAULT false</code>, <code>annulment_reason TEXT CHECK (annulment_reason IS NULL OR btrim(annulment_reason) &lt;&gt; '')</code>, <code>created_by BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT</code>, <code>vehicle_snapshot JSONB</code>, <code>revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0)</code>, <code>created_at TIMESTAMPTZ</code> e <code>updated_at TIMESTAMPTZ</code>;</li>
+      <li>Impor as constraints <code>fleet_vehicle_documents_dates_valid CHECK (issued_at IS NULL OR expires_at &gt;= issued_at)</code>, <code>fleet_vehicle_documents_no_self_supersede CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id)</code> e <code>fleet_vehicle_documents_annulment_requires_reason CHECK (is_annulled = false OR (annulment_reason IS NOT NULL AND btrim(annulment_reason) &lt;&gt; ''))</code>;</li>
+      <li>Criar os índices <code>fleet_vehicle_documents_by_expiration ON fleet.vehicle_documents (expires_at ASC, id ASC) WHERE is_annulled = false</code> e <code>fleet_vehicle_documents_by_vehicle ON fleet.vehicle_documents (vehicle_id, expires_at DESC, id DESC)</code>;</li>
+      <li>Criar a tabela histórica imutável <code>fleet.vehicle_document_events</code> (append-only via trigger <code>fleet_vehicle_document_events_append_only</code>).</li>
+    </ul>
+  </li>
+  <li><strong>RF04 (Multas e Infrações — <code>FROTA-72</code>):</strong>
+    <ul>
+      <li>Criar <code>fleet.fines</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles(id) ON DELETE RESTRICT</code>, <code>driver_id BIGINT REFERENCES fleet.drivers(id) ON DELETE RESTRICT</code>, <code>trip_id BIGINT REFERENCES trip.trips(id) ON DELETE RESTRICT</code>, <code>svo_execution_order_id BIGINT REFERENCES svo.execution_orders(id) ON DELETE RESTRICT</code>, <code>infraction_at TIMESTAMPTZ NOT NULL</code>, <code>infraction_code TEXT NOT NULL CHECK (btrim(infraction_code) &lt;&gt; '')</code>, <code>description TEXT NOT NULL CHECK (btrim(description) &lt;&gt; '')</code>, <code>location TEXT CHECK (location IS NULL OR btrim(location) &lt;&gt; '')</code>, <code>amount NUMERIC(12, 2) NOT NULL CHECK (amount &gt;= 0)</code>, <code>due_at DATE</code>, <code>paid_at TIMESTAMPTZ</code>, <code>status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PAID', 'CONTESTED', 'CANCELED'))</code>, <code>cancellation_reason TEXT CHECK (cancellation_reason IS NULL OR btrim(cancellation_reason) &lt;&gt; '')</code>, <code>notes TEXT CHECK (notes IS NULL OR btrim(notes) &lt;&gt; '')</code>, <code>created_by BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT</code>, <code>vehicle_snapshot JSONB</code>, <code>driver_snapshot JSONB</code>, <code>trip_snapshot JSONB</code>, <code>revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0)</code>, <code>created_at TIMESTAMPTZ</code> e <code>updated_at TIMESTAMPTZ</code>;</li>
+      <li>Impor a constraint declarativa <code>fleet_fines_cancellation_requires_reason CHECK (status &lt;&gt; 'CANCELED' OR (cancellation_reason IS NOT NULL AND btrim(cancellation_reason) &lt;&gt; ''))</code>;</li>
+      <li>Criar os índices <code>fleet_fines_by_vehicle ON fleet.fines (vehicle_id, infraction_at DESC, id DESC)</code>, <code>fleet_fines_by_driver ON fleet.fines (driver_id, infraction_at DESC, id DESC) WHERE driver_id IS NOT NULL</code>, <code>fleet_fines_by_trip ON fleet.fines (trip_id) WHERE trip_id IS NOT NULL</code> e <code>fleet_fines_by_status_due ON fleet.fines (status, due_at ASC, id ASC)</code>;</li>
+      <li>Criar a tabela histórica imutável <code>fleet.fine_events</code> (append-only via trigger <code>fleet_fine_events_append_only</code>).</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>2.2 Cenários de Negócio e Casos de Borda (Dado / Quando / Então)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Cenário</th>
+      <th scope="col">Dado (Contexto)</th>
+      <th scope="col">Quando (Ação)</th>
+      <th scope="col">Então (Resultado Esperado no Banco)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>CN01</strong></td>
+      <td>Ordem de manutenção com custo negativo, datas invertidas ou cancelamento sem motivo (<code>FROTA-58</code>)</td>
+      <td>Um veículo cadastrado em <code>fleet.vehicles</code></td>
+      <td>Tenta-se inserir ou atualizar em <code>fleet.maintenance_orders</code> um registro com <code>cost &lt; 0</code>, <code>closed_at &lt; opened_at</code> ou <code>status = 'CANCELED'</code> sem <code>cancellation_reason</code></td>
+      <td>O PostgreSQL 18 rejeita a operação com violação de constraint <code>CHECK</code> (<code>SQLSTATE 23514</code>).</td>
+    </tr>
+    <tr>
+      <td><strong>CN02</strong></td>
+      <td>Abastecimento com valores inválidos, retificação preservando o lançamento original e anulação justificada (<code>FROTA-63</code>)</td>
+      <td>Um abastecimento lançado com 52.000 km por informação telefônica do motorista e depois corrigido para 51.200 km mediante foto do painel/cupom fiscal</td>
+      <td>Tenta-se gravar <code>liters &lt;= 0</code>, <code>total_value &lt;= 0</code> ou <code>odometer_km &lt; 0</code>; ou grava-se um novo registro retificador com <code>supersedes_id</code> apontando para o original (e em <code>trip.odometer_readings</code> com <code>fueling_id</code>)</td>
+      <td>Valores inválidos falham com <code>SQLSTATE 23514</code>; na retificação, tanto o lançamento original (52.000 km) quanto o retificador (51.200 km) permanecem consultáveis e auditáveis sem apagar o passado; anular um registro indevido sem <code>annulment_reason</code> falha com <code>23514</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>CN03</strong></td>
+      <td>Documento do veículo com vencimento anterior à emissão e encadeamento de renovação (<code>FROTA-68</code>)</td>
+      <td>Um CRLV ou seguro do veículo em <code>fleet.vehicle_documents</code></td>
+      <td>Tenta-se inserir documento com <code>expires_at &lt; issued_at</code>; ou cadastra-se a renovação anual apontando <code>supersedes_id</code> para o documento do exercício anterior</td>
+      <td>Datas invertidas falham com <code>SQLSTATE 23514</code>; a renovação preserva o documento anterior no histórico do veículo e registra o evento em <code>fleet.vehicle_document_events</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>CN04</strong></td>
+      <td>Multa vinculada ao veículo, identificação posterior de motorista/viagem e preservação do contexto da época (<code>FROTA-72</code>)</td>
+      <td>Uma multa registrada inicialmente apenas com <code>vehicle_id</code> (<code>driver_id = NULL</code>) e <code>vehicle_snapshot</code> congelado; posteriormente identifica-se o motorista da viagem daquele horário</td>
+      <td>Atualiza-se <code>driver_id</code>, <code>trip_id</code> e <code>driver_snapshot</code> registrando <code>DRIVER_IDENTIFIED</code> em <code>fleet.fine_events</code>; ou tenta-se inserir <code>amount &lt; 0</code></td>
+      <td>Valor negativo falha com <code>SQLSTATE 23514</code>; a identificação do motorista fica registrada com quem informou, quem cadastrou, motivo e evidência, e uma mudança posterior no cadastro do motorista ou veículo não altera os snapshots da época da infração.</td>
+    </tr>
+    <tr>
+      <td><strong>CN05</strong></td>
+      <td>Imutabilidade estrita de todas as tabelas de eventos do controle operacional</td>
+      <td>Eventos gravados em <code>fleet.maintenance_order_events</code>, <code>fleet.fueling_events</code>, <code>fleet.vehicle_document_events</code> e <code>fleet.fine_events</code></td>
+      <td>Qualquer comando <code>UPDATE</code> ou <code>DELETE</code> é executado diretamente sobre qualquer uma dessas 4 tabelas</td>
+      <td>As triggers <code>BEFORE UPDATE OR DELETE</code> abortam imediatamente a operação com exceção explícita (<code>... is append-only</code>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Ação</th>
+      <th scope="col">Responsabilidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280009_create_maintenance_orders.sql</code></td>
+      <td>Criar</td>
+      <td>Cria <code>fleet.maintenance_orders</code>, constraints de período/custo/cancelamento, índices por veículo e status e a tabela histórica imutável <code>fleet.maintenance_order_events</code> (<code>FROTA-58</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280009_create_maintenance_orders.down.sql</code></td>
+      <td>Criar</td>
+      <td>Reverte <code>fleet.maintenance_order_events</code>, sua função de trigger e <code>fleet.maintenance_orders</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280010_create_fuelings.sql</code></td>
+      <td>Criar</td>
+      <td>Cria <code>fleet.fuelings</code>, constraints de volume/valor/hodômetro/retificação/anulação, índices por veículo e motorista, a tabela histórica imutável <code>fleet.fueling_events</code> e integra <code>trip.odometer_readings</code> com <code>maintenance_order_id</code> e <code>fueling_id</code> (<code>FROTA-63</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280010_create_fuelings.down.sql</code></td>
+      <td>Criar</td>
+      <td>Remove os vínculos de manutenção e abastecimento de <code>trip.odometer_readings</code> e reverte <code>fleet.fueling_events</code>, sua função de trigger e <code>fleet.fuelings</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280011_create_vehicle_documents.sql</code></td>
+      <td>Criar</td>
+      <td>Cria <code>fleet.vehicle_documents</code>, constraints de datas/renovação/anulação, índices por vencimento e veículo e a tabela histórica imutável <code>fleet.vehicle_document_events</code> (<code>FROTA-68</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280011_create_vehicle_documents.down.sql</code></td>
+      <td>Criar</td>
+      <td>Reverte <code>fleet.vehicle_document_events</code>, sua função de trigger e <code>fleet.vehicle_documents</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280012_create_fines.sql</code></td>
+      <td>Criar</td>
+      <td>Cria <code>fleet.fines</code> (com FKs para veículo, motorista, viagem e ordem SVO), constraints de valor e cancelamento, índices por veículo/motorista/status e a tabela histórica imutável <code>fleet.fine_events</code> (<code>FROTA-72</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280012_create_fines.down.sql</code></td>
+      <td>Criar</td>
+      <td>Reverte <code>fleet.fine_events</code>, sua função de trigger e <code>fleet.fines</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/database.integration.test.ts</code></td>
+      <td>Modificar</td>
+      <td>Adiciona os testes de integração <code>IT27</code> a <code>IT31</code> validando <code>fleet.maintenance_orders</code>, <code>fleet.fuelings</code>, <code>fleet.vehicle_documents</code>, <code>fleet.fines</code>, eventos append-only, retificações, snapshots e rollbacks <code>.down.sql</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Arquivos de referência no projeto (padrão a seguir)</h3>
+<ul>
+  <li><strong>Modelagem e Concorrência no PostgreSQL 18:</strong> <code>.agents/skills/principios/references/dados.md</code>, <code>.agents/skills/principios/references/consultas.md</code> e <code>docs/manuais/padroes-projeto.md</code>.</li>
+  <li><strong>Migrations anteriores da sequência E00:</strong> <code>202610210001_create_vehicles.sql</code> e <code>202610280001_alter_vehicles_add_details.sql</code> a <code>202610280008_create_svo_execution_orders.sql</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+
+<h3>4.1 Migration 1 — Ordens de Manutenção e Histórico Imutável (<code>FROTA-58</code>)</h3>
+<p><strong>Arquivo:</strong> <code>backend/src/database/migrations/202610280009_create_maintenance_orders.sql</code></p>
+<pre><code>BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS fleet;
+
+CREATE TABLE fleet.maintenance_orders (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles (id) ON DELETE RESTRICT,
+  type TEXT NOT NULL
+    CHECK (type IN ('PREVENTIVE', 'CORRECTIVE')),
+  description TEXT NOT NULL CHECK (btrim(description) &lt;&gt; ''),
+  blocks_vehicle BOOLEAN NOT NULL DEFAULT false,
+  status TEXT NOT NULL DEFAULT 'OPEN'
+    CHECK (status IN ('OPEN', 'IN_PROGRESS', 'DONE', 'CANCELED')),
+  odometer_km INTEGER CHECK (odometer_km IS NULL OR odometer_km &gt;= 0),
+  cost NUMERIC(12, 2) CHECK (cost IS NULL OR cost &gt;= 0),
+  workshop TEXT CHECK (workshop IS NULL OR btrim(workshop) &lt;&gt; ''),
+  opened_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  closed_at TIMESTAMPTZ,
+  cancellation_reason TEXT CHECK (cancellation_reason IS NULL OR btrim(cancellation_reason) &lt;&gt; ''),
+  notes TEXT CHECK (notes IS NULL OR btrim(notes) &lt;&gt; ''),
+  created_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  closed_by BIGINT REFERENCES auth.users (id) ON DELETE RESTRICT,
+  vehicle_snapshot JSONB,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_maintenance_orders_period_valid
+    CHECK (closed_at IS NULL OR closed_at &gt;= opened_at),
+  CONSTRAINT fleet_maintenance_orders_cancellation_requires_reason
+    CHECK (status &lt;&gt; 'CANCELED' OR (cancellation_reason IS NOT NULL AND btrim(cancellation_reason) &lt;&gt; ''))
+);
+
+CREATE INDEX fleet_maintenance_orders_by_vehicle
+  ON fleet.maintenance_orders (vehicle_id, opened_at DESC, id DESC);
+
+CREATE INDEX fleet_maintenance_orders_by_status_opened
+  ON fleet.maintenance_orders (status, opened_at DESC, id DESC);
+
+CREATE TABLE fleet.maintenance_order_events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  maintenance_order_id BIGINT NOT NULL REFERENCES fleet.maintenance_orders (id) ON DELETE RESTRICT,
+  event_type TEXT NOT NULL
+    CHECK (event_type IN ('OPENED', 'STARTED', 'UPDATED', 'CLOSED', 'REOPENED', 'CANCELED', 'RECTIFIED', 'ANNULLED')),
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  reported_by TEXT NOT NULL CHECK (btrim(reported_by) &lt;&gt; ''),
+  registered_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  actor_snapshot JSONB NOT NULL,
+  reason TEXT NOT NULL CHECK (btrim(reason) &lt;&gt; ''),
+  evidence_description TEXT CHECK (evidence_description IS NULL OR btrim(evidence_description) &lt;&gt; ''),
+  attachment_url TEXT CHECK (attachment_url IS NULL OR btrim(attachment_url) &lt;&gt; ''),
+  supersedes_id BIGINT REFERENCES fleet.maintenance_order_events (id) ON DELETE RESTRICT,
+  is_annulled BOOLEAN NOT NULL DEFAULT false,
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_maintenance_order_events_no_self_supersede
+    CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id)
+);
+
+CREATE INDEX fleet_maintenance_order_events_by_order
+  ON fleet.maintenance_order_events (maintenance_order_id, occurred_at DESC, id DESC);
+
+CREATE INDEX fleet_maintenance_order_events_by_supersedes
+  ON fleet.maintenance_order_events (supersedes_id)
+  WHERE supersedes_id IS NOT NULL;
+
+CREATE FUNCTION fleet.prevent_maintenance_order_event_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'fleet.maintenance_order_events is append-only';
+END;
+$$;
+
+CREATE TRIGGER fleet_maintenance_order_events_append_only
+  BEFORE UPDATE OR DELETE ON fleet.maintenance_order_events
+  FOR EACH ROW EXECUTE FUNCTION fleet.prevent_maintenance_order_event_mutation();
+
+COMMIT;</code></pre>
+
+<p><strong>Rollback:</strong> <code>backend/src/database/migrations/202610280009_create_maintenance_orders.down.sql</code></p>
+<pre><code>BEGIN;
+
+DROP TABLE IF EXISTS fleet.maintenance_order_events;
+DROP FUNCTION IF EXISTS fleet.prevent_maintenance_order_event_mutation();
+DROP TABLE IF EXISTS fleet.maintenance_orders;
+
+COMMIT;</code></pre>
+
+<h3>4.2 Migration 2 — Abastecimentos, Retificações e Hodômetro (<code>FROTA-63</code>)</h3>
+<p><strong>Arquivo:</strong> <code>backend/src/database/migrations/202610280010_create_fuelings.sql</code></p>
+<pre><code>BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS fleet;
+
+CREATE TABLE fleet.fuelings (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles (id) ON DELETE RESTRICT,
+  driver_id BIGINT REFERENCES fleet.drivers (id) ON DELETE RESTRICT,
+  fueled_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  fuel_type TEXT NOT NULL
+    CHECK (fuel_type IN ('GASOLINE', 'ETHANOL', 'DIESEL', 'DIESEL_S10', 'GNV', 'FLEX', 'OTHER')),
+  liters NUMERIC(10, 3) NOT NULL CHECK (liters &gt; 0),
+  total_value NUMERIC(12, 2) NOT NULL CHECK (total_value &gt; 0),
+  odometer_km INTEGER NOT NULL CHECK (odometer_km &gt;= 0),
+  station TEXT CHECK (station IS NULL OR btrim(station) &lt;&gt; ''),
+  notes TEXT CHECK (notes IS NULL OR btrim(notes) &lt;&gt; ''),
+  reported_by TEXT NOT NULL DEFAULT 'Registro Operacional' CHECK (btrim(reported_by) &lt;&gt; ''),
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  created_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  actor_snapshot JSONB,
+  reason TEXT CHECK (reason IS NULL OR btrim(reason) &lt;&gt; ''),
+  evidence_description TEXT CHECK (evidence_description IS NULL OR btrim(evidence_description) &lt;&gt; ''),
+  attachment_url TEXT CHECK (attachment_url IS NULL OR btrim(attachment_url) &lt;&gt; ''),
+  supersedes_id BIGINT REFERENCES fleet.fuelings (id) ON DELETE RESTRICT,
+  is_annulled BOOLEAN NOT NULL DEFAULT false,
+  annulment_reason TEXT CHECK (annulment_reason IS NULL OR btrim(annulment_reason) &lt;&gt; ''),
+  vehicle_snapshot JSONB,
+  driver_snapshot JSONB,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_fuelings_no_self_supersede
+    CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id),
+  CONSTRAINT fleet_fuelings_annulment_requires_reason
+    CHECK (is_annulled = false OR (annulment_reason IS NOT NULL AND btrim(annulment_reason) &lt;&gt; ''))
+);
+
+CREATE INDEX fleet_fuelings_by_vehicle
+  ON fleet.fuelings (vehicle_id, fueled_at DESC, id DESC);
+
+CREATE INDEX fleet_fuelings_by_driver
+  ON fleet.fuelings (driver_id, fueled_at DESC, id DESC)
+  WHERE driver_id IS NOT NULL;
+
+CREATE INDEX fleet_fuelings_by_supersedes
+  ON fleet.fuelings (supersedes_id)
+  WHERE supersedes_id IS NOT NULL;
+
+CREATE TABLE fleet.fueling_events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  fueling_id BIGINT NOT NULL REFERENCES fleet.fuelings (id) ON DELETE RESTRICT,
+  event_type TEXT NOT NULL
+    CHECK (event_type IN ('RECORDED', 'UPDATED', 'RECTIFIED', 'ANNULLED')),
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  reported_by TEXT NOT NULL CHECK (btrim(reported_by) &lt;&gt; ''),
+  registered_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  actor_snapshot JSONB NOT NULL,
+  reason TEXT NOT NULL CHECK (btrim(reason) &lt;&gt; ''),
+  evidence_description TEXT CHECK (evidence_description IS NULL OR btrim(evidence_description) &lt;&gt; ''),
+  attachment_url TEXT CHECK (attachment_url IS NULL OR btrim(attachment_url) &lt;&gt; ''),
+  supersedes_id BIGINT REFERENCES fleet.fueling_events (id) ON DELETE RESTRICT,
+  is_annulled BOOLEAN NOT NULL DEFAULT false,
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_fueling_events_no_self_supersede
+    CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id)
+);
+
+CREATE INDEX fleet_fueling_events_by_fueling
+  ON fleet.fueling_events (fueling_id, occurred_at DESC, id DESC);
+
+CREATE INDEX fleet_fueling_events_by_supersedes
+  ON fleet.fueling_events (supersedes_id)
+  WHERE supersedes_id IS NOT NULL;
+
+CREATE FUNCTION fleet.prevent_fueling_event_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'fleet.fueling_events is append-only';
+END;
+$$;
+
+CREATE TRIGGER fleet_fueling_events_append_only
+  BEFORE UPDATE OR DELETE ON fleet.fueling_events
+  FOR EACH ROW EXECUTE FUNCTION fleet.prevent_fueling_event_mutation();
+
+-- Integra leituras de hodômetro do veículo também às manutenções e abastecimentos
+ALTER TABLE trip.odometer_readings
+  ADD COLUMN IF NOT EXISTS maintenance_order_id BIGINT REFERENCES fleet.maintenance_orders (id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS fueling_id BIGINT REFERENCES fleet.fuelings (id) ON DELETE RESTRICT;
+
+ALTER TABLE trip.odometer_readings
+  DROP CONSTRAINT IF EXISTS odometer_readings_reading_type_check;
+
+ALTER TABLE trip.odometer_readings
+  ADD CONSTRAINT odometer_readings_reading_type_check
+    CHECK (reading_type IN ('START', 'END', 'CHECK', 'FUELING', 'MAINTENANCE'));
+
+CREATE INDEX IF NOT EXISTS trip_odometer_readings_by_maintenance
+  ON trip.odometer_readings (maintenance_order_id, occurred_at DESC, id DESC)
+  WHERE maintenance_order_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS trip_odometer_readings_by_fueling
+  ON trip.odometer_readings (fueling_id, occurred_at DESC, id DESC)
+  WHERE fueling_id IS NOT NULL;
+
+COMMIT;</code></pre>
+
+<p><strong>Rollback:</strong> <code>backend/src/database/migrations/202610280010_create_fuelings.down.sql</code></p>
+<pre><code>BEGIN;
+
+DROP INDEX IF EXISTS trip.trip_odometer_readings_by_fueling;
+DROP INDEX IF EXISTS trip.trip_odometer_readings_by_maintenance;
+
+DELETE FROM trip.odometer_readings
+ WHERE reading_type IN ('FUELING', 'MAINTENANCE');
+
+ALTER TABLE trip.odometer_readings
+  DROP CONSTRAINT IF EXISTS odometer_readings_reading_type_check;
+
+ALTER TABLE trip.odometer_readings
+  ADD CONSTRAINT odometer_readings_reading_type_check
+    CHECK (reading_type IN ('START', 'END', 'CHECK'));
+
+ALTER TABLE trip.odometer_readings
+  DROP COLUMN IF EXISTS fueling_id,
+  DROP COLUMN IF EXISTS maintenance_order_id;
+
+DROP TABLE IF EXISTS fleet.fueling_events;
+DROP FUNCTION IF EXISTS fleet.prevent_fueling_event_mutation();
+DROP TABLE IF EXISTS fleet.fuelings;
+
+COMMIT;</code></pre>
+
+<h3>4.3 Migration 3 — Documentos dos Veículos, Vencimentos e Histórico (<code>FROTA-68</code>)</h3>
+<p><strong>Arquivo:</strong> <code>backend/src/database/migrations/202610280011_create_vehicle_documents.sql</code></p>
+<pre><code>BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS fleet;
+
+CREATE TABLE fleet.vehicle_documents (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles (id) ON DELETE RESTRICT,
+  document_type TEXT NOT NULL
+    CHECK (document_type IN ('CRLV', 'LICENSING', 'IPVA', 'INSURANCE', 'LEASE_CONTRACT', 'OTHER')),
+  document_number TEXT CHECK (document_number IS NULL OR btrim(document_number) &lt;&gt; ''),
+  issued_at DATE,
+  expires_at DATE NOT NULL,
+  notes TEXT CHECK (notes IS NULL OR btrim(notes) &lt;&gt; ''),
+  supersedes_id BIGINT REFERENCES fleet.vehicle_documents (id) ON DELETE RESTRICT,
+  is_annulled BOOLEAN NOT NULL DEFAULT false,
+  annulment_reason TEXT CHECK (annulment_reason IS NULL OR btrim(annulment_reason) &lt;&gt; ''),
+  created_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  vehicle_snapshot JSONB,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_vehicle_documents_dates_valid
+    CHECK (issued_at IS NULL OR expires_at &gt;= issued_at),
+  CONSTRAINT fleet_vehicle_documents_no_self_supersede
+    CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id),
+  CONSTRAINT fleet_vehicle_documents_annulment_requires_reason
+    CHECK (is_annulled = false OR (annulment_reason IS NOT NULL AND btrim(annulment_reason) &lt;&gt; ''))
+);
+
+CREATE INDEX fleet_vehicle_documents_by_expiration
+  ON fleet.vehicle_documents (expires_at ASC, id ASC)
+  WHERE is_annulled = false;
+
+CREATE INDEX fleet_vehicle_documents_by_vehicle
+  ON fleet.vehicle_documents (vehicle_id, expires_at DESC, id DESC);
+
+CREATE INDEX fleet_vehicle_documents_by_supersedes
+  ON fleet.vehicle_documents (supersedes_id)
+  WHERE supersedes_id IS NOT NULL;
+
+CREATE TABLE fleet.vehicle_document_events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  vehicle_document_id BIGINT NOT NULL REFERENCES fleet.vehicle_documents (id) ON DELETE RESTRICT,
+  event_type TEXT NOT NULL
+    CHECK (event_type IN ('REGISTERED', 'RENEWED', 'UPDATED', 'RECTIFIED', 'ANNULLED')),
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  reported_by TEXT NOT NULL CHECK (btrim(reported_by) &lt;&gt; ''),
+  registered_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  actor_snapshot JSONB NOT NULL,
+  reason TEXT NOT NULL CHECK (btrim(reason) &lt;&gt; ''),
+  evidence_description TEXT CHECK (evidence_description IS NULL OR btrim(evidence_description) &lt;&gt; ''),
+  attachment_url TEXT CHECK (attachment_url IS NULL OR btrim(attachment_url) &lt;&gt; ''),
+  supersedes_id BIGINT REFERENCES fleet.vehicle_document_events (id) ON DELETE RESTRICT,
+  is_annulled BOOLEAN NOT NULL DEFAULT false,
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_vehicle_document_events_no_self_supersede
+    CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id)
+);
+
+CREATE INDEX fleet_vehicle_document_events_by_document
+  ON fleet.vehicle_document_events (vehicle_document_id, occurred_at DESC, id DESC);
+
+CREATE INDEX fleet_vehicle_document_events_by_supersedes
+  ON fleet.vehicle_document_events (supersedes_id)
+  WHERE supersedes_id IS NOT NULL;
+
+CREATE FUNCTION fleet.prevent_vehicle_document_event_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'fleet.vehicle_document_events is append-only';
+END;
+$$;
+
+CREATE TRIGGER fleet_vehicle_document_events_append_only
+  BEFORE UPDATE OR DELETE ON fleet.vehicle_document_events
+  FOR EACH ROW EXECUTE FUNCTION fleet.prevent_vehicle_document_event_mutation();
+
+COMMIT;</code></pre>
+
+<p><strong>Rollback:</strong> <code>backend/src/database/migrations/202610280011_create_vehicle_documents.down.sql</code></p>
+<pre><code>BEGIN;
+
+DROP TABLE IF EXISTS fleet.vehicle_document_events;
+DROP FUNCTION IF EXISTS fleet.prevent_vehicle_document_event_mutation();
+DROP TABLE IF EXISTS fleet.vehicle_documents;
+
+COMMIT;</code></pre>
+
+<h3>4.4 Migration 4 — Multas, Infrações e Histórico (<code>FROTA-72</code>)</h3>
+<p><strong>Arquivo:</strong> <code>backend/src/database/migrations/202610280012_create_fines.sql</code></p>
+<pre><code>BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS fleet;
+
+CREATE TABLE fleet.fines (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles (id) ON DELETE RESTRICT,
+  driver_id BIGINT REFERENCES fleet.drivers (id) ON DELETE RESTRICT,
+  trip_id BIGINT REFERENCES trip.trips (id) ON DELETE RESTRICT,
+  svo_execution_order_id BIGINT REFERENCES svo.execution_orders (id) ON DELETE RESTRICT,
+  infraction_at TIMESTAMPTZ NOT NULL,
+  infraction_code TEXT NOT NULL CHECK (btrim(infraction_code) &lt;&gt; ''),
+  description TEXT NOT NULL CHECK (btrim(description) &lt;&gt; ''),
+  location TEXT CHECK (location IS NULL OR btrim(location) &lt;&gt; ''),
+  amount NUMERIC(12, 2) NOT NULL CHECK (amount &gt;= 0),
+  due_at DATE,
+  paid_at TIMESTAMPTZ,
+  status TEXT NOT NULL DEFAULT 'PENDING'
+    CHECK (status IN ('PENDING', 'PAID', 'CONTESTED', 'CANCELED')),
+  cancellation_reason TEXT CHECK (cancellation_reason IS NULL OR btrim(cancellation_reason) &lt;&gt; ''),
+  notes TEXT CHECK (notes IS NULL OR btrim(notes) &lt;&gt; ''),
+  created_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  vehicle_snapshot JSONB,
+  driver_snapshot JSONB,
+  trip_snapshot JSONB,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_fines_cancellation_requires_reason
+    CHECK (status &lt;&gt; 'CANCELED' OR (cancellation_reason IS NOT NULL AND btrim(cancellation_reason) &lt;&gt; ''))
+);
+
+CREATE INDEX fleet_fines_by_vehicle
+  ON fleet.fines (vehicle_id, infraction_at DESC, id DESC);
+
+CREATE INDEX fleet_fines_by_driver
+  ON fleet.fines (driver_id, infraction_at DESC, id DESC)
+  WHERE driver_id IS NOT NULL;
+
+CREATE INDEX fleet_fines_by_trip
+  ON fleet.fines (trip_id)
+  WHERE trip_id IS NOT NULL;
+
+CREATE INDEX fleet_fines_by_status_due
+  ON fleet.fines (status, due_at ASC, id ASC);
+
+CREATE TABLE fleet.fine_events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  fine_id BIGINT NOT NULL REFERENCES fleet.fines (id) ON DELETE RESTRICT,
+  event_type TEXT NOT NULL
+    CHECK (event_type IN (
+      'REGISTERED',
+      'DRIVER_IDENTIFIED',
+      'DRIVER_CHANGED',
+      'CONTESTED',
+      'PAID',
+      'CANCELED',
+      'REOPENED',
+      'UPDATED',
+      'RECTIFIED',
+      'ANNULLED'
+    )),
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  reported_by TEXT NOT NULL CHECK (btrim(reported_by) &lt;&gt; ''),
+  registered_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  actor_snapshot JSONB NOT NULL,
+  reason TEXT NOT NULL CHECK (btrim(reason) &lt;&gt; ''),
+  evidence_description TEXT CHECK (evidence_description IS NULL OR btrim(evidence_description) &lt;&gt; ''),
+  attachment_url TEXT CHECK (attachment_url IS NULL OR btrim(attachment_url) &lt;&gt; ''),
+  supersedes_id BIGINT REFERENCES fleet.fine_events (id) ON DELETE RESTRICT,
+  is_annulled BOOLEAN NOT NULL DEFAULT false,
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT fleet_fine_events_no_self_supersede
+    CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id)
+);
+
+CREATE INDEX fleet_fine_events_by_fine
+  ON fleet.fine_events (fine_id, occurred_at DESC, id DESC);
+
+CREATE INDEX fleet_fine_events_by_supersedes
+  ON fleet.fine_events (supersedes_id)
+  WHERE supersedes_id IS NOT NULL;
+
+CREATE FUNCTION fleet.prevent_fine_event_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'fleet.fine_events is append-only';
+END;
+$$;
+
+CREATE TRIGGER fleet_fine_events_append_only
+  BEFORE UPDATE OR DELETE ON fleet.fine_events
+  FOR EACH ROW EXECUTE FUNCTION fleet.prevent_fine_event_mutation();
+
+COMMIT;</code></pre>
+
+<p><strong>Rollback:</strong> <code>backend/src/database/migrations/202610280012_create_fines.down.sql</code></p>
+<pre><code>BEGIN;
+
+DROP TABLE IF EXISTS fleet.fine_events;
+DROP FUNCTION IF EXISTS fleet.prevent_fine_event_mutation();
+DROP TABLE IF EXISTS fleet.fines;
+
+COMMIT;</code></pre>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<p>
+  <strong>Não se aplica a esta tarefa de infraestrutura de dados:</strong> a <code>FROTA-160</code> entrega a fundação relacional do controle operacional no PostgreSQL 18 (migrations <code>202610280009</code> a <code>202610280012</code> com <code>.down.sql</code>) e os testes automatizados de integração no banco. Os contratos REST, Controllers, Services e Repositories das histórias US07 a US10 serão implementados nas subtarefas dedicadas:
+</p>
+<ul>
+  <li><code>FROTA-59</code>: <code>GET /maintenance-orders</code>, <code>GET /maintenance-orders/:id</code>, <code>POST /maintenance-orders</code>, <code>PUT /maintenance-orders/:id</code> e <code>PATCH /maintenance-orders/:id/close</code>;</li>
+  <li><code>FROTA-64</code>: <code>GET /fuelings</code>, <code>GET /fuelings/:id</code>, <code>POST /fuelings</code> e <code>PUT /fuelings/:id</code>;</li>
+  <li><code>FROTA-69</code>: <code>GET /vehicle-documents</code>, <code>GET /vehicle-documents/expiring</code>, <code>POST /vehicle-documents</code> e <code>PUT /vehicle-documents/:id</code>;</li>
+  <li><code>FROTA-73</code>: <code>GET /fines</code>, <code>GET /fines/:id</code>, <code>POST /fines</code>, <code>PUT /fines/:id</code> e <code>PATCH /fines/:id/status</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p>
+  <strong>Não se aplica a esta tarefa:</strong> entrega estritamente de banco de dados e migrações SQL no backend. As telas correspondentes serão construídas nas subtarefas de frontend <code>FROTA-60</code> (manutenções), <code>FROTA-66</code> (abastecimentos), <code>FROTA-70</code> (documentos e vencimentos) e <code>FROTA-74</code> (multas).
+</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>
+  <em>Nota de escopo:</em> Por tratar-se de tarefa de modelagem de dados e migrações SQL sem telas novas, os critérios abaixo permanecem como referência para as tarefas consumidoras do E05, garantindo-se nesta entrega que as constraints nomeadas (<code>fleet_maintenance_orders_period_valid</code>, <code>fleet_maintenance_orders_cancellation_requires_reason</code>, <code>fleet_fuelings_annulment_requires_reason</code>, <code>fleet_vehicle_documents_dates_valid</code>, <code>fleet_fines_cancellation_requires_reason</code>) suportem mensagens de erro orientadoras e claras.
+</p>
+<ul class="check">
+  <li><input type="checkbox" checked disabled> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Todos os campos usam <code>useId()</code> conectando <code>&lt;label htmlFor&gt;</code> ao <code>&lt;input id&gt;</code>, <code>aria-invalid</code> e mensagem de erro com <code>role="alert"</code>.</li>
+  <li><input type="checkbox" checked disabled> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Operável integralmente via <code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Espaço</code> e <code>Esc</code>, com <code>:focus-visible</code> nítido.</li>
+  <li><input type="checkbox" checked disabled> <strong>Tamanho do Alvo (2.5.8):</strong> Botões e controles interativos possuem área mínima de <strong>44×44px</strong> em telas operacionais.</li>
+  <li><input type="checkbox" checked disabled> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste de texto &gt;= 4.5:1 e status acompanhado de rótulo textual além da cor.</li>
+  <li><input type="checkbox" checked disabled> <strong>Mensagens de Status (4.1.3):</strong> Feedbacks dinâmicos anunciados via <code>role="status"</code> ou <code>aria-live="polite"</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Tabela / Recurso</th>
+      <th scope="col">Perfis com Leitura (nas APIs consumidoras do E05)</th>
+      <th scope="col">Perfis com Escrita (nas APIs consumidoras do E05)</th>
+      <th scope="col">Mecanismo de Preservação Histórica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-tabela">fleet.maintenance_orders</span> / <span class="badge-tabela">fleet.maintenance_order_events</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Snapshot (<code>vehicle_snapshot</code>) + trilha append-only <code>fleet.maintenance_order_events</code> com <code>supersedes_id</code>, <code>is_annulled</code> e vínculo em <code>trip.odometer_readings</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.fuelings</span> / <span class="badge-tabela">fleet.fueling_events</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">MOTORISTA</span> (próprios registros) <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Snapshots (<code>vehicle_snapshot</code>, <code>driver_snapshot</code>) + retificação encadeada (<code>supersedes_id</code>, <code>is_annulled</code>) + trilha append-only <code>fleet.fueling_events</code> + vínculo em <code>trip.odometer_readings</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.vehicle_documents</span> / <span class="badge-tabela">fleet.vehicle_document_events</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Snapshot (<code>vehicle_snapshot</code>) + encadeamento de renovação/retificação (<code>supersedes_id</code>, <code>is_annulled</code>) + trilha append-only <code>fleet.vehicle_document_events</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.fines</span> / <span class="badge-tabela">fleet.fine_events</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">MOTORISTA</span> (próprias multas) <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Snapshots congelados da época (<code>vehicle_snapshot</code>, <code>driver_snapshot</code>, <code>trip_snapshot</code>) + trilha append-only <code>fleet.fine_events</code>.</td>
+    </tr>
+  </tbody>
+</table>
+<p>
+  <strong>Variáveis de ambiente:</strong> Nenhuma nova variável de ambiente é introduzida. O helper <code>backend/tests/helpers/db-test.ts</code> já inclui o schema <code>'fleet'</code> na lista de <code>TRUNCATE</code>.
+</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<h3>9.1 Testes Automatizados de Integração no PostgreSQL 18 (<code>backend/tests/database.integration.test.ts</code>)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Cenário de Teste</th>
+      <th scope="col">Dados Fictícios (LGPD)</th>
+      <th scope="col">Resultado Esperado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>IT27</strong></td>
+      <td>Criação de <code>fleet.maintenance_orders</code>, bloqueio de custo negativo/datas invertidas/cancelamento sem motivo e imutabilidade de <code>fleet.maintenance_order_events</code> (<code>FROTA-58</code>)</td>
+      <td>Gestora fictícia abrindo ordem preventiva/corretiva na viatura fictícia <code>FSP4A10</code>, encerrando com custo <code>R$ 850,00</code> e registrando reabertura excepcional.</td>
+      <td>Inserção sucede com <code>status = 'OPEN'</code>; <code>cost &lt; 0</code>, <code>closed_at &lt; opened_at</code> ou <code>status = 'CANCELED'</code> sem motivo falham com <code>code === '23514'</code>; <code>UPDATE</code> e <code>DELETE</code> em <code>fleet.maintenance_order_events</code> são bloqueados pela trigger append-only.</td>
+    </tr>
+    <tr>
+      <td><strong>IT28</strong></td>
+      <td>Criação de <code>fleet.fuelings</code>, validação de litros/valor/km, retificação encadeada (52.000 km → 51.200 km), integração com <code>trip.odometer_readings</code> e imutabilidade de <code>fleet.fueling_events</code> (<code>FROTA-63</code>)</td>
+      <td>Abastecimento fictício de <code>45,500 L</code> de <code>DIESEL_S10</code> registrado com <code>52.000 km</code> por telefone e corrigido para <code>51.200 km</code> após conferência da foto do cupom/painel.</td>
+      <td><code>liters &lt;= 0</code>, <code>total_value &lt;= 0</code>, <code>odometer_km &lt; 0</code> ou anulação sem <code>annulment_reason</code> falham com <code>23514</code>; o lançamento original e o retificador coexistem com <code>supersedes_id</code> em <code>fleet.fuelings</code> e <code>trip.odometer_readings</code>; <code>UPDATE</code>/<code>DELETE</code> em <code>fleet.fueling_events</code> falha.</td>
+    </tr>
+    <tr>
+      <td><strong>IT29</strong></td>
+      <td>Criação de <code>fleet.vehicle_documents</code>, bloqueio de vencimento anterior à emissão, renovação encadeada e imutabilidade de <code>fleet.vehicle_document_events</code> (<code>FROTA-68</code>)</td>
+      <td>Documento <code>CRLV</code> fictício emitido em <code>2026-01-10</code> com vencimento em <code>2026-12-31</code> e sua renovação do exercício seguinte vinculada via <code>supersedes_id</code>.</td>
+      <td><code>expires_at &lt; issued_at</code> falha com <code>23514</code>; consulta de documentos a vencer usa o índice parcial ignorando documentos anulados; <code>UPDATE</code>/<code>DELETE</code> em <code>fleet.vehicle_document_events</code> é bloqueado.</td>
+    </tr>
+    <tr>
+      <td><strong>IT30</strong></td>
+      <td>Criação de <code>fleet.fines</code>, identificação posterior de motorista/viagem, preservação dos snapshots da época e imutabilidade de <code>fleet.fine_events</code> (<code>FROTA-72</code>)</td>
+      <td>Infração fictícia registrada inicialmente sem motorista e depois associada ao condutor fictício e à viagem correspondente, seguida de mudança cadastral na capacidade da viatura.</td>
+      <td><code>amount &lt; 0</code> ou cancelamento sem motivo falham com <code>23514</code>; o <code>vehicle_snapshot</code> e o <code>driver_snapshot</code> preservam as condições da época da infração; <code>UPDATE</code>/<code>DELETE</code> em <code>fleet.fine_events</code> é bloqueado.</td>
+    </tr>
+    <tr>
+      <td><strong>IT31</strong></td>
+      <td>Rollbacks (<code>.down.sql</code>) das migrations <code>202610280012</code>, <code>202610280011</code>, <code>202610280010</code> e <code>202610280009</code> e reaplicação limpa</td>
+      <td>Execução sequencial dos quatro arquivos <code>.down.sql</code> do controle operacional seguida de <code>migrator.runMigrations()</code>.</td>
+      <td>As 8 tabelas do controle operacional e as colunas adicionadas em <code>trip.odometer_readings</code> são removidas sem erro no rollback e recriadas integralmente na reaplicação.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox" checked disabled> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox" checked disabled> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-160)</code>)</li>
+  <li><input type="checkbox" checked disabled> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox" checked disabled> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox" checked disabled> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox" checked disabled> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox" checked disabled> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox" checked disabled> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox" checked disabled> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox" checked disabled> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivos de referência:</strong> <code>docs/manuais/modulos.md</code>, <code>docs/modulos/MANUTENCOES.html</code>, <code>docs/modulos/FROTA.html</code> e <code>docs/modulos/MOTORISTAS.html</code> (baseados em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica dos módulos <code>MANUTENCOES</code>, <code>FROTA</code> e <code>MOTORISTAS</code> no tocante às tabelas do PostgreSQL 18 (<code>fleet.maintenance_orders</code>, <code>fleet.maintenance_order_events</code>, <code>fleet.fuelings</code>, <code>fleet.fueling_events</code>, <code>fleet.vehicle_documents</code>, <code>fleet.vehicle_document_events</code>, <code>fleet.fines</code> e <code>fleet.fine_events</code>). Atualize a seção de Banco de Dados quando a documentação HTML de cada módulo for gerada com <code>/documentar-modulo</code>.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

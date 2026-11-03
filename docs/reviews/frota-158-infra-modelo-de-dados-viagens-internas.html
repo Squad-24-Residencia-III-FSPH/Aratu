@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-158 — [INFRA] Modelo de dados: Viagens Internas (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-158: [INFRA] Modelo de dados: Viagens Internas</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-158</code> — [INFRA] Modelo de dados: Viagens Internas (Subtarefas: <code>FROTA-77</code> e <code>FROTA-93</code>)</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/infra-modelo-de-dados-viagens</code> (comparada contra <code>develop</code>, incorporando base <code>FROTA-157</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-158-infra-modelo-de-dados.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>VIAGENS</code> (schema <code>trip</code> e alinhamento bi-temporal de <code>fleet</code>)</p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>SOLICITANTE</code>, <code>GESTOR</code>, <code>MOTORISTA</code>, <code>ADMINISTRADOR</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-10-28</p>
+</div>
+
+<!-- PREENCHER_VEREDITO: Use class="verdict-approved" para APROVADO_PARA_REVISAO_HUMANA ou class="verdict-blocked" para BLOQUEADO_POR_PENDENCIAS -->
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA
+</div>
+
+<!-- PREENCHER_CONTADORES: Atualize os contadores de Bloqueantes, Atenção, OK e N/A -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">1</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">11</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">5</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<!-- PREENCHER_REVISAO_SECAO_1: Tabela de arquivos criados/alterados no diff contra develop -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280004_create_trip_requests.sql</code></td>
+      <td>Database / Migration (<code>FROTA-77</code>)</td>
+      <td>Novo (97 linhas)</td>
+      <td>Cria o schema <code>trip</code>, a tabela <code>trip.requests</code> (com FKs para <code>auth.users</code> e <code>fleet.services</code>, snapshots JSONB, constraint exigindo motivo na rejeição e índices), a tabela <code>trip.request_events</code> (append-only via trigger) e adiciona colunas de evidência, <code>supersedes_id</code> e <code>is_annulled</code> em <code>fleet.vehicle_events</code> e <code>fleet.driver_events</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280004_create_trip_requests.down.sql</code></td>
+      <td>Database / Rollback (<code>FROTA-77</code>)</td>
+      <td>Novo (21 linhas)</td>
+      <td>Rollback transacional removendo <code>trip.request_events</code>, função de trigger, <code>trip.requests</code> e as colunas adicionadas em <code>fleet.driver_events</code> e <code>fleet.vehicle_events</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280005_create_trips.sql</code></td>
+      <td>Database / Migration (<code>FROTA-93</code>)</td>
+      <td>Novo (196 linhas)</td>
+      <td>Cria <code>trip.trips</code> (constraints de período e km, snapshots JSONB e 4 índices parciais de conflito de agenda e viagem em andamento), <code>trip.trip_stops</code> (bloqueio de <code>DELETE</code> físico via trigger e motivo obrigatório no cancelamento), <code>trip.odometer_readings</code> (append-only com <code>supersedes_id</code> e <code>is_annulled</code>) e <code>trip.trip_events</code> (append-only).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280005_create_trips.down.sql</code></td>
+      <td>Database / Rollback (<code>FROTA-93</code>)</td>
+      <td>Novo (11 linhas)</td>
+      <td>Rollback transacional removendo <code>trip.trip_events</code>, <code>trip.odometer_readings</code>, <code>trip.trip_stops</code>, funções de trigger e <code>trip.trips</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/database.integration.test.ts</code></td>
+      <td>Testes de Integração (PostgreSQL 18)</td>
+      <td>Modificado (+510 linhas da <code>FROTA-158</code>)</td>
+      <td>Adiciona os testes <code>IT17</code> a <code>IT21</code> cobrindo <code>trip.requests</code>, rejeição sem justificativa (<code>23514</code>), <code>trip.trips</code>, período invertido, km regressivo, unicidade parcial <code>IN_PROGRESS</code> (<code>23505</code>), retificação de hodômetro (<code>supersedes_id</code>), cancelamento de parada sem <code>DELETE</code>, preservação de snapshot histórico, consulta de conflito de agenda e rollbacks <code>.down.sql</code>.</td>
+    </tr>
+    <tr>
+      <td><code>docs/plans/frota-158-infra-modelo-de-dados.html</code></td>
+      <td>Documentação SDD</td>
+      <td>Novo</td>
+      <td>Plano Técnico de Implementação (SDD) autocontido da <code>FROTA-158</code> (subtarefas <code>FROTA-77</code> e <code>FROTA-93</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280001..202610280003*</code>, <code>seed.ts</code>, <code>vehicles.*</code></td>
+      <td>Database / Backend (Base <code>FROTA-157</code>)</td>
+      <td>Herdado da branch <code>feat/infra-modelo-de-dados-frota</code></td>
+      <td>Arquivos da <code>FROTA-157</code> incorporados via merge na branch por serem dependência direta de chave estrangeira (<code>fleet.vehicles</code>, <code>fleet.drivers</code> e <code>fleet.services</code>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<!-- PREENCHER_REVISAO_SECAO_2: Status de cada critério C1 a C17 (badge-ok, badge-warn, badge-block, badge-na) -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>As 4 migrations da <code>FROTA-158</code> somam 325 linhas SQL (abaixo de 400 linhas), porém com os 5 novos testes de integração (<code>IT17</code>–<code>IT21</code>, +510 linhas) e a base herdada da <code>FROTA-157</code> o diff total supera 400 linhas. Justificado pela cobertura exaustiva de banco e dependência direta da <code>FROTA-157</code>.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>Branch <code>feat/infra-modelo-de-dados-viagens</code> segue o padrão Gitflow e os commits da branch respeitam Conventional Commits.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-ok">🟢 OK</span></td><td>100% aderente ao SDD <code>docs/plans/frota-158-infra-modelo-de-dados.html</code> e às subtarefas <code>FROTA-77</code> e <code>FROTA-93</code>, sem criar rotas, controllers ou telas fora do escopo (YAGNI).</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Alterações restritas a <code>backend/src/database/migrations/</code> e <code>backend/tests/</code>; nenhuma regra de negócio vazou para bordas HTTP.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Tarefa exclusiva de infraestrutura e modelagem de dados no PostgreSQL 18; nenhum arquivo de frontend foi tocado.</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero dependências circulares e zero feature flags ou variáveis de ambiente não autorizadas.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Todas as consultas SQL em <code>backend/tests/database.integration.test.ts</code> e nos repositórios utilizam exclusivamente placeholders posicionais (<code>$1, $2, ...</code>).</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero uso de <code>SELECT *</code>; projeções explícitas com aliases <code>camelCase</code> e filtro de conflito de período sargável (<code>scheduled_start &lt; $3 AND scheduled_end &gt; $2</code>) suportado por índice parcial.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-ok">🟢 OK</span></td><td>Todas as migrations <code>.sql</code> e <code>.down.sql</code> executam em blocos transacionais <code>BEGIN; ... COMMIT;</code> e os índices únicos parciais impedem condição de corrida de viagens simultâneas <code>IN_PROGRESS</code>.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (Schemas Nativos <code>auth</code>, <code>fleet</code>, etc., tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Schema nativo <code>trip</code> com tabelas no plural (<code>trip.requests</code>, <code>trip.request_events</code>, <code>trip.trips</code>, <code>trip.trip_stops</code>, <code>trip.odometer_readings</code>, <code>trip.trip_events</code>), PK <code>id BIGINT GENERATED ALWAYS AS IDENTITY</code>, FKs <code>ON DELETE RESTRICT</code>, índices sem <code>idx_</code>/<code>uq_</code> e bi-temporalidade completa (5 perguntas + <code>supersedes_id</code> + <code>is_annulled</code>).</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhuma rota Express foi criada ou alterada nesta tarefa de banco de dados (os 17 testes <code>IT-RBAC-*</code> existentes seguem passando).</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>Todos os testes utilizam dados 100% fictícios (e-mails <code>@example.test</code>, nomes com sufixo <em>Fictício/Teste</em> e CPFs/CNHs sintéticos).</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Compilação limpa em <code>backend</code> (<code>npx tsc --noEmit</code> com 0 erros), zero uso de <code>any</code> ou <code>@ts-ignore</code>.</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Nomenclatura SQL e TypeScript 100% em inglês, estados em <code>UPPER_SNAKE_CASE</code> (<code>'PENDING'</code>, <code>'APPROVED'</code>, <code>'REJECTED'</code>, <code>'SCHEDULED'</code>, <code>'IN_PROGRESS'</code>, <code>'FINISHED'</code>, <code>'CONFIRMED'</code>, <code>'CANCELED'</code>) e zero <code>console.log</code> ou código morto.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem escopo de interface React nesta tarefa.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-na">⚪ N/A</span></td><td>Sem escopo de formulários React nesta tarefa.</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem escopo de UI/CSS nesta tarefa.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<!-- PREENCHER_REVISAO_SECAO_3: Detalhar bloqueantes e pontos de atenção (arquivo:linha, impacto e como corrigir) -->
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado na implementação da <code>FROTA-158</code>.</em></p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<ul>
+  <li>
+    <strong>[C1 — Tamanho do Diff e Base Incorporada da <code>FROTA-157</code>]</strong>
+    <ul>
+      <li><strong>Onde:</strong> Diff acumulado da branch <code>feat/infra-modelo-de-dados-viagens</code> contra <code>develop</code> e arquivo <code>backend/tests/database.integration.test.ts:555-1059</code>.</li>
+      <li><strong>Impacto:</strong> As migrations da <code>FROTA-158</code> são enxutas (325 linhas ao todo), mas os 5 testes de integração completos (<code>IT17</code> a <code>IT21</code>, +510 linhas) e o merge da branch pré-requisito <code>feat/infra-modelo-de-dados-frota</code> (<code>FROTA-157</code>) elevam a estatística total contra <code>develop</code> acima de 400 linhas.</li>
+      <li><strong>Recomendação:</strong> Realizar o merge do PR da <code>FROTA-157</code> em <code>develop</code> primeiro (ou destacar na descrição do PR da <code>FROTA-158</code> que os commits iniciais pertencem à <code>FROTA-157</code> e que os arquivos exclusivos da <code>FROTA-158</code> são as migrations <code>202610280004_*</code>, <code>202610280005_*</code> e os testes <code>IT17</code>–<code>IT21</code>).</li>
+    </ul>
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<!-- PREENCHER_REVISAO_SECAO_4: Resultado de aratu-check.mjs, tsc, lint, build e testes -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática e Regras Aratu (C4–C17)</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-ok">🟢 0 violações estáticas (Camadas, SQL, TS, WCAG)</span></td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript Estrita (Backend)</td>
+      <td><code>docker compose exec backend npx tsc --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 erros)</span></td>
+    </tr>
+    <tr>
+      <td>Execução das Migrações no PostgreSQL 18</td>
+      <td><code>docker compose exec backend npm run db:migrate</code></td>
+      <td><span class="badge-ok">🟢 Passou (9 migrations aplicadas sem erro)</span></td>
+    </tr>
+    <tr>
+      <td>Suíte Completa de Testes Backend (Unitários + Integração PG 18)</td>
+      <td><code>docker compose exec backend npm test</code></td>
+      <td><span class="badge-ok">🟢 Passou (55 testes passaram, 0 falharam — inclui IT17 a IT21)</span></td>
+    </tr>
+    <tr>
+      <td>Linter Frontend (ESLint) e Testes de UI</td>
+      <td><code>docker compose exec frontend npm run lint</code> / <code>node --test tests/*.test.mjs</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 erros de lint; 33 testes passaram)</span></td>
+    </tr>
+    <tr>
+      <td>Build de Produção Frontend (<code>tsc -b &amp;&amp; vite build</code>)</td>
+      <td><code>docker compose exec frontend npm run build</code></td>
+      <td><span class="badge-warn">🟡 Aviso pré-existente em <code>develop</code> (<code>TS2307</code> em arquivos não tocados pela branch: <code>App.tsx</code>, <code>Sidebar.tsx</code>, <code>Topbar.tsx</code>, <code>GestorPage.tsx</code>)</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<!-- PREENCHER_REVISAO_SECAO_5: Pontos específicos que o par humano da Squad 24 deve validar -->
+<ul class="check">
+  <li><input type="checkbox"> Confirmar o commit das migrations <code>202610280004_*</code>, <code>202610280005_*</code> e dos testes <code>IT17</code>–<code>IT21</code> seguindo Conventional Commits antes do push da branch <code>feat/infra-modelo-de-dados-viagens</code>.</li>
+  <li><input type="checkbox"> Verificar se o PR da <code>FROTA-157</code> (<code>feat/infra-modelo-de-dados-frota</code>) será mesclado em <code>develop</code> antes deste PR, para que o diff no GitHub exiba apenas os arquivos exclusivos da <code>FROTA-158</code>.</li>
+  <li><input type="checkbox"> Conferir se as constraints de <code>trip.requests</code> (rejeição exigindo <code>decision_reason</code>) e <code>trip.trips</code> (período válido, hodômetro não-regressivo e índices parciais de conflito de agenda) atendem integralmente às próximas histórias do Épico E03 (US11 a US16) e às tarefas <code>FROTA-159</code> e <code>FROTA-160</code>.</li>
+</ul>
+
+</body>
+</html>

@@ -12,10 +12,9 @@ import {
   Select,
   Typography,
 } from '@mui/material'
-import { AppShell } from '../components/layout/AppShell'
+import { useNavigate } from 'react-router-dom'
 import { FormField } from '../components/ui/FormField'
 import { StateFeedback } from '../components/ui/StateFeedback'
-import { navigate } from '../routing/navigation'
 import type {
   TripRequest,
   VehicleOption,
@@ -36,6 +35,8 @@ export interface ScheduleTripPageProps {
 }
 
 export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPageProps) {
+  const navigate = useNavigate()
+
   // Estados de dados da página
   const [request, setRequest] = useState<TripRequest | null>(null)
   const [vehicles, setVehicles] = useState<VehicleOption[]>([])
@@ -160,7 +161,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
   }
 
   return (
-    <AppShell>
+    <Box sx={{ maxWidth: '1400px', mx: 'auto' }}>
       {/* Breadcrumb idêntico ao Figma */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, fontSize: 13, color: '#6b7280' }}>
         <span>Início</span>
@@ -957,6 +958,6 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
           </Box>
         )}
       </StateFeedback>
-    </AppShell>
+    </Box>
   )
 }
