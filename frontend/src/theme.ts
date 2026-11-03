@@ -18,7 +18,14 @@ export const theme = createTheme({
     },
     MuiOutlinedInput: {
       styleOverrides: {
-        root: { fontSize: 14, minHeight: 44 },
+        root: {
+          fontSize: 14,
+          minHeight: 44,
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: '#f97316',
+            borderWidth: 2,
+          },
+        },
         notchedOutline: { borderColor: '#d1d5db' },
         input: { padding: '10px 12px' },
       },

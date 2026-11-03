@@ -37,7 +37,7 @@ export function FormField({
           fontSize: 14,
           fontWeight: 600,
           color: '#1e293b',
-          '&.Mui-focused': { color: '#0d47a1' },
+          '&.Mui-focused': { color: '#ea580c' },
         }}
       >
         {label}
@@ -59,7 +59,7 @@ export function FormField({
             borderRadius: 1.5,
             bgcolor: '#ffffff',
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#0d47a1',
+              borderColor: '#f97316',
               borderWidth: 2,
             },
             ...inputProps.sx,

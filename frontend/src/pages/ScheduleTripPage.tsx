@@ -462,7 +462,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                     <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block' }}>
                       Horário Solicitado
                     </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#1976d2', mt: 0.3, fontSize: 15 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#ea580c', mt: 0.3, fontSize: 15 }}>
                       {new Date(request.requestedDeparture).toLocaleString('pt-BR', {
                         day: '2-digit',
                         month: '2-digit',
@@ -584,7 +584,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                         bgcolor: '#ffffff',
                         fontSize: 14,
                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#1976d2',
+                          borderColor: '#f97316',
                           borderWidth: 2,
                         },
                       }}
@@ -611,7 +611,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                                 Disponível
                               </Box>
                             ) : veh.status === 'IN_TRANSIT' ? (
-                              <Box sx={{ bgcolor: '#dbeafe', color: '#1e40af', fontSize: 11, fontWeight: 700, px: 1, py: 0.2, borderRadius: 1 }}>
+                              <Box sx={{ bgcolor: '#ffedd5', color: '#9a3412', fontSize: 11, fontWeight: 700, px: 1, py: 0.2, borderRadius: 1 }}>
                                 Em Trânsito
                               </Box>
                             ) : (
@@ -646,7 +646,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                         bgcolor: '#ffffff',
                         fontSize: 14,
                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#1976d2',
+                          borderColor: '#f97316',
                           borderWidth: 2,
                         },
                       }}
@@ -672,7 +672,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                                 Disponível
                               </Box>
                             ) : drv.status === 'ON_DUTY' ? (
-                              <Box sx={{ bgcolor: '#dbeafe', color: '#1e40af', fontSize: 11, fontWeight: 700, px: 1, py: 0.2, borderRadius: 1 }}>
+                              <Box sx={{ bgcolor: '#ffedd5', color: '#9a3412', fontSize: 11, fontWeight: 700, px: 1, py: 0.2, borderRadius: 1 }}>
                                 Em Viagem
                               </Box>
                             ) : (
@@ -755,9 +755,9 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                         disabled={isSubmitting}
                         aria-busy={isSubmitting}
                         sx={{
-                          bgcolor: '#1976d2', // Azul institucional do Figma
-                          '&:hover': { bgcolor: '#1565c0' },
-                          minHeight: 42,
+                          bgcolor: '#ea580c',
+                          '&:hover': { bgcolor: '#c2410c' },
+                          minHeight: 44,
                           px: 3,
                           fontSize: 14,
                           fontWeight: 700,
@@ -800,18 +800,18 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                       </Typography>
                     </Box>
 
-                    {/* Toggle Semana / Mês do Figma */}
-                    <Box sx={{ display: 'flex', border: '1px solid #1976d2', borderRadius: 1, overflow: 'hidden' }}>
-                      <Box sx={{ bgcolor: '#1976d2', color: '#ffffff', fontSize: 11, fontWeight: 700, px: 1, py: 0.3 }}>
+                    {/* Toggle Semana / Mês do Aratu */}
+                    <Box sx={{ display: 'flex', border: '1px solid #ea580c', borderRadius: 1, overflow: 'hidden' }}>
+                      <Box sx={{ bgcolor: '#ea580c', color: '#ffffff', fontSize: 11, fontWeight: 700, px: 1, py: 0.3 }}>
                         Semana
                       </Box>
-                      <Box sx={{ bgcolor: '#ffffff', color: '#1976d2', fontSize: 11, fontWeight: 600, px: 1, py: 0.3 }}>
+                      <Box sx={{ bgcolor: '#ffffff', color: '#ea580c', fontSize: 11, fontWeight: 600, px: 1, py: 0.3 }}>
                         Mês
                       </Box>
                     </Box>
                   </Box>
 
-                  {/* Tabela Resumida da Agenda Semanal com Chips Coloridos do Figma */}
+                  {/* Tabela Resumida da Agenda Semanal com Chips Coloridos da Squad 24 */}
                   <Box
                     sx={{
                       width: '100%',
@@ -843,7 +843,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                         <tr>
                           <td><strong>08:00</strong></td>
                           <td>
-                            <Box sx={{ bgcolor: '#dbeafe', color: '#1e40af', px: 0.8, py: 0.3, borderRadius: 1, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>
+                            <Box sx={{ bgcolor: '#ffedd5', color: '#9a3412', px: 0.8, py: 0.3, borderRadius: 1, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>
                               RJG-9912 · UPA
                             </Box>
                           </td>
@@ -858,7 +858,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                           <td><strong>10:00</strong></td>
                           <td><span style={{ color: '#d1d5db' }}>—</span></td>
                           <td>
-                            <Box sx={{ bgcolor: '#dbeafe', color: '#1e40af', px: 0.8, py: 0.3, borderRadius: 1, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>
+                            <Box sx={{ bgcolor: '#ffedd5', color: '#9a3412', px: 0.8, py: 0.3, borderRadius: 1, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>
                               KBP-7722 · Hospital
                             </Box>
                           </td>
@@ -873,7 +873,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                           </td>
                           <td><span style={{ color: '#d1d5db' }}>—</span></td>
                           <td>
-                            <Box sx={{ bgcolor: '#dbeafe', color: '#1e40af', px: 0.8, py: 0.3, borderRadius: 1, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>
+                            <Box sx={{ bgcolor: '#ffedd5', color: '#9a3412', px: 0.8, py: 0.3, borderRadius: 1, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>
                               PBT-4421 · Lab
                             </Box>
                           </td>
@@ -886,7 +886,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                             </Box>
                           </td>
                           <td>
-                            <Box sx={{ bgcolor: '#dbeafe', color: '#1e40af', px: 0.8, py: 0.3, borderRadius: 1, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>
+                            <Box sx={{ bgcolor: '#ffedd5', color: '#9a3412', px: 0.8, py: 0.3, borderRadius: 1, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>
                               RJG-9912 · Norte
                             </Box>
                           </td>
@@ -896,7 +896,7 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                     </Box>
                   </Box>
 
-                  {/* Card "Hoje — 21/09" idêntico ao Figma */}
+                  {/* Card "Hoje — 21/09" com Ocupação em Tempo Real */}
                   <Box sx={{ borderTop: '1px solid #f3f4f6', pt: 2 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#111827', fontSize: 13, mb: 1.5 }}>
                       Hoje — 21/09 (Ocupação em Tempo Real)
@@ -919,8 +919,8 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                           </Typography>
                           <Box
                             sx={{
-                              bgcolor: item.status === 'IN_PROGRESS' ? '#dbeafe' : '#fef3c7',
-                              color: item.status === 'IN_PROGRESS' ? '#1e40af' : '#92400e',
+                              bgcolor: item.status === 'IN_PROGRESS' ? '#ffedd5' : '#fef3c7',
+                              color: item.status === 'IN_PROGRESS' ? '#9a3412' : '#92400e',
                               fontSize: 11,
                               fontWeight: 700,
                               px: 1,
@@ -940,15 +940,15 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                 <Box
                   sx={{
                     p: 2,
-                    bgcolor: '#eff6ff',
+                    bgcolor: '#fff7ed',
                     borderRadius: 2,
-                    border: '1px solid #bfdbfe',
+                    border: '1px solid #fed7aa',
                   }}
                 >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e40af', fontSize: 13, mb: 0.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#9a3412', fontSize: 13, mb: 0.5 }}>
                     ✓ Verificação Automática de Agenda
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#1e3a8a', lineHeight: 1.5, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#7c2d12', lineHeight: 1.5, display: 'block' }}>
                     O veículo <strong>XYZ-9821</strong> e o condutor <strong>Carlos Alberto Santos</strong> estão 100% disponíveis no horário selecionado. Não há sobreposição com manutenções preventivas ou outras viagens.
                   </Typography>
                 </Box>
