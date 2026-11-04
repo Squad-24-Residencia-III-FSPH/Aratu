@@ -34,6 +34,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
+import '../../index.css';
+
 interface Veiculo {
   id: number;
   placa: string;
@@ -190,7 +192,7 @@ export default function VeiculosPage() {
   };
 
   return (
-    <Box sx={{ maxWidth: '1400px', mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: 2 }}>
+    <Box sx={{ width: '100%' }}>
       <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
         Início &gt; Veículos
       </Typography>
@@ -284,19 +286,21 @@ export default function VeiculosPage() {
 
       {/* Pesquisa e Filtros */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: 'center' }}>
           <TextField
             fullWidth
             size="small"
             placeholder="Placa, modelo ou tipo..."
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: '#94a3b8' }} />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: '#94a3b8' }} />
+                  </InputAdornment>
+                ),
+              },
             }}
           />
 
@@ -414,7 +418,7 @@ export default function VeiculosPage() {
           <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.85rem' }}>
             Mostrando {filteredVeiculos.length > 0 ? `${(page - 1) * itemsPerPage + 1}–${Math.min(page * itemsPerPage, filteredVeiculos.length)}` : 0} de {filteredVeiculos.length} veículos
           </Typography>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <IconButton 
               size="small" 
               disabled={page === 1} 
@@ -457,61 +461,57 @@ export default function VeiculosPage() {
         <DialogTitle sx={{ fontWeight: 'bold' }}>
           {editingId !== null ? 'Editar Veículo' : 'Cadastrar Novo Veículo'}
         </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2.5} sx={{ mt: 1 }}>
+        <DialogContent dividers>
+          <Stack spacing={2.5} sx={{ mt: 0.5 }}>
             <TextField
               label="Modelo"
               fullWidth
               size="small"
               value={modelo}
               onChange={(e) => setModelo(e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
-            {/* ano */}
-            <Stack direction="row" spacing={2}>
+            <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
               <TextField
-                label="Ano de Fabricaçãoㅤ"
+                label="Ano de Fabricação"
                 fullWidth
                 size="small"
                 value={anoFabricacao}
                 onChange={(e) => setAnoFabricacao(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
               <TextField
-                label="Ano Modeloㅤ"
+                label="Ano Modelo"
                 fullWidth
                 size="small"
                 value={anoModelo}
                 onChange={(e) => setAnoModelo(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
             </Stack>
-            {/* placa */}
             <TextField
               label="Placa"
               fullWidth
               size="small"
               value={placa}
               onChange={(e) => setPlaca(e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
-            {/* Chassi */}
             <TextField
               label="Chassi"
               fullWidth
               size="small"
               value={chassi}
               onChange={(e) => setChassi(e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
-            {/* tipos */}
             <FormControl size="small" fullWidth>
               <InputLabel shrink>Tipo de Veículo</InputLabel>
               <Select
                 value={tipo}
-                label="Tipo de Veículoㅤ"
+                label="Tipo de Veículo"
                 onChange={(e) => setTipo(e.target.value)}
-                 notched
+                notched
               >
                 <MenuItem value="Utilitário">Utilitário</MenuItem>
                 <MenuItem value="Furgão">Furgão</MenuItem>
@@ -520,24 +520,26 @@ export default function VeiculosPage() {
               </Select>
             </FormControl>
 
-            {/* data ipva */}
             <TextField
-              label="Data de IPVAㅤ"
+              label="Data de IPVA"
               placeholder="DD/MM/AAAA"
               size="small"
               fullWidth
               value={vencimentoIpva}
-              onChange={(e) => {let valor = e.target.value.replace(/\D/g, '');
+              onChange={(e) => {
+                let valor = e.target.value.replace(/\D/g, '');
                 if (valor.length > 8) valor = valor.slice(0, 8);
                 if (valor.length > 4) {
                   valor = `${valor.slice(0, 2)}/${valor.slice(2, 4)}/${valor.slice(4)}`;
                 } else if (valor.length > 2) {
                   valor = `${valor.slice(0, 2)}/${valor.slice(2)}`;
-                  }
-                  setVencimentoIpva(valor);
-                  }}
-                InputLabelProps={{ shrink: true }}
-              inputProps={{ maxLength: 10 }}
+                }
+                setVencimentoIpva(valor);
+              }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { maxLength: 10 },
+              }}
             />
           </Stack>
         </DialogContent>

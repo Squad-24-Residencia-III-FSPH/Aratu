@@ -12,7 +12,7 @@ import {
   Tooltip,
   IconButton,
 } from '@mui/material';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Home from '@mui/icons-material/Home';
@@ -29,19 +29,46 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import BarChart from '@mui/icons-material/BarChart';
 import Security from '@mui/icons-material/Security';
 import Help from '@mui/icons-material/Help';
+import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings';
+import type { SvgIconComponent } from '@mui/icons-material';
+
 import { useAuth } from '../auth/useAuth';
-import { PROFILE_HOMES } from '../auth/profiles';
+import { resolveProfile } from '../auth/profiles';
+import { getSidebarNavigation } from './sidebarNavigation';
+import type { SidebarIconName, SidebarMenuItem } from './sidebarNavigation';
 
 const drawerWidthExpanded = 260;
 const drawerWidthCollapsed = 72;
 
+const icons: Record<SidebarIconName, SvgIconComponent> = {
+  home: Home,
+  users: Person,
+  permissions: AdminPanelSettings,
+  audit: Security,
+  settings: Build,
+  requests: Assignment,
+  trips: LocalShipping,
+  confirmTrips: CheckCircle,
+  vehicles: DirectionsCar,
+  drivers: Person,
+  serviceTypes: Assignment,
+  maintenance: Build,
+  fuel: LocalGasStation,
+  documents: Description,
+  warnings: Warning,
+  dashboard: DashboardIcon,
+  reports: BarChart,
+  help: Help,
+};
+
 export default function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(true);
-  const navigate = useNavigate();
   const location = useLocation();
   const { session } = useAuth();
 
-  const isActive = (path: string) => location.pathname === path;
+  const profile = session ? resolveProfile(session.perfil) : null;
+  const navigation = getSidebarNavigation(profile);
+
   const currentWidth = isExpanded ? drawerWidthExpanded : drawerWidthCollapsed;
 
   const toggleSidebar = () => {
@@ -67,19 +94,19 @@ export default function Sidebar() {
     '&:hover': { backgroundColor: '#df68061e' },
   };
 
-  const renderItemText = (text: string, path?: string) => {
+  const renderItemText = (text: string) => {
     if (!isExpanded) return null;
-    const active = path ? isActive(path) : false;
     return (
       <ListItemText
         primary={
-          <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: active ? 600 : 400, whiteSpace: 'nowrap' }}>
+          <Typography component="span" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
             {text}
           </Typography>
         }
       />
     );
   };
+
   const tooltipProps = {
     arrow: true,
     placement: 'right' as const,
@@ -99,6 +126,34 @@ export default function Sidebar() {
         },
       },
     },
+  };
+
+  // Helper para renderizar cada item do menu adaptado ao estado expandido/recolhido
+  const renderSidebarItem = (item: SidebarMenuItem) => {
+    const Icon = icons[item.icon] || Home;
+    const isSelected = item.path ? location.pathname === item.path : item.selected;
+    const itemStyle = isSelected ? selectedStyle : defaultStyle;
+
+    const content = (
+      <ListItemButton
+        {...(item.behavior === 'link' && item.path ? { component: RouterLink, to: item.path } : {})}
+        selected={isSelected}
+        sx={itemStyle}
+      >
+        <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center', color: isSelected ? '#FF6B00' : 'inherit' }}>
+          <Icon fontSize="small" />
+        </ListItemIcon>
+        {renderItemText(item.label)}
+      </ListItemButton>
+    );
+
+    return (
+      <ListItem disablePadding key={item.label} sx={{ mb: 0.5 }}>
+        <Tooltip title={!isExpanded ? item.label : ''} {...tooltipProps}>
+          {content}
+        </Tooltip>
+      </ListItem>
+    );
   };
 
   return (
@@ -165,209 +220,37 @@ export default function Sidebar() {
             )}
           </Box>
 
+          {/* Top Items (ex: Início) */}
           <List disablePadding>
-            <ListItem disablePadding sx={{ mb: 0.5 }}>
-              <Tooltip title={!isExpanded ? 'Início' : ''} {...tooltipProps}>
-                <ListItemButton
-                  selected={isActive('/')}
-                  onClick={() => navigate('/')}
-                  sx={isActive('/') ? selectedStyle : defaultStyle}
-                >
-                  <ListItemIcon sx={{ color: isActive('/') ? '#FF6B00' : 'inherit', minWidth: 36, justifyContent: 'center' }}>
-                    <Home fontSize="small" />
-                  </ListItemIcon>
-                  {renderItemText('Início', '/')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
+            {navigation.topItems.map((item) => renderSidebarItem(item))}
           </List>
+
+          {navigation.showDividerAfterTop && <Divider sx={{ my: 2 }} />}
+
+          {/* Seções Dinâmicas (Operação, Frota, Controle, Gestão) */}
+          {navigation.sections.map((section) => (
+            <Box key={section.label}>
+              {isExpanded && (
+                <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, mt: section.spaced ? 2 : 1, display: 'block', fontSize: '0.7rem' }}>
+                  {section.label}
+                </Typography>
+              )}
+              <List dense disablePadding>
+                {section.items.map((item) => renderSidebarItem(item))}
+              </List>
+            </Box>
+          ))}
 
           <Divider sx={{ my: 2 }} />
 
-          {isExpanded && (
-            <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, fontSize: '0.7rem', display: 'block' }}>
-              OPERAÇÃO
-            </Typography>
-          )}
+          {/* Footer Items (ex: Ajuda) */}
           <List dense disablePadding>
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Solicitações' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><Assignment fontSize="small" /></ListItemIcon>
-                  {renderItemText('Solicitações')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Viagens' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><LocalShipping fontSize="small" /></ListItemIcon>
-                  {renderItemText('Viagens')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Confirmar viagens' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><CheckCircle fontSize="small" /></ListItemIcon>
-                  {renderItemText('Confirmar viagens')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-          </List>
-
-          {isExpanded && (
-            <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, mt: 2, display: 'block', fontSize: '0.7rem' }}>
-              FROTA
-            </Typography>
-          )}
-          <List dense disablePadding>
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Veículos' : ''} {...tooltipProps}>
-                <ListItemButton
-                  selected={isActive('/veiculos')}
-                  onClick={() => navigate('/veiculos')}
-                  sx={isActive('/veiculos') ? selectedStyle : defaultStyle}
-                >
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center', color: isActive('/veiculos') ? '#FF6B00' : 'inherit' }}>
-                    <DirectionsCar fontSize="small" />
-                  </ListItemIcon>
-                  {renderItemText('Veículos', '/veiculos')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Motoristas' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><Person fontSize="small" /></ListItemIcon>
-                  {renderItemText('Motoristas')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Tipos de serviço' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><Assignment fontSize="small" /></ListItemIcon>
-                  {renderItemText('Tipos de serviço')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Manutenção' : ''} {...tooltipProps}>
-                <ListItemButton
-                  selected={isActive('/manutencao')}
-                  onClick={() => navigate('/manutencao')}
-                  sx={isActive('/manutencao') ? selectedStyle : defaultStyle}
-                >
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center', color: isActive('/manutencao') ? '#FF6B00' : 'inherit' }}>
-                    <Build fontSize="small" />
-                  </ListItemIcon>
-                  {renderItemText('Manutenção', '/manutencao')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Abastecimento' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><LocalGasStation fontSize="small" /></ListItemIcon>
-                  {renderItemText('Abastecimento')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-          </List>
-
-          {isExpanded && (
-            <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, mt: 2, display: 'block', fontSize: '0.7rem' }}>
-              CONTROLE
-            </Typography>
-          )}
-          <List dense disablePadding>
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Documentos' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><Description fontSize="small" /></ListItemIcon>
-                  {renderItemText('Documentos')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Multas e Infrações' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><Warning fontSize="small" /></ListItemIcon>
-                  {renderItemText('Multas e Infrações')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-          </List>
-
-          {isExpanded && (
-            <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, mt: 2, display: 'block', fontSize: '0.7rem' }}>
-              GESTÃO
-            </Typography>
-          )}
-          <List dense disablePadding>
-            {session?.perfil === 'ADMINISTRADOR' && (
-              <ListItem disablePadding>
-                <Tooltip title={!isExpanded ? 'Usuários' : ''} {...tooltipProps}>
-                  <ListItemButton
-                    component="a"
-                    href={`#${PROFILE_HOMES.ADMINISTRADOR.path}`}
-                    sx={defaultStyle}
-                  >
-                    <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><Security fontSize="small" /></ListItemIcon>
-                    {renderItemText('Usuários')}
-                  </ListItemButton>
-                </Tooltip>
-              </ListItem>
-            )}
-
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Dashboard' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><DashboardIcon fontSize="small" /></ListItemIcon>
-                  {renderItemText('Dashboard')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Relatórios' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><BarChart fontSize="small" /></ListItemIcon>
-                  {renderItemText('Relatórios')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Auditoria' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><Security fontSize="small" /></ListItemIcon>
-                  {renderItemText('Auditoria')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-          </List>
-
-          <Divider sx={{ my: 2 }} />
-
-          <List dense disablePadding>
-            <ListItem disablePadding>
-              <Tooltip title={!isExpanded ? 'Ajuda' : ''} {...tooltipProps}>
-                <ListItemButton sx={defaultStyle}>
-                  <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center' }}><Help fontSize="small" /></ListItemIcon>
-                  {renderItemText('Ajuda')}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
+            {navigation.footerItems.map((item) => renderSidebarItem(item))}
           </List>
         </Box>
       </Drawer>
 
+      {/* Botão de Recolher/Expandir */}
       <Tooltip title={isExpanded ? 'Recolher menu' : 'Expandir menu'} {...tooltipProps}>
         <IconButton
           onClick={toggleSidebar}

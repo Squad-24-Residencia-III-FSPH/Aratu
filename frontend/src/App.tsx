@@ -5,6 +5,7 @@ import LoginPage from './pages/loginPage/LoginPage';
 import PlaceholderPage from './pages/placeholderPage/PlaceholderPage';
 import VeiculosPage from './pages/veiculosPage/VeiculosPage';
 import ManutencaoPage from './pages/ManuPage/ManutencaoPage';
+import ProfilePermissionsPage from './pages/profilePermissionsPage/ProfilePermissionsPage';
 import { useAuth } from './auth/useAuth';
 import { PROFILE_HOMES } from './auth/profiles';
 import type { Profile } from './auth/profiles';
@@ -37,6 +38,13 @@ function PrivateRoute() {
   const decision = resolveRoute(session, pathname);
   if (decision.kind === 'redirect') return <Navigate to={decision.to} replace />;
   if (decision.kind === 'login') return <Navigate to="/login" replace />;
+  if (decision.kind === 'profile-permissions') {
+    return (
+      <Layout>
+        <ProfilePermissionsPage />
+      </Layout>
+    );
+  }
   return (
     <Layout>
       <ProfileHome profile={decision.profile} />

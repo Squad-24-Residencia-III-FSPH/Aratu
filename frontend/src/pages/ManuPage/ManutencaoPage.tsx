@@ -23,7 +23,6 @@ import {
   DialogContent,
   DialogActions,
   Divider,
-  Grid,
   IconButton,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -32,7 +31,6 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import BuildIcon from '@mui/icons-material/Build';
 import DeleteIcon from '@mui/icons-material/Delete';
 
-// Importações globais do projeto
 import '../../index.css';
 
 interface Peca {
@@ -61,6 +59,10 @@ interface Manutencao {
   pecasTrocadas: Peca[];
   servicosRealizados: Servico[];
 }
+
+const getTodayDate = () => {
+  return new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
 
 const initialManutencoes: Manutencao[] = [
   {
@@ -126,8 +128,10 @@ export default function ManutencaoPage() {
   const [veiculoSelecionado, setVeiculoSelecionado] = useState('');
   const [tipoRevisao, setTipoRevisao] = useState('Corretiva');
   const [oficina, setOficina] = useState('');
-  const [previsao, setPrevisao] = useState(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10));
+  const [previsao, setPrevisao] = useState(() => getTodayDate());
   const [impeditiva, setImpeditiva] = useState(false);
+
+  const minDate = useMemo(() => getTodayDate(), []);
 
   const veiculosDisponiveis = listaVeiculosDisponiveis.filter(v =>
     !manutencoesList.some(m => m.placa === v.placa && m.status !== 'Concluída') || v.placa === veiculoSelecionado
@@ -139,8 +143,7 @@ export default function ManutencaoPage() {
       return;
     }
 
-    const hoje = new Date();
-    const hojeIso = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const hojeIso = getTodayDate();
     if (!previsao || previsao < hojeIso) {
       alert('A data de previsão de término deve ser hoje ou uma data futura');
       return;
@@ -148,10 +151,10 @@ export default function ManutencaoPage() {
 
     const veiculoObj = listaVeiculosDisponiveis.find(v => v.placa === veiculoSelecionado);
 
-    let pecasPadrao: Peca[] = [
+    const pecasPadrao: Peca[] = [
       { nome: tipoRevisao.includes('Corretiva') ? 'Reparo / Peça Avulsa' : 'Filtro de Óleo', quantidade: 1, valorUnitario: 0 },
     ];
-    let servicosPadrao: Servico[] = [
+    const servicosPadrao: Servico[] = [
       { descricao: 'Mão de Obra Geral', valor: 0 },
     ];
 
@@ -167,7 +170,7 @@ export default function ManutencaoPage() {
       tipo: tipoFinal,
       descricao: tipoRevisao,
       oficina,
-      entrada: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10),
+      entrada: getTodayDate(),
       previsao: previsao,
       custo: custoTotal,
       impeditiva,
@@ -250,7 +253,7 @@ export default function ManutencaoPage() {
   const totalImpeditivas = filteredManutencoes.filter(m => m.impeditiva).length;
 
   return (
-    <Box sx={{ maxWidth: '1400px', mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: 2 }}>
+    <Box sx={{ width: '100%' }}>
       <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
         Início &gt; Manutenção
       </Typography>
@@ -276,35 +279,34 @@ export default function ManutencaoPage() {
         </Button>
       </Box>
 
-      {/* Cards de Resumo */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 45%', md: '1 1 22%' } }}>
           <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid #f1f5f9', boxShadow: 'none' }}>
             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>Em aberto</Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, color: '#FF6B00', mt: 0.5 }}>{totalEmAberto}</Typography>
           </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        </Box>
+        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 45%', md: '1 1 22%' } }}>
           <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid #f1f5f9', boxShadow: 'none' }}>
             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>Concluídas (Período)</Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, color: '#FF6B00', mt: 0.5 }}>{totalConcluidas}</Typography>
           </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        </Box>
+        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 45%', md: '1 1 22%' } }}>
           <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid #f1f5f9', boxShadow: 'none' }}>
             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>Custo Total (Período)</Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, color: '#FF6B00', mt: 0.5 }}>
               R$ {custoTotalFiltrado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </Typography>
           </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        </Box>
+        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 45%', md: '1 1 22%' } }}>
           <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid #f1f5f9', boxShadow: 'none' }}>
             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>Impeditivas</Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, color: '#FF6B00', mt: 0.5 }}>{totalImpeditivas}</Typography>
           </Paper>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       <Paper sx={{ borderRadius: 2, border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
@@ -317,12 +319,14 @@ export default function ManutencaoPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               sx={{ width: { xs: '100%', sm: 220 } }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: '#94a3b8' }} />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: '#94a3b8' }} />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
 
@@ -413,9 +417,9 @@ export default function ManutencaoPage() {
                       startIcon={<ReceiptLongIcon fontSize="small" />}
                       onClick={() => setSelectedManutencao(row)}
                       sx={{
-                        textTransform: 'none', borderColor: '#cbd5e1', color: '#1d4ed8',
+                        textTransform: 'none', borderColor: '#cbd5e1', color: '#FF6B00',
                         fontWeight: 600, fontSize: '0.75rem', py: 0.3, px: 1.2,
-                        '&:hover': { bgcolor: '#eff6ff', borderColor: '#2563eb' },
+                        '&:hover': { bgcolor: '#eff6ff', borderColor: '#FF6B00' },
                       }}
                     >
                       Ver Orçamento
@@ -428,15 +432,16 @@ export default function ManutencaoPage() {
         </TableContainer>
       </Paper>
 
+      {/* Modal de Registro */}
       <Dialog open={openRegModal} onClose={() => setOpenRegModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 'bold' }}>Alocar Veículo para Oficina</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2.5} sx={{ mt: 1 }}>
+        <DialogContent dividers>
+          <Stack spacing={2.5} sx={{ mt: 0.5 }}>
             <FormControl size="small" fullWidth>
               <InputLabel shrink>Selecione o Veículo</InputLabel>
               <Select
                 value={veiculoSelecionado}
-                label="Selecione o Veículoㅤ"
+                label="Selecione o Veículo"
                 onChange={(e) => setVeiculoSelecionado(e.target.value)}
                 notched
               >
@@ -452,7 +457,7 @@ export default function ManutencaoPage() {
               <InputLabel shrink>Tipo / Descrição da Manutenção</InputLabel>
               <Select
                 value={tipoRevisao}
-                label="Tipo / Descrição da Manutençãoㅤㅤ"
+                label="Tipo / Descrição da Manutenção"
                 onChange={(e) => setTipoRevisao(e.target.value)}
                 notched
               >
@@ -464,34 +469,36 @@ export default function ManutencaoPage() {
             </FormControl>
 
             <TextField
-              label="Oficina Responsávelㅤ"
+              label="Oficina Responsável"
               placeholder="Ex: Oficina Central FSPH"
               size="small"
               fullWidth
               value={oficina}
               onChange={(e) => setOficina(e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField
-                label="Previsão de Términoㅤ"
+                label="Previsão de Término"
                 type="date"
-                inputProps={{ min: new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-                .toISOString()
-                .slice(0, 10) }}
                 size="small"
                 fullWidth
                 value={previsao}
                 onChange={(e) => setPrevisao(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  htmlInput: {
+                    min: minDate,
+                  },
+                }}
               />
 
               <FormControl size="small" fullWidth>
                 <InputLabel shrink>Manutenção Impeditiva?</InputLabel>
                 <Select
                   value={impeditiva ? 'sim' : 'nao'}
-                  label="Manutenção Impeditiva?ㅤ"
+                  label="Manutenção Impeditiva?"
                   onChange={(e) => setImpeditiva(e.target.value === 'sim')}
                   notched
                 >
@@ -510,7 +517,7 @@ export default function ManutencaoPage() {
         </DialogActions>
       </Dialog>
 
-      {/*EDITAR ORÇAMENTO */}
+      {/* Modal de Orçamento / Edição */}
       <Dialog open={Boolean(selectedManutencao)} onClose={() => setSelectedManutencao(null)} maxWidth="md" fullWidth>
         {selectedManutencao && (
           <>
@@ -529,9 +536,9 @@ export default function ManutencaoPage() {
               </Box>
             </DialogTitle>
 
-            <DialogContent sx={{ py: 3 }}>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={6} sm={3}>
+            <DialogContent sx={{ py: 3 }} dividers>
+              <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 48%', md: '1 1 23%' } }}>
                   <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>Status</Typography>
                   <FormControl size="small" fullWidth>
                     <Select
@@ -543,9 +550,9 @@ export default function ManutencaoPage() {
                       <MenuItem value="Em Aberto">Em Aberto</MenuItem>
                     </Select>
                   </FormControl>
-                </Grid>
+                </Box>
 
-                <Grid item xs={6} sm={3}>
+                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 48%', md: '1 1 23%' } }}>
                   <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>Previsão</Typography>
                   <TextField
                     size="small"
@@ -554,24 +561,23 @@ export default function ManutencaoPage() {
                     onChange={(e) => setSelectedManutencao({ ...selectedManutencao, previsao: e.target.value })}
                     fullWidth
                   />
-                </Grid>
+                </Box>
 
-                <Grid item xs={6} sm={3}>
+                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 48%', md: '1 1 23%' } }}>
                   <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>Oficina</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, mt: 1 }}>{selectedManutencao.oficina}</Typography>
-                </Grid>
+                </Box>
 
-                <Grid item xs={6} sm={3}>
+                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 48%', md: '1 1 23%' } }}>
                   <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>Impeditiva?</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, mt: 1, color: selectedManutencao.impeditiva ? '#dc2626' : '#16a34a' }}>
                     {selectedManutencao.impeditiva ? 'Sim (Parado)' : 'Não'}
                   </Typography>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
 
               <Divider sx={{ mb: 3 }} />
 
-              {/* Tabela de Peças Trocadas*/}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#FF6B00' }}>Relação de Peças Trocadas</Typography>
                 <Button size="small" startIcon={<AddIcon />} onClick={handleAddPeca} sx={{ textTransform: 'none', fontWeight: 600 }}>Adicionar Peça</Button>
@@ -612,7 +618,7 @@ export default function ManutencaoPage() {
                               const novas = selectedManutencao.pecasTrocadas.map((item, i) => i === idx ? { ...item, quantidade: Math.max(1, Number(e.target.value) || 1) } : item);
                               recalcularOrcamento(novas, selectedManutencao.servicosRealizados);
                             }}
-                            inputProps={{ min: 1, style: { textAlign: 'center' } }}
+                            slotProps={{ htmlInput: { min: 1, style: { textAlign: 'center' } } }}
                             variant="standard"
                           />
                         </TableCell>
@@ -625,7 +631,7 @@ export default function ManutencaoPage() {
                               const novas = selectedManutencao.pecasTrocadas.map((item, i) => i === idx ? { ...item, valorUnitario: Math.max(0, Number(e.target.value) || 0) } : item);
                               recalcularOrcamento(novas, selectedManutencao.servicosRealizados);
                             }}
-                            inputProps={{ style: { textAlign: 'right' } }}
+                            slotProps={{ htmlInput: { style: { textAlign: 'right' } } }}
                             variant="standard"
                           />
                         </TableCell>
@@ -643,7 +649,6 @@ export default function ManutencaoPage() {
                 </Table>
               </TableContainer>
 
-              {/* Tabela De Preço */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#FF6B00' }}>Mão de Obra & Serviços</Typography>
                 <Button size="small" startIcon={<AddIcon />} onClick={handleAddServico} sx={{ textTransform: 'none', fontWeight: 600 }}>Adicionar Serviço</Button>
@@ -682,7 +687,7 @@ export default function ManutencaoPage() {
                               const novos = selectedManutencao.servicosRealizados.map((item, i) => i === idx ? { ...item, valor: Math.max(0, Number(e.target.value) || 0) } : item);
                               recalcularOrcamento(selectedManutencao.pecasTrocadas, novos);
                             }}
-                            inputProps={{ style: { textAlign: 'right' } }}
+                            slotProps={{ htmlInput: { style: { textAlign: 'right' } } }}
                             variant="standard"
                           />
                         </TableCell>
@@ -697,18 +702,16 @@ export default function ManutencaoPage() {
                 </Table>
               </TableContainer>
 
-              {/* Valor Total */}
-              <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1e293b' }}>Valor Total Atualizado:</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: '#1d4ed8' }}>
-                  R$ {selectedManutencao.custo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                  Custo Total: R$ {selectedManutencao.custo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </Typography>
               </Box>
             </DialogContent>
 
-            <DialogActions sx={{ p: 2, borderTop: '1px solid #f1f5f9' }}>
-              <Button onClick={() => setSelectedManutencao(null)} sx={{ textTransform: 'none', color: '#64748b' }}>Cancelar</Button>
-              <Button onClick={handleSalvarEdicaoModal} variant="contained" sx={{ textTransform: 'none', bgcolor: '#1d4ed8', fontWeight: 600 }}>
+            <DialogActions sx={{ p: 2 }}>
+              <Button onClick={() => setSelectedManutencao(null)} color="inherit" sx={{ textTransform: 'none' }}>Cancelar</Button>
+              <Button onClick={handleSalvarEdicaoModal} variant="contained" sx={{ textTransform: 'none', bgcolor: '#FF6B00', '&:hover': { bgcolor: '#e05e00' }, fontWeight: 600 }}>
                 Salvar Alterações
               </Button>
             </DialogActions>
