@@ -6,7 +6,7 @@ import { FormField, FormSelect } from '../../components/ui/FormField'
 import type { Vehicle } from '../../vehicles/vehicleTypes'
 import { TYPE_LABELS, MAINTENANCE_TYPES } from '../../maintenance/maintenanceTypes'
 import type { MaintenanceOrder, MaintenanceItem, MaintenanceType, CreateMaintenanceInput } from '../../maintenance/maintenanceTypes'
-import { normalizeFormItems, parseOdometer } from '../../maintenance/maintenanceForm'
+import { getOdometerError, normalizeFormItems, parseOdometer } from '../../maintenance/maintenanceForm'
 import { createMaintenance, updateMaintenance, MaintenanceRequestError } from '../../services/maintenanceService'
 import { ItemsEditor } from './MaintenanceItems'
 import { maintenanceControls } from './maintenanceStyles'
@@ -41,12 +41,13 @@ export default function MaintenanceFormDialog({ order, vehicles, api, onClose, o
   const [submitted, setSubmitted] = useState(false)
   const submitting = useRef(false)
   const attempt = useRef<{ payload: string; key: string } | null>(null)
+  const odometerError = getOdometerError(odometer)
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (submitting.current || conflict) return
     setSubmitted(true)
-    if (!vehicleId || !description.trim() || !reportedBy.trim() || !reason.trim()) {
-      setError('Preencha os campos obrigatórios indicados.'); return
+    if (!vehicleId || !description.trim() || !reportedBy.trim() || !reason.trim() || odometerError) {
+      setError('Corrija os campos indicados antes de salvar.'); return
     }
     submitting.current = true
     setBusy(true); setError('')
@@ -86,7 +87,8 @@ export default function MaintenanceFormDialog({ order, vehicles, api, onClose, o
           error={submitted && !description.trim() ? 'Informe a descrição da manutenção.' : undefined} />
         <FormField label="Oficina responsável" value={workshop} onChange={setWorkshop} disabled={busy} />
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <FormField label="Hodômetro (km)" value={odometer} onChange={setOdometer} disabled={busy} inputMode="numeric" helperText="Opcional; inteiro não negativo." />
+          <FormField label="Hodômetro (km)" value={odometer} onChange={setOdometer} disabled={busy} inputMode="numeric"
+            error={submitted ? odometerError : undefined} helperText="Opcional; inteiro não negativo." />
           <FormField label="Previsão de término" value={expectedDate} onChange={setExpectedDate} type="date" disabled={busy} />
         </Stack>
         {!order && <FormField label="Entrada na oficina" value={openedAt} onChange={setOpenedAt} type="datetime-local" disabled={busy}

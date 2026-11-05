@@ -41,3 +41,11 @@ export function parseOdometer(value: string): number | null {
   if (!/^\d+$/.test(value) || Number(value) > 2147483647) throw new Error('Informe quilometragem inteira entre zero e 2.147.483.647.')
   return Number(value)
 }
+
+/** Reutiliza a validação do payload para associar o erro ao campo e removê-lo após correção. */
+export function getOdometerError(value: string): string | undefined {
+  try { parseOdometer(value) } catch (failure) {
+    return failure instanceof Error ? failure.message : 'Confira a quilometragem informada.'
+  }
+  return undefined
+}

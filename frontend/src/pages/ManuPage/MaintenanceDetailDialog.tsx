@@ -103,7 +103,7 @@ export default function MaintenanceDetailDialog({ order, api, onClose, onEdit, o
         {closing && <Button type="submit" form={`${id}-close`} variant="contained" disabled={busy || conflict}>Revisar encerramento</Button>}
       </DialogActions>
     </Dialog>
-    <ConfirmDialog open={confirm} title={`Encerrar ordem #${order.id}?`}
+    <ConfirmDialog open={confirm} sx={maintenanceControls} title={`Encerrar ordem #${order.id}?`}
       description={`Veículo ${order.vehicleSnapshot?.licensePlate ?? order.vehicleId}. O orçamento será preservado e o custo final será calculado com a execução confirmada. O impedimento desta ordem será retirado, preservando uma eventual inativação independente.`}
       confirmLabel="Confirmar encerramento" onConfirm={() => void close()} onCancel={() => setConfirm(false)} loading={busy} />
   </>

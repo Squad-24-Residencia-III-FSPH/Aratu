@@ -4,13 +4,23 @@ import { sessionFor } from './fixtures.mjs'
 import { resolveRoute } from '../src/routing/routeDecision.ts'
 import { getSidebarNavigation } from '../src/components/sidebarNavigation.ts'
 import { formatMoney, formatCivilDate, MAINTENANCE_PATH } from '../src/maintenance/maintenanceTypes.ts'
-import { normalizeFormItems, parseOdometer } from '../src/maintenance/maintenanceForm.ts'
+import { getOdometerError, normalizeFormItems, parseOdometer } from '../src/maintenance/maintenanceForm.ts'
 import { listMaintenance, createMaintenance, updateMaintenance, closeMaintenance, getMaintenance, MaintenanceRequestError } from '../src/services/maintenanceService.ts'
 
 const order = { id: '9007199254740993', vehicleId: '21', status: 'OPEN', revision: 1, type: 'PREVENTIVE',
   description: 'Revisão fictícia', blocksVehicle: true, workshop: null, odometerKm: null, expectedCompletionDate: null,
   openedAt: '2026-11-05T12:00:00Z', closedAt: null, vehicleSnapshot: null, estimateItems: null, actualItems: null,
   cost: null, finalCost: null, estimatedTotal: null }
+
+test('erro de hodômetro identifica negativos, frações e excesso e desaparece após correção', () => {
+  for (const value of ['-1', '1.5', 'abc', '2147483648']) {
+    assert.match(getOdometerError(value), /quilometragem inteira entre zero e 2.147.483.647/)
+    assert.throws(() => parseOdometer(value))
+  }
+  for (const value of ['', '0', '100', '2147483647']) {
+    assert.equal(getOdometerError(value), undefined)
+  }
+})
 
 test('manutenção protege rota e menu pelos mesmos perfis do backend', () => {
   for (const profile of ['GESTOR', 'ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO']) {
