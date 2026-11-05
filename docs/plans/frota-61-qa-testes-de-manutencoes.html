@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-61 — [QA] Testes de manutenções (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  @media (max-width: 650px) { body { padding: 12px; } table { display: block; overflow-x: auto; } code { overflow-wrap: anywhere; } }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-61: [QA] Testes de manutenções</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-61</code> — [QA] Testes de manutenções</p>
+  <p><strong>Branch proposta (Gitflow):</strong> <code>feat/qa-testes-de-manutencoes</code> (a criar a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>MANUTENCOES</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data:</strong> 2026-11-03</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p>Comprovar pela API real e pelo PostgreSQL de teste que o gestor consegue registrar, consultar e encerrar manutenções e que a disponibilidade da frota acompanha cada ordem impeditiva. A implementação da API e sua migração são dependências da suíte. <a href="https://squad24.atlassian.net/browse/FROTA-61">FROTA-61</a> · <a href="https://squad24.atlassian.net/browse/FROTA-59">FROTA-59</a> · <a href="./frota-59-be-api-de-manutencoes.html">SDD da FROTA-59</a></p><p>A FROTA-61 entrega testes automatizados do backend executáveis por npm test. O front da FROTA-60 pode ser desenvolvido em paralelo. Nenhum cenário da suíte depende de clicar na tela.</p>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<table><thead><tr><th scope="col">Regra a comprovar</th><th scope="col">Observação que revela uma regressão</th></tr></thead><tbody>
+<tr><td>Orçamento e execução têm histórias distintas</td><td>Se a oficina troca uma peça a menos, o fechamento preserva a quantidade orçada e muda apenas o executado e o gasto final.</td></tr>
+<tr><td>O hodômetro registra o fato</td><td>A mesma peça pode ser registrada antes, no marco e depois da quilometragem de referência. A API devolve somente os itens enviados.</td></tr>
+<tr><td>Um bloqueio ativo por veículo</td><td>Duas conexões concorrentes não podem persistir duas impeditivas. A abertura remove o veículo dos disponíveis e o encerramento normal o devolve.</td></tr>
+<tr><td>Gasto pertence ao período de encerramento</td><td>Uma ordem que atravessa o fim do mês deve aparecer no histórico de abertura de um mês e entrar no custo do outro.</td></tr>
+<tr><td>Autorização e gravação atômica</td><td>Um erro de autorização, de revisão, de integridade ou de auditoria não pode deixar alteração parcial no veículo, ordem ou histórico.</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<ul>
+<li>Criar backend/tests/maintenance-orders.integration.test.ts com node:test, assert/strict, servidor HTTP real em porta efêmera e fetch. Seguir o ciclo de vida de backend/tests/vehicles.integration.test.ts.</li>
+<li>Reutilizar backend/tests/helpers/db-test.ts e backend/tests/fixtures/rbac-users.fixture.ts. Semear perfis canônicos, obter token de teste por perfil e usar veículos, oficinas e descrições inteiramente fictícios.</li>
+<li>Criar auxiliares pequenos dentro da suíte para abrir veículo/ordem, consultar o detalhe e montar a viagem fictícia com os vínculos obrigatórios. Testes de cálculo isolado e código de produção pertencem à FROTA-59.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p>Usar exclusivamente o banco dedicado de testes preparado por setupTestDatabase. Rodar as migrações inclusive a extensão criada pela FROTA-59. Cada cenário começa limpo com truncateTestDatabase e fixtures de RBAC. As requisições HTTP usam conexões próprias; uma transação externa ao teste não desfaz os commits da API. Fechar servidor e pool no teardown.</p><p>Verificar com SELECT parametrizado o estado em fleet.maintenance_orders, fleet.maintenance_order_events, fleet.vehicles, fleet.vehicle_events e audit.logs. Para viagem ativa, criar dependências reais de trip.trips no banco de teste. Para concorrência usar clientes distintos. A FROTA-61 não introduz DDL de produção. A reversão desta entrega consiste em retirar apenas os testes adicionados.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<table><thead><tr><th scope="col">Entrada exercitada</th><th scope="col">Contrato observado</th></tr></thead><tbody>
+<tr><td>POST /maintenance-orders</td><td>201 e ID persistido; repetir chave e conteúdo retorna o mesmo ID. Tipo ausente, custos negativos, quantidades inválidas e datas inconsistentes dão 400 com erro em português.</td></tr>
+<tr><td>PUT /maintenance-orders/:id</td><td>200 em ordem ativa com expectedRevision vigente. Revisão anterior retorna 409. Confirmar evento UPDATED e que o GET reflete apenas a edição vencedora.</td></tr>
+<tr><td>PATCH /maintenance-orders/:id/close</td><td>200 com DONE, custo calculado e relação executada. Testar confirmação do orçamento, substituição da relação e duplo encerramento.</td></tr>
+<tr><td>GET /maintenance-orders/:id</td><td>200 com orçamento, execução, veículo e revisão. 404 para ID inexistente. Distinguir custo histórico conhecido de composição desconhecida.</td></tr>
+<tr><td>GET /maintenance-orders</td><td>200 com items e totalSpent. Filtros por veículo, tipo, status e período [from,to). Listagem por abertura; soma por encerramento. Conferir também GET /vehicles?status=AVAILABLE e a disponibilidade usada para alocação.</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<div class="notice-block"><strong>Extensão autorizada em 05/11/2026:</strong> complementar a suíte backend com testes frontend de rota/menu por perfil, contratos HTTP, chave de abertura, revisão, execução separada, normalização de valores em reais e custo desconhecido versus zero. Percorrer a integração autorizada pelo navegador com API real e PostgreSQL em banco isolado: abrir, editar, encerrar, recarregar, conferir bloqueio/liberação, negar acesso visual ao solicitante, recuperar conflitos entre duas sessões e verificar tamanhos de tela e estados de falha. Preservar os testes backend independentes da interface. Consolidar também testes permanentes de migração: legado, impeditivas conflitantes e recusa de rollback destrutivo.</div>
+<p>A suíte prepara exemplos de respostas consumíveis pela FROTA-60: lista com dados e soma, lista vazia, detalhe sem orçamento, orçamento sem execução e erro orientador. A execução de npm test é independente da disponibilidade da interface.</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>Verificar que as respostas de validação trazem o campo erro com texto em português que identifica o problema, sem SQL, stack trace ou dados do ator. Validar o significado textual da situação e a diferença entre custo zero e custo desconhecido.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<p>Executar abertura e encerramento bem-sucedidos com GESTOR e ADMINISTRADOR. Parametrizar as cinco rotas para SOLICITANTE, MOTORISTA, ATENDENTE_SVO e EQUIPE_SVO (403), bem como ausência de token (401). Usar ordem existente e entradas válidas para isolar a autorização de outras falhas. Conferir que as recusas não geram eventos. Nenhuma nova permissão, variável ou dependência de interface.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<table><thead><tr><th scope="col">Caso</th><th scope="col">Preparação e ação</th><th scope="col">Resultado a conferir</th></tr></thead><tbody>
+<tr><td>01 · Tipos e validação</td><td>Abrir PREVENTIVE e CORRECTIVE. Repetir com tipo ausente/desconhecido, preço de peça ou serviço negativo e quantidade zero.</td><td>Válidos 201. Inválidos 400, erro descritivo e contagem de ordens e auditorias preservada.</td></tr>
+<tr><td>02 · Quilometragem livre</td><td>Registrar a mesma peça em viaturas fictícias a 11.700, 12.000 e 12.400 km. Consultar cada detalhe.</td><td>Três registros aceitos, km e itens iguais aos enviados. Km negativo retorna 400.</td></tr>
+<tr><td>03 · Orçado e executado</td><td>Orçar 2 filtros a R$ 18,75 e mão de obra de R$ 40,00. Encerrar com 1 filtro e o mesmo serviço. Em outra OS, confirmar o orçamento integral.</td><td>Primeira: orçamento R$ 77,50 e custo final R$ 58,75. Segunda: R$ 77,50 nas duas visões. A ordem de abertura no histórico mantém os itens originais.</td></tr>
+<tr><td>04 · Precisão e gratuidade</td><td>Testar 1,500 unidade a R$ 0,05 e mão de obra de R$ 1,00. Encerrar outra OS com relação executada vazia explicitamente confirmada.</td><td>Primeira custa R$ 1,08 após arredondar a linha. Segunda custa R$ 0,00. Ordem aberta sem execução tem finalCost nulo. Rejeitar cost negativo ou divergente no fechamento, total fora do limite ou escala inválida.</td></tr>
+<tr><td>05 · Disponibilidade e viagem</td><td>Abrir e fechar impeditiva em veículo disponível, consultar por status e isAvailableForAllocation em cada etapa. Em outra viatura com trip.trips IN_PROGRESS, tentar abrir impeditiva.</td><td>Sai e volta à lista e à elegibilidade. Viagem em andamento retorna 422 e o banco mantém a situação inicial. Ordem não impeditiva preserva disponibilidade.</td></tr>
+<tr><td>06 · Concorrência e reenvio</td><td>Disparar duas aberturas impeditivas, com chaves diferentes, no mesmo veículo. Repetir um POST com a mesma chave e o corpo original, inclusive após edição. Reusar a chave com outro corpo.</td><td>Somente uma impeditiva e uma transição de bloqueio (201/409). Reenvio idêntico devolve o mesmo ID e conserva os eventos. Reutilização divergente dá 409.</td></tr>
+<tr><td>07 · Mudança de impedimento</td><td>Usar PUT para tornar uma OS impeditiva e depois remover o impedimento. Tentar liberar por PATCH do veículo enquanto a OS bloqueia. Inativar antes de fechar em cenário separado.</td><td>PUT obtém e libera o bloqueio sob a revisão correta. Liberação manual indevida é recusada. Encerramento mantém o veículo já inativo.</td></tr>
+<tr><td>08 · Histórico e período</td><td>OS A aberta em outubro e encerrada exatamente no início de novembro por R$ 58,75. OS B aberta em novembro e encerrada exatamente no início de dezembro. Incluir outra placa, outro tipo e uma OS aberta com orçamento.</td><td>No intervalo de novembro, filtrando a placa e o tipo de A e B, A entra só no gasto e B só na listagem. Gasto R$ 58,75. Com filtro OPEN, gasto zero. Sem correspondências: items=[] e totalSpent="0.00".</td></tr>
+<tr><td>09 · Revisão e auditoria</td><td>Editar com a mesma revisão em duas conexões. Encerrar duas vezes. Comparar estados anterior e posterior e ator nos eventos e audit.logs.</td><td>Apenas uma edição por revisão e um CLOSED. Reenvio com revisão vencida dá 409. Eventos são imutáveis; o ator provém da sessão.</td></tr>
+<tr><td>10 · Rollback real</td><td>No app de teste, injetar por AppDependencies.audits um repositório de auditoria que falhe no registro da OS. Abrir uma impeditiva e repetir no encerramento de outra previamente aberta.</td><td>HTTP 500 genérico. Na abertura não sobra ordem, evento ou veículo bloqueado. Na falha de fechamento, a ordem continua ativa, o custo final continua nulo e o veículo continua bloqueado. Conferir as contagens nas tabelas.</td></tr>
+<tr><td>11 · Acesso e legado</td><td>Executar a matriz da seção 8, consultar ID inexistente e inserir uma ordem DONE legada com custo conhecido e sem itens.</td><td>401/403/404 conforme o caso. O detalhe e o gasto preservam o custo legado, sem fabricar peças, quantidades ou orçamento.</td></tr>
+</tbody></table><p>Critério de pronto: na pasta backend, executar npm run test:integration e em seguida npm test. Exigir descoberta dos casos novos, zero falhas e nenhuma omissão por ausência de banco. A suíte completa deve passar em duas execuções consecutivas. Registrar os identificadores dos casos, comando e resultado na revisão da tarefa. Estes são critérios para a implementação futura.</p>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox" aria-label="Marcar verificação como concluída"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox" aria-label="Marcar verificação como concluída"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-61)</code>)</li>
+  <li><input type="checkbox" aria-label="Marcar verificação como concluída"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox" aria-label="Marcar verificação como concluída"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox" aria-label="Marcar verificação como concluída"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox" aria-label="Verificar backend"> Executar <code>npm run build</code> e <code>npm test</code> no backend de teste.</li>
+  <li><input type="checkbox" aria-label="Marcar verificação como concluída"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox" aria-label="Marcar verificação como concluída"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox" aria-label="Validar mensagens"> Mensagens verificadas conforme a seção 7.</li>
+  <li><input type="checkbox" aria-label="Marcar verificação como concluída"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivo de referência:</strong> <code>docs/modulos/MANUTENCOES.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<p>Relacionar a matriz de cenários e o comando de teste à documentação de MANUTENCOES quando o módulo for documentado. A FROTA-59 responde pela descrição funcional do contrato; o material de QA referencia essa mesma definição.</p>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis definidos na seção 8.</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

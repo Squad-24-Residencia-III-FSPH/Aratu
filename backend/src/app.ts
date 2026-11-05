@@ -16,6 +16,9 @@ import { ProfileService } from './services/profile.service'
 import { VehiclesRepository } from './repositories/vehicles.repository'
 import { VehiclesService } from './services/vehicles.service'
 import { createVehiclesRouter } from './routes/vehicles.routes'
+import { MaintenanceOrdersRepository } from './repositories/maintenance-orders.repository'
+import { MaintenanceOrdersService } from './services/maintenance-orders.service'
+import { createMaintenanceOrdersRouter } from './routes/maintenance-orders.routes'
 import { UsersService } from './services/users.service'
 import { createUsersRouter } from './routes/users.routes'
 
@@ -67,6 +70,10 @@ export function createApp({ jwtConfig, users, roles, audits, pool }: AppDependen
     const vehiclesRepository = new VehiclesRepository(pool)
     const vehiclesService = new VehiclesService(vehiclesRepository, auditService)
     app.use('/vehicles', createVehiclesRouter(vehiclesService, jwtConfig))
+    const maintenanceService = new MaintenanceOrdersService(
+      new MaintenanceOrdersRepository(pool), vehiclesRepository, vehiclesService, auditService,
+    )
+    app.use('/maintenance-orders', createMaintenanceOrdersRouter(maintenanceService, jwtConfig))
   }
   if (rolesRepository && auditService && userRepository instanceof UsersRepository) {
     const usersService = new UsersService(userRepository, rolesRepository, auditService)

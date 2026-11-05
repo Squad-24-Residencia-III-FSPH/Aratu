@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-59 — BE API de manutenções (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+
+code { overflow-wrap: anywhere; } summary { cursor: pointer; padding: 12px 0; } .check label { display: block; min-height: 44px; } a:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid #075985; outline-offset: 3px; } @media(max-width:650px) { body { padding: 12px; } table { display: block; overflow-x: auto; } h1 { font-size: 1.5rem; } }
+</style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-59: BE API de manutenções</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-59</code> — BE API de manutenções</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/be-api-de-manutencoes</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-59-be-api-de-manutencoes.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>MANUTENCOES</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-11-04</p>
+</div>
+
+
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA
+</div>
+
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">3</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">10</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">4</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<p><strong>Objeto efetivamente revisado:</strong> arquivos locais modificados e novos da branch <code>feat/be-api-de-manutencoes</code>. HEAD e develop local apontam para <code>34633f5d59809bf49e9e2d72956757e48754671b</code>; <code>git diff develop...HEAD</code> está vazio. A revisão inclui o trabalho ainda não commitado. A base remota não foi atualizada.</p>
+<p><strong>Contexto:</strong> FROTA-59 — [BE] API de manutenções (registro preventiva/corretiva e histórico), subtarefa de FROTA-57, módulo MANUTENCOES, perfis GESTOR e ADMINISTRADOR. Cache do Jira salvo em 03/11/2026: Em andamento, prioridade Normal. A tentativa de atualização nesta revisão retornou <code>fetch failed</code>; o estado atual no Jira não foi confirmado. Responsável e relator não são reproduzidos neste artefato.</p>
+<details><summary>Requisito consultado e critérios de aceite</summary><p>Criar endpoints para registrar manutenções preventivas/corretivas e consultar histórico e custos por veículo. Fluxo routes → controller → service → repository, com tipos próprios. GET da coleção com filtros por veículo, tipo, situação e período; GET do detalhe; POST; PUT; PATCH de encerramento. Tipo obrigatório e custo não negativo com erro 400. Ordem impeditiva muda a situação via VehiclesService e seu encerramento libera o veículo na mesma transação. Viagem em andamento impede abertura impeditiva com 422. Autorizar GESTOR e ADMINISTRADOR e auditar abertura, edição e encerramento. Critério de pronto: registro, histórico, encerramento, bloqueio e liberação funcionando pela API. Dependências: FROTA-58 e FROTA-45. Cache sem comentários ou subtarefas. O SDD local detalha orçamento/execução, idempotência, revisão e preservação histórica.</p></details>
+<p>Foram inspecionados 20 arquivos locais. O núcleo novo de manutenção ultrapassa 400 linhas, antes de somar testes e documentação. Nenhum código de produção foi alterado pela revisão.</p>
+<table><thead><tr><th scope="col">Arquivo</th><th scope="col">Alteração</th><th scope="col">Linhas atuais</th><th scope="col">Escopo</th></tr></thead><tbody><tr><td><code>backend/src/app.ts</code></td><td>Modificado</td><td>95</td><td>Registra e injeta as dependências da API de manutenção.</td></tr>
+<tr><td><code>backend/src/repositories/vehicles.repository.ts</code></td><td>Modificado</td><td>274</td><td>Consulta impedimento ativo e o aplica ao filtro AVAILABLE.</td></tr>
+<tr><td><code>backend/src/services/vehicles.service.ts</code></td><td>Modificado</td><td>353</td><td>Compartilha transação e impede liberação manual de ordem ativa.</td></tr>
+<tr><td><code>backend/tests/database.integration.test.ts</code></td><td>Modificado</td><td>2170</td><td>Adequa rollbacks à nova migração; também contém testes da FROTA-54.</td></tr>
+<tr><td><code>backend/tests/vehicles.service.test.ts</code></td><td>Modificado</td><td>209</td><td>Atualiza o contrato do repositório simulado.</td></tr>
+<tr><td><code>docs/manuais/padroes-codigo.md</code></td><td>Modificado</td><td>130</td><td>Documentação de serviços e vínculos da FROTA-54.</td></tr>
+<tr><td><code>backend/src/controllers/maintenance-orders.controller.ts</code></td><td>Novo</td><td>53</td><td>Traduz entradas e erros HTTP das cinco operações.</td></tr>
+<tr><td><code>backend/src/database/migrations/202611030001_activate_vehicle_service_links.down.sql</code></td><td>Novo</td><td>16</td><td>Migração da FROTA-54, fora do escopo funcional desta revisão.</td></tr>
+<tr><td><code>backend/src/database/migrations/202611030001_activate_vehicle_service_links.sql</code></td><td>Novo</td><td>6</td><td>Migração da FROTA-54, fora do escopo funcional desta revisão.</td></tr>
+<tr><td><code>backend/src/database/migrations/202611030002_extend_maintenance_orders.down.sql</code></td><td>Novo</td><td>27</td><td>Extensão de manutenção e rollback com proteção de dados.</td></tr>
+<tr><td><code>backend/src/database/migrations/202611030002_extend_maintenance_orders.sql</code></td><td>Novo</td><td>29</td><td>Extensão de manutenção e rollback com proteção de dados.</td></tr>
+<tr><td><code>backend/src/repositories/maintenance-orders.repository.ts</code></td><td>Novo</td><td>159</td><td>Persiste ordens e eventos; consulta lista, custos e impedimentos.</td></tr>
+<tr><td><code>backend/src/routes/maintenance-orders.routes.ts</code></td><td>Novo</td><td>19</td><td>JWT e RBAC para GESTOR e ADMINISTRADOR.</td></tr>
+<tr><td><code>backend/src/services/maintenance-orders.service.ts</code></td><td>Novo</td><td>331</td><td>Cálculo decimal, revisão, idempotência e disponibilidade.</td></tr>
+<tr><td><code>backend/src/types/maintenance.types.ts</code></td><td>Novo</td><td>106</td><td>Contratos explícitos e estados de manutenção.</td></tr>
+<tr><td><code>backend/tests/maintenance-orders.service.test.ts</code></td><td>Novo</td><td>248</td><td>12 testes do domínio com dependências simuladas.</td></tr>
+<tr><td><code>docs/modulos/MANUTENCOES.html</code></td><td>Novo</td><td>123</td><td>Documenta os contratos e as regras implementadas.</td></tr>
+<tr><td><code>docs/plans/frota-54-be-vincular-veiculos-compativeis.html</code></td><td>Novo</td><td>221</td><td>Plano SDD local; referência de escopo.</td></tr>
+<tr><td><code>docs/plans/frota-59-be-api-de-manutencoes.html</code></td><td>Novo</td><td>232</td><td>Plano SDD local; referência de escopo.</td></tr>
+<tr><td><code>docs/plans/frota-61-qa-testes-de-manutencoes.html</code></td><td>Novo</td><td>220</td><td>Plano SDD local; referência de escopo.</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<p>Contadores por critério C1–C17; limitações dos ensaios são explicitadas nas evidências.</p><table><thead><tr><th scope="col">Código</th><th scope="col">Critério</th><th scope="col">Resultado</th><th scope="col">Evidência</th></tr></thead><tbody><tr><td>C1</td><td>Escopo e tamanho</td><td><span class="badge-warn">Atenção</span></td><td>A1: implementação acima de 400 linhas e alterações da FROTA-54 na mesma working tree.</td></tr>
+<tr><td>C2</td><td>Gitflow e commits</td><td><span class="badge-warn">Atenção</span></td><td>A2: branch válida e base local conhecida; não há commits da tarefa ou PR verificável.</td></tr>
+<tr><td>C3</td><td>Requisito e SDD</td><td><span class="badge-ok">OK</span></td><td>Cinco rotas, orçamento/execução, custos, revisão e replay aderentes ao SDD. Fluxo HTTP com PostgreSQL confirmado. A suíte ampliada de manutenção pertence à FROTA-61.</td></tr>
+<tr><td>C4</td><td>Camadas backend</td><td><span class="badge-ok">OK</span></td><td>Controller traduz HTTP; service valida domínio sem Express; SQL restrito aos repositories.</td></tr>
+<tr><td>C5</td><td>Camadas frontend</td><td><span class="badge-na">N/A</span></td><td>Não há alteração de telas React neste escopo.</td></tr>
+<tr><td>C6</td><td>Ciclos e feature flags</td><td><span class="badge-ok">OK</span></td><td>Dependências de manutenção para veículos sem ciclo; nenhuma flag nova.</td></tr>
+<tr><td>C7</td><td>Segurança SQL</td><td><span class="badge-ok">OK</span></td><td>Valores externos enviados em parâmetros posicionais; sem interpolação de entradas.</td></tr>
+<tr><td>C8</td><td>Projeção e performance SQL</td><td><span class="badge-warn">Atenção</span></td><td>A3: projeções explícitas e sem N+1; períodos ficam nos FILTER dos agregados. Medição com volume operacional pendente.</td></tr>
+<tr><td>C9</td><td>Atomicidade e concorrência</td><td><span class="badge-ok">OK</span></td><td>Trava do veículo antes da ordem, revisão sob lock, chave única e impedimento único; mesma conexão para eventos/auditoria; release em finally. Concorrência do domínio verificada com simuladores, não com duas conexões PostgreSQL de manutenção.</td></tr>
+<tr><td>C10</td><td>Modelagem e migração</td><td><span class="badge-ok">OK</span></td><td>DDL transacional, preservação de NULL legado, índices parciais, recusa de rollback com dados novos. A suíte existente passou com aplicação e reversão da extensão em base de testes.</td></tr>
+<tr><td>C11</td><td>RBAC backend</td><td><span class="badge-ok">OK</span></td><td>Router aplica JWT e authorizeRoles nas cinco rotas. Leitura negada aos quatro perfis não autorizados no ensaio HTTP.</td></tr>
+<tr><td>C12</td><td>LGPD e segredos</td><td><span class="badge-ok">OK</span></td><td>Testes/exemplos da alteração usam dados fictícios. Nenhum segredo novo identificado.</td></tr>
+<tr><td>C13</td><td>TypeScript</td><td><span class="badge-ok">OK</span></td><td>Checagem estrita e build aprovados; sem any ou @ts-ignore no código novo.</td></tr>
+<tr><td>C14</td><td>Nomenclatura e TSDoc</td><td><span class="badge-ok">OK</span></td><td>Código em inglês, mensagens/TSDoc em português; mantém nomes RBAC existentes previstos no SDD. Sem logs temporários no código de produção novo.</td></tr>
+<tr><td>C15</td><td>Estados visuais</td><td><span class="badge-na">N/A</span></td><td>Tela da FROTA-60 fora desta entrega.</td></tr>
+<tr><td>C16</td><td>Formulários acessíveis</td><td><span class="badge-na">N/A</span></td><td>Não há formulário React alterado.</td></tr>
+<tr><td>C17</td><td>Teclado, foco e toque</td><td><span class="badge-na">N/A</span></td><td>Não há interação React alterada. Não se declara auditoria visual da aplicação.</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<h3>3.1 Bloqueantes</h3><p>Nenhum defeito bloqueante confirmado no escopo inspecionado. Veredito: <strong>APROVADO_PARA_REVISAO_HUMANA</strong>, com os pontos de atenção abaixo. Isto não representa aprovação de merge nem substitui a FROTA-61.</p>
+<h3>A1 — Delimitar a FROTA-59 no PR e justificar o tamanho (C1)</h3><p><code>backend/src/database/migrations/202611030001_activate_vehicle_service_links.sql:3</code>, seu rollback, <code>backend/tests/database.integration.test.ts:56</code>, <code>docs/manuais/padroes-codigo.md:94</code> e o plano da FROTA-54 pertencem a vínculos veículo/serviço. A manutenção não depende da coluna active adicionada nesses vínculos. Agrupar tudo sem explicação aumenta o esforço do revisor e vincula entregas independentes. Separar esses trechos ao preparar commits/PR ou justificar expressamente a dependência; não remover os ajustes de rollback necessários à migração 202611030002. Justificar também o diff acima de 400 linhas.</p>
+<h3>A2 — Registrar a entrega antes da revisão do PR (C2)</h3><p>HEAD e develop são idênticos e os arquivos de manutenção estão novos/modificados na working tree. A revisão de um PR baseada apenas nos commits não incluiria esta implementação. Preparar commits Conventional Commits da tarefa, confirmar destino develop e comparar o diff final com o conjunto revisado aqui. Não foi criado commit ou PR por esta revisão.</p>
+<h3>A3 — Medir a listagem por período com volume representativo (C8)</h3><p><code>backend/src/repositories/maintenance-orders.repository.ts:136–146</code>: os filtros de abertura/fechamento estão dentro dos agregados; o WHERE de origem restringe apenas veículo, tipo e situação. Um intervalo curto não restringe diretamente as linhas de entrada por data. Não foi constatada lentidão neste ambiente. Executar EXPLAIN (ANALYZE, BUFFERS) com histórico representativo; se houver custo relevante, separar os agregados em subconsultas com predicados de data próprios, mantendo uma única instrução e a mesma fotografia do banco. Não adicionar paginação ou índices especulativos sem medição e alinhamento de contrato.</p>
+<h3>Limitações registradas</h3><ul><li>Jira consultado pelo cache de 03/11; tentativa atual falhou por conexão.</li><li>A FROTA-61 ainda precisa consolidar testes permanentes HTTP/PostgreSQL de manutenção, inclusive concorrência com conexões reais, rollback de auditoria e rejeição da migração diante de legados conflitantes. O ensaio adicional desta revisão não substitui essa suíte.</li><li>A API de início de viagens não existe nesta base. A exigência de adquirir a mesma trava do veículo é documentada para sua implementação futura.</li><li>O pré-auditor imprimiu <code>ackend/src/app.ts</code>, truncando a primeira letra do primeiro arquivo; esse arquivo foi revisado manualmente. Os seus contadores não foram tomados como prova exclusiva.</li></ul>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<table><thead><tr><th scope="col">Verificação</th><th scope="col">Execução</th><th scope="col">Resultado</th></tr></thead><tbody><tr><td>Pré-auditoria</td><td>node docs/scripts/aratu-check.mjs</td><td>Aprovada: 0 achados estáticos. Ressalva de caminho descrita acima.</td></tr>
+<tr><td>Tipos locais</td><td>backend: npx tsc --noEmit; frontend: npx tsc -b --noEmit</td><td>Aprovados.</td></tr>
+<tr><td>Backend local</td><td>npm run build; npm test</td><td>Build aprovado e 104/104 testes aprovados com PostgreSQL.</td></tr>
+<tr><td>Backend Docker</td><td>docker compose exec -T backend npx tsc --noEmit; npm test</td><td>Tipos aprovados e 104/104 testes aprovados.</td></tr>
+<tr><td>Frontend local e Docker</td><td>npm run lint; npm run build</td><td>Aprovados nos dois ambientes. Aviso não bloqueante de bundle &gt;500 kB; sem alteração frontend nesta tarefa.</td></tr>
+<tr><td>Frontend testes</td><td>node --test tests/*.test.mjs</td><td>48/48 aprovados pela pré-auditoria.</td></tr>
+<tr><td>Domínio manutenção/veículos</td><td>tsx --test tests/maintenance-orders.service.test.ts tests/vehicles.service.test.ts</td><td>16/16 aprovados; subconjunto dos 104 testes, sem dupla contagem.</td></tr>
+<tr><td>Ensaio HTTP + PostgreSQL da manutenção</td><td>Roteiro temporário de revisão em aratu_test</td><td>Aprovado: abertura, edição, fechamento, custo 37.50, bloqueio/liberação, replay, conflito de chave, datas independentes da lista/soma, eventos OPENED/UPDATED/CLOSED e leitura negada para quatro perfis.</td></tr>
+<tr><td>Integridade do diff</td><td>git diff --check</td><td>Sem erros de whitespace; aviso de normalização CRLF/LF no manual preexistente.</td></tr></tbody></table><p>A primeira execução teve 35 aprovações e 69 falhas de conexão, pois o Docker estava desligado. Depois de iniciar o Docker e disponibilizar o PostgreSQL, a suíte completa passou localmente e no container. Essa falha inicial de infraestrutura não foi classificada como defeito do diff. Os testes usaram aratu_test com dados fictícios.</p>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul class="check">
+<li><label><input type="checkbox"> Delimitar FROTA-54/FROTA-59 e justificar o tamanho do PR.</label></li>
+<li><label><input type="checkbox"> Criar commits Conventional Commits e conferir o diff final contra develop.</label></li>
+<li><label><input type="checkbox"> Confirmar o estado atualizado do Jira e o SDD na revisão humana.</label></li>
+<li><label><input type="checkbox"> Incorporar a suíte de integração da FROTA-61 e seus cenários de concorrência, legados e rollback.</label></li>
+<li><label><input type="checkbox"> Medir a consulta por período antes de introduzir otimizações.</label></li>
+<li><label><input type="checkbox"> Na integração com FROTA-60, conferir as mensagens em português e a distinção orçamento/execução e abertura/encerramento.</label></li>
+</ul><p>Revisão → padrões do projeto, atomicidade, preservação histórica, DRY e YAGNI · dúvidas de negócio: nenhuma pendente; limitações de verificação registradas acima.</p>
+
+</body>
+</html>

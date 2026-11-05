@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FROTA-61 — Evidências de testes de manutenções</title>
+<style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+<h1>FROTA-61 — Evidências de testes de manutenções</h1>
+<div class="meta-block"><p>Execução: 04/11/2026 · Módulo MANUTENCOES</p><p>Branch: <code>feat/qa-testes-de-manutencoes</code> · Base atualizada: <code>develop</code> (<code>79c5949</code>)</p><p><a href="../plans/frota-61-qa-testes-de-manutencoes.html">Plano SDD</a> · <a href="../modulos/MANUTENCOES.html">Documentação do módulo</a> · <a href="../../backend/tests/maintenance-orders.integration.test.ts">Suíte implementada</a></p></div>
+<p>Registro da verificação executada durante a implementação, para subsidiar a revisão pré-PR. A revisão completa de código e a validação de interface permanecem etapas próprias. O escopo desta entrega é o backend, por HTTP real e PostgreSQL dedicado de testes.</p>
+<div class="verdict-approved">Verificação automatizada concluída: zero falhas, zero testes omitidos e duas execuções gerais consecutivas aprovadas.</div>
+<h2>1. Comandos e resultados</h2>
+<table><thead><tr><th scope="col">Comando</th><th scope="col">Resultado observado</th></tr></thead><tbody>
+<tr><td>backend: <code>npm run test:integration</code></td><td>80 testes passaram; 0 falhas; 0 omitidos.</td></tr>
+<tr><td>backend: <code>npm test</code> — execução 1</td><td>116 testes passaram; 0 falhas; 0 omitidos; 52,5 segundos.</td></tr>
+<tr><td>backend: <code>npm test</code> — execução 2</td><td>116 testes passaram; 0 falhas; 0 omitidos; 51,4 segundos.</td></tr>
+<tr><td>raiz: <code>node docs/scripts/aratu-check.mjs</code></td><td>0 achados bloqueantes e 0 alertas estáticos; TypeScript backend/frontend sem erros; 67 testes frontend passaram.</td></tr>
+<tr><td><code>docker compose exec -T backend npx tsc --noEmit</code></td><td>Sucesso.</td></tr>
+<tr><td><code>docker compose exec -T backend npm run build</code></td><td>Sucesso.</td></tr>
+<tr><td><code>docker compose exec -T frontend npm run build</code></td><td>Sucesso; aviso de bundle acima de 500 kB, sem falha de build.</td></tr>
+</tbody></table>
+<p>Logs locais em <code>.tmp/task-FROTA-61/</code>: <code>integration.log</code>, <code>full-1.log</code>, <code>full-2.log</code> e <code>aratu-check.log</code>. O auditor não executa os testes backend; as três execuções acima foram realizadas separadamente.</p>
+<h2>2. Matriz executada</h2>
+<table><thead><tr><th scope="col">Identificador</th><th scope="col">Evidência conferida</th><th scope="col">Resultado</th></tr></thead><tbody>
+<tr><td>IT-MNT-01</td><td>Preventiva/corretiva; tipo ausente ou desconhecido, preços negativos, quantidade zero, km negativo e datas inválidas; recusas preservam dados e auditoria.</td><td>Passou</td></tr>
+<tr><td>IT-MNT-02</td><td>Mesma peça a 11.700, 12.000 e 12.400 km; itens e snapshot da viatura conferidos pelo detalhe.</td><td>Passou</td></tr>
+<tr><td>IT-MNT-03</td><td>Orçamento de R$ 77,50 preservado com execução de R$ 58,75 ou confirmação integral; evento de abertura conserva itens originais.</td><td>Passou</td></tr>
+<tr><td>IT-MNT-04</td><td>Arredondamento por linha para R$ 1,08; lista executada vazia com custo zero; nulo sem execução; recusa de custo divergente/negativo, excesso, escala e encerramento anterior.</td><td>Passou</td></tr>
+<tr><td>IT-MNT-05</td><td>Impeditiva remove e devolve disponibilidade na API e no serviço de alocação; não impeditiva preserva disponibilidade; viagem ativa impede abertura.</td><td>Passou</td></tr>
+<tr><td>IT-MNT-06</td><td>Duas conexões disputam a viatura: 201/409, uma abertura e uma transição; reenvio idêntico antes/depois de edição; chave divergente recusada.</td><td>Passou</td></tr>
+<tr><td>IT-MNT-07</td><td>PUT obtém/remove impedimento; liberação manual recusada sem efeitos; fechamento preserva inativação independente.</td><td>Passou</td></tr>
+<tr><td>IT-MNT-08</td><td>Intervalo semiaberto por abertura para lista e encerramento para gasto; filtros veículo/tipo/status, desempate da ordenação e resultado vazio.</td><td>Passou</td></tr>
+<tr><td>IT-MNT-09</td><td>Edições concorrentes 200/409; GET vencedor, único CLOSED, revisão obsoleta, antes/depois e autoria da sessão em eventos/auditoria; UPDATE/DELETE de eventos recusados.</td><td>Passou</td></tr>
+<tr><td>IT-MNT-10</td><td>Falha injetada em AppDependencies.audits desfaz abertura e encerramento: ordem, custo, viatura, eventos e auditoria permanecem íntegros.</td><td>Passou</td></tr>
+<tr><td>IT-MNT-11</td><td>25 combinações de 401/403 nas cinco rotas contra uma ordem existente; abertura/fechamento por GESTOR e ADMINISTRADOR; 404; custo legado sem itens fabricados.</td><td>Passou</td></tr>
+</tbody></table>
+<h2>3. Escopo e checklist para revisão</h2>
+<p>Criada a suíte de integração, ampliada a documentação do módulo e registrado este resultado. A API e as migrações locais da FROTA-59 foram preservadas e usadas como dependência. Todos os dados de teste são fictícios; consultas de verificação usam colunas explícitas e parâmetros nas entradas variáveis. As mensagens HTTP foram verificadas em português, sem detalhes internos ou dados do ator. Acessibilidade visual não foi exercitada nesta tarefa de backend.</p>
+<p>O arquivo de teste possui 399 linhas. O limite de diff total inferior a 400 linhas do checklist não fica atendido ao incluir documentação e este registro; o checkout também contém alterações anteriores de outras tarefas. A preparação dos commits/PR deve distinguir essas entregas e incluir a dependência FROTA-59. Nenhum commit ou push foi executado.</p>
+<p>Os dois erros fictícios registrados no terminal pelo IT-MNT-10 são intencionais: a resposta HTTP contém apenas <code>Erro interno do servidor.</code> e os testes comprovam rollback completo.</p>
+<p>Próximas etapas: <code>/testar FROTA-61</code> e <code>/revisar FROTA-61</code> antes do PR para <code>develop</code>. Commit sugerido: <code>test(manutencoes): cobrir integracao de manutencoes (FROTA-61)</code>.</p>
+<p>Código → padrões do projeto, compatibilidade, atomicidade, DRY e KISS · dúvidas de implementação: nenhuma.</p>
+</body></html>

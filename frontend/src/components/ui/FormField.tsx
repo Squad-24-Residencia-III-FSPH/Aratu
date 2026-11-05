@@ -10,7 +10,7 @@ export interface FormFieldProps {
   helperText?: string
   required?: boolean
   disabled?: boolean
-  type?: 'text' | 'number' | 'date'
+  type?: 'text' | 'number' | 'date' | 'datetime-local'
   multiline?: boolean
   minRows?: number
   autoComplete?: string
