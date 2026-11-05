@@ -11,23 +11,23 @@ export default function Topbar() {
   return (
     <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, backgroundColor: '#FF6B00', boxShadow: 'none' }}>
       <Toolbar sx={{ justifyContent: 'space-between', minHeight: '64px !important' }}>
-        
+
         {/* Logo */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box 
-            component="img" 
-            src={logoAratu} 
-            alt="Aratu Logo" 
-            sx={{ height: 32, width: 'auto', objectFit: 'contain' }} 
+          <Box
+            component="img"
+            src={logoAratu}
+            alt="Aratu — Sistema de Gestão de Frota"
+            sx={{ height: 32, width: 'auto', objectFit: 'contain' }}
           />
-          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600, color: '#fff', fontSize: '1.1rem' }}>
-            Aratu 
+          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600, color: '#111827', fontSize: '1.1rem' }}>
+            Aratu
           </Typography>
         </Box>
 
         {/* Perfil e Notificações */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <IconButton color="inherit">
+          <IconButton color="inherit" aria-label="Notificações, 1 não lida">
             <Badge badgeContent={1} color="error">
               <NotificationsIcon />
             </Badge>
@@ -37,7 +37,7 @@ export default function Topbar() {
               {profileInitials(nome)}
             </Avatar>
             <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'right' }}>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: '#fff', lineHeight: 1.2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827', lineHeight: 1.2 }}>
                 {nome}
               </Typography>
               {session && (

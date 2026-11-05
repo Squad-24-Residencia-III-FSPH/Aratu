@@ -1,5 +1,6 @@
 import { PROFILE_HOMES, PROFILE_PERMISSIONS_PATH } from '../auth/profiles.ts'
 import type { Profile } from '../auth/profiles.ts'
+import { VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 
 export type SidebarIconName =
   | 'home'
@@ -27,6 +28,8 @@ export interface SidebarMenuItem {
   behavior: 'static' | 'button' | 'link'
   path?: string
   selected?: boolean
+  /** Restringe o item a estes perfis; ausente significa visível a todos. */
+  profiles?: readonly Profile[]
 }
 
 export interface SidebarMenuSection {
@@ -52,6 +55,13 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
       behavior: 'link',
       path: PROFILE_PERMISSIONS_PATH,
     },
+    {
+      label: 'Veículos',
+      icon: 'vehicles',
+      behavior: 'link',
+      path: VEHICLES_PATH,
+      profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'],
+    },
     { label: 'Auditoria', icon: 'audit', behavior: 'static' },
     { label: 'Configurações', icon: 'settings', behavior: 'static' },
   ],
@@ -76,7 +86,13 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
       label: 'FROTA',
       spaced: true,
       items: [
-        { label: 'Veículos', icon: 'vehicles', behavior: 'button' },
+        {
+          label: 'Veículos',
+          icon: 'vehicles',
+          behavior: 'link',
+          path: VEHICLES_PATH,
+          profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'],
+        },
         { label: 'Motoristas', icon: 'drivers', behavior: 'button' },
         { label: 'Tipos de serviço', icon: 'requests', behavior: 'button' },
         { label: 'Manutenção', icon: 'maintenance', behavior: 'button' },
@@ -107,5 +123,15 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
 
 /** Escolhe o conteúdo lateral sem alterar o shell ou os destinos existentes. */
 export function getSidebarNavigation(profile: Profile | null): SidebarNavigation {
-  return profile === 'ADMINISTRADOR' ? ADMINISTRATOR_NAVIGATION : OPERATIONAL_NAVIGATION
+  const navigation = profile === 'ADMINISTRADOR' ? ADMINISTRATOR_NAVIGATION : OPERATIONAL_NAVIGATION
+  const allowed = (item: SidebarMenuItem) => item.profiles === undefined
+    || (profile !== null && item.profiles.includes(profile))
+  return {
+    ...navigation,
+    topItems: navigation.topItems.filter(allowed),
+    sections: navigation.sections
+      .map((section) => ({ ...section, items: section.items.filter(allowed) }))
+      .filter((section) => section.items.length > 0),
+    footerItems: navigation.footerItems.filter(allowed),
+  }
 }

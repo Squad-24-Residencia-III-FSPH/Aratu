@@ -11,6 +11,8 @@ import {
   Divider,
   Tooltip,
   IconButton,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -33,7 +35,7 @@ import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings';
 import type { SvgIconComponent } from '@mui/icons-material';
 
 import { useAuth } from '../auth/useAuth';
-import { resolveProfile } from '../auth/profiles';
+import { profileInitials, profileLabel, resolveProfile } from '../auth/profiles';
 import { getSidebarNavigation } from './sidebarNavigation';
 import type { SidebarIconName, SidebarMenuItem } from './sidebarNavigation';
 
@@ -62,40 +64,44 @@ const icons: Record<SidebarIconName, SvgIconComponent> = {
 };
 
 export default function Sidebar() {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const theme = useTheme();
+  const isCompactViewport = useMediaQuery(theme.breakpoints.down('md'));
+  const [prefersExpanded, setPrefersExpanded] = useState(true);
   const location = useLocation();
   const { session } = useAuth();
 
   const profile = session ? resolveProfile(session.perfil) : null;
   const navigation = getSidebarNavigation(profile);
+  const roleLabel = session ? profileLabel(session.perfil) : 'Usuário';
+  const expanded = isCompactViewport ? false : prefersExpanded;
 
-  const currentWidth = isExpanded ? drawerWidthExpanded : drawerWidthCollapsed;
+  const currentWidth = expanded ? drawerWidthExpanded : drawerWidthCollapsed;
 
   const toggleSidebar = () => {
-    setIsExpanded((prev) => !prev);
+    setPrefersExpanded((prev) => !prev);
   };
 
   const selectedStyle = {
     borderRadius: 1,
     backgroundColor: 'rgba(255, 107, 0, 0.08) !important',
     color: '#111827',
-    minHeight: 40,
-    justifyContent: isExpanded ? 'initial' : 'center',
-    px: isExpanded ? 2 : 1.5,
+    minHeight: 44,
+    justifyContent: expanded ? 'initial' : 'center',
+    px: expanded ? 2 : 1.5,
     '& .MuiListItemIcon-root': { color: '#FF6B00' },
     '&:hover': { backgroundColor: 'rgba(255, 107, 0, 0.12)' },
   };
 
   const defaultStyle = {
     borderRadius: 1,
-    minHeight: 40,
-    justifyContent: isExpanded ? 'initial' : 'center',
-    px: isExpanded ? 2 : 1.5,
+    minHeight: 44,
+    justifyContent: expanded ? 'initial' : 'center',
+    px: expanded ? 2 : 1.5,
     '&:hover': { backgroundColor: '#df68061e' },
   };
 
   const renderItemText = (text: string) => {
-    if (!isExpanded) return null;
+    if (!expanded) return null;
     return (
       <ListItemText
         primary={
@@ -148,7 +154,7 @@ export default function Sidebar() {
 
     return (
       <ListItem disablePadding key={item.label} sx={{ mb: 0.5 }}>
-        <Tooltip title={!isExpanded ? item.label : ''} {...tooltipProps}>
+        <Tooltip title={!expanded ? item.label : ''} {...tooltipProps}>
           {content}
         </Tooltip>
       </ListItem>
@@ -180,18 +186,18 @@ export default function Sidebar() {
           },
         }}
       >
-        <Box sx={{ p: isExpanded ? 2 : 1, pb: 4, height: '100%' }}>
+        <Box sx={{ p: expanded ? 2 : 1, pb: 4, height: '100%' }}>
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: isExpanded ? 'space-between' : 'center',
+              justifyContent: expanded ? 'space-between' : 'center',
               mb: 1.5,
-              px: isExpanded ? 1 : 0,
+              px: expanded ? 1 : 0,
               minHeight: 32,
             }}
           >
-            {isExpanded && (
+            {expanded && (
               <Typography
                 variant="caption"
                 sx={{
@@ -201,11 +207,11 @@ export default function Sidebar() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                Gestor de Frota
+                {roleLabel}
               </Typography>
             )}
 
-            {!isExpanded && (
+            {!expanded && (
               <Typography
                 variant="caption"
                 sx={{
@@ -214,7 +220,7 @@ export default function Sidebar() {
                   display: 'block',
                 }}
               >
-                GF
+                {profileInitials(roleLabel)}
               </Typography>
             )}
           </Box>
@@ -229,7 +235,7 @@ export default function Sidebar() {
           {/* Seções Dinâmicas */}
           {navigation.sections.map((section) => (
             <Box key={section.label}>
-              {isExpanded && (
+              {expanded && (
                 <Typography variant="caption" sx={{ color: '#FF6B00', fontWeight: 700, px: 2, mt: section.spaced ? 2 : 1, display: 'block', fontSize: '0.7rem' }}>
                   {section.label}
                 </Typography>
@@ -249,32 +255,34 @@ export default function Sidebar() {
         </Box>
       </Drawer>
 
-      {/* Botão de Recolher/Expandir */}
-      <Tooltip title={isExpanded ? 'Recolher menu' : 'Expandir menu'} {...tooltipProps}>
-        <IconButton
-          onClick={toggleSidebar}
-          size="small"
-          sx={{
-            position: 'absolute',
-            top: 'calc(64px + 120px)',
-            left: currentWidth - 14,
-            zIndex: 1300,
-            backgroundColor: '#ffffff',
-            color: '#FF6B00',
-            border: '1px solid #e2e8f0',
-            width: 28,
-            height: 28,
-            boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-            transition: 'left 0.2s ease-in-out',
-            '&:hover': {
-              backgroundColor: '#fff7ed',
-              borderColor: '#FF6B00',
-            },
-          }}
-        >
-          {isExpanded ? <ChevronLeftIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
-        </IconButton>
-      </Tooltip>
+      {/* Botão de Recolher/Expandir (oculto no mobile para não reduzir a área útil) */}
+      {!isCompactViewport && (
+        <Tooltip title={expanded ? 'Recolher menu' : 'Expandir menu'} {...tooltipProps}>
+          <IconButton
+            onClick={toggleSidebar}
+            aria-label={expanded ? 'Recolher menu' : 'Expandir menu'}
+            sx={{
+              position: 'absolute',
+              top: 'calc(64px + 112px)',
+              left: currentWidth - 22,
+              zIndex: 1300,
+              backgroundColor: '#ffffff',
+              color: '#FF6B00',
+              border: '1px solid #e2e8f0',
+              width: 44,
+              height: 44,
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+              transition: 'left 0.2s ease-in-out',
+              '&:hover': {
+                backgroundColor: '#fff7ed',
+                borderColor: '#FF6B00',
+              },
+            }}
+          >
+            {expanded ? <ChevronLeftIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   );
 }
