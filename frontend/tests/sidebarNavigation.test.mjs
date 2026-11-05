@@ -17,6 +17,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     'Início',
     'Usuários',
     'Perfis e Permissões',
+    'Veículos',
     'Auditoria',
     'Configurações',
     'Ajuda',
@@ -28,11 +29,12 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     [
       { label: 'Usuários', path: '/administracao/usuarios' },
       { label: 'Perfis e Permissões', path: '/administracao/perfis' },
+      { label: 'Veículos', path: '/veiculos' },
     ],
   )
   assert.equal(navigation.topItems[0].behavior, 'static')
-  assert.equal(navigation.topItems[3].behavior, 'static')
   assert.equal(navigation.topItems[4].behavior, 'static')
+  assert.equal(navigation.topItems[5].behavior, 'static')
   assert.equal(navigation.footerItems[0].behavior, 'static')
   assert.equal(navigation.showDividerAfterTop, false)
 })
@@ -63,9 +65,27 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'CONTROLE',
     'GESTÃO',
   ])
+  const vehicles = navigation.sections
+    .flatMap((section) => section.items)
+    .find((item) => item.label === 'Veículos')
+  assert.deepEqual(
+    { behavior: vehicles.behavior, path: vehicles.path },
+    { behavior: 'link', path: '/veiculos' },
+  )
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]
+      .filter((item) => item.label !== 'Veículos')
       .every((item) => item.behavior === 'button'),
   )
   assert.equal(navigation.showDividerAfterTop, true)
+})
+
+test('somente perfis com leitura de veículos recebem o atalho no menu', () => {
+  for (const profile of ['SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO']) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Veículos'), false)
+  }
+  for (const profile of ['GESTOR', 'ATENDENTE_SVO', 'ADMINISTRADOR']) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Veículos'), true)
+  }
+  assert.equal(getLabels(getSidebarNavigation(null)).includes('Veículos'), false)
 })

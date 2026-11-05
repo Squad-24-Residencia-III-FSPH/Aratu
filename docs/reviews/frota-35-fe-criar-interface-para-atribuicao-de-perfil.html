@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-35 — FE Criar interface para atribuição de perfil (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-35: FE Criar interface para atribuição de perfil</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-35</code> — FE Criar interface para atribuição de perfil</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/US03-perfis-permissoes</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> Não localizado em <code>docs/plans/</code> — a entrega foi avaliada diretamente contra o enunciado da FROTA-35, a US03 (FROTA-17) e a skill <code>principios</code>.</p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>AUTENTICACAO_RBAC</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ADMINISTRADOR, GESTOR, SOLICITANTE, MOTORISTA, ATENDENTE_SVO, EQUIPE_SVO</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-11-02</p>
+</div>
+
+<div class="verdict-blocked">
+  Veredito da Revisão: BLOQUEADO_POR_PENDENCIAS — 1 item de aceite pendente (menu por perfil / matriz FROTA-36).
+</div>
+<p class="notice-block">
+  <strong>Leitura do veredito:</strong> o código novo está tecnicamente saudável e pode ser aprovado como
+  <strong>entrega parcial</strong> caso o time registre aceite explícito da pendência do menu por perfil (FROTA-36).
+  Os dados provisórios/mocados da matriz <strong>não</strong> são tratados como bloqueio nesta revisão.
+</p>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">1</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">4</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">7</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">5</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<p><strong>Diff:</strong> 21 arquivos, <strong>+1203 / −134</strong> linhas contra <code>develop</code>; 1 commit
+<code>b82764f feat(us03): integrar perfis e permissoes</code>. A branch contém a entrega de frontend da FROTA-35,
+um teste de backend de veículos e atualização da documentação do módulo.</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>frontend/src/pages/UserManagementPage.tsx</code></td><td>Frontend — Página</td><td>Modificado</td><td>Diálogo de confirmação para troca de perfil de usuário existente (envia <code>PUT /users/:id</code> com <code>roleId</code> e <code>revision</code>).</td></tr>
+    <tr><td><code>frontend/src/users/profileChangeConfirmation.ts</code></td><td>Frontend — Regra de UI</td><td>Novo</td><td>Funções puras que decidem quando a troca de perfil exige confirmação e executam a gravação confirmada.</td></tr>
+    <tr><td><code>frontend/src/services/profileService.ts</code></td><td>Frontend — Service</td><td>Modificado</td><td><code>GET /profiles</code> com <code>cache: no-store</code>, classificação explícita de 403 (<code>ProfileListError</code>) e novo <code>ProfileSummary</code> com descrição.</td></tr>
+    <tr><td><code>frontend/src/pages/profilePermissionsPage/ProfilePermissionsPage.tsx</code></td><td>Frontend — Página</td><td>Novo</td><td>Tela administrativa “Perfis e Permissões” com cards dos seis perfis, estados de carregamento/erro/403/vazio e matriz provisória.</td></tr>
+    <tr><td><code>frontend/src/pages/profilePermissionsPage/profileListState.ts</code></td><td>Frontend — Estado</td><td>Novo</td><td>Reducer que converte a consulta de perfis nos estados explícitos da tela.</td></tr>
+    <tr><td><code>frontend/src/pages/profilePermissionsPage/profileDialogState.ts</code></td><td>Frontend — Estado</td><td>Novo</td><td>Reducer do diálogo informativo de perfil selecionado.</td></tr>
+    <tr><td><code>frontend/src/components/Sidebar.tsx</code></td><td>Frontend — Layout</td><td>Modificado</td><td>Menu reescrito sobre dados (<code>SidebarMenuItem</code>) e links via <code>RouterLink</code>; renderização por perfil.</td></tr>
+    <tr><td><code>frontend/src/components/sidebarNavigation.ts</code></td><td>Frontend — Layout</td><td>Novo</td><td>Define menu administrativo e menu operacional e escolhe pelo perfil via <code>getSidebarNavigation</code>.</td></tr>
+    <tr><td><code>frontend/src/App.tsx</code></td><td>Frontend — Roteamento</td><td>Modificado</td><td>Renderiza a página de perfis quando a decisão de rota é <code>profile-permissions</code>.</td></tr>
+    <tr><td><code>frontend/src/routing/routeDecision.ts</code></td><td>Frontend — Roteamento</td><td>Modificado</td><td>Protege <code>/administracao/perfis</code>: somente ADMINISTRADOR; demais perfis voltam à própria home.</td></tr>
+    <tr><td><code>frontend/src/auth/profiles.ts</code></td><td>Frontend — Auth</td><td>Modificado</td><td>Constante <code>PROFILE_PERMISSIONS_PATH</code> centralizada.</td></tr>
+    <tr><td><code>frontend/tests/sidebarNavigation.test.mjs</code></td><td>QA — Frontend</td><td>Novo</td><td>Cobre o menu de ADMINISTRADOR e de GESTOR (os outros quatro perfis não são testados).</td></tr>
+    <tr><td><code>frontend/tests/profileChangeConfirmation.test.mjs</code></td><td>QA — Frontend</td><td>Novo</td><td>Confirmação, cancelamento e envio de <code>roleId</code>/<code>revision</code> no PUT.</td></tr>
+    <tr><td><code>frontend/tests/profilePermissionsPage.render.test.mjs</code></td><td>QA — Frontend</td><td>Novo</td><td>Renderização SSR dos estados loading, sucesso, erro e 403 da página de perfis.</td></tr>
+    <tr><td><code>frontend/tests/profilePermissionsPage.test.mjs</code></td><td>QA — Frontend</td><td>Novo</td><td>Reducers de lista e diálogo.</td></tr>
+    <tr><td><code>frontend/tests/profileService.test.mjs</code></td><td>QA — Frontend</td><td>Modificado</td><td>Contrato de <code>GET /profiles</code>, 403 amigável, resposta inválida e perfil desconhecido.</td></tr>
+    <tr><td><code>frontend/tests/api.test.mjs</code></td><td>QA — Frontend</td><td>Modificado</td><td>Garante que 403 não encerra a sessão.</td></tr>
+    <tr><td><code>frontend/tests/routing.test.mjs</code></td><td>QA — Frontend</td><td>Modificado</td><td>Matriz de redirecionamento da rota de perfis para os seis perfis.</td></tr>
+    <tr><td><code>frontend/tests/usersService.test.mjs</code></td><td>QA — Frontend</td><td>Modificado</td><td>Verifica que o PUT de edição inclui <code>roleId</code>.</td></tr>
+    <tr><td><code>backend/tests/vehicles.routes.test.ts</code></td><td>Backend — QA</td><td>Novo</td><td>Exercita router, JWT e RBAC reais de veículos para os seis perfis (fora do escopo da FROTA-35; parcialmente duplicado com <code>IT-VEH-09</code>).</td></tr>
+    <tr><td><code>docs/modulos/AUTENTICACAO_RBAC.html</code></td><td>Documentação</td><td>Modificado</td><td>Registra a pendência da matriz FROTA-36 e o status dos critérios da US03.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>1203 linhas adicionadas (&gt;400) e naturezas misturadas: feature de frontend, reescrita do <code>Sidebar</code>, teste de backend de veículos e documentação. Refactor e comportamento no mesmo commit.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td><code>feat/US03-perfis-permissoes</code> com <code>develop</code> confirmada como ancestral; commit <code>b82764f feat(us03): integrar perfis e permissoes</code>.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-block">🔴 Bloqueante</span></td><td><code>getSidebarNavigation</code> devolve o mesmo <code>OPERATIONAL_NAVIGATION</code> para SOLICITANTE, MOTORISTA, ATENDENTE_SVO e EQUIPE_SVO. O critério “cada perfil vê no menu só as suas funcionalidades” não é atendido. A matriz FROTA-36 não existe no repositório e o ADMINISTRADOR perde OPERAÇÃO/FROTA/CONTROLE/GESTÃO sem decisão registrada. Não há SDD da FROTA-35 em <code>docs/plans/</code>.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhuma alteração em <code>routes/</code>, <code>controllers/</code>, <code>services/</code> ou <code>repositories/</code>; apenas teste das rotas existentes.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>As chamadas passam por <code>services/</code> e não há <code>:global(.Mui...)</code>. Porém a página nova repete Breadcrumbs/Card/Table em MUI cru; o repositório só possui <code>components/ui/AratuIcon.tsx</code> (não existem <code>PageHeader</code>, <code>DataTable</code>, <code>StateFeedback</code> para reutilizar).</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Sem importação circular entre <code>profiles</code>, <code>sidebarNavigation</code>, <code>Sidebar</code> e <code>routeDecision</code>; nenhuma feature flag criada.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem alteração de query no diff.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem alteração de query no diff.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-na">⚪ N/A</span></td><td>Sem alteração de persistência no diff.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (Schemas Nativos <code>auth</code>, <code>fleet</code>, etc., tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem migração ou DDL no diff.</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-ok">🟢 OK</span></td><td><code>GET /profiles</code> permanece exclusivo de ADMINISTRADOR (<code>profile.routes.ts</code>); o novo teste exercita <code>authorizeRoles</code> real nas rotas de veículos com os seis perfis.</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>Fixtures e testes usam nomes/e-mails fictícios; nenhum segredo hardcoded; nenhum dado de falecido/SVO.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Sem <code>any</code>/<code>@ts-ignore</code> no diff; <code>tsc</code> do backend e do frontend sem erros.</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Identificadores em inglês, textos de interface em PT-BR, TSDoc nos novos serviços/utilitários e ausência de <code>console.log</code> de depuração.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Há carregamento com <code>aria-busy</code>, vazio, erro com retry, 403 e sucesso. Não há estado <strong>parcial</strong>; a matriz de permissões é renderizada também durante loading/erro.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-warn">🟡 Atenção</span></td><td>O <code>Select</code> de perfil usa <code>aria-label</code>, mas a mensagem de erro (<code>role="alert"</code>) não é vinculada por <code>aria-describedby</code> e não há <code>&lt;label&gt;</code> visível. O componente <code>FormField</code> não existe no repositório.</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-ok">🟢 OK</span></td><td>Botões novos com <code>minHeight: 44</code>; região da tabela focável com <code>:focus-visible</code>; <code>aria-busy</code>/<code>role="alert"</code>; ícones <code>aria-hidden</code>; diálogos com <code>aria-labelledby</code> e fechamento por <code>Esc</code>.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+
+<h4>3.1.1 Menu por perfil não implementado — critério de aceite da FROTA-35 (C3)</h4>
+<p><strong>Arquivo:</strong> <code>frontend/src/components/sidebarNavigation.ts:109-111</code></p>
+<pre><code>export function getSidebarNavigation(profile: Profile | null): SidebarNavigation {
+  return profile === 'ADMINISTRADOR' ? ADMINISTRATOR_NAVIGATION : OPERATIONAL_NAVIGATION
+}</code></pre>
+<p>
+  O critério “<strong>Cada perfil vê no menu só as suas funcionalidades</strong>” não é atendido: SOLICITANTE,
+  MOTORISTA, ATENDENTE_SVO e EQUIPE_SVO recebem exatamente o mesmo menu operacional completo (incluindo
+  Veículos, Motoristas, Auditoria, Dashboard e Relatórios). O teste
+  <code>frontend/tests/sidebarNavigation.test.mjs:13-76</code> só cobre ADMINISTRADOR e GESTOR, portanto a
+  diferença entre os demais perfis não é verificada.
+</p>
+<p>
+  Também há mudança de comportamento não solicitada: o ADMINISTRADOR deixou de ver OPERAÇÃO, FROTA, CONTROLE e
+  GESTÃO. A matriz oficial da FROTA-36 — dependência declarada da tarefa — não foi localizada no repositório,
+  então a regra aplicada é uma premissa do desenvolvimento.
+</p>
+<p><strong>Impacto na FSPH/SVO:</strong> perfis operacionais enxergam funcionalidades que não podem executar, gerando
+expectativa falsa e ruído no atendimento; o Administrador pode perder atalhos operacionais legítimos.</p>
+<p><strong>Como corrigir (alternativas):</strong></p>
+<ol>
+  <li>Implementar a matriz por perfil (mesmo que provisória e documentada) e cobrir os seis perfis em
+  <code>sidebarNavigation.test.mjs</code>; ou</li>
+  <li>Registrar aceite formal de <strong>entrega parcial</strong> vinculada à FROTA-36, mantendo o menu
+  conservador (somente itens realmente disponíveis) até a matriz existir.</li>
+</ol>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+
+<h4>3.2.1 Placeholder visível com ação inerte</h4>
+<p><strong>Arquivo:</strong> <code>frontend/src/pages/profilePermissionsPage/ProfilePermissionsPage.tsx:157-162, 190, 241</code></p>
+<p>O botão “Editar Permissões” abre um diálogo que informa “Nenhuma permissão está sendo alterada”, e a matriz exibe
+“A definir”. É mock/provisório e <strong>não bloqueia</strong> o merge, mas promete uma ação que não existe.
+<strong>Sugestão:</strong> desabilitar o botão ou rotulá-lo como “em breve”.</p>
+
+<h4>3.2.2 Teste de backend fora do escopo da FROTA-35 e com sobreposição</h4>
+<p><strong>Arquivo:</strong> <code>backend/tests/vehicles.routes.test.ts</code></p>
+<p>O teste é válido para a US03, mas duplica parcialmente <code>IT-VEH-09</code> em
+<code>backend/tests/vehicles.integration.test.ts:391</code> e não pertence ao escopo de frontend da FROTA-35.
+<strong>Sugestão:</strong> mover para a tarefa de QA ou incorporar ao teste de integração existente.</p>
+
+<h4>3.2.3 Duplicação de <code>name</code> e <code>profile</code> em <code>ProfileSummary</code></h4>
+<p><strong>Arquivo:</strong> <code>frontend/src/services/profileService.ts:12-15</code></p>
+<p>Os dois campos carregam o mesmo valor canônico. <strong>Sugestão:</strong> manter apenas <code>profile</code> (ou
+apenas <code>name</code>) para evitar divergência futura (DRY).</p>
+
+<h4>3.2.4 <code>createdAt</code> validado e descartado</h4>
+<p><strong>Arquivo:</strong> <code>frontend/src/services/profileService.ts:42</code></p>
+<p>O parser rejeita a resposta se <code>createdAt</code> faltar, mas não usa o campo. Isso cria acoplamento
+desnecessário ao contrato (YAGNI). <strong>Sugestão:</strong> remover a validação ou projetar o campo no retorno.</p>
+
+<h4>3.2.5 Abstração desnecessária em <code>resolveProfileChangeConfirmation</code></h4>
+<p><strong>Arquivo:</strong> <code>frontend/src/pages/UserManagementPage.tsx:342-348</code></p>
+<p>O caminho “cancelled” é um no-op e <code>handleCancelProfileChange</code> o chama passando <code>saveUserForm</code>
+sem uso. Funciona, mas é mais simples chamar <code>saveUserForm()</code> apenas no “confirmado” (KISS).</p>
+
+<h4>3.2.6 403 amigável tratado apenas em <code>/profiles</code></h4>
+<p><strong>Arquivos:</strong> <code>frontend/src/services/profileService.ts:59-60</code>;
+<code>frontend/src/services/usersService.ts:87,119</code></p>
+<p>As mutações de usuário exibem a mensagem crua do backend (“Acesso negado: perfil de usuário não autorizado para
+esta operação.”). <strong>Sugestão:</strong> padronizar a classificação de 403 também nesses serviços.</p>
+
+<h4>3.2.7 Ausência de estado parcial (C15)</h4>
+<p><strong>Arquivo:</strong> <code>frontend/src/pages/profilePermissionsPage/ProfilePermissionsPage.tsx:94-124</code></p>
+<p>A tela cobre carregamento, vazio, erro, 403 e sucesso, mas não o estado parcial, e a matriz continua visível
+durante loading/erro. Para uma única chamada a <code>GET /profiles</code> é aceitável; documentar a decisão ou
+ocultar a matriz até o sucesso.</p>
+
+<h4>3.2.8 Erro do <code>Select</code> de perfil sem <code>aria-describedby</code></h4>
+<p><strong>Arquivo:</strong> <code>frontend/src/pages/UserManagementPage.tsx:795-799</code></p>
+<p>O erro usa <code>role="alert"</code>, mas não é associado ao campo. <strong>Sugestão:</strong> gerar um
+<code>id</code> com <code>useId()</code> e referenciá-lo em <code>aria-describedby</code>, além de marcar
+<code>aria-invalid</code>.</p>
+
+<h4>3.2.9 Cobertura ausente de interação e dos demais perfis</h4>
+<p><strong>Arquivos:</strong> <code>frontend/tests/profileChangeConfirmation.test.mjs</code>;
+<code>frontend/tests/sidebarNavigation.test.mjs</code></p>
+<p>Os testes cobrem as funções puras, não provam que o diálogo aparece ao submeter a troca nem que “Confirmar”
+dispara o <code>PUT</code>; também não cobrem os menus de SOLICITANTE, MOTORISTA, ATENDENTE_SVO e EQUIPE_SVO.</p>
+
+<h4>3.2.10 Troca de perfil não invalida a sessão existente</h4>
+<p><strong>Arquivos:</strong> <code>backend/src/middlewares/auth.middleware.ts</code>;
+<code>frontend/src/auth/token.ts</code></p>
+<p>O JWT carrega o perfil e o backend autoriza pela claim, então o usuário alterado mantém o acesso antigo até o
+token expirar ou ele relogar. É escopo da FROTA-38/backend, mas impacta o critério “a troca muda o que ele pode
+acessar”. <strong>Sugestão:</strong> documentar “aplica-se no próximo login” ou prever invalidação de token.</p>
+
+<h4>3.2.11 Diff grande e misto</h4>
+<p><strong>Escopo:</strong> 21 arquivos e +1203 linhas, misturando feature, refactor do menu, teste de backend e
+documentação. <strong>Sugestão:</strong> separar em commits/PRs por natureza para facilitar revisão e rollback.</p>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática e Regras Aratu</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-warn">🟡 Gitflow/commits OK; 1 achado estático (teste de frontend) causado por permissão de pasta, não por código.</span></td>
+    </tr>
+    <tr>
+      <td>Backend — compilação TypeScript estrita</td>
+      <td><code>cd backend &amp;&amp; npx tsc --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Zero erros</span></td>
+    </tr>
+    <tr>
+      <td>Backend — teste novo de RBAC de veículos</td>
+      <td><code>cd backend &amp;&amp; npx tsx --test tests/vehicles.routes.test.ts</code></td>
+      <td><span class="badge-ok">🟢 1/1 passou</span></td>
+    </tr>
+    <tr>
+      <td>Frontend — compilação TypeScript (<code>tsc -b</code>)</td>
+      <td><code>cd frontend &amp;&amp; npx tsc -b</code></td>
+      <td><span class="badge-ok">🟢 Zero erros</span> (validado em cópia com <code>tsBuildInfoFile</code> gravável)</td>
+    </tr>
+    <tr>
+      <td>Frontend — ESLint</td>
+      <td><code>cd frontend &amp;&amp; npx eslint .</code></td>
+      <td><span class="badge-ok">🟢 Sem avisos</span></td>
+    </tr>
+    <tr>
+      <td>Frontend — testes automatizados</td>
+      <td><code>cd frontend &amp;&amp; node --test tests/*.test.mjs</code></td>
+      <td><span class="badge-ok">🟢 64/64 passam</span> em ambiente com cache gravável; 63/64 localmente por <code>EACCES</code> em <code>node_modules/.vite</code> (pasta <code>root:root</code>)</td>
+    </tr>
+    <tr>
+      <td>Containers Docker (backend/frontend)</td>
+      <td><code>docker compose ps</code></td>
+      <td><span class="badge-na">⚪ Indisponível no ambiente</span> (<code>permission denied</code> no socket Docker)</td>
+    </tr>
+  </tbody>
+</table>
+<p class="notice-block">
+  <strong>Nota de ambiente:</strong> o único teste que falhou na execução local
+  (<code>profilePermissionsPage.render.test.mjs</code>) falhou por <code>EACCES: permission denied</code> ao gravar em
+  <code>frontend/node_modules/.vite</code>, pasta pertencente a <code>root</code>. O mesmo teste foi reexecutado em
+  uma cópia gravável e passou (4/4). Portanto, a falha é do ambiente, não do código da branch.
+</p>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul class="check">
+  <li><input type="checkbox"> Decidir a pendência <strong>C3</strong>: disponibilizar a matriz da FROTA-36, implementar menus por perfil com matriz provisória aprovada, ou registrar aceite formal de entrega parcial.</li>
+  <li><input type="checkbox"> Confirmar se o ADMINISTRADOR deve continuar vendo OPERAÇÃO/FROTA/CONTROLE/GESTÃO no menu.</li>
+  <li><input type="checkbox"> Validar no navegador (<code>http://localhost:5173</code>), com os seis perfis, que o menu exibe somente funcionalidades realmente acessíveis.</li>
+  <li><input type="checkbox"> Validar a troca de perfil de um usuário existente: abrir edição, alterar o perfil, conferir o diálogo de confirmação, confirmar e verificar o <code>PUT /users/:id</code> com <code>roleId</code> e <code>revision</code>.</li>
+  <li><input type="checkbox"> Validar o cancelamento da troca de perfil: o diálogo fecha e nenhuma requisição é enviada.</li>
+  <li><input type="checkbox"> Testar a URL <code>/#/administracao/perfis</code> autenticado como cada um dos seis perfis (não-admin deve voltar à própria home).</li>
+  <li><input type="checkbox"> Validar a mensagem amigável de 403 na tela e confirmar que a sessão não é encerrada.</li>
+  <li><input type="checkbox"> Confirmar a navegação por teclado (<code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Esc</code>), o foco visível e os alvos de toque de 44×44px.</li>
+  <li><input type="checkbox"> Decidir se a tela “Perfis e Permissões” com “Editar Permissões” inerte deve permanecer visível até a FROTA-36 ou ser ocultada/desabilitada.</li>
+  <li><input type="checkbox"> Confirmar se a troca de perfil passa a valer no próximo login (comportamento atual do JWT) e registrar essa regra na documentação.</li>
+  <li><input type="checkbox"> Avaliar a divisão do diff (feature × refactor do Sidebar × teste de backend × documentação) antes do merge.</li>
+</ul>
+
+<h3>Perguntas abertas (Regra da Dúvida)</h3>
+<ol>
+  <li><strong>A matriz da FROTA-36 está disponível?</strong> Se não, o menu provisório “admin × operacional único” tem aceite formal do time/produto?</li>
+  <li><strong>O Administrador deve perder OPERAÇÃO/FROTA/CONTROLE/GESTÃO do menu?</strong></li>
+  <li><strong>A troca de perfil deve valer imediatamente para a sessão aberta do usuário alterado?</strong></li>
+  <li><strong>A tela “Perfis e Permissões” com “Editar Permissões” inerte entra no escopo da FROTA-35 ou deve ficar oculta até a FROTA-36?</strong></li>
+</ol>
+<p class="notice-block">
+  Sem resposta às perguntas 1 e 2, o parecer permanece <strong>BLOQUEADO para aprovação integral</strong>, mas é
+  <strong>aprovável como entrega parcial</strong> com a pendência registrada.
+</p>
+
+</body>
+</html>
