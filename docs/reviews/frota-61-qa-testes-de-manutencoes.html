@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FROTA-61 — Evidências de testes de manutenções</title>
-<style>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-61 — QA Testes de manutenções (Sistema Aratu)</title>
+  <style>
     :root {
       --brand-strong: #3730a3;
       --brand: #4f46e5;
@@ -73,39 +75,100 @@
   </style>
 </head>
 <body>
-<h1>FROTA-61 — Evidências de testes de manutenções</h1>
-<div class="meta-block"><p>Execução: 04/11/2026 · Módulo MANUTENCOES</p><p>Branch: <code>feat/qa-testes-de-manutencoes</code> · Base atualizada: <code>develop</code> (<code>79c5949</code>)</p><p><a href="../plans/frota-61-qa-testes-de-manutencoes.html">Plano SDD</a> · <a href="../modulos/MANUTENCOES.html">Documentação do módulo</a> · <a href="../../backend/tests/maintenance-orders.integration.test.ts">Suíte implementada</a></p></div>
-<p>Registro da verificação executada durante a implementação, para subsidiar a revisão pré-PR. A revisão completa de código e a validação de interface permanecem etapas próprias. O escopo desta entrega é o backend, por HTTP real e PostgreSQL dedicado de testes.</p>
-<div class="verdict-approved">Verificação automatizada concluída: zero falhas, zero testes omitidos e duas execuções gerais consecutivas aprovadas.</div>
-<h2>1. Comandos e resultados</h2>
-<table><thead><tr><th scope="col">Comando</th><th scope="col">Resultado observado</th></tr></thead><tbody>
-<tr><td>backend: <code>npm run test:integration</code></td><td>80 testes passaram; 0 falhas; 0 omitidos.</td></tr>
-<tr><td>backend: <code>npm test</code> — execução 1</td><td>116 testes passaram; 0 falhas; 0 omitidos; 52,5 segundos.</td></tr>
-<tr><td>backend: <code>npm test</code> — execução 2</td><td>116 testes passaram; 0 falhas; 0 omitidos; 51,4 segundos.</td></tr>
-<tr><td>raiz: <code>node docs/scripts/aratu-check.mjs</code></td><td>0 achados bloqueantes e 0 alertas estáticos; TypeScript backend/frontend sem erros; 67 testes frontend passaram.</td></tr>
-<tr><td><code>docker compose exec -T backend npx tsc --noEmit</code></td><td>Sucesso.</td></tr>
-<tr><td><code>docker compose exec -T backend npm run build</code></td><td>Sucesso.</td></tr>
-<tr><td><code>docker compose exec -T frontend npm run build</code></td><td>Sucesso; aviso de bundle acima de 500 kB, sem falha de build.</td></tr>
-</tbody></table>
-<p>Logs locais em <code>.tmp/task-FROTA-61/</code>: <code>integration.log</code>, <code>full-1.log</code>, <code>full-2.log</code> e <code>aratu-check.log</code>. O auditor não executa os testes backend; as três execuções acima foram realizadas separadamente.</p>
-<h2>2. Matriz executada</h2>
-<table><thead><tr><th scope="col">Identificador</th><th scope="col">Evidência conferida</th><th scope="col">Resultado</th></tr></thead><tbody>
-<tr><td>IT-MNT-01</td><td>Preventiva/corretiva; tipo ausente ou desconhecido, preços negativos, quantidade zero, km negativo e datas inválidas; recusas preservam dados e auditoria.</td><td>Passou</td></tr>
-<tr><td>IT-MNT-02</td><td>Mesma peça a 11.700, 12.000 e 12.400 km; itens e snapshot da viatura conferidos pelo detalhe.</td><td>Passou</td></tr>
-<tr><td>IT-MNT-03</td><td>Orçamento de R$ 77,50 preservado com execução de R$ 58,75 ou confirmação integral; evento de abertura conserva itens originais.</td><td>Passou</td></tr>
-<tr><td>IT-MNT-04</td><td>Arredondamento por linha para R$ 1,08; lista executada vazia com custo zero; nulo sem execução; recusa de custo divergente/negativo, excesso, escala e encerramento anterior.</td><td>Passou</td></tr>
-<tr><td>IT-MNT-05</td><td>Impeditiva remove e devolve disponibilidade na API e no serviço de alocação; não impeditiva preserva disponibilidade; viagem ativa impede abertura.</td><td>Passou</td></tr>
-<tr><td>IT-MNT-06</td><td>Duas conexões disputam a viatura: 201/409, uma abertura e uma transição; reenvio idêntico antes/depois de edição; chave divergente recusada.</td><td>Passou</td></tr>
-<tr><td>IT-MNT-07</td><td>PUT obtém/remove impedimento; liberação manual recusada sem efeitos; fechamento preserva inativação independente.</td><td>Passou</td></tr>
-<tr><td>IT-MNT-08</td><td>Intervalo semiaberto por abertura para lista e encerramento para gasto; filtros veículo/tipo/status, desempate da ordenação e resultado vazio.</td><td>Passou</td></tr>
-<tr><td>IT-MNT-09</td><td>Edições concorrentes 200/409; GET vencedor, único CLOSED, revisão obsoleta, antes/depois e autoria da sessão em eventos/auditoria; UPDATE/DELETE de eventos recusados.</td><td>Passou</td></tr>
-<tr><td>IT-MNT-10</td><td>Falha injetada em AppDependencies.audits desfaz abertura e encerramento: ordem, custo, viatura, eventos e auditoria permanecem íntegros.</td><td>Passou</td></tr>
-<tr><td>IT-MNT-11</td><td>25 combinações de 401/403 nas cinco rotas contra uma ordem existente; abertura/fechamento por GESTOR e ADMINISTRADOR; 404; custo legado sem itens fabricados.</td><td>Passou</td></tr>
-</tbody></table>
-<h2>3. Escopo e checklist para revisão</h2>
-<p>Criada a suíte de integração, ampliada a documentação do módulo e registrado este resultado. A API e as migrações locais da FROTA-59 foram preservadas e usadas como dependência. Todos os dados de teste são fictícios; consultas de verificação usam colunas explícitas e parâmetros nas entradas variáveis. As mensagens HTTP foram verificadas em português, sem detalhes internos ou dados do ator. Acessibilidade visual não foi exercitada nesta tarefa de backend.</p>
-<p>O arquivo de teste possui 399 linhas. O limite de diff total inferior a 400 linhas do checklist não fica atendido ao incluir documentação e este registro; o checkout também contém alterações anteriores de outras tarefas. A preparação dos commits/PR deve distinguir essas entregas e incluir a dependência FROTA-59. Nenhum commit ou push foi executado.</p>
-<p>Os dois erros fictícios registrados no terminal pelo IT-MNT-10 são intencionais: a resposta HTTP contém apenas <code>Erro interno do servidor.</code> e os testes comprovam rollback completo.</p>
-<p>Próximas etapas: <code>/testar FROTA-61</code> e <code>/revisar FROTA-61</code> antes do PR para <code>develop</code>. Commit sugerido: <code>test(manutencoes): cobrir integracao de manutencoes (FROTA-61)</code>.</p>
-<p>Código → padrões do projeto, compatibilidade, atomicidade, DRY e KISS · dúvidas de implementação: nenhuma.</p>
-</body></html>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-61: QA Testes de manutenções</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-61</code> — QA Testes de manutenções</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/be-api-de-manutencoes</code> (comparada contra <code>origin/develop</code> atualizada)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-61-qa-testes-de-manutencoes.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>MANUTENCOES</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR,ADMINISTRADOR</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-11-05</p>
+</div>
+
+
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA — com ressalvas C1/C8/C17
+</div>
+
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">3</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">14</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">0</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<p><strong>FROTA-61: Testes de manutenções e aceite conjunto.</strong> Jira consultado em 05/11/2026: Em andamento, prioridade Normal; módulo MANUTENCOES; perfis GESTOR/ADMINISTRADOR. SDD consolidado em 05/11/2026 e dependência conjunta 59/61.</p><p><strong>Snapshot:</strong> HEAD <code>dfa437c1a436a4258023c78cdccc96f77548ae75</code>; base remota <code>bf592b861de3f48779d6f6314079c629ec34e22c</code>, obtida com git fetch origin develop. Os commits d887de7/dfa437c reúnem as tarefas na mesma branch. O diff remoto é 36 arquivos, 3.637 inserções e 768 remoções.</p><p><strong>Parecer:</strong> o bloqueio B1 foi corrigido e confirmado no navegador; a medição C8 foi concluída e o contraste C17 foi corrigido. Permanecem as ressalvas abaixo, inclusive zoom nativo e leitor de tela não executados. O relatório <a href="frota-59-be-api-de-manutencoes.html">da outra tarefa</a> referencia as mesmas correções e ressalvas da entrega conjunta.</p><p><strong>Working tree preexistente preservada:</strong> .agents/skills/testar/SKILL.md, docs/manuais/padroes-codigo.md, trechos FROTA-54 em backend/tests/database.integration.test.ts, duas migrações FROTA-54 não rastreadas e seu plano. Nesta atualização foram alterados maintenanceForm, MaintenanceFormDialog, maintenanceStyles, MaintenanceDetailDialog, ConfirmDialog e maintenance.test; foi acrescentado maintenanceForm.render.test e o relatório de medição C8. As alterações locais da FROTA-54 e os demais arquivos preexistentes foram preservados. O relatório de integração anterior foi preservado.</p><table><thead><tr><th scope="col">Arquivo</th><th scope="col">Alteração</th></tr></thead><tbody><tr><td><code>backend/src/app.ts</code></td><td>Alterado</td></tr><tr><td><code>backend/src/controllers/maintenance-orders.controller.ts</code></td><td>Novo</td></tr><tr><td><code>backend/src/database/migrations/202611030002_extend_maintenance_orders.down.sql</code></td><td>Novo</td></tr><tr><td><code>backend/src/database/migrations/202611030002_extend_maintenance_orders.sql</code></td><td>Novo</td></tr><tr><td><code>backend/src/repositories/maintenance-orders.repository.ts</code></td><td>Novo</td></tr><tr><td><code>backend/src/repositories/vehicles.repository.ts</code></td><td>Alterado</td></tr><tr><td><code>backend/src/routes/maintenance-orders.routes.ts</code></td><td>Novo</td></tr><tr><td><code>backend/src/services/maintenance-orders.service.ts</code></td><td>Novo</td></tr><tr><td><code>backend/src/services/vehicles.service.ts</code></td><td>Alterado</td></tr><tr><td><code>backend/src/types/maintenance.types.ts</code></td><td>Novo</td></tr><tr><td><code>backend/tests/database.integration.test.ts</code></td><td>Alterado</td></tr><tr><td><code>backend/tests/maintenance-migrations.integration.test.ts</code></td><td>Novo</td></tr><tr><td><code>backend/tests/maintenance-orders.integration.test.ts</code></td><td>Novo</td></tr><tr><td><code>backend/tests/maintenance-orders.service.test.ts</code></td><td>Novo</td></tr><tr><td><code>backend/tests/vehicles.service.test.ts</code></td><td>Alterado</td></tr><tr><td><code>docs/modulos/MANUTENCOES.html</code></td><td>Novo</td></tr><tr><td><code>docs/plans/frota-59-be-api-de-manutencoes.html</code></td><td>Novo</td></tr><tr><td><code>docs/plans/frota-61-qa-testes-de-manutencoes.html</code></td><td>Novo</td></tr><tr><td><code>docs/reviews/frota-59-61-integracao-interface.html</code></td><td>Novo</td></tr><tr><td><code>docs/reviews/frota-59-be-api-de-manutencoes.html</code></td><td>Novo</td></tr><tr><td><code>docs/reviews/frota-61-qa-testes-de-manutencoes.html</code></td><td>Novo</td></tr><tr><td><code>frontend/src/App.tsx</code></td><td>Alterado</td></tr><tr><td><code>frontend/src/components/sidebarNavigation.ts</code></td><td>Alterado</td></tr><tr><td><code>frontend/src/components/ui/FormField.tsx</code></td><td>Alterado</td></tr><tr><td><code>frontend/src/hooks/useMaintenance.ts</code></td><td>Novo</td></tr><tr><td><code>frontend/src/maintenance/maintenanceForm.ts</code></td><td>Novo</td></tr><tr><td><code>frontend/src/maintenance/maintenanceTypes.ts</code></td><td>Novo</td></tr><tr><td><code>frontend/src/pages/ManuPage/MaintenanceDetailDialog.tsx</code></td><td>Novo</td></tr><tr><td><code>frontend/src/pages/ManuPage/MaintenanceFormDialog.tsx</code></td><td>Novo</td></tr><tr><td><code>frontend/src/pages/ManuPage/MaintenanceItems.tsx</code></td><td>Novo</td></tr><tr><td><code>frontend/src/pages/ManuPage/ManutencaoPage.tsx</code></td><td>Alterado</td></tr><tr><td><code>frontend/src/pages/ManuPage/maintenanceStyles.ts</code></td><td>Novo</td></tr><tr><td><code>frontend/src/routing/routeDecision.ts</code></td><td>Alterado</td></tr><tr><td><code>frontend/src/services/maintenanceService.ts</code></td><td>Novo</td></tr><tr><td><code>frontend/tests/maintenance.test.mjs</code></td><td>Novo</td></tr><tr><td><code>frontend/tests/sidebarNavigation.test.mjs</code></td><td>Alterado</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<p>Contadores referem-se aos 17 critérios: 0 bloqueantes, 3 atenções, 14 OK e 0 N/A. “OK” vale para o escopo/evidência indicada, sem certificação geral de segurança ou WCAG. B1 está resolvido; C17 ainda registra limites da validação nativa.</p><table><thead><tr><th scope="col">Código</th><th scope="col">Critério</th><th scope="col">Status</th><th scope="col">Evidência</th></tr></thead><tbody><tr><td>C1</td><td>Escopo e tamanho</td><td><span class="badge-warn">🟡 Atenção</span></td><td>36 arquivos, 3.637 inserções e 768 remoções contra origin/develop; acima de 400 linhas. O SDD registra a integração autorizada de API, QA e interface. Exigir justificativa desse tamanho na descrição do PR.</td></tr>
+<tr><td>C2</td><td>Gitflow e commits</td><td><span class="badge-ok">🟢 OK</span></td><td>feat/be-api-de-manutencoes contém dois commits exclusivos (d887de7 e dfa437c), ambos Conventional Commits. Base remota bf592b8 é ancestral de HEAD. Nenhum PR foi aberto nesta revisão.</td></tr>
+<tr><td>C3</td><td>Requisitos e SDD</td><td><span class="badge-ok">🟢 OK</span></td><td>Cinco endpoints, preventiva/corretiva, orçamento separado de execução, cálculo exato, bloqueio/liberação, custos por encerramento, legado, revisão e idempotência implementados conforme o SDD consolidado. A pendência de acessibilidade é detalhada em C16.</td></tr>
+<tr><td>C4</td><td>Camadas backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Router → controller → MaintenanceOrdersService → repository. Service sem Express e sem SQL; VehiclesService recebe o mesmo PoolClient para atualizar a situação.</td></tr>
+<tr><td>C5</td><td>Camadas frontend e reuso</td><td><span class="badge-ok">🟢 OK</span></td><td>HTTP em maintenanceService/vehiclesService; efeitos em useMaintenance. Reuso de FormField/FormSelect, PageHeader, DataTable, FilterBar, StateFeedback, StatusChip e ConfirmDialog existentes na base remota.</td></tr>
+<tr><td>C6</td><td>Ciclos e configuração</td><td><span class="badge-ok">🟢 OK</span></td><td>Não identificado ciclo novo nem chave de configuração funcional. O acesso usa os perfis existentes; imports do módulo seguem o sentido UI → hook/service → contratos.</td></tr>
+<tr><td>C7</td><td>SQL parametrizado</td><td><span class="badge-ok">🟢 OK</span></td><td>Entradas em placeholders $1…$12; nomes de tabelas e colunas constantes. Nenhuma entrada de usuário interpolada no SQL revisado.</td></tr>
+<tr><td>C8</td><td>Projeção e desempenho SQL</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Medição concluída: 100 mil ordens, cinco cenários e três planos por cenário. Medianas: veículo/mês 0,403 ms; frota/mês 66,935 ms; sem filtros 3.626,924 ms, com 140,93 MiB temporários. SQL/contrato preservados; atenção de desempenho comprovada. Ver relatório C8 vinculado.</td></tr>
+<tr><td>C9</td><td>Atomicidade e concorrência</td><td><span class="badge-ok">🟢 OK</span></td><td>Veículo travado antes da OS; revisão conferida sob lock; BEGIN/COMMIT/ROLLBACK e release no finally. IT-MNT-06/09 comprovam disputa em conexões distintas; IT-MNT-10 comprova rollback de ordem, situação, eventos e auditoria.</td></tr>
+<tr><td>C10</td><td>Migrações PostgreSQL 18</td><td><span class="badge-ok">🟢 OK</span></td><td>Extensão transacional da tabela fleet existente, sem inventar itens legados; índices únicos de chave/impedimento; rollback protegido contra perda operacional. IT-MIG-MNT-01 a 04 aprovados.</td></tr>
+<tr><td>C11</td><td>Autorização RBAC</td><td><span class="badge-ok">🟢 OK</span></td><td>JWT seguido de authorizeRoles GESTOR/ADMINISTRADOR nas cinco rotas. IT-MNT-11 cobre 25 recusas 401/403 e sucesso dos dois perfis; menu e rota React seguem a mesma matriz.</td></tr>
+<tr><td>C12</td><td>LGPD e segredos</td><td><span class="badge-ok">🟢 OK</span></td><td>Fixtures explicitamente fictícias e domínios example.test; nenhuma credencial operacional nova no diff. Autoria e snapshots dos eventos vêm da conta autenticada. Não é certificação geral da base.</td></tr>
+<tr><td>C13</td><td>TypeScript estrito</td><td><span class="badge-ok">🟢 OK</span></td><td>tsc backend e frontend sem erro; nenhum any ou supressão nova identificado no escopo. BIGINT preservado como string; valores monetários calculados em bigint/centavos.</td></tr>
+<tr><td>C14</td><td>Nomenclatura e TSDoc</td><td><span class="badge-ok">🟢 OK</span></td><td>Métodos públicos de domínio documentados em português; contratos e estados em inglês. O caminho herdado ManuPage/ManutencaoPage foi mantido; o componente exportado chama-se MaintenancePage. Não há novo log de depuração.</td></tr>
+<tr><td>C15</td><td>Cinco estados visuais</td><td><span class="badge-ok">🟢 OK</span></td><td>Código distingue ideal, loading com aria-busy, vazio, erro com recarga e parcial mantendo dados anteriores. Respostas antigas de filtros/detalhes são descartadas. Revisão estática destes estados; não foram novamente simulados todos na página completa.</td></tr>
+<tr><td>C16</td><td>Erros associados aos campos</td><td><span class="badge-ok">🟢 OK</span></td><td>B1 corrigido: erro derivado de parseOdometer, repassado a FormField.error; aria-invalid e vínculo com mensagem/ajuda confirmados no navegador. Ao corrigir o valor, o erro desaparece. Três regressões novas aprovadas.</td></tr>
+<tr><td>C17</td><td>Teclado, foco, tamanho e contraste</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Contraste de rótulo/foco corrigido de 2,86:1 para 5,30:1; borda normal 4,61:1; estilo compartilhado também no diálogo de confirmação. Tab/Enter/Espaço e retorno de foco exercitados. Zoom nativo 200% e NVDA/TalkBack pendentes porque a ferramenta interrompeu o acesso ao Firefox Windows.</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<h3>3.1 🟢 B1 resolvido — erro de hodômetro associado</h3><p>O formulário obtém o erro por getOdometerError, que reutiliza parseOdometer. Após submeter -1, FormField recebe error, aria-invalid=true e aria-describedby inclui o erro com role=alert e a ajuda. Ao substituir por 100, a indicação inválida e o vínculo com o erro desaparecem. Entrada inválida não chega à gravação.</p><p>Comprovação na tela real do gestor: login → menu por Enter → cadastro → -1 → erro inline → 100 → remoção do erro → gravação da OS #3 → edição/revisão 2. Fixture em aratu_maintenance_ui_test, frontend 127.0.0.1:5174 e API 127.0.0.1:4301. Evidência local: <a href="../../.playwright-mcp/maintenance-c16-error.png">maintenance-c16-error.png</a>.</p><p>Três testes novos: um de domínio do erro/limites e dois de HTML renderizado que conferem rótulo, aria-invalid, associação de erro/ajuda e remoção do erro. A interação entre digitação e submissão também foi exercitada no navegador; os testes de renderização não substituem esse ensaio.</p><h3>3.2 🟡 C17 — contraste corrigido; verificação nativa pendente</h3><p>Problema concreto corrigido: laranja #FF6B00 em fundo branco tem contraste 2,86:1, insuficiente para rótulo normal (4,5:1) e para indicação de foco (3:1). maintenanceControls usa primary.dark #B94700 no rótulo e borda focados: 5,30:1. Bordas em repouso usam grey.600 #757575: 4,61:1. Erros preservam seu estado semântico. Nenhum token global foi alterado.</p><p>ConfirmDialog ganhou apenas a prop opcional sx; a manutenção repassa os mesmos estilos ao diálogo portado de encerramento. Cancelar foi observado em rgb(185,71,0), com contorno de foco de 3px e altura de 44px. Seu comportamento padrão nos demais consumidores foi preservado.</p><p>Teclado nesta rodada: Enter no menu, abertura, edição e revisão de encerramento; seleção de veículo e impedimento por setas/Enter; 24 avanços por Tab percorreram campos, botões e retornaram ao início do modal. Todos os retângulos de foco observados ficaram no viewport. Espaço em Cancelar retirou a confirmação e devolveu foco a Revisar encerramento. A árvore acessível conferiu nome, estado inválido, mensagem e vínculos. Escape e reflow em 320px foram registrados na revisão anterior; não são apresentados como novos ensaios.</p><p><strong>Limite pendente:</strong> o navegador interno ignorou o atalho de zoom (largura e devicePixelRatio permaneceram iguais), portanto isso não prova ampliação. Ao selecionar o Firefox nativo pela ferramenta computer-use, o controle foi interrompido: a política de URLs ainda não é suportada para esse navegador Windows. Nenhuma interação nativa foi efetuada após a interrupção. Zoom nativo de 200% e ensaio com NVDA/TalkBack continuam não executados. Não se declara C17 integralmente encerrado nem certificação WCAG.</p><p>O fluxo chegou à confirmação de encerramento; o ensaio completo de fechamento pela UI ficou interrompido. Para não deixar a viatura de teste bloqueada, a OS #3 foi encerrada pela API. SQL confirmou DONE/revisão 3, custo fictício 0,00, veículo AVAILABLE, três eventos e três auditorias. Esse encerramento é evidência de API/banco, não de fechamento pela interface. Artefato local: <a href="../../.playwright-mcp/maintenance-c16-c17-api-evidence.json">maintenance-c16-c17-api-evidence.json</a>.</p><h3>3.3 🟡 C8 — medição concluída</h3><p>Ensaio com 100 mil ordens: veículo/mês 0,403 ms; frota/mês 66,935 ms; frota/mês/tipo 54,717 ms; veículo/histórico 3,511 ms; frota/histórico 3.626,924 ms (medianas de três execuções). A consulta mensal da frota examina 100 mil linhas; a consulta integral escreve 140,93 MiB temporários. C8 continua atenção por desempenho medido; a pendência de medição está concluída. <a href="frota-59-61-medicao-c8.html">Método, dados, configurações, código e planos EXPLAIN completos</a>.</p><h3>3.4 🟡 C1 — tamanho da entrega</h3><p>O escopo conjunto documentado continua exigindo justificativa no PR. A comparação commitada tem 36 arquivos/3.637 inserções/768 remoções. Esta correção não alterou regras, schema nem contrato HTTP.</p>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2><h3>Verificação desta correção</h3><p>Frontend: 88 testes aprovados (três novos), zero falhas/omitidos; lint e build aprovados; bundle 670,86 kB/204,37 kB gzip, com aviso de tamanho. Os totais backend abaixo são da revisão anterior, mantidos como evidência daquela execução porque não houve alteração de backend nesta rodada. A pré-auditoria foi novamente executada após a correção.</p><p>Base da primeira revisão: dfa437c. As correções e regressões desta seção foram registradas no commit <code>eeecf7d</code>; as verificações descritas foram executadas antes desse commit. Sem push. <a href="frota-59-61-medicao-c8.html">Medição C8 completa</a>. Os resultados de UI são estritamente os descritos em C17; não se declarou fechamento de ponta a ponta nesta rodada.</p>
+<table><thead><tr><th scope="col">Verificação</th><th scope="col">Comando/ambiente</th><th scope="col">Resultado</th></tr></thead><tbody><tr><td>Pré-auditoria da revisão anterior</td><td>node docs/scripts/aratu-check.mjs e --base origin/develop</td><td>0 bloqueantes e 0 alertas estáticos; tipos aprovados e 85 testes frontend. O auditor inclui working tree e não detecta B1.</td></tr>
+<tr><td>Backend TypeScript</td><td>docker compose exec -T backend npx tsc --noEmit</td><td>Passou, sem erro.</td></tr>
+<tr><td>Backend do checkout</td><td>docker compose exec -T backend npm test</td><td>120 aprovados, 0 falhas/omitidos, 53,94 s. Inclui dois casos locais FROTA-54.</td></tr>
+<tr><td>Backend commitado — rodada 1</td><td>npm test em arquivo git archive HEAD backend no container</td><td>118 aprovados, 0 falhas/omitidos, 47,00 s; banco exclusivo aratu_review_59_61_head. Sem arquivos locais FROTA-54.</td></tr>
+<tr><td>Integração commitada</td><td>npm run test:integration no snapshot de HEAD</td><td>82 aprovados, 0 falhas/omitidos, 41,23 s; banco aratu_review_59_61_head.</td></tr>
+<tr><td>Backend commitado — rodada 2</td><td>npm test no mesmo snapshot isolado</td><td>118 aprovados, 0 falhas/omitidos, 42,23 s. Duas rodadas completas do snapshot aprovadas.</td></tr>
+<tr><td>Frontend ESLint</td><td>docker compose exec -T frontend npm run lint</td><td>Passou.</td></tr>
+<tr><td>Frontend build</td><td>docker compose exec -T frontend npm run build</td><td>Passou; aviso de bundle acima de 500 kB.</td></tr>
+<tr><td>Frontend testes</td><td>docker compose exec -T frontend npm test</td><td>85 aprovados, 0 falhas/omitidos, 4,42 s. Os cinco testes de manutenção cobrem helpers/serviço/rota/menu, sem montar o formulário.</td></tr>
+<tr><td>Navegador</td><td>Formulário real isolado /__review em 127.0.0.1:5175</td><td>B1 reproduzido; Escape e 320×568 conferidos. API simulada, sem persistência; não substitui E2E completo.</td></tr></tbody></table><h3>Cobertura de manutenção efetivamente exercitada</h3><table><thead><tr><th scope="col">Casos</th><th scope="col">Evidência</th></tr></thead><tbody><tr><td>IT-MNT-01 a 04</td><td>Tipos válidos/inválidos, custo negativo, datas, quilometragem, orçamento versus execução, precisão e gratuidade.</td></tr><tr><td>IT-MNT-05 a 07</td><td>Bloqueio/liberação, viagem ativa, disputa de impedimento, replay após edição e inativação independente.</td></tr><tr><td>IT-MNT-08 e 09</td><td>Intervalo semiaberto, abertura versus encerramento, custos, revisão concorrente, eventos imutáveis e autoria da sessão.</td></tr><tr><td>IT-MNT-10 e 11</td><td>Rollback por falha deliberada de auditoria, RBAC das cinco rotas, 404 e consulta legada. Erros internos de auditoria nesses ensaios são esperados.</td></tr><tr><td>IT-MIG-MNT-01 a 04</td><td>up/down/up, custo legado, impeditivas duplicadas e proteção de orçamento/eventos no rollback.</td></tr><tr><td>12 unitários de domínio + 5 frontend de manutenção</td><td>Cálculo exato, chaves, impedimentos e validações; rota/menu, normalização, soma e contrato HTTP. A lacuna de interação associada a B1 não é coberta por esses helpers.</td></tr></tbody></table><p>O snapshot foi extraído do commit, usa dependências já instaladas no container e um banco de teste separado. Não executa build limpo de imagem nem comprova instalação de dependências do zero. O frontend não tinha alterações locais de fonte, portanto foi verificado no checkout. O auditor estático é heurístico: sua saída verde não invalida o achado de interação B1.</p>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul class="check"><li><input type="checkbox" checked disabled> B1 corrigido, erro/limpeza exercitados no navegador e três regressões novas aprovadas.</li><li><input type="checkbox" checked disabled> Contraste de foco/rótulo/borda e confirmação ajustados com tokens locais do tema.</li><li><input type="checkbox" checked disabled> C8 medido com EXPLAIN ANALYZE BUFFERS, dados fictícios, cinco cenários e planos preservados.</li><li><input type="checkbox" disabled> Completar zoom nativo 200%, tecnologia assistiva e encerramento pela UI quando o controle de navegador permitir; C17 permanece ressalva.</li><li><input type="checkbox" disabled> Justificar tamanho do pacote no PR e definir trabalho posterior de desempenho com base na medição C8.</li></ul><p>Correção/revisão → reuso, acessibilidade, compatibilidade e medição antes de otimizar · dúvidas: nenhuma regra de negócio pendente; limitações de ferramentas descritas em C17.</p>
+
+</body>
+</html>
