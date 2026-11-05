@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-46 — FE Criar interface de cadastro e consulta de veiculos (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-46: FE Criar interface de cadastro e consulta de veiculos</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-46</code> — FE Criar interface de cadastro e consulta de veiculos</p>
+  <p><strong>Branch Revisada:</strong> <code>feature/sidebar-veiculos</code> (6 commits à frente de <code>develop</code>; merge sem conflito)</p>
+  <p><strong>Plano SDD de Referência:</strong> <span class="badge-block">Ausente</span> — não existe <code>docs/plans/frota-46-*.html</code>; a fonte de requisitos foi a descrição da tarefa no Jira.</p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>FROTA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR</code>, <code>ADMINISTRADOR</code>, <code>ATENDENTE_SVO</code> (conforme <code>backend/src/routes/vehicles.routes.ts</code>)</p>
+  <p><strong>Data da Revisão:</strong> 2026-11-05</p>
+</div>
+
+<!-- PREENCHER_VEREDITO: Use class="verdict-approved" para APROVADO_PARA_REVISAO_HUMANA ou class="verdict-blocked" para BLOQUEADO_POR_PENDENCIAS -->
+<div class="verdict-blocked">
+  Veredito da Revisão: BLOQUEADO_POR_PENDENCIAS
+</div>
+
+<!-- PREENCHER_CONTADORES: Atualize os contadores de Bloqueantes, Atenção, OK e N/A -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">6</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">3</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">2</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">6</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<p class="notice-block"><strong>Atualização pós-revisão (commits <code>686f74f</code>, <code>27c10fd</code>, <code>c041eeb</code>):</strong> os seis bloqueantes 3.1.1–3.1.6 foram corrigidos na branch — tela integrada a <code>/vehicles</code>, guard de sessão e perfil em <code>/veiculos</code>, menu por perfil, kit <code>components/ui</code>, formulário com justificativa e <code>reportedBy</code> da sessão, mudança de situação via <code>PATCH /vehicles/:id/status</code> e os cinco estados com ajustes de WCAG AA. O veredito acima registra o estado auditado; a liberação exige revalidação em navegador com os perfis reais. Dívidas mantidas por decisão: <code>ManutencaoPage</code> (+723 linhas) sem rota, alteração da Topbar e exclusão do <code>package-lock.json</code> raiz — todas fora do escopo da FROTA-46 e registradas para separação em PR próprio.</p>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<!-- PREENCHER_REVISAO_SECAO_1: Tabela de arquivos criados/alterados no diff contra develop -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>frontend/src/pages/veiculosPage/VeiculosPage.tsx</code></td>
+      <td>Frontend — página</td>
+      <td>Novo (+561)</td>
+      <td>Protótipo da tela de veículos: dados mock em <code>useState</code>, tabela/filtros/paginação próprios, CRUD local, exclusão com <code>window.confirm</code> e formulário com parte dos campos exigidos.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/App.tsx</code></td>
+      <td>Frontend — rotas</td>
+      <td>Modificado (+22/−4)</td>
+      <td>Declara <code>/veiculos</code> e <code>/manutencao</code> fora do guard de sessão; <code>ProfileHome</code> passa a decidir a tela por <code>pathname</code>, duplicando o roteamento.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/Sidebar.tsx</code></td>
+      <td>Frontend — layout</td>
+      <td>Modificado (+363/−?)</td>
+      <td>Sidebar com expandir/recolher; “Veículos” é <code>behavior: 'button'</code> sem <code>path</code> e o rótulo “Gestor de Frota” é fixo para qualquer perfil.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/Topbar.tsx</code></td>
+      <td>Frontend — layout</td>
+      <td>Modificado (+44/−?)</td>
+      <td>Remove a busca global (fora do escopo da FROTA-46) e reformata o bloco de perfil.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/ManuPage/ManutencaoPage.tsx</code></td>
+      <td>Frontend — página</td>
+      <td>Novo (+723)</td>
+      <td>Tela de manutenção com dados mock e regras de custo; não pertence à FROTA-46 e não possui backend.</td>
+    </tr>
+    <tr>
+      <td><code>package-lock.json</code></td>
+      <td>Infra — dependências</td>
+      <td>Removido (−1.159)</td>
+      <td>Lockfile da raiz excluído; o CI usa <code>frontend/package-lock.json</code> e <code>backend/package-lock.json</code>, mas a intenção não foi confirmada.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="notice-block"><strong>Fora do diff:</strong> <code>docs/reviews/sidebar-veiculos-sidebar-e-telas-de-veiculos-e-manutencao.html</code> (não versionado) foi gerado sobre um estado anterior da branch (2 commits) e está <strong>desatualizado</strong>; use este relatório. O arquivo <code>docs/reviews/frota-35-*.html</code> também é trabalho local não versionado e não foi alterado.</p>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<!-- PREENCHER_REVISAO_SECAO_2: Status de cada critério C1 a C17 (badge-ok, badge-warn, badge-block, badge-na) -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-block">🔴 Bloqueante</span></td><td><strong>+1.573 / −1.299</strong> em 6 arquivos: veículos + refatoração de Sidebar/Topbar + <code>ManutencaoPage</code> + remoção do lockfile. Viola o limite de 400 linhas e a regra “um diff = comportamento ou estrutura”.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-warn">🟡 Atenção</span></td><td><code>feature/sidebar-veiculos</code> segue o padrão, 6 commits em Conventional Commits e merge com <code>develop</code> sem conflito (0 atrás / 6 à frente). Falta citar a chave <code>FROTA-46</code> e separar as frentes; a branch não identifica a tarefa.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-block">🔴 Bloqueante</span></td><td>Não há SDD para a FROTA-46. Dos critérios de pronto, só existem a página e uma lista mock: sem API, sem campos de marca/operação/propriedade/capacidade/limite de corpos, sem validação de placa, sem erro da API, sem ação de situação com <code>ConfirmDialog</code> e com exclusão física especulativa.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhum arquivo de <code>backend/src/</code> no diff.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-block">🔴 Bloqueante</span></td><td>A página reimplementa tabela, filtros, chip, estados e diálogo; não usa <code>components/ui/</code>, <code>services/</code> nem <code>useAuth().api</code>. Cores MUI cruas fora do <code>theme.ts</code>, <code>import '../../index.css'</code> repetido e <code>window.confirm</code> em vez de <code>ConfirmDialog</code>.</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Nenhum ciclo identificado e nenhuma flag nova.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem SQL no diff.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem SQL no diff.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-na">⚪ N/A</span></td><td>Sem transações ou acesso a banco no diff.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (Schemas Nativos, tabelas no plural, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem migrations no diff.</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem rota backend nova; <code>/vehicles</code> já aplica <code>authorizeRoles</code>. A ausência de guard na UI é tratada no achado 3.1.1.</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>Dados de veículos 100% fictícios; nenhum dado pessoal, laudo ou segredo adicionado.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Sem <code>any</code>/<code>@ts-ignore</code> e <code>tsc</code> passa, mas o contrato é duplicado e enfraquecido na página (<code>getStatusChipColor(status: string)</code>, <code>tipo: string</code>) e não há tipos compartilhados em <code>src/types/</code>.</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Identificadores e pastas em português (<code>veiculosPage</code>, <code>ManuPage</code>, <code>Veiculo</code>, <code>veiculosList</code>, <code>tipo</code>), casing inconsistente entre pastas e ausência de TSDoc nos componentes.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-block">🔴 Bloqueante</span></td><td>Só existem ideal e um texto de vazio dentro da tabela (<code>VeiculosPage.tsx:405-411</code>). Sem <code>aria-busy</code>, erro, parcial/retry ou feedback de envio; <code>StateFeedback</code> não é usado.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-block">🔴 Bloqueante</span></td><td><code>alert()</code> para erro de validação (<code>:147</code>) e nenhuma associação de erro ao campo; busca só com <code>placeholder</code> (<code>:290-305</code>); sem <code>useId</code>/<code>FormField</code>; <code>aratu-check</code> sinaliza C16.</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-block">🔴 Bloqueante</span></td><td>Alvos de 30×30 (ações de linha) e 28×28 (paginação); contraste dos chips 3,00:1 / 3,95:1 / 4,24:1 (mínimo 4,5:1); tabela sem <code>caption</code>/<code>aria-label</code>; título em <code>h5</code> sem <code>h1</code>; drawer <code>permanent</code> de 260px + <code>ml: 60px</code> sem breakpoint. Ponto positivo: o <code>Dialog</code> do MUI prende o foco e fecha com <code>Esc</code>.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<!-- PREENCHER_REVISAO_SECAO_3: Detalhar bloqueantes e pontos de atenção (arquivo:linha, impacto e como corrigir) -->
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+
+<h4>3.1.1 Rotas <code>/veiculos</code> e <code>/manutencao</code> acessíveis sem autenticação nem verificação de perfil</h4>
+<p><strong>Onde:</strong> <code>frontend/src/App.tsx:65-66</code> e <code>frontend/src/App.tsx:73-75</code>.</p>
+<p>As rotas são declaradas fora do <code>PrivateRoute</code>; <code>PrivateRouteWrapper</code> aplica apenas o <code>Layout</code> e não valida sessão, expiração do token ou perfil. <code>resolveRoute</code> nem conhece <code>/veiculos</code>. Há ainda roteamento duplicado: <code>ProfileHome</code> (<code>:24-33</code>) decide por <code>pathname</code> o que a rota explícita já resolve.</p>
+<p><strong>Impacto FSPH/SVO:</strong> qualquer pessoa com a URL vê dados da frota e pode acionar cadastro, edição e remoção na UI. O RBAC de <code>/vehicles</code> existe no backend, mas a tela não o utiliza.</p>
+<p><strong>Como corrigir:</strong> um único guard de sessão baseado em <code>resolveRoute</code>, com lista explícita de perfis autorizados; o backend continua sendo a fonte de verdade.</p>
+
+<h4>3.1.2 Menu não leva à tela e não respeita o perfil</h4>
+<p><strong>Onde:</strong> <code>frontend/src/components/sidebarNavigation.ts:79</code> e <code>frontend/src/components/Sidebar.tsx:204,217</code>.</p>
+<p>“Veículos” é declarado como <code>behavior: 'button'</code> <strong>sem <code>path</code></strong>, então o clique não navega. A navegação operacional é exibida para todos os perfis não-admin (inclusive SOLICITANTE, MOTORISTA e EQUIPE_SVO) e o ADMINISTRADOR — que tem escrita em <code>/vehicles</code> — não vê o item. O rótulo “Gestor de Frota”/“GF” é fixo.</p>
+<p><strong>Impacto FSPH/SVO:</strong> o requisito “rota e menu” não é atendido; a tela é inalcançável pelo menu e exposta a perfis sem permissão.</p>
+<p><strong>Como corrigir:</strong> derivar os itens de <code>session.perfil</code> (via <code>getSidebarNavigation</code>) e apontar “Veículos” para <code>/frota/veiculos</code> (ou <code>/veiculos</code>, conforme a rota canônica) apenas para perfis autorizados.</p>
+
+<h4>3.1.3 Tela sem integração com a API e com contrato divergente</h4>
+<p><strong>Onde:</strong> <code>frontend/src/pages/veiculosPage/VeiculosPage.tsx:39-64</code> e <code>137-179</code>.</p>
+<p>A listagem vem de <code>initialVeiculos</code> (mock) mantida em <code>useState</code>; não há chamada a <code>api/client.ts</code>, nem service, nem persistência — recarregar a página descarta tudo. O modelo da tela (<code>placa</code>, <code>modelo</code>, <code>anoFabricacao</code>, <code>chassi</code>, <code>vencimentoIpva</code>, <code>kmTotal</code>, status “Em uso”) diverge de <code>backend/src/types/vehicle.types.ts:25-42</code> (<code>licensePlate</code>, <code>brand</code>, <code>model</code>, <code>year</code>, <code>vehicleType</code>, <code>ownership</code>, <code>categories</code>, <code>seats</code>, <code>bodyLimit</code>, <code>weightLimit</code>, <code>operationType</code>, <code>status: AVAILABLE | IN_MAINTENANCE | INACTIVE</code>, <code>revision</code>).</p>
+<p><strong>Impacto FSPH/SVO:</strong> o critério de pronto (“cadastrar, filtrar, editar e mudar a situação”) não é cumprido e o cadastro desaparece ao recarregar.</p>
+<p><strong>Como corrigir:</strong> criar <code>services/vehiclesService.ts</code> tipado sobre o contrato real, consumido via <code>useAuth().api</code>, com estados de requisição explícitos.</p>
+
+<h4>3.1.4 Formulário incompleto e sem validação/erro do campo</h4>
+<p><strong>Onde:</strong> <code>VeiculosPage.tsx:460-558</code> e <code>:143-148</code>.</p>
+<p>Faltam marca, operação, propriedade, capacidade e limite de corpos; sobram chassi e IPVA (inexistentes no contrato). A placa não é validada (<code>ABC1234</code>/<code>ABC1D23</code>), não há bloqueio de duplicidade e a mensagem <code>{ "erro": "Placa já cadastrada" }</code> (409) não é exibida — o erro é um <code>alert()</code> genérico. A API exige <code>reportedBy</code>, <code>reason</code> e <code>expectedRevision</code> (<code>vehicles.service.ts:306-323</code>), que o formulário não coleta.</p>
+<p><strong>Impacto FSPH/SVO:</strong> o Gestor não consegue concluir o cadastro real e recebe mensagens que não indicam qual campo corrigir.</p>
+<p><strong>Como corrigir:</strong> campos completos com <code>FormField</code>, validação de placa no cliente (conforto) e erro da API vinculado ao campo via <code>aria-invalid</code>/<code>aria-describedby</code>/<code>role="alert"</code>.</p>
+
+<h4>3.1.5 Mudança de situação ausente; exclusão física no lugar</h4>
+<p><strong>Onde:</strong> <code>VeiculosPage.tsx:137-141</code> e <code>:392-400</code>.</p>
+<p>Não existe ação de mudar situação com <code>ConfirmDialog</code>. Há lixeira com <code>window.confirm</code> + remoção do estado local, enquanto a API não possui <code>DELETE</code> e o projeto proíbe exclusão física. A FSM real permite <code>AVAILABLE ↔ IN_MAINTENANCE</code> e <code>INACTIVE → AVAILABLE</code>.</p>
+<p><strong>Impacto FSPH/SVO:</strong> o fluxo pedido não existe e a UI sugere uma operação proibida, sem justificativa nem auditoria.</p>
+<p><strong>Como corrigir:</strong> substituir a exclusão por “Inativar/Reativar/Enviar para manutenção” via <code>PATCH /vehicles/:id/status</code>, com <code>ConfirmDialog</code>, justificativa e tratamento de 409.</p>
+
+<h4>3.1.6 Os 5 estados visuais e a acessibilidade AA não são atendidos</h4>
+<p><strong>Onde:</strong> <code>VeiculosPage.tsx</code> (listagem inteira), <code>:147</code>, <code>:290-320</code>, <code>:375-400</code>, <code>:429-447</code>; <code>layout.tsx:20</code>.</p>
+<ul>
+  <li><strong>Estados:</strong> não há carregando (<code>aria-busy</code>), erro, parcial ou retry; o vazio é apenas uma linha de tabela.</li>
+  <li><strong>Formulários:</strong> <code>alert()</code>, busca sem rótulo persistente, ações de linha sem <code>aria-label</code> contextual e paginação sem nome.</li>
+  <li><strong>Alvos:</strong> 30×30 nas ações de linha e 28×28 na paginação, abaixo dos 44×44 do projeto.</li>
+  <li><strong>Contraste:</strong> chips “Disponível” 3,00:1, “Manutenção” 3,95:1 e “Em uso” 4,24:1 (mínimo 4,5:1 para texto pequeno).</li>
+  <li><strong>Semântica:</strong> tabela sem <code>caption</code>/<code>aria-label</code>; título em <code>h5</code> sem <code>h1</code>.</li>
+  <li><strong>Reflow:</strong> drawer <code>permanent</code> de 260px + <code>ml: 60px</code> sem breakpoint (análise estática; não validado em navegador nesta sessão).</li>
+</ul>
+<p><strong>Impacto FSPH/SVO:</strong> operação tátil sob sol/luvas e usuários de leitor de tela ficam prejudicados.</p>
+<p><strong>Como corrigir:</strong> <code>StateFeedback</code> nos cinco estados, <code>FormField</code>/<code>useId</code>, <code>aria-label</code> contextual, alvos ≥ 44×44, contraste ≥ 4,5:1, <code>h1</code>/<code>caption</code> e shell responsivo (drawer temporário abaixo de <code>md</code>).</p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<ul>
+  <li><strong>Escopo do PR (C1):</strong> separar veículos, sidebar e manutenção em PRs distintos; Topbar e lockfile em mudanças próprias.</li>
+  <li><strong>Commits e branch (C2):</strong> citar <code>FROTA-46</code> e usar escopo (<code>feat(frota): ...</code>); a branch está sincronizada com <code>develop</code> e o merge está limpo.</li>
+  <li><strong>Nomenclatura/TSDoc (C14):</strong> padronizar pastas e identificadores em inglês e documentar os componentes.</li>
+  <li><strong>Testes:</strong> nenhum teste cobre a página, o cadastro ou a navegação; adicionar testes de service/estado e render.</li>
+  <li><strong>Controle morto:</strong> “Exportar” (<code>:205-211</code>) não possui <code>onClick</code> — remover (YAGNI) ou implementar em tarefa própria.</li>
+  <li><strong>Fora de escopo:</strong> <code>ManutencaoPage</code> (+723), remoção da busca da Topbar e exclusão do <code>package-lock.json</code> raiz precisam de justificativa ou remoção do PR.</li>
+  <li><strong>Toggle de “dados confidenciais”:</strong> não é requisito da FROTA-46 e oculta chassi/IPVA, que não são dados pessoais; sem anúncio de estado.</li>
+</ul>
+
+<h3>3.3 Dúvidas em Aberto (Regra da Dúvida)</h3>
+<ol>
+  <li><strong>Filtro “tipo”:</strong> é <code>category</code> (<code>PASSENGER</code>/<code>BODY</code>/<code>OTHER</code>) ou <code>vehicleType</code> (texto livre)? A API só filtra <code>status</code>, <code>category</code> e <code>operationType</code>.</li>
+  <li><strong>Perfis:</strong> a tela é exclusiva do GESTOR (texto da tarefa) ou espelha o backend (leitura para GESTOR/ADMINISTRADOR/ATENDENTE_SVO, escrita para GESTOR/ADMINISTRADOR)?</li>
+  <li><strong><code>reportedBy</code>/<code>reason</code>:</strong> coletar os dois no formulário ou derivar <code>reportedBy</code> da sessão e exigir apenas “Justificativa”?</li>
+  <li><strong>Base de componentes:</strong> <code>components/ui/*</code> não existe hoje (só <code>AratuIcon</code>). A FROTA-46 cria o kit (<code>FormField</code>, <code>DataTable</code>, <code>FilterBar</code>, <code>StatusChip</code>, <code>StateFeedback</code>, <code>ConfirmDialog</code>) ou a base vem da FROTA-155?</li>
+  <li><strong>Exclusão:</strong> substituir a lixeira por inativação via <code>PATCH .../status</code>?</li>
+  <li><strong>Itens fora de escopo:</strong> manter ou remover deste PR <code>ManutencaoPage</code>, a alteração da Topbar e a exclusão do <code>package-lock.json</code>?</li>
+</ol>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<!-- PREENCHER_REVISAO_SECAO_4: Resultado de aratu-check.mjs, tsc, lint, build e testes -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática e Regras Aratu</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-warn">🟡 1 bloqueante de teste + 2 atenções C16</span> — C16 em <code>ManutencaoPage.tsx</code> e <code>VeiculosPage.tsx</code>; a falha de teste é ambiental (ver abaixo).</td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript — frontend</td>
+      <td><code>npx tsc -p tsconfig.app.json --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Passou</span> — zero erros (o <code>tsc -b</code> do script falha apenas por <code>EACCES</code> em <code>node_modules/.tmp</code>).</td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript — backend</td>
+      <td><code>npx tsc --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Passou</span> — zero erros.</td>
+    </tr>
+    <tr>
+      <td>Linter ESLint</td>
+      <td><code>npx eslint src/pages/veiculosPage/VeiculosPage.tsx src/App.tsx src/components/Sidebar.tsx src/components/Topbar.tsx</code></td>
+      <td><span class="badge-ok">🟢 Passou</span> — zero erros/avisos.</td>
+    </tr>
+    <tr>
+      <td>Testes Automatizados</td>
+      <td><code>node --test tests/*.test.mjs</code></td>
+      <td><span class="badge-warn">🟡 63/64</span> — a única falha é <code>EACCES</code> em <code>frontend/node_modules/.vite</code> (diretório pertence a <code>root</code>), não é falha de asserção. Nenhum teste cobre as novas telas.</td>
+    </tr>
+    <tr>
+      <td>Build de Produção</td>
+      <td><code>npm run build</code></td>
+      <td><span class="badge-na">⚪ Inconclusivo</span> — bloqueado por <code>EACCES</code> ao gravar em <code>frontend/node_modules/.tmp</code>; não há erro TypeScript nem de lint.</td>
+    </tr>
+    <tr>
+      <td>Merge contra <code>develop</code></td>
+      <td><code>git merge-tree --write-tree develop HEAD</code></td>
+      <td><span class="badge-ok">🟢 Limpo</span> — branch 0 atrás / 6 à frente, sem conflitos.</td>
+    </tr>
+    <tr>
+      <td>Docker / PostgreSQL 18</td>
+      <td><code>docker compose ps</code></td>
+      <td><span class="badge-na">⚪ Não executável</span> — permissão negada em <code>/var/run/docker.sock</code>; a tela mock não persiste por definição.</td>
+    </tr>
+    <tr>
+      <td>Operação em navegador</td>
+      <td><code>http://localhost:5173</code></td>
+      <td><span class="badge-na">⚪ Não executada</span> — sem ferramenta de navegador nesta sessão; responsividade e contraste foram verificados por análise estática das medidas e cores hardcoded.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<!-- PREENCHER_REVISAO_SECAO_5: Pontos específicos que o par humano da Squad 24 deve validar -->
+<ul class="check">
+  <li><input type="checkbox"> Confirmar a rota canônica de veículos e os perfis que podem abri-la (GESTOR/ADMINISTRADOR/ATENDENTE_SVO), garantindo que a UI espelhe o RBAC de <code>/vehicles</code>.</li>
+  <li><input type="checkbox"> Validar o fluxo real contra <code>/vehicles</code> com token de GESTOR: listar, filtrar, cadastrar, editar, mudar situação e receber 409 “Placa já cadastrada” no campo placa.</li>
+  <li><input type="checkbox"> Confirmar que <code>/veiculos</code> sem sessão, com token expirado e com perfil sem permissão é bloqueado/redirecionado — nunca renderiza dados.</li>
+  <li><input type="checkbox"> Conferir os cinco estados (ideal, carregando com <code>aria-busy</code>, vazio, erro com retry e parcial) em todas as operações.</li>
+  <li><input type="checkbox"> Repetir a auditoria WCAG 2.2 AA em navegador: rótulos, <code>aria-invalid</code>/<code>aria-describedby</code>, <code>role="alert"</code>, <code>Esc</code> no <code>ConfirmDialog</code>, alvos ≥ 44×44, contraste ≥ 4,5:1 e reflow em 320/375/1024/1280/1920.</li>
+  <li><input type="checkbox"> Confirmar que a exclusão física foi substituída por inativação com justificativa e auditoria.</li>
+  <li><input type="checkbox"> Decidir o destino de <code>ManutencaoPage</code>, da alteração da Topbar e da exclusão do <code>package-lock.json</code> raiz (manter com justificativa ou remover do PR).</li>
+  <li><input type="checkbox"> Adicionar testes de <code>services/vehiclesService.ts</code>, da validação do formulário e da navegação por perfil.</li>
+</ul>
+
+</body>
+</html>

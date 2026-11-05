@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { resolveRoute } from '../src/routing/routeDecision.ts'
-import { resolveProfile } from '../src/auth/profiles.ts'
+import { PROFILE_PERMISSIONS_PATH, resolveProfile } from '../src/auth/profiles.ts'
 import { sessionFor } from './fixtures.mjs'
 
 const destinations = [
@@ -13,19 +13,34 @@ const destinations = [
   ['EQUIPE_SVO', '/svo/ordens'],
 ]
 
+const vehicleReaders = new Set(['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'])
+const VEHICLES_PATH = '/veiculos'
+
 for (const [profile, path] of destinations) {
   test(profile + ' vai para a própria tela e não pode abrir as demais', () => {
     const session = sessionFor(profile)
     assert.deepEqual(resolveRoute(session, '/login'), { kind: 'redirect', to: path })
     assert.deepEqual(resolveRoute(session, path), { kind: 'home', profile })
+    assert.deepEqual(
+      resolveRoute(session, PROFILE_PERMISSIONS_PATH),
+      profile === 'ADMINISTRADOR'
+        ? { kind: 'profile-permissions', profile }
+        : { kind: 'redirect', to: path },
+    )
     for (const [, otherPath] of destinations) {
       if (otherPath !== path) assert.deepEqual(resolveRoute(session, otherPath), { kind: 'redirect', to: path })
     }
+    assert.deepEqual(
+      resolveRoute(session, VEHICLES_PATH),
+      vehicleReaders.has(profile)
+        ? { kind: 'vehicles', profile }
+        : { kind: 'redirect', to: path },
+    )
   })
 }
 
 test('sem login e após logout, todas as rotas internas voltam ao login', () => {
-  for (const [, path] of destinations) {
+  for (const [, path] of [...destinations, ['ADMINISTRADOR', PROFILE_PERMISSIONS_PATH], ['GESTOR', VEHICLES_PATH]]) {
     assert.deepEqual(resolveRoute(null, path), { kind: 'redirect', to: '/login' })
   }
   assert.deepEqual(resolveRoute(null, '/login'), { kind: 'login' })
@@ -33,6 +48,8 @@ test('sem login e após logout, todas as rotas internas voltam ao login', () => 
 
 test('token expirado e sessão adulterada não abrem telas internas', () => {
   assert.deepEqual(resolveRoute(sessionFor('MOTORISTA', -1), '/viagens/minhas'), { kind: 'redirect', to: '/login' })
+  assert.deepEqual(resolveRoute(sessionFor('ADMINISTRADOR', -1), PROFILE_PERMISSIONS_PATH), { kind: 'redirect', to: '/login' })
+  assert.deepEqual(resolveRoute(sessionFor('GESTOR', -1), VEHICLES_PATH), { kind: 'redirect', to: '/login' })
   assert.deepEqual(resolveRoute({ ...sessionFor(), perfil: 'MOTORISTA' }, '/viagens/minhas'), { kind: 'redirect', to: '/login' })
 })
 

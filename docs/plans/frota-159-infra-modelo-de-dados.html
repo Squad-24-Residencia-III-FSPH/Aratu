@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-159 — [INFRA] Modelo de dados: Operação SVO (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-159: [INFRA] Modelo de dados: Operação SVO</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-159</code> — [INFRA] Modelo de dados: Operação SVO (Subtarefas: <code>FROTA-110</code>, <code>FROTA-168</code> e <code>FROTA-114</code>)</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/infra-modelo-de-dados-svo</code> (criada a partir de <code>develop</code> + merge de <code>feat/infra-modelo-de-dados-viagens</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>SVO</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code>, <code>GESTOR</code>, <code>ADMINISTRADOR</code></p>
+  <p><strong>Data:</strong> 2026-10-28</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+
+<h3>1.1 Contexto e Objetivo no Domínio FSPH / SVO</h3>
+<p>
+  Consolidar no PostgreSQL 18 o modelo de dados relacional do schema nativo <code>svo</code> exigido pelo Épico <strong>E04 — Operação SVO (US17 a US20)</strong> do Serviço de Verificação de Óbito (SVO), em continuidade direta ao que foi implementado na <code>FROTA-157</code> (branch <code>feat/infra-modelo-de-dados-frota</code>: <code>fleet.vehicles</code>, <code>fleet.drivers</code>, <code>fleet.services</code> e <code>fleet.vehicle_services</code>) e na <code>FROTA-158</code> (branch <code>feat/infra-modelo-de-dados-viagens</code>: <code>trip.requests</code>, <code>trip.trips</code>, <code>trip.trip_stops</code> e <code>trip.odometer_readings</code>).
+</p>
+<p>
+  Seguindo rigorosamente a diretriz arquitetural do Sistema Aratu (<code>.agents/skills/principios/references/dados.md</code>), o modelo guarda <strong>a história completa de como cada entidade chegou ao estado atual</strong>, garantindo que nenhuma alteração posterior apague o que aconteceu antes. As tabelas principais (<code>svo.occurrences</code>, <code>svo.teams</code>, <code>svo.team_members</code> e <code>svo.execution_orders</code>) permitem consultar rapidamente "o que sabemos hoje", enquanto suas tabelas gêmeas de eventos append-only (<code>svo.occurrence_events</code>, <code>svo.team_events</code> e <code>svo.execution_order_events</code>) e os snapshots de contexto congelam "o que a equipe sabia quando tomou determinada decisão" e respondem às <strong>5 perguntas obrigatórias</strong> de cada acontecimento operacional confirmado:
+</p>
+<ul>
+  <li><strong>1. O que aconteceu ou mudou?</strong> (<code>event_type</code>, <code>before_state JSONB</code> e <code>after_state JSONB</code>);</li>
+  <li><strong>2. Quando aconteceu e quando foi registrado?</strong> (bi-temporalidade explícita: <code>occurred_at TIMESTAMPTZ</code> vs. <code>registered_at TIMESTAMPTZ</code>);</li>
+  <li><strong>3. Quem informou e quem cadastrou?</strong> (<code>reported_by TEXT</code> identificando quem comunicou no campo/telefone vs. <code>registered_by BIGINT REFERENCES auth.users(id)</code> + <code>actor_snapshot JSONB</code> imutável do usuário autenticado que gravou);</li>
+  <li><strong>4. Por que houve a mudança?</strong> (<code>reason TEXT</code> obrigatório — especialmente em correções de leitura de quilometragem, trocas de viatura/equipe/motorista, não realização de coleta, cancelamentos na triagem e reaberturas excepcionais);</li>
+  <li><strong>5. Qual é a evidência?</strong> (<code>evidence_description TEXT</code> e <code>attachment_url TEXT</code>, além do encadeamento de retificações via <code>supersedes_id</code> e flag de anulação justificada <code>is_annulled</code> sem jamais apagar o lançamento original).</li>
+</ul>
+
+<h3>1.2 Subtarefas e Integração com <code>FROTA-157</code>, <code>FROTA-158</code> e <code>FROTA-160</code></h3>
+<ol>
+  <li><strong><code>FROTA-110</code> — Solicitações SVO e Histórico de Triagem (<code>svo.occurrences</code> e <code>svo.occurrence_events</code>):</strong>
+    <ul>
+      <li>Criação do schema <code>svo</code> (<code>CREATE SCHEMA IF NOT EXISTS svo</code>);</li>
+      <li>Tabela <code>svo.occurrences</code> para chamados 24h recebidos de famílias, hospitais, UBS, UPA e órgãos públicos (<code>requester_type IN ('FAMILY', 'HOSPITAL', 'UBS', 'UPA', 'PUBLIC_AGENCY', 'OTHER')</code>), com controle de triagem (<code>status IN ('PENDING', 'CONFIRMED', 'CANCELED')</code>), snapshot do atendente na época (<code>attendant_snapshot JSONB</code>), exigência de motivo em cancelamentos (<code>cancellation_reason</code>) e índices por status e data (<code>svo_occurrences_by_status_received</code>);</li>
+      <li>Tabela histórica imutável <code>svo.occurrence_events</code> (append-only via trigger) preservando o recebimento, a triagem, confirmações, retificações (<code>supersedes_id</code>), anulações (<code>is_annulled</code>) e eventuais reaberturas excepcionais.</li>
+    </ul>
+  </li>
+  <li><strong><code>FROTA-168</code> — Equipes SVO, Membros e Histórico (<code>svo.teams</code>, <code>svo.team_members</code>, <code>svo.team_events</code> e Seed):</strong>
+    <ul>
+      <li>Tabela <code>svo.teams</code> com unicidade case-insensitive de nome (<code>svo_teams_name_lower_unique</code>) e controle de ativação/revisão;</li>
+      <li>Tabela <code>svo.team_members</code> vinculando <code>team_id</code> a <code>user_id</code> com <code>UNIQUE (team_id, user_id)</code> e preservação de período de atuação (<code>active</code>, <code>joined_at</code>, <code>left_at</code>) sem exclusão destrutiva do histórico de vínculos;</li>
+      <li>Tabela histórica imutável <code>svo.team_events</code> (append-only via trigger) registrando criação, ativação/inativação e movimentações de integrantes com as 5 perguntas obrigatórias;</li>
+      <li>Provisionamento idempotente no <code>seed.ts</code> (<code>seedInitialSvoTeam</code>) de uma equipe inicial de plantão do SVO (<code>Equipe Plantão SVO 01</code>) auditada em <code>svo.team_events</code>.</li>
+    </ul>
+  </li>
+  <li><strong><code>FROTA-114</code> — Ordens de Execução SVO, Integração com Hodômetro e Histórico (<code>svo.execution_orders</code> e <code>svo.execution_order_events</code>):</strong>
+    <ul>
+      <li>Tabela <code>svo.execution_orders</code> vinculada 1:1 à solicitação confirmada (<code>occurrence_id UNIQUE</code>), à equipe (<code>team_id</code>), à viatura (<code>vehicle_id REFERENCES fleet.vehicles(id)</code>) e opcionalmente ao condutor (<code>driver_id REFERENCES fleet.drivers(id)</code>, permitindo exibir os períodos de condução em atendimentos SVO no histórico do motorista);</li>
+      <li>Suporte completo ao ciclo de vida das US18, US19 e US20 (<code>status IN ('OPEN', 'IN_TRANSIT', 'IN_SERVICE', 'IN_PROGRESS', 'COMPLETED', 'NOT_PERFORMED', 'CANCELED')</code>), carimbos de cada etapa (<code>opened_at</code>, <code>departed_at</code>, <code>arrived_at</code>, <code>collected_at</code>, <code>closed_at</code>), quilometragem (<code>start_km</code>, <code>end_km</code>), snapshots congelados da época do despacho (<code>occurrence_snapshot</code>, <code>team_snapshot</code>, <code>vehicle_snapshot</code>, <code>driver_snapshot</code>) e constraint declarativa bloqueando ordem não realizada sem motivo (<code>svo_execution_orders_not_performed_requires_reason</code>);</li>
+      <li>Tabela histórica imutável <code>svo.execution_order_events</code> (append-only via trigger) registrando abertura, deslocamento, chegada, coleta, conclusão/não realização, trocas de viatura/equipe/motorista, retificações de quilometragem e reaberturas excepcionais (preservando o encerramento anterior e o motivo da reabertura);</li>
+      <li>Evolução compatível de <code>trip.odometer_readings</code> (vinda da <code>FROTA-158</code>) adicionando <code>svo_execution_order_id BIGINT REFERENCES svo.execution_orders(id) ON DELETE RESTRICT</code> para que leituras e retificações de hodômetro em remoções SVO componham a linha do tempo unificada do veículo junto com as viagens administrativas e as tabelas da <code>FROTA-160</code> (<code>fleet.maintenance_orders</code>, <code>fleet.fuelings</code>, <code>fleet.vehicle_documents</code> e <code>fleet.fines</code>).</li>
+    </ul>
+  </li>
+</ol>
+
+<h3>1.3 Decisões Confirmadas pela Regra da Dúvida</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Ponto Analisado</th>
+      <th scope="col">Contexto / Divergência Analisada</th>
+      <th scope="col">Decisão Confirmada pelo Usuário</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Idioma dos valores de <code>status</code>, <code>requester_type</code> e <code>result</code> no banco</strong></td>
+      <td>O rascunho das subtarefas <code>FROTA-110</code> e <code>FROTA-114</code> exemplificava status em português, enquanto o padrão canônico do Aratu e as entregas <code>FROTA-157</code> e <code>FROTA-158</code> adotam inglês <code>UPPER_SNAKE_CASE</code> no PostgreSQL.</td>
+      <td>Adotar inglês <code>UPPER_SNAKE_CASE</code> em todo o schema <code>svo</code>: <code>svo.occurrences.status IN ('PENDING', 'CONFIRMED', 'CANCELED')</code>, <code>requester_type IN ('FAMILY', 'HOSPITAL', 'UBS', 'UPA', 'PUBLIC_AGENCY', 'OTHER')</code> e <code>svo.execution_orders.status IN ('OPEN', 'IN_TRANSIT', 'IN_SERVICE', 'IN_PROGRESS', 'COMPLETED', 'NOT_PERFORMED', 'CANCELED')</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Preservação Histórica, Bi-temporalidade, Retificações e Contexto da Época</strong></td>
+      <td>Garantir que o sistema guarde a história de como cada entidade chegou ao estado atual (5 perguntas obrigatórias, retificações com <code>supersedes_id</code>, anulações com <code>is_annulled</code>, reaberturas excepcionais e snapshots do contexto vigente na época da decisão), alinhado às <code>FROTA-157</code>, <code>FROTA-158</code> e <code>FROTA-160</code>.</td>
+      <td>
+        1) Criar as tabelas de eventos append-only <code>svo.occurrence_events</code>, <code>svo.team_events</code> e <code>svo.execution_order_events</code> com triggers bloqueando <code>UPDATE</code> e <code>DELETE</code>;<br>
+        2) Incluir snapshots congelados da época (<code>attendant_snapshot</code>, <code>occurrence_snapshot</code>, <code>team_snapshot</code>, <code>vehicle_snapshot</code>, <code>driver_snapshot</code>);<br>
+        3) Vincular <code>trip.odometer_readings</code> opcionalmente a <code>svo_execution_order_id</code> para unificar o histórico de quilometragem do veículo.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>3. Base Git e Escopo da <code>FROTA-159</code></strong></td>
+      <td>Continuidade direta das branches <code>feat/infra-modelo-de-dados-frota</code> (<code>FROTA-157</code>) e <code>feat/infra-modelo-de-dados-viagens</code> (<code>FROTA-158</code>) e preparação para <code>FROTA-160</code>.</td>
+      <td>Criar a branch <code>feat/infra-modelo-de-dados-svo</code> a partir de <code>develop</code> incorporando <code>feat/infra-modelo-de-dados-viagens</code>, entregando as 3 migrations SQL (<code>202610280006</code> a <code>202610280008</code> com <code>.down.sql</code>), o seed idempotente de equipe SVO e os testes automatizados de integração no PostgreSQL 18.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>1.4 Delimitação de Escopo (YAGNI)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Entra no Escopo Desta Entrega (<code>FROTA-159</code>)</th>
+      <th scope="col">Fica Explicitamente Fora do Escopo (YAGNI)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Migration <code>202610280006_create_svo_occurrences.sql</code> (e <code>.down.sql</code>) criando o schema <code>svo</code>, <code>svo.occurrences</code> e <code>svo.occurrence_events</code> (append-only).</td>
+      <td>Endpoints REST, Services e Controllers de solicitações SVO (escopo da <code>FROTA-112</code> — US17).</td>
+    </tr>
+    <tr>
+      <td>Migration <code>202610280007_create_svo_teams.sql</code> (e <code>.down.sql</code>) criando <code>svo.teams</code>, <code>svo.team_members</code> e <code>svo.team_events</code> (append-only), mais seed idempotente de equipe inicial em <code>seed.ts</code>.</td>
+      <td>Endpoints REST, Services e Controllers de geração, acompanhamento e encerramento de ordens SVO (escopo das <code>FROTA-115</code>, <code>FROTA-119</code> e <code>FROTA-124</code> — US18 a US20).</td>
+    </tr>
+    <tr>
+      <td>Migration <code>202610280008_create_svo_execution_orders.sql</code> (e <code>.down.sql</code>) criando <code>svo.execution_orders</code>, <code>svo.execution_order_events</code> (append-only) e vínculo em <code>trip.odometer_readings</code>.</td>
+      <td>Telas React 19 de triagem e operação mobile do SVO (escopo das <code>FROTA-109</code>, <code>FROTA-116</code>, <code>FROTA-121</code> e <code>FROTA-123</code>).</td>
+    </tr>
+    <tr>
+      <td>Testes automatizados de integração em <code>backend/tests/database.integration.test.ts</code> validando constraints, unicidade, imutabilidade append-only, retificações, ocupação por viatura e rollbacks <code>.down.sql</code>.</td>
+      <td>Tabelas de controle operacional de manutenção, abastecimento, documentos e multas (escopo da <code>FROTA-160</code>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+
+<h3>2.1 Requisitos Funcionais (RF)</h3>
+<ul>
+  <li><strong>RF01 (Solicitações SVO e Histórico de Triagem — <code>FROTA-110</code>):</strong>
+    <ul>
+      <li>Criar o schema <code>svo</code> (<code>CREATE SCHEMA IF NOT EXISTS svo</code>);</li>
+      <li>Criar <code>svo.occurrences</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>attendant_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT</code>, <code>requester_name TEXT NOT NULL</code>, <code>requester_phone TEXT NOT NULL</code>, <code>requester_type TEXT NOT NULL CHECK (requester_type IN ('FAMILY', 'HOSPITAL', 'UBS', 'UPA', 'PUBLIC_AGENCY', 'OTHER'))</code>, <code>location TEXT NOT NULL</code>, <code>description TEXT NOT NULL</code>, <code>status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'CONFIRMED', 'CANCELED'))</code>, <code>received_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()</code>, <code>triaged_at TIMESTAMPTZ</code>, <code>triaged_by BIGINT REFERENCES auth.users(id) ON DELETE RESTRICT</code>, <code>cancellation_reason TEXT</code>, <code>notes TEXT</code>, <code>attendant_snapshot JSONB</code>, <code>revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0)</code>, <code>created_at TIMESTAMPTZ</code> e <code>updated_at TIMESTAMPTZ</code>;</li>
+      <li>Impor as constraints declarativas <code>svo_occurrences_cancellation_requires_reason</code> (exigindo <code>cancellation_reason</code> não vazio quando <code>status = 'CANCELED'</code>) e <code>svo_occurrences_triage_consistency</code> (garantindo que registros <code>PENDING</code> ainda não possuam <code>triaged_at</code>/<code>triaged_by</code>);</li>
+      <li>Criar os índices <code>svo_occurrences_by_status_received ON svo.occurrences (status, received_at DESC, id DESC)</code> e <code>svo_occurrences_by_attendant ON svo.occurrences (attendant_id, received_at DESC, id DESC)</code>;</li>
+      <li>Criar a tabela histórica imutável <code>svo.occurrence_events</code> com suporte às 5 perguntas obrigatórias, encadeamento de retificações (<code>supersedes_id</code>), anulação justificada (<code>is_annulled</code>) e trigger <code>svo_occurrence_events_append_only</code> bloqueando <code>UPDATE</code> e <code>DELETE</code>.</li>
+    </ul>
+  </li>
+  <li><strong>RF02 (Equipes SVO, Membros e Histórico — <code>FROTA-168</code>):</strong>
+    <ul>
+      <li>Criar <code>svo.teams</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>name TEXT NOT NULL CHECK (btrim(name) &lt;&gt; '')</code>, <code>active BOOLEAN NOT NULL DEFAULT true</code>, <code>revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0)</code>, <code>created_at TIMESTAMPTZ</code> e <code>updated_at TIMESTAMPTZ</code>, com índice único case-insensitive <code>svo_teams_name_lower_unique ON svo.teams (lower(btrim(name)))</code>;</li>
+      <li>Criar <code>svo.team_members</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>team_id BIGINT NOT NULL REFERENCES svo.teams(id) ON DELETE RESTRICT</code>, <code>user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT</code>, <code>active BOOLEAN NOT NULL DEFAULT true</code>, <code>joined_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()</code>, <code>left_at TIMESTAMPTZ</code>, <code>created_at TIMESTAMPTZ</code>, <code>updated_at TIMESTAMPTZ</code>, constraint <code>svo_team_members_unique UNIQUE (team_id, user_id)</code> e <code>svo_team_members_period_valid CHECK (left_at IS NULL OR left_at &gt;= joined_at)</code>;</li>
+      <li>Criar a tabela histórica imutável <code>svo.team_events</code> (append-only via trigger <code>svo_team_events_append_only</code>);</li>
+      <li>Adicionar no <code>backend/src/database/scripts/seed.ts</code> a função idempotente <code>seedInitialSvoTeam(pool, adminEmail)</code> provisionando a equipe <code>Equipe Plantão SVO 01</code> e seu evento inicial <code>CREATED</code>.</li>
+    </ul>
+  </li>
+  <li><strong>RF03 (Ordens de Execução SVO, Hodômetro e Histórico — <code>FROTA-114</code>):</strong>
+    <ul>
+      <li>Criar <code>svo.execution_orders</code> com <code>id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY</code>, <code>occurrence_id BIGINT NOT NULL UNIQUE REFERENCES svo.occurrences(id) ON DELETE RESTRICT</code>, <code>team_id BIGINT NOT NULL REFERENCES svo.teams(id) ON DELETE RESTRICT</code>, <code>vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles(id) ON DELETE RESTRICT</code>, <code>driver_id BIGINT REFERENCES fleet.drivers(id) ON DELETE RESTRICT</code>, <code>status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_TRANSIT', 'IN_SERVICE', 'IN_PROGRESS', 'COMPLETED', 'NOT_PERFORMED', 'CANCELED'))</code>, <code>result TEXT CHECK (result IS NULL OR result IN ('COMPLETED', 'NOT_PERFORMED'))</code>, <code>failure_reason TEXT</code>, <code>notes TEXT</code>, <code>opened_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()</code>, <code>departed_at TIMESTAMPTZ</code>, <code>arrived_at TIMESTAMPTZ</code>, <code>collected_at TIMESTAMPTZ</code>, <code>closed_at TIMESTAMPTZ</code>, <code>start_km INTEGER CHECK (start_km IS NULL OR start_km &gt;= 0)</code>, <code>end_km INTEGER CHECK (end_km IS NULL OR end_km &gt;= 0)</code>, <code>start_km_photo_url TEXT</code>, <code>end_km_photo_url TEXT</code>, <code>created_by BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT</code>, <code>closed_by BIGINT REFERENCES auth.users(id) ON DELETE RESTRICT</code>, snapshots congelados da época (<code>occurrence_snapshot JSONB</code>, <code>team_snapshot JSONB</code>, <code>vehicle_snapshot JSONB</code>, <code>driver_snapshot JSONB</code>), <code>revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0)</code>, <code>created_at TIMESTAMPTZ</code> e <code>updated_at TIMESTAMPTZ</code>;</li>
+      <li>Impor as constraints declarativas:
+        <ul>
+          <li><code>svo_execution_orders_not_performed_requires_reason CHECK ((status &lt;&gt; 'NOT_PERFORMED' AND (result IS NULL OR result &lt;&gt; 'NOT_PERFORMED')) OR (failure_reason IS NOT NULL AND btrim(failure_reason) &lt;&gt; ''))</code>;</li>
+          <li><code>svo_execution_orders_period_valid CHECK (closed_at IS NULL OR closed_at &gt;= opened_at)</code>;</li>
+          <li><code>svo_execution_orders_odometer_valid CHECK (start_km IS NULL OR end_km IS NULL OR end_km &gt;= start_km)</code>;</li>
+        </ul>
+      </li>
+      <li>Criar os índices por status, equipe, veículo e motorista para consulta operacional e cálculo de ocupação de capacidade (<code>body_limit</code>) das viaturas:
+        <ul>
+          <li><code>svo_execution_orders_by_status ON svo.execution_orders (status, opened_at DESC, id DESC)</code>;</li>
+          <li><code>svo_execution_orders_by_team ON svo.execution_orders (team_id, status, opened_at DESC, id DESC)</code>;</li>
+          <li><code>svo_execution_orders_by_vehicle ON svo.execution_orders (vehicle_id, status, opened_at DESC, id DESC)</code>;</li>
+          <li><code>svo_execution_orders_by_driver ON svo.execution_orders (driver_id, opened_at DESC, id DESC) WHERE driver_id IS NOT NULL</code>;</li>
+        </ul>
+      </li>
+      <li>Criar a tabela histórica imutável <code>svo.execution_order_events</code> (append-only via trigger <code>svo_execution_order_events_append_only</code>);</li>
+      <li>Adicionar em <code>trip.odometer_readings</code> a coluna opcional <code>svo_execution_order_id BIGINT REFERENCES svo.execution_orders(id) ON DELETE RESTRICT</code> e o índice <code>trip_odometer_readings_by_svo_order</code>.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>2.2 Cenários de Negócio e Casos de Borda (Dado / Quando / Então)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Cenário</th>
+      <th scope="col">Dado (Contexto)</th>
+      <th scope="col">Quando (Ação)</th>
+      <th scope="col">Então (Resultado Esperado no Banco)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>CN01</strong></td>
+      <td>Cancelamento de chamado SVO na triagem sem motivo</td>
+      <td>Uma solicitação recém-recebida em <code>svo.occurrences</code> com <code>status = 'PENDING'</code></td>
+      <td>Tenta-se atualizar <code>status = 'CANCELED'</code> com <code>cancellation_reason = NULL</code> ou string em branco</td>
+      <td>O PostgreSQL 18 rejeita a operação com violação da constraint <code>svo_occurrences_cancellation_requires_reason</code> (<code>SQLSTATE 23514</code>).</td>
+    </tr>
+    <tr>
+      <td><strong>CN02</strong></td>
+      <td>Unicidade de equipe e vínculo de membros sem apagar histórico</td>
+      <td>Uma equipe cadastrada em <code>svo.teams</code> com nome <code>Equipe Plantão SVO 01</code> e um servidor vinculado em <code>svo.team_members</code></td>
+      <td>Tenta-se cadastrar outra equipe com <code>equipe plantão svo 01</code> ou duplicar o par <code>(team_id, user_id)</code>; ou o membro é desligado da equipe registrando <code>active = false</code> e <code>left_at</code></td>
+      <td>Duplicidades são bloqueadas com <code>SQLSTATE 23505</code>; o desligamento preserva o período histórico (<code>joined_at</code> até <code>left_at</code>) e registra o fato em <code>svo.team_events</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>CN03</strong></td>
+      <td>Ordem de execução não realizada sem justificativa</td>
+      <td>Uma ordem aberta em <code>svo.execution_orders</code> para uma viatura S10 do SVO</td>
+      <td>Tenta-se encerrar a ordem com <code>status = 'NOT_PERFORMED'</code> (ou <code>result = 'NOT_PERFORMED'</code>) sem preencher <code>failure_reason</code></td>
+      <td>O PostgreSQL 18 bloqueia a gravação via constraint <code>svo_execution_orders_not_performed_requires_reason</code> (<code>SQLSTATE 23514</code>).</td>
+    </tr>
+    <tr>
+      <td><strong>CN04</strong></td>
+      <td>Bloqueio de segunda ordem para a mesma solicitação SVO</td>
+      <td>Uma solicitação confirmada em <code>svo.occurrences</code> que já possui ordem em <code>svo.execution_orders</code></td>
+      <td>Tenta-se inserir uma segunda linha em <code>svo.execution_orders</code> com o mesmo <code>occurrence_id</code></td>
+      <td>O PostgreSQL 18 rejeita a duplicidade pela constraint única de <code>occurrence_id</code> (<code>SQLSTATE 23505</code>).</td>
+    </tr>
+    <tr>
+      <td><strong>CN05</strong></td>
+      <td>Retificação de leitura de hodômetro, reabertura excepcional e preservação do contexto da época</td>
+      <td>Uma ordem SVO despachada com <code>vehicle_snapshot</code> (<code>body_limit = 4</code>) e <code>team_snapshot</code>; leitura de hodômetro registrada por telefone (52.000 km) e depois corrigida via foto (51.200 km); ou ordem encerrada e reaberta excepcionalmente</td>
+      <td>Registra-se novo lançamento com <code>supersedes_id</code> apontando para a leitura original e evento <code>REOPENED</code> em <code>svo.execution_order_events</code>; ou tenta-se executar <code>UPDATE</code>/<code>DELETE</code> nas tabelas <code>*_events</code></td>
+      <td>O lançamento original e o encerramento anterior permanecem intactos e auditáveis; o snapshot preserva a capacidade e equipe vigentes na época; qualquer <code>UPDATE</code>/<code>DELETE</code> em <code>svo.occurrence_events</code>, <code>svo.team_events</code> ou <code>svo.execution_order_events</code> é abortado pela trigger append-only.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Ação</th>
+      <th scope="col">Responsabilidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280006_create_svo_occurrences.sql</code></td>
+      <td>Criar</td>
+      <td>Cria o schema <code>svo</code>, a tabela <code>svo.occurrences</code>, constraints de triagem/cancelamento, índices e a tabela histórica imutável <code>svo.occurrence_events</code> (<code>FROTA-110</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280006_create_svo_occurrences.down.sql</code></td>
+      <td>Criar</td>
+      <td>Reverte de forma limpa <code>svo.occurrence_events</code>, sua função de trigger e <code>svo.occurrences</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280007_create_svo_teams.sql</code></td>
+      <td>Criar</td>
+      <td>Cria <code>svo.teams</code>, <code>svo.team_members</code> e a tabela histórica imutável <code>svo.team_events</code> (<code>FROTA-168</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280007_create_svo_teams.down.sql</code></td>
+      <td>Criar</td>
+      <td>Reverte <code>svo.team_events</code>, sua função de trigger, <code>svo.team_members</code> e <code>svo.teams</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280008_create_svo_execution_orders.sql</code></td>
+      <td>Criar</td>
+      <td>Cria <code>svo.execution_orders</code>, constraints de resultado/período/hodômetro, índices de ocupação, a tabela histórica imutável <code>svo.execution_order_events</code> e a coluna <code>svo_execution_order_id</code> em <code>trip.odometer_readings</code> (<code>FROTA-114</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202610280008_create_svo_execution_orders.down.sql</code></td>
+      <td>Criar</td>
+      <td>Remove <code>svo_execution_order_id</code> de <code>trip.odometer_readings</code> e reverte <code>svo.execution_order_events</code>, sua função de trigger e <code>svo.execution_orders</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/scripts/seed.ts</code></td>
+      <td>Modificar</td>
+      <td>Adiciona <code>seedInitialSvoTeam(pool, adminEmail)</code> para provisionar de forma idempotente uma equipe de exemplo do SVO (<code>Equipe Plantão SVO 01</code>) e seu registro em <code>svo.team_events</code> (<code>FROTA-168</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/database.integration.test.ts</code></td>
+      <td>Modificar</td>
+      <td>Adiciona os testes de integração <code>IT22</code> a <code>IT26</code> validando <code>svo.occurrences</code>, <code>svo.teams</code>/<code>svo.team_members</code>, <code>svo.execution_orders</code>, eventos append-only, retificações, ocupação de viatura e rollbacks <code>.down.sql</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Arquivos de referência no projeto (padrão a seguir)</h3>
+<ul>
+  <li><strong>Modelagem e Concorrência no PostgreSQL 18:</strong> <code>.agents/skills/principios/references/dados.md</code>, <code>.agents/skills/principios/references/consultas.md</code> e <code>docs/manuais/padroes-projeto.md</code>.</li>
+  <li><strong>Migrations anteriores da sequência E00:</strong> <code>202610210001_create_vehicles.sql</code>, <code>202610280001_alter_vehicles_add_details.sql</code> a <code>202610280005_create_trips.sql</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+
+<h3>4.1 Migration 1 — Solicitações SVO e Histórico Imutável de Triagem (<code>FROTA-110</code>)</h3>
+<p><strong>Arquivo:</strong> <code>backend/src/database/migrations/202610280006_create_svo_occurrences.sql</code></p>
+<pre><code>BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS svo;
+
+CREATE TABLE svo.occurrences (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  attendant_id BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  requester_name TEXT NOT NULL CHECK (btrim(requester_name) &lt;&gt; ''),
+  requester_phone TEXT NOT NULL CHECK (btrim(requester_phone) &lt;&gt; ''),
+  requester_type TEXT NOT NULL
+    CHECK (requester_type IN ('FAMILY', 'HOSPITAL', 'UBS', 'UPA', 'PUBLIC_AGENCY', 'OTHER')),
+  location TEXT NOT NULL CHECK (btrim(location) &lt;&gt; ''),
+  description TEXT NOT NULL CHECK (btrim(description) &lt;&gt; ''),
+  status TEXT NOT NULL DEFAULT 'PENDING'
+    CHECK (status IN ('PENDING', 'CONFIRMED', 'CANCELED')),
+  received_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  triaged_at TIMESTAMPTZ,
+  triaged_by BIGINT REFERENCES auth.users (id) ON DELETE RESTRICT,
+  cancellation_reason TEXT CHECK (cancellation_reason IS NULL OR btrim(cancellation_reason) &lt;&gt; ''),
+  notes TEXT CHECK (notes IS NULL OR btrim(notes) &lt;&gt; ''),
+  attendant_snapshot JSONB,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT svo_occurrences_cancellation_requires_reason
+    CHECK (status &lt;&gt; 'CANCELED' OR (cancellation_reason IS NOT NULL AND btrim(cancellation_reason) &lt;&gt; '')),
+  CONSTRAINT svo_occurrences_triage_consistency
+    CHECK ((status = 'PENDING' AND triaged_at IS NULL AND triaged_by IS NULL) OR status &lt;&gt; 'PENDING')
+);
+
+CREATE INDEX svo_occurrences_by_status_received
+  ON svo.occurrences (status, received_at DESC, id DESC);
+
+CREATE INDEX svo_occurrences_by_attendant
+  ON svo.occurrences (attendant_id, received_at DESC, id DESC);
+
+CREATE TABLE svo.occurrence_events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  occurrence_id BIGINT NOT NULL REFERENCES svo.occurrences (id) ON DELETE RESTRICT,
+  event_type TEXT NOT NULL
+    CHECK (event_type IN ('RECEIVED', 'TRIAGED', 'CONFIRMED', 'UPDATED', 'CANCELED', 'REOPENED', 'RECTIFIED', 'ANNULLED')),
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  reported_by TEXT NOT NULL CHECK (btrim(reported_by) &lt;&gt; ''),
+  registered_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  actor_snapshot JSONB NOT NULL,
+  reason TEXT NOT NULL CHECK (btrim(reason) &lt;&gt; ''),
+  evidence_description TEXT CHECK (evidence_description IS NULL OR btrim(evidence_description) &lt;&gt; ''),
+  attachment_url TEXT CHECK (attachment_url IS NULL OR btrim(attachment_url) &lt;&gt; ''),
+  supersedes_id BIGINT REFERENCES svo.occurrence_events (id) ON DELETE RESTRICT,
+  is_annulled BOOLEAN NOT NULL DEFAULT false,
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT svo_occurrence_events_no_self_supersede
+    CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id)
+);
+
+CREATE INDEX svo_occurrence_events_by_occurrence
+  ON svo.occurrence_events (occurrence_id, occurred_at DESC, id DESC);
+
+CREATE INDEX svo_occurrence_events_by_supersedes
+  ON svo.occurrence_events (supersedes_id)
+  WHERE supersedes_id IS NOT NULL;
+
+CREATE FUNCTION svo.prevent_occurrence_event_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'svo.occurrence_events is append-only';
+END;
+$$;
+
+CREATE TRIGGER svo_occurrence_events_append_only
+  BEFORE UPDATE OR DELETE ON svo.occurrence_events
+  FOR EACH ROW EXECUTE FUNCTION svo.prevent_occurrence_event_mutation();
+
+COMMIT;</code></pre>
+
+<p><strong>Rollback:</strong> <code>backend/src/database/migrations/202610280006_create_svo_occurrences.down.sql</code></p>
+<pre><code>BEGIN;
+
+DROP TABLE IF EXISTS svo.occurrence_events;
+DROP FUNCTION IF EXISTS svo.prevent_occurrence_event_mutation();
+DROP TABLE IF EXISTS svo.occurrences;
+
+COMMIT;</code></pre>
+
+<h3>4.2 Migration 2 — Equipes SVO, Membros e Histórico (<code>FROTA-168</code>)</h3>
+<p><strong>Arquivo:</strong> <code>backend/src/database/migrations/202610280007_create_svo_teams.sql</code></p>
+<pre><code>BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS svo;
+
+CREATE TABLE svo.teams (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL CHECK (btrim(name) &lt;&gt; ''),
+  active BOOLEAN NOT NULL DEFAULT true,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE UNIQUE INDEX svo_teams_name_lower_unique
+  ON svo.teams (lower(btrim(name)));
+
+CREATE INDEX svo_teams_by_active_name
+  ON svo.teams (active, name, id);
+
+CREATE TABLE svo.team_members (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  team_id BIGINT NOT NULL REFERENCES svo.teams (id) ON DELETE RESTRICT,
+  user_id BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  active BOOLEAN NOT NULL DEFAULT true,
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  left_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT svo_team_members_unique UNIQUE (team_id, user_id),
+  CONSTRAINT svo_team_members_period_valid CHECK (left_at IS NULL OR left_at &gt;= joined_at)
+);
+
+CREATE INDEX svo_team_members_by_team
+  ON svo.team_members (team_id, active, id);
+
+CREATE INDEX svo_team_members_by_user
+  ON svo.team_members (user_id, active, id);
+
+CREATE TABLE svo.team_events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  team_id BIGINT NOT NULL REFERENCES svo.teams (id) ON DELETE RESTRICT,
+  event_type TEXT NOT NULL
+    CHECK (event_type IN ('CREATED', 'UPDATED', 'STATUS_CHANGED', 'MEMBER_ADDED', 'MEMBER_REMOVED', 'RECTIFIED', 'ANNULLED')),
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  reported_by TEXT NOT NULL CHECK (btrim(reported_by) &lt;&gt; ''),
+  registered_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  actor_snapshot JSONB NOT NULL,
+  reason TEXT NOT NULL CHECK (btrim(reason) &lt;&gt; ''),
+  evidence_description TEXT CHECK (evidence_description IS NULL OR btrim(evidence_description) &lt;&gt; ''),
+  attachment_url TEXT CHECK (attachment_url IS NULL OR btrim(attachment_url) &lt;&gt; ''),
+  supersedes_id BIGINT REFERENCES svo.team_events (id) ON DELETE RESTRICT,
+  is_annulled BOOLEAN NOT NULL DEFAULT false,
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT svo_team_events_no_self_supersede
+    CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id)
+);
+
+CREATE INDEX svo_team_events_by_team
+  ON svo.team_events (team_id, occurred_at DESC, id DESC);
+
+CREATE INDEX svo_team_events_by_supersedes
+  ON svo.team_events (supersedes_id)
+  WHERE supersedes_id IS NOT NULL;
+
+CREATE FUNCTION svo.prevent_team_event_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'svo.team_events is append-only';
+END;
+$$;
+
+CREATE TRIGGER svo_team_events_append_only
+  BEFORE UPDATE OR DELETE ON svo.team_events
+  FOR EACH ROW EXECUTE FUNCTION svo.prevent_team_event_mutation();
+
+COMMIT;</code></pre>
+
+<p><strong>Rollback:</strong> <code>backend/src/database/migrations/202610280007_create_svo_teams.down.sql</code></p>
+<pre><code>BEGIN;
+
+DROP TABLE IF EXISTS svo.team_events;
+DROP FUNCTION IF EXISTS svo.prevent_team_event_mutation();
+DROP TABLE IF EXISTS svo.team_members;
+DROP TABLE IF EXISTS svo.teams;
+
+COMMIT;</code></pre>
+
+<h3>4.3 Migration 3 — Ordens de Execução SVO, Hodômetro e Histórico (<code>FROTA-114</code>)</h3>
+<p><strong>Arquivo:</strong> <code>backend/src/database/migrations/202610280008_create_svo_execution_orders.sql</code></p>
+<pre><code>BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS svo;
+
+CREATE TABLE svo.execution_orders (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  occurrence_id BIGINT NOT NULL UNIQUE REFERENCES svo.occurrences (id) ON DELETE RESTRICT,
+  team_id BIGINT NOT NULL REFERENCES svo.teams (id) ON DELETE RESTRICT,
+  vehicle_id BIGINT NOT NULL REFERENCES fleet.vehicles (id) ON DELETE RESTRICT,
+  driver_id BIGINT REFERENCES fleet.drivers (id) ON DELETE RESTRICT,
+  status TEXT NOT NULL DEFAULT 'OPEN'
+    CHECK (status IN ('OPEN', 'IN_TRANSIT', 'IN_SERVICE', 'IN_PROGRESS', 'COMPLETED', 'NOT_PERFORMED', 'CANCELED')),
+  result TEXT CHECK (result IS NULL OR result IN ('COMPLETED', 'NOT_PERFORMED')),
+  failure_reason TEXT CHECK (failure_reason IS NULL OR btrim(failure_reason) &lt;&gt; ''),
+  notes TEXT CHECK (notes IS NULL OR btrim(notes) &lt;&gt; ''),
+  opened_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  departed_at TIMESTAMPTZ,
+  arrived_at TIMESTAMPTZ,
+  collected_at TIMESTAMPTZ,
+  closed_at TIMESTAMPTZ,
+  start_km INTEGER CHECK (start_km IS NULL OR start_km &gt;= 0),
+  end_km INTEGER CHECK (end_km IS NULL OR end_km &gt;= 0),
+  start_km_photo_url TEXT CHECK (start_km_photo_url IS NULL OR btrim(start_km_photo_url) &lt;&gt; ''),
+  end_km_photo_url TEXT CHECK (end_km_photo_url IS NULL OR btrim(end_km_photo_url) &lt;&gt; ''),
+  created_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  closed_by BIGINT REFERENCES auth.users (id) ON DELETE RESTRICT,
+  occurrence_snapshot JSONB,
+  team_snapshot JSONB,
+  vehicle_snapshot JSONB,
+  driver_snapshot JSONB,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision &gt; 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT svo_execution_orders_not_performed_requires_reason
+    CHECK (
+      (status &lt;&gt; 'NOT_PERFORMED' AND (result IS NULL OR result &lt;&gt; 'NOT_PERFORMED'))
+      OR (failure_reason IS NOT NULL AND btrim(failure_reason) &lt;&gt; '')
+    ),
+  CONSTRAINT svo_execution_orders_period_valid
+    CHECK (closed_at IS NULL OR closed_at &gt;= opened_at),
+  CONSTRAINT svo_execution_orders_odometer_valid
+    CHECK (start_km IS NULL OR end_km IS NULL OR end_km &gt;= start_km)
+);
+
+CREATE INDEX svo_execution_orders_by_status
+  ON svo.execution_orders (status, opened_at DESC, id DESC);
+
+CREATE INDEX svo_execution_orders_by_team
+  ON svo.execution_orders (team_id, status, opened_at DESC, id DESC);
+
+CREATE INDEX svo_execution_orders_by_vehicle
+  ON svo.execution_orders (vehicle_id, status, opened_at DESC, id DESC);
+
+CREATE INDEX svo_execution_orders_by_driver
+  ON svo.execution_orders (driver_id, opened_at DESC, id DESC)
+  WHERE driver_id IS NOT NULL;
+
+CREATE TABLE svo.execution_order_events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  execution_order_id BIGINT NOT NULL REFERENCES svo.execution_orders (id) ON DELETE RESTRICT,
+  event_type TEXT NOT NULL
+    CHECK (event_type IN (
+      'OPENED',
+      'DEPARTED',
+      'ARRIVED',
+      'IN_PROGRESS',
+      'COLLECTED',
+      'COMPLETED',
+      'NOT_PERFORMED',
+      'VEHICLE_CHANGED',
+      'TEAM_CHANGED',
+      'DRIVER_CHANGED',
+      'DESTINATION_CHANGED',
+      'ODOMETER_RECORDED',
+      'ODOMETER_RECTIFIED',
+      'ODOMETER_ANNULLED',
+      'REOPENED',
+      'CANCELED',
+      'RECTIFIED',
+      'ANNULLED'
+    )),
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  reported_by TEXT NOT NULL CHECK (btrim(reported_by) &lt;&gt; ''),
+  registered_by BIGINT NOT NULL REFERENCES auth.users (id) ON DELETE RESTRICT,
+  actor_snapshot JSONB NOT NULL,
+  reason TEXT NOT NULL CHECK (btrim(reason) &lt;&gt; ''),
+  evidence_description TEXT CHECK (evidence_description IS NULL OR btrim(evidence_description) &lt;&gt; ''),
+  attachment_url TEXT CHECK (attachment_url IS NULL OR btrim(attachment_url) &lt;&gt; ''),
+  supersedes_id BIGINT REFERENCES svo.execution_order_events (id) ON DELETE RESTRICT,
+  is_annulled BOOLEAN NOT NULL DEFAULT false,
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT svo_execution_order_events_no_self_supersede
+    CHECK (supersedes_id IS NULL OR supersedes_id &lt;&gt; id)
+);
+
+CREATE INDEX svo_execution_order_events_by_order
+  ON svo.execution_order_events (execution_order_id, occurred_at DESC, id DESC);
+
+CREATE INDEX svo_execution_order_events_by_supersedes
+  ON svo.execution_order_events (supersedes_id)
+  WHERE supersedes_id IS NOT NULL;
+
+CREATE FUNCTION svo.prevent_execution_order_event_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'svo.execution_order_events is append-only';
+END;
+$$;
+
+CREATE TRIGGER svo_execution_order_events_append_only
+  BEFORE UPDATE OR DELETE ON svo.execution_order_events
+  FOR EACH ROW EXECUTE FUNCTION svo.prevent_execution_order_event_mutation();
+
+-- Integra leituras de hodômetro do veículo também às ordens de execução SVO
+ALTER TABLE trip.odometer_readings
+  ADD COLUMN IF NOT EXISTS svo_execution_order_id BIGINT REFERENCES svo.execution_orders (id) ON DELETE RESTRICT;
+
+CREATE INDEX IF NOT EXISTS trip_odometer_readings_by_svo_order
+  ON trip.odometer_readings (svo_execution_order_id, occurred_at DESC, id DESC)
+  WHERE svo_execution_order_id IS NOT NULL;
+
+COMMIT;</code></pre>
+
+<p><strong>Rollback:</strong> <code>backend/src/database/migrations/202610280008_create_svo_execution_orders.down.sql</code></p>
+<pre><code>BEGIN;
+
+DROP INDEX IF EXISTS trip.trip_odometer_readings_by_svo_order;
+
+ALTER TABLE trip.odometer_readings
+  DROP COLUMN IF EXISTS svo_execution_order_id;
+
+DROP TABLE IF EXISTS svo.execution_order_events;
+DROP FUNCTION IF EXISTS svo.prevent_execution_order_event_mutation();
+DROP TABLE IF EXISTS svo.execution_orders;
+
+COMMIT;</code></pre>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<p>
+  <strong>Não se aplica a esta tarefa de infraestrutura de dados:</strong> a <code>FROTA-159</code> entrega a fundação do schema <code>svo</code> no PostgreSQL 18 (migrations <code>.sql</code> e <code>.down.sql</code>), o seed idempotente de equipe SVO e os testes de integração no banco. Os contratos REST, Controllers, Services e Repositories das histórias US17 a US20 serão implementados nas subtarefas dedicadas:
+</p>
+<ul>
+  <li><code>FROTA-112</code>: <code>POST /svo/occurrences</code>, <code>GET /svo/occurrences</code>, <code>GET /svo/occurrences/:id</code> e <code>POST /svo/occurrences/:id/confirm</code>;</li>
+  <li><code>FROTA-115</code>: <code>POST /svo/orders</code> (geração de ordem de execução com validação de <code>body_limit</code> e disponibilidade da viatura);</li>
+  <li><code>FROTA-119</code>: <code>GET /svo/orders</code>, <code>GET /svo/orders/:id</code> e <code>PATCH /svo/orders/:id/status</code>;</li>
+  <li><code>FROTA-124</code>: <code>POST /svo/orders/:id/result</code> (conclusão ou registro de motivo de não realização).</li>
+</ul>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p>
+  <strong>Não se aplica a esta tarefa:</strong> entrega estritamente de banco de dados, migrações SQL e seed no backend. As telas correspondentes serão construídas nas subtarefas de frontend <code>FROTA-109</code> (<code>SvoOccurrencesPage.tsx</code>), <code>FROTA-116</code>, <code>FROTA-121</code> (<code>SvoTeamOrdersPage.tsx</code>) e <code>FROTA-123</code>.
+</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>
+  <em>Nota de escopo:</em> Por tratar-se de tarefa de modelagem de dados e migrações SQL sem telas novas, os critérios abaixo permanecem como referência para as tarefas consumidoras do E04, garantindo-se nesta entrega que as constraints nomeadas (<code>svo_occurrences_cancellation_requires_reason</code>, <code>svo_execution_orders_not_performed_requires_reason</code>, <code>svo_execution_orders_period_valid</code>, <code>svo_execution_orders_odometer_valid</code>) suportem mensagens de erro orientadoras e claras.
+</p>
+<ul class="check">
+  <li><input type="checkbox" checked disabled> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Todos os campos usam <code>useId()</code> conectando <code>&lt;label htmlFor&gt;</code> ao <code>&lt;input id&gt;</code>, <code>aria-invalid</code> e mensagem de erro com <code>role="alert"</code>.</li>
+  <li><input type="checkbox" checked disabled> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Operável integralmente via <code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Espaço</code> e <code>Esc</code>, com <code>:focus-visible</code> nítido.</li>
+  <li><input type="checkbox" checked disabled> <strong>Tamanho do Alvo (2.5.8):</strong> Botões e controles interativos possuem área mínima de <strong>44×44px</strong> em telas operacionais (especialmente na operação mobile de <code>EQUIPE_SVO</code>).</li>
+  <li><input type="checkbox" checked disabled> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste de texto &gt;= 4.5:1 e status acompanhado de rótulo textual além da cor.</li>
+  <li><input type="checkbox" checked disabled> <strong>Mensagens de Status (4.1.3):</strong> Feedbacks dinâmicos anunciados via <code>role="status"</code> ou <code>aria-live="polite"</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Tabela / Recurso</th>
+      <th scope="col">Perfis com Leitura (nas APIs consumidoras do E04)</th>
+      <th scope="col">Perfis com Escrita (nas APIs consumidoras do E04)</th>
+      <th scope="col">Mecanismo de Preservação Histórica e Sigilo</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-tabela">svo.occurrences</span> / <span class="badge-tabela">svo.occurrence_events</span></td>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span> <span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Snapshot (<code>attendant_snapshot</code>) + trilha append-only <code>svo.occurrence_events</code> com <code>supersedes_id</code> e <code>is_annulled</code>. Sigilo estrito: bloqueado para <code>SOLICITANTE</code> e <code>MOTORISTA</code> comum.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">svo.teams</span> / <span class="badge-tabela">svo.team_members</span> / <span class="badge-tabela">svo.team_events</span></td>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span> <span class="badge-rbac">EQUIPE_SVO</span> <span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Período de vínculo (<code>joined_at</code>, <code>left_at</code>, <code>active</code>) + trilha append-only <code>svo.team_events</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">svo.execution_orders</span> / <span class="badge-tabela">svo.execution_order_events</span></td>
+      <td><span class="badge-rbac">EQUIPE_SVO</span> (própria equipe) <span class="badge-rbac">ATENDENTE_SVO</span> <span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span> (abertura) <span class="badge-rbac">EQUIPE_SVO</span> (status e resultado da própria equipe) <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Snapshots (<code>occurrence_snapshot</code>, <code>team_snapshot</code>, <code>vehicle_snapshot</code>, <code>driver_snapshot</code>) + trilha append-only <code>svo.execution_order_events</code> + vínculo em <code>trip.odometer_readings</code>.</td>
+    </tr>
+  </tbody>
+</table>
+<p>
+  <strong>Variáveis de ambiente:</strong> Nenhuma nova variável de ambiente é introduzida. O helper <code>backend/tests/helpers/db-test.ts</code> já inclui o schema <code>'svo'</code> na lista de <code>TRUNCATE</code>.
+</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<h3>9.1 Testes Automatizados de Integração no PostgreSQL 18 (<code>backend/tests/database.integration.test.ts</code>)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Cenário de Teste</th>
+      <th scope="col">Dados Fictícios (LGPD)</th>
+      <th scope="col">Resultado Esperado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>IT22</strong></td>
+      <td>Criação de <code>svo.occurrences</code>, exigência de motivo no cancelamento, consistência de triagem e imutabilidade de <code>svo.occurrence_events</code> (<code>FROTA-110</code>)</td>
+      <td>Atendente fictícia registrando chamado de <code>HOSPITAL</code> (Hospital Regional Fictício) com <code>status = 'PENDING'</code>, depois confirmado ou cancelado.</td>
+      <td>Inserção sucede com <code>status = 'PENDING'</code>; cancelar sem <code>cancellation_reason</code> falha com <code>code === '23514'</code>; com motivo sucede; <code>UPDATE</code> ou <code>DELETE</code> em <code>svo.occurrence_events</code> falha pela trigger append-only.</td>
+    </tr>
+    <tr>
+      <td><strong>IT23</strong></td>
+      <td>Criação de <code>svo.teams</code>, <code>svo.team_members</code>, unicidade de nome/vínculo, preservação de histórico de saída e seed idempotente (<code>FROTA-168</code>)</td>
+      <td>Equipe fictícia <code>Equipe Plantão SVO 01</code> e servidor fictício com perfil <code>EQUIPE_SVO</code>.</td>
+      <td>Nome duplicado (case-insensitive) e par <code>(team_id, user_id)</code> duplicado falham com <code>23505</code>; <code>left_at &lt; joined_at</code> falha com <code>23514</code>; <code>seedInitialSvoTeam</code> executado 2x mantém 1 equipe sem duplicar; <code>UPDATE</code>/<code>DELETE</code> em <code>svo.team_events</code> é bloqueado.</td>
+    </tr>
+    <tr>
+      <td><strong>IT24</strong></td>
+      <td>Criação de <code>svo.execution_orders</code>, bloqueio de segunda ordem para mesma solicitação, exigência de <code>failure_reason</code> em <code>NOT_PERFORMED</code> e validação de hodômetro/período (<code>FROTA-114</code>)</td>
+      <td>Ordem vinculada a solicitação confirmada, <code>Equipe Plantão SVO 01</code> e viatura <code>SVO1A01</code> (S10 com <code>body_limit = 2</code>).</td>
+      <td>Segunda ordem para o mesmo <code>occurrence_id</code> falha com <code>23505</code>; atualizar para <code>status = 'NOT_PERFORMED'</code> sem <code>failure_reason</code> falha com <code>23514</code>; <code>closed_at &lt; opened_at</code> ou <code>end_km &lt; start_km</code> falha com <code>23514</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>IT25</strong></td>
+      <td>Preservação histórica no SVO: snapshots da época, retificação de hodômetro (<code>supersedes_id</code>), reabertura excepcional e imutabilidade de <code>svo.execution_order_events</code></td>
+      <td>Ordem SVO com leitura de 52.000 km informada por telefone e retificada para 51.200 km via foto em <code>trip.odometer_readings</code> (com <code>svo_execution_order_id</code>), seguida de reabertura excepcional e mudança posterior da capacidade da viatura.</td>
+      <td>O lançamento original (52.000 km) e o retificador (51.200 km) coexistem na linha do tempo do veículo; o <code>vehicle_snapshot</code> na ordem preserva a capacidade vigente na época do despacho; <code>UPDATE</code> e <code>DELETE</code> em <code>svo.execution_order_events</code> são bloqueados.</td>
+    </tr>
+    <tr>
+      <td><strong>IT26</strong></td>
+      <td>Rollbacks (<code>.down.sql</code>) das migrations <code>202610280008</code>, <code>202610280007</code> e <code>202610280006</code> e reaplicação limpa</td>
+      <td>Execução sequencial dos três arquivos <code>.down.sql</code> do schema <code>svo</code> seguida de <code>migrator.runMigrations()</code>.</td>
+      <td>As 6 tabelas do schema <code>svo</code> são removidas sem erro no rollback e recriadas integralmente na reaplicação.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-159)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivos de referência:</strong> <code>docs/manuais/modulos.md</code> e <code>docs/modulos/SVO.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica do módulo <code>SVO</code> no tocante às tabelas do PostgreSQL 18 (<code>svo.occurrences</code>, <code>svo.occurrence_events</code>, <code>svo.teams</code>, <code>svo.team_members</code>, <code>svo.team_events</code>, <code>svo.execution_orders</code> e <code>svo.execution_order_events</code>). Atualize a seção de Banco de Dados quando a documentação HTML do módulo for gerada com <code>/documentar-modulo</code>.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

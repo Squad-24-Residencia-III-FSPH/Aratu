@@ -102,6 +102,9 @@
 <p>
   Com a entrega da tarefa <strong>FROTA-161</strong>, o módulo passa a integrar formalmente a <strong>arquitetura oficial de testes automatizados do backend</strong>, garantindo isolamento total em banco de testes PostgreSQL 18 (<code>aratu_test</code>), execução transacional de migrações e cobertura contínua via CI/CD.
 </p>
+<p>
+  A entrega <strong>FROTA-29</strong> acrescenta o <strong>gerenciamento administrativo de usuários</strong> (<code>/users</code>), com cadastro com senha inicial, edição sob concorrência otimista, inativação e reativação sem exclusão física, além da integração da tela <code>UserManagementPage.tsx</code> à API real.
+</p>
 
 <hr>
 
@@ -134,6 +137,22 @@
     <strong>Encerramento de Sessão Auditado (<code>AuthService::logout</code>):</strong>
     O logout valida o token JWT do usuário ativo, grava o evento <code>LOGOUT</code> na trilha de auditoria e orienta o cliente web a descartar o token em memória e no <code>sessionStorage</code>.
   </li>
+  <li>
+    <strong>Unicidade de E-mail (<code>UsersService::createUser</code> e <code>UsersService::updateUser</code>):</strong>
+    O e-mail é normalizado com <code>trim().toLowerCase()</code> e validado por expressão regular. A violação do índice único <code>auth_users_email_lower_unique</code> (código PostgreSQL <code>23505</code>) é convertida em <code>409 Conflict</code> com a mensagem <code>"E-mail já cadastrado."</code>.
+  </li>
+  <li>
+    <strong>Concorrência Otimista na Edição (<code>UsersService::updateUser</code>):</strong>
+    O <code>PUT /users/:id</code> exige a <code>revision</code> lida pelo cliente. A linha é travada com <code>FOR UPDATE OF u</code> e a atualização só ocorre quando a revisão coincide; caso contrário, retorna <code>409</code> orientando a recarregar os dados.
+  </li>
+  <li>
+    <strong>Preservação Histórica e Autoinativação (<code>UsersService::deactivateUser</code>):</strong>
+    Não existe <code>DELETE /users/:id</code>: contas são apenas inativadas, preservando o histórico. O administrador não pode inativar a própria conta (<code>409</code>). Inativar uma conta já inativa ou reativar uma conta já ativa é idempotente e não gera novo evento de auditoria.
+  </li>
+  <li>
+    <strong>Senha Inicial e Atomicidade (<code>UsersService::createUser</code>):</strong>
+    A senha inicial é definida pelo Administrador, validada como não vazia e limitada a 72 bytes UTF-8, recebendo hash bcrypt antes da persistência. Criação, edição e mudança de situação gravam <code>CREATE</code>, <code>UPDATE</code> e <code>STATUS_CHANGE</code> em <code>audit.logs</code> na mesma transação da mutação.
+  </li>
 </ul>
 
 <hr>
@@ -146,15 +165,15 @@
   <thead>
     <tr>
       <th scope="col">Perfil RBAC (<code>auth.roles.name</code>)</th>
-      <th scope="col">Ações Permitidas no Módulo</th>
+      <th scope="col">Escopo documentado (não substitui matriz por ação)</th>
       <th scope="col">Destino Pós-Login / Escopo Operacional</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><span class="badge-rbac">ADMINISTRADOR</span></td>
-      <td>Autenticação, encerramento de sessão, consulta irrestrita de usuários e trilha de auditoria global.</td>
-      <td>Redirecionado para <code>/admin</code>; permissão de gestão sobre todos os módulos da FSPH e SVO.</td>
+      <td>Autenticação, encerramento de sessão, permissões seed <code>users:manage</code> e <code>permissions:manage</code>, e consulta de perfis.</td>
+      <td>Redirecionado para <code>/administracao/usuarios</code>; as rotas de outros módulos aplicam suas regras RBAC próprias.</td>
     </tr>
     <tr>
       <td><span class="badge-rbac">GESTOR</span></td>
@@ -183,6 +202,61 @@
     </tr>
   </tbody>
 </table>
+
+<hr>
+
+<section aria-labelledby="frota-36-pending-title">
+  <h3 id="frota-36-pending-title">Pendência de definição — matriz funcional FROTA-36</h3>
+  <p>
+    As permissões seed <code>screens:access</code>, <code>users:manage</code> e <code>permissions:manage</code> e as
+    listas RBAC nas rotas existentes não constituem uma matriz funcional completa por módulo e ação. A busca no
+    repositório, histórico local, documentação do <code>develop</code> e issues/PRs do GitHub não localizou uma
+    especificação oficial da FROTA-36. O PR #46 e os testes de QA verificam rotas específicas, não definem a matriz.
+  </p>
+  <p>
+    <strong>Informações necessárias da equipe responsável pela FROTA-36:</strong> (1) lista oficial de módulos e
+    funcionalidades; (2) ações permitidas em cada funcionalidade para os seis perfis; (3) se a matriz será somente
+    consultada ou editável; e (4) se editável, contrato de consulta/gravação, autorização e auditoria. A pessoa
+    responsável não está identificada nos artefatos consultados.
+  </p>
+  <h4>Status dos critérios da US03 nesta integração</h4>
+  <table aria-label="Status dos critérios de aceitação da US03">
+    <thead>
+      <tr>
+        <th scope="col">Critério</th>
+        <th scope="col">Status</th>
+        <th scope="col">Evidência e pendência</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Consultar e exibir os seis perfis pela API</td>
+        <td>ATENDIDO</td>
+        <td><code>GET /profiles</code> alimenta os cards; estados de carregamento, vazio, erro e 403 têm testes. A matriz visual segue provisória.</td>
+      </tr>
+      <tr>
+        <td>Atribuir e alterar perfil no formulário de usuários</td>
+        <td>ATENDIDO</td>
+        <td><code>UserManagementPage</code> usa <code>GET /profiles</code> e <code>PUT /users/:id</code> com <code>roleId</code>/<code>revision</code>; mudança de perfil exige confirmação explícita. Testes cobrem a regra de confirmação.</td>
+      </tr>
+      <tr>
+        <td>Verificar autorização das rotas de veículos com os seis perfis</td>
+        <td>ATENDIDO PARA AS REGRAS DECLARADAS NA API</td>
+        <td><code>backend/tests/vehicles.routes.test.ts</code> exercita router, JWT e RBAC reais para GET, POST, PUT e PATCH, validando corpos de sucesso 200/201 e respostas 403. O service é mockado; não define a matriz FROTA-36.</td>
+      </tr>
+      <tr>
+        <td>Filtrar menus e rotas pela matriz funcional</td>
+        <td>PARCIALMENTE ATENDIDO</td>
+        <td>Menu administrativo e menu operacional do Gestor seguem os itens acordados; a regra para os demais módulos/perfis depende da matriz oficial.</td>
+      </tr>
+      <tr>
+        <td>Consultar, editar e salvar permissões dos perfis</td>
+        <td>PENDENTE</td>
+        <td>Não foi localizada API HTTP nem contrato para consultar/gravar permissões de perfil. Não há salvamento simulado.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
 <hr>
 
@@ -319,6 +393,48 @@
         <strong>Erros:</strong> <code>401 Unauthorized</code> (token ausente, inválido ou expirado).
       </td>
     </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/users?nome=&amp;perfil=&amp;ativo=&amp;page=&amp;pageSize=</code></td>
+      <td><code>createUsersController::list</code></td>
+      <td>Somente <code>ADMINISTRADOR</code></td>
+      <td><strong>Sucesso (200 OK):</strong> <code>{ users: User[], total, page, pageSize, totalPages }</code>. <strong>Erros:</strong> <code>400</code> filtro inválido, <code>401</code> e <code>403</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/users/:id</code></td>
+      <td><code>createUsersController::getById</code></td>
+      <td>Somente <code>ADMINISTRADOR</code></td>
+      <td><strong>Sucesso (200 OK):</strong> <code>User</code> sem credenciais. <strong>Erros:</strong> <code>400</code>, <code>401</code>, <code>403</code> e <code>404</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/users</code></td>
+      <td><code>createUsersController::create</code></td>
+      <td>Somente <code>ADMINISTRADOR</code></td>
+      <td><strong>Entrada:</strong> <code>{ name, email, roleId, password, active? }</code>. <strong>Sucesso (201 Created):</strong> <code>User</code>. <strong>Erros:</strong> <code>400</code>, <code>401</code>, <code>403</code> e <code>409</code> (e-mail duplicado).</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">PUT</span></td>
+      <td><code>/users/:id</code></td>
+      <td><code>createUsersController::update</code></td>
+      <td>Somente <code>ADMINISTRADOR</code></td>
+      <td><strong>Entrada:</strong> <code>{ name, email, roleId, revision }</code>. <strong>Sucesso (200 OK):</strong> <code>User</code>. <strong>Erros:</strong> <code>400</code>, <code>401</code>, <code>403</code>, <code>404</code> e <code>409</code> (revisão ou e-mail).</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">PATCH</span></td>
+      <td><code>/users/:id/deactivate</code></td>
+      <td><code>createUsersController::deactivate</code></td>
+      <td>Somente <code>ADMINISTRADOR</code></td>
+      <td><strong>Sucesso (200 OK):</strong> <code>User</code> com <code>active: false</code>. <strong>Erros:</strong> <code>400</code>, <code>401</code>, <code>403</code>, <code>404</code> e <code>409</code> (própria conta).</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">PATCH</span></td>
+      <td><code>/users/:id/activate</code></td>
+      <td><code>createUsersController::activate</code></td>
+      <td>Somente <code>ADMINISTRADOR</code></td>
+      <td><strong>Sucesso (200 OK):</strong> <code>User</code> com <code>active: true</code>. <strong>Erros:</strong> <code>400</code>, <code>401</code>, <code>403</code> e <code>404</code>.</td>
+    </tr>
   </tbody>
 </table>
 
@@ -340,6 +456,16 @@
       <td>Orquestra login com normalização de e-mail, verificação de hash bcrypt, emissão de JWT e disparo de eventos de auditoria.</td>
     </tr>
     <tr>
+      <td><code>UsersService</code></td>
+      <td>Service (<code>backend/src/services/users.service.ts</code>)</td>
+      <td>Regras de gerenciamento de usuários: validação de dados, unicidade de e-mail, concorrência por revisão, bloqueio de autoinativação, idempotência de situação e auditoria transacional.</td>
+    </tr>
+    <tr>
+      <td><code>createUsersController</code> e <code>createUsersRouter</code></td>
+      <td>Controller / Rotas (<code>backend/src/controllers/users.controller.ts</code> e <code>backend/src/routes/users.routes.ts</code>)</td>
+      <td>Adaptação HTTP dos filtros e payloads, respostas de erro de domínio e proteção das rotas <code>/users</code> por JWT e <code>authorizeRoles(['ADMINISTRADOR'])</code>.</td>
+    </tr>
+    <tr>
       <td><code>AuditService</code></td>
       <td>Service (<code>backend/src/services/audit.service.ts</code>)</td>
       <td>Validação de invariantes da trilha de auditoria, higienização LGPD contra vazamento de senhas e integração transacional (<code>PoolClient</code>).</td>
@@ -357,7 +483,7 @@
     <tr>
       <td><code>UsersRepository</code></td>
       <td>Repository (<code>backend/src/repositories/users.repository.ts</code>)</td>
-      <td>Consulta parametrizada de <code>auth.users</code> com <code>JOIN auth.roles</code>; expõe <code>password_hash</code somente no contrato interno de login.</td>
+      <td>Consulta parametrizada de <code>auth.users</code> com <code>JOIN auth.roles</code>; expõe <code>password_hash</code> somente no contrato interno de login e oferece <code>withTransaction</code>, <code>findByIdForUpdate</code> e atualização condicionada por <code>revision</code>.</td>
     </tr>
     <tr>
       <td><code>RolesRepository</code> e <code>authorizeRoles</code></td>
@@ -401,6 +527,7 @@
     <ul>
       <li><code>LoginPage.tsx</code>: Formulário de entrada com campos de e-mail e senha, botão de submissão, alerta de feedback visual/auditivo e suporte aos 5 estados visuais.</li>
       <li><code>ProfileHome.tsx</code>: Tela inicial padronizada pós-autenticação apresentando as boas-vindas ao servidor, seu perfil RBAC e botão de logout.</li>
+      <li><code>UserManagementPage.tsx</code>: Tela <strong>Gerenciar usuários</strong> integrada a <code>/users</code>, com busca, filtros por perfil e situação, tabela paginada, cadastro, edição, inativação e reativação por <code>ConfirmDialog</code>. A ação de inativar é ocultada na própria conta do administrador.</li>
     </ul>
   </li>
   <li>
@@ -454,6 +581,7 @@
     </ul>
   </li>
   <li><strong>Integração Contínua (CI):</strong> O workflow <code>.github/workflows/ci-cd.yml</code> conta com container de serviço <code>postgres:18-alpine</code> com healthcheck <code>pg_isready</code>, rodando a suíte com banco real a cada Pull Request.</li>
+  <li><strong>Suíte de Gerenciamento de Usuários (FROTA-29):</strong> <code>backend/tests/users.service.test.ts</code> cobre validações, unicidade, revisão, autoinativação, idempotência e auditoria em memória; <code>backend/tests/users.integration.test.ts</code> valida os endpoints <code>/users</code> contra o PostgreSQL 18, incluindo RBAC, login de conta inativada, conflitos e trilha <code>audit.logs</code>. No frontend, <code>usersService.test.mjs</code>, <code>tokenUser.test.mjs</code> e <code>userFormValidation.test.mjs</code> cobrem query string, parsing, erros, identificação da própria conta e validação de criação/edição.</li>
 </ul>
 
 <hr>
@@ -489,9 +617,34 @@
       <td>Regras de auditoria, normalização e higienização LGPD.</td>
     </tr>
     <tr>
+      <td><code>backend/src/routes/users.routes.ts</code></td>
+      <td>Rotas</td>
+      <td>Rotas <code>GET/POST/PUT/PATCH</code> de <code>/users</code> protegidas por JWT e perfil <code>ADMINISTRADOR</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/users.controller.ts</code></td>
+      <td>Controller</td>
+      <td>Parse de filtros, delegação ao <code>UsersService</code> e respostas REST de erro.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/users.service.ts</code></td>
+      <td>Service</td>
+      <td>Regras de gerenciamento de usuários e auditoria transacional.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/services/usersService.ts</code></td>
+      <td>API Client</td>
+      <td>Cliente tipado de <code>/users</code>, com query string, parsing do envelope e mensagens de erro.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/UserManagementPage.tsx</code></td>
+      <td>Page (React 19)</td>
+      <td>Tela acessível de gerenciamento de usuários com os 5 estados visuais.</td>
+    </tr>
+    <tr>
       <td><code>backend/src/repositories/users.repository.ts</code></td>
       <td>Repository</td>
-      <td>Consulta parametrizada à tabela <code>auth.users</code>.</td>
+      <td>Consulta parametrizada à tabela <code>auth.users</code>, transações, bloqueio <code>FOR UPDATE</code> e atualização por revisão.</td>
     </tr>
     <tr>
       <td><code>backend/src/repositories/audit.repository.ts</code></td>
@@ -577,7 +730,8 @@
   <li>
     <strong>Proteção de Dados Pessoais (LGPD) e Sigilo Operacional do SVO:</strong>
     <ul>
-      <li>Senhas nunca são persistidas em texto puro ou trafegadas em logs de depuração.</li>
+      <li>Senhas nunca são persistidas em texto puro ou trafegadas em logs de depuração; a senha inicial é recebida apenas no cadastro e convertida em hash bcrypt antes da gravação.</li>
+      <li>Contas de usuários não são excluídas fisicamente: a inativação preserva o histórico e mantém a rastreabilidade exigida pela administração pública.</li>
       <li>O utilitário de auditoria higieniza automaticamente os snapshots de dados, impedindo o vazamento de hashes ou dados confidenciais.</li>
       <li>É terminantemente proibido utilizar dados pessoais reais de servidores, condutores ou registros de falecidos do SVO em testes unitários, seeds ou documentações. Todos os exemplos utilizam exclusivamente dados sintéticos/fictícios (ex: <code>servidor@example.test</code>).</li>
     </ul>

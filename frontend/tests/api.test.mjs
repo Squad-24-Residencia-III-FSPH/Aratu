@@ -32,6 +32,19 @@ test('HTTP 401 invalida sessão, impedindo próximas requisições protegidas', 
   assert.equal(requests, 1)
 })
 
+test('HTTP 403 permanece disponível para a tela sem encerrar a sessão', async () => {
+  const session = sessionFor()
+  let unauthorized = false
+  const request = createApiClient({
+    baseUrl: '/api', getSession: () => session, onUnauthorized: () => { unauthorized = true },
+    fetcher: async () => Response.json({ erro: 'Acesso negado' }, { status: 403 }),
+  })
+
+  const response = await request('/profiles')
+  assert.equal(response.status, 403)
+  assert.equal(unauthorized, false)
+})
+
 test('token expirado não é enviado à API', async () => {
   let cleared = false
   const request = createApiClient({

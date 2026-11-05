@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-29 — Gerenciar Usuários (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-29: Gerenciar Usuários</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-29</code> — Gerenciar Usuários</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/gerenciar-usuarios</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>AUTENTICACAO_RBAC</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ADMINISTRADOR</code></p>
+  <p><strong>Data:</strong> 2026-10-29</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p><strong>Objetivo:</strong> permitir que o Administrador da FSPH/SVO cadastre, consulte, filtre, edite, inative e reative contas de usuários, controlando o acesso ao sistema e preservando o histórico (sem exclusão física).</p>
+
+<p><strong>Problema atual:</strong> a tela <code>UserManagementPage.tsx</code> existe apenas como esqueleto visual, sem consumir <code>/users</code>; o Administrador não consegue operar o cadastro.</p>
+
+<h3>1.1 Delimitação de Escopo (YAGNI)</h3>
+<ul>
+  <li><strong>Entra no escopo:</strong> API <code>/users</code> (FROTA-31), testes automatizados (FROTA-34), integração da tela já criada (FROTA-32), item de menu exclusivo do Administrador, auditoria em <code>audit.logs</code>.</li>
+  <li><strong>Fora do escopo:</strong> <code>DELETE /users</code>; recuperação/alteração de senha; envio de e-mail; importação de usuários; exportação; paginação por keyset; busca com <code>pg_trgm</code>; refatoração ampla da tela para <code>components/ui</code>; gestão de perfis/permissões (FROTA-35).</li>
+</ul>
+
+<h3>1.2 Decisões Confirmadas (Regra da Dúvida)</h3>
+<ul>
+  <li>Senha inicial definida pelo Administrador no cadastro (campo já existente na tela).</li>
+  <li><code>GET /users</code> responde envelope paginado <code>{ users, total, page, pageSize, totalPages }</code>.</li>
+  <li><code>PUT /users/:id</code> exige <code>revision</code> no corpo (controle otimista, <code>409</code> em conflito).</li>
+  <li>Testes com <code>node:test</code> + <code>fetch</code>, reutilizando a infraestrutura existente, sem <code>supertest</code>.</li>
+  <li>Senha validada apenas como não vazia e com até 72 bytes UTF-8 (limite do bcrypt).</li>
+</ul>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<h3>2.1 Requisitos Funcionais</h3>
+<table>
+  <thead><tr><th>ID</th><th>Requisito</th></tr></thead>
+  <tbody>
+    <tr><td>RF01</td><td><code>GET /users</code> lista com filtros opcionais <code>nome</code>, <code>perfil</code>, <code>ativo</code> e paginação.</td></tr>
+    <tr><td>RF02</td><td><code>GET /users/:id</code> retorna detalhe; inexistente → <code>404</code>.</td></tr>
+    <tr><td>RF03</td><td><code>POST /users</code> cadastra nome, e-mail, perfil, situação e senha inicial; responde <code>201</code>.</td></tr>
+    <tr><td>RF04</td><td><code>PUT /users/:id</code> edita nome, e-mail e perfil com <code>revision</code> obrigatória.</td></tr>
+    <tr><td>RF05</td><td><code>PATCH /users/:id/deactivate</code> e <code>/activate</code> inativam e reativam.</td></tr>
+    <tr><td>RF06</td><td>Administrador não pode inativar a própria conta.</td></tr>
+    <tr><td>RF07</td><td>Nenhuma resposta devolve <code>password_hash</code>.</td></tr>
+    <tr><td>RF08</td><td>Cadastro, edição, inativação e reativação são auditados em <code>audit.logs</code>.</td></tr>
+  </tbody>
+</table>
+
+<h3>2.2 Regras e Casos de Borda</h3>
+<ul>
+  <li><strong>Nome:</strong> obrigatório, <code>trim</code> não vazio → <code>400</code>.</li>
+  <li><strong>E-mail:</strong> obrigatório, formato <code>nome@dominio.com</code>, normalizado para minúsculas; duplicado → <code>409 “E-mail já cadastrado.”</code>.</li>
+  <li><strong>Perfil:</strong> obrigatório e existente em <code>auth.roles</code> → inválido <code>400</code>.</li>
+  <li><strong>Senha inicial:</strong> obrigatória no cadastro, não vazia e ≤ 72 bytes; hash bcrypt custo 12.</li>
+  <li><strong>Situação:</strong> <code>active</code> booleano, padrão <code>true</code>.</li>
+  <li><strong>Autoinativação:</strong> <code>409 “Você não pode inativar a própria conta.”</code>.</li>
+  <li><strong>Idempotência:</strong> inativar já inativo ou ativar já ativo → <code>200</code> sem novo evento de auditoria.</li>
+  <li><strong>Concorrência:</strong> <code>revision</code> divergente → <code>409</code>; leitura/gravação com <code>SELECT ... FOR UPDATE</code>.</li>
+  <li><strong>Inexistente:</strong> <code>404 “Usuário não encontrado.”</code>; ID não numérico → <code>400</code>.</li>
+</ul>
+
+<h3>2.3 Cenários Dado / Quando / Então</h3>
+<ul>
+  <li><strong>Dado</strong> um admin autenticado, <strong>quando</strong> cadastra e-mail novo, <strong>então</strong> recebe <code>201</code> sem <code>password_hash</code>.</li>
+  <li><strong>Dado</strong> e-mail existente, <strong>quando</strong> cadastra, <strong>então</strong> recebe <code>409</code>.</li>
+  <li><strong>Dado</strong> usuário ativo, <strong>quando</strong> inativado, <strong>então</strong> o login retorna <code>403 “Acesso desativado”</code>.</li>
+  <li><strong>Dado</strong> usuário inativo, <strong>quando</strong> reativado, <strong>então</strong> o login volta a funcionar.</li>
+  <li><strong>Dado</strong> o próprio admin, <strong>quando</strong> tenta se inativar, <strong>então</strong> a operação é bloqueada.</li>
+  <li><strong>Dado</strong> um <code>GESTOR</code>, <strong>quando</strong> acessa <code>/users</code>, <strong>então</strong> recebe <code>403</code>.</li>
+</ul>
+
+<h3>2.4 Requisitos Não Funcionais</h3>
+<ul>
+  <li>Queries parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>.</li>
+  <li>Escritas em transação com <code>SELECT ... FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code>.</li>
+  <li>Mensagens em português claro na chave <code>erro</code>.</li>
+  <li>Dados de teste 100% fictícios (LGPD) e conformidade WCAG 2.2 AA na tela.</li>
+</ul>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<h3>3.1 Backend — novos</h3>
+<table>
+  <thead><tr><th>Arquivo</th><th>Responsabilidade</th></tr></thead>
+  <tbody>
+    <tr><td><code>backend/src/types/user.types.ts</code></td><td>DTOs de request/filtros, <code>UserServiceError</code> e tipos de ator.</td></tr>
+    <tr><td><code>backend/src/services/users.service.ts</code></td><td>Regras de negócio, validações, autoinativação, transações e auditoria.</td></tr>
+    <tr><td><code>backend/src/controllers/users.controller.ts</code></td><td>Tradução HTTP, parsing de query/body e status codes.</td></tr>
+    <tr><td><code>backend/src/routes/users.routes.ts</code></td><td>Rotas <code>/users</code> com JWT e <code>authorizeRoles(['ADMINISTRADOR'])</code>.</td></tr>
+  </tbody>
+</table>
+
+<h3>3.2 Backend — alterados</h3>
+<ul>
+  <li><code>backend/src/types/auth.ts</code>: adicionar <code>email</code> em <code>UpdateUserInput</code>.</li>
+  <li><code>backend/src/repositories/users.repository.ts</code>: <code>withTransaction</code>, <code>findByIdForUpdate</code> e atualização de <code>email</code>.</li>
+  <li><code>backend/src/app.ts</code>: instanciar <code>UsersService</code> e montar <code>/users</code>.</li>
+</ul>
+
+<h3>3.3 Testes</h3>
+<ul>
+  <li><code>backend/tests/users.service.test.ts</code>, <code>backend/tests/users.integration.test.ts</code> e <code>backend/tests/fixtures/users.fixture.ts</code>.</li>
+  <li><code>frontend/tests/usersService.test.mjs</code> e atualização de <code>frontend/tests/userFormValidation.test.mjs</code>.</li>
+</ul>
+
+<h3>3.4 Frontend — novos e alterados</h3>
+<ul>
+  <li><strong>Novos:</strong> <code>frontend/src/services/usersService.ts</code> e <code>frontend/src/users/userTypes.ts</code>.</li>
+  <li><strong>Alterados:</strong> <code>UserManagementPage.tsx</code>, <code>userFormValidation.ts</code>, <code>Sidebar.tsx</code> e <code>auth/token.ts</code>.</li>
+</ul>
+
+<h3>Arquivos de referência no projeto (padrão a seguir)</h3>
+<ul>
+  <li><strong>Camadas Backend e Frontend:</strong> <code>docs/manuais/arquitetura-camadas.md</code>, <code>docs/manuais/padroes-backend.md</code> e <code>docs/manuais/padroes-frontend.md</code>.</li>
+  <li><strong>Padrões de Projeto (Design Patterns):</strong> <code>docs/manuais/padroes-projeto.md</code> (Repository, State/FSM, Strategy, Chain of Responsibility, Compound Components).</li>
+  <li><strong>Componentes UI Acessíveis:</strong> <code>frontend/src/components/ui/</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p><strong>Não se aplica a esta tarefa.</strong> Nenhuma migração é necessária: <code>auth.users</code> já possui <code>id</code>, <code>name</code>, <code>email</code>, <code>password_hash</code>, <code>role_id</code>, <code>active</code>, <code>revision</code>, <code>created_at</code>, <code>updated_at</code>, FK <code>role_id → auth.roles(id) ON DELETE RESTRICT</code> e o índice único <code>auth_users_email_lower_unique ON auth.users (lower(email))</code>.</p>
+<p><strong>Plano de Rollback:</strong> não há DDL a reverter. Alterações futuras devem vir em migração transacional própria (<code>BEGIN ... COMMIT</code>) com arquivo <code>.down.sql</code>.</p>
+<p><strong>Performance:</strong> a busca parcial por nome usa <code>lower(name) LIKE '%termo%'</code>, sem índice B-tree. Para o volume atual, é aceitável; qualquer índice futuro deve ser justificado por <code>EXPLAIN</code> (YAGNI).</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<h3>5.1 Endpoints REST</h3>
+<table>
+  <thead><tr><th>Método</th><th>Rota</th><th>Perfil</th><th>Sucesso</th><th>Erros</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge-http">GET</span></td><td><code>/users?nome=&amp;perfil=&amp;ativo=&amp;page=&amp;pageSize=</code></td><td><span class="badge-rbac">ADMINISTRADOR</span></td><td><code>200</code></td><td><code>400</code>, <code>401</code>, <code>403</code></td></tr>
+    <tr><td><span class="badge-http">GET</span></td><td><code>/users/:id</code></td><td><span class="badge-rbac">ADMINISTRADOR</span></td><td><code>200</code></td><td><code>400</code>, <code>401</code>, <code>403</code>, <code>404</code></td></tr>
+    <tr><td><span class="badge-http">POST</span></td><td><code>/users</code></td><td><span class="badge-rbac">ADMINISTRADOR</span></td><td><code>201</code></td><td><code>400</code>, <code>401</code>, <code>403</code>, <code>409</code></td></tr>
+    <tr><td><span class="badge-http">PUT</span></td><td><code>/users/:id</code></td><td><span class="badge-rbac">ADMINISTRADOR</span></td><td><code>200</code></td><td><code>400</code>, <code>401</code>, <code>403</code>, <code>404</code>, <code>409</code></td></tr>
+    <tr><td><span class="badge-http">PATCH</span></td><td><code>/users/:id/deactivate</code></td><td><span class="badge-rbac">ADMINISTRADOR</span></td><td><code>200</code></td><td><code>400</code>, <code>401</code>, <code>403</code>, <code>404</code>, <code>409</code></td></tr>
+    <tr><td><span class="badge-http">PATCH</span></td><td><code>/users/:id/activate</code></td><td><span class="badge-rbac">ADMINISTRADOR</span></td><td><code>200</code></td><td><code>400</code>, <code>401</code>, <code>403</code>, <code>404</code></td></tr>
+    <tr><td><span class="badge-http">DELETE</span></td><td><code>/users/:id</code></td><td>—</td><td colspan="2"><strong>Não existe</strong> — usuários são apenas inativados.</td></tr>
+  </tbody>
+</table>
+
+<h3>5.2 Types/DTOs</h3>
+<pre><code>interface CreateUserRequest {
+  name: string
+  email: string
+  roleId: string
+  password: string
+  active?: boolean
+}
+
+interface UpdateUserRequest {
+  name: string
+  email: string
+  roleId: string
+  revision: number
+}
+
+interface UserListFilters {
+  name?: string
+  role?: UserRole
+  active?: boolean
+  page?: number
+  pageSize?: number
+}</code></pre>
+<p>Resposta <code>User</code>: <code>{ id, name, email, roleId, role, active, revision, createdAt, updatedAt }</code>. Nunca inclui <code>password_hash</code>.</p>
+
+<h3>5.3 Camadas</h3>
+<ul>
+  <li><strong>Controller:</strong> lê <code>req.query</code>/<code>req.body</code>, converte <code>ativo</code> para booleano, chama o service e responde <code>{ erro }</code> em <code>UserServiceError</code>; demais erros seguem para o handler global.</li>
+  <li><strong>Service puro:</strong> <code>listUsers</code>, <code>getUser</code>, <code>createUser</code>, <code>updateUser</code>, <code>deactivateUser</code>, <code>activateUser</code>. Sem Express, sem SQL.</li>
+  <li><strong>Repository:</strong> <code>withTransaction</code>, <code>findByIdForUpdate</code> (<code>SELECT ... FOR UPDATE</code>), <code>list</code> existente e <code>update</code> condicionado por <code>revision</code> com suporte a <code>email</code>.</li>
+  <li><strong>Rotas:</strong> <code>authenticate</code> → <code>authorizeRoles(['ADMINISTRADOR'])</code> → controller (Chain of Responsibility).</li>
+  <li><strong>Auditoria:</strong> <code>AuditService.recordAudit</code> na mesma transação, com <code>before</code>/<code>after</code>/<code>actorSnapshot</code> e operações <code>CREATE</code>, <code>UPDATE</code> e <code>STATUS_CHANGE</code>.</li>
+  <li><strong>Erros:</strong> <code>23505</code> do PostgreSQL convertido em <code>409</code> de e-mail duplicado.</li>
+</ul>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p><strong>Página:</strong> <code>frontend/src/pages/UserManagementPage.tsx</code>, mantendo a estrutura visual atual e integrando a API por meio de <code>frontend/src/services/usersService.ts</code>.</p>
+<ul>
+  <li>Tabela MUI com <strong>Nome, E-mail, Perfil, Situação e Ações</strong>.</li>
+  <li>Filtros por nome/e-mail, perfil e situação.</li>
+  <li>Formulário de criação: nome, e-mail, perfil, situação e senha inicial.</li>
+  <li>Formulário de edição: nome, e-mail e perfil (sem senha/situação).</li>
+  <li>Ações <strong>Editar</strong>, <strong>Inativar</strong> e <strong>Reativar</strong> com diálogo de confirmação acessível; inativação oculta na própria linha via <code>tokenUserId(token)</code>.</li>
+  <li>Feedback de sucesso em <code>role="status"</code> e erros do backend literalmente exibidos.</li>
+</ul>
+
+<table>
+  <thead><tr><th>Estado</th><th>Comportamento</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Ideal</strong></td><td>Tabela preenchida com usuários e ações disponíveis.</td></tr>
+    <tr><td><strong>Carregando</strong></td><td><code>CircularProgress</code> com <code>aria-busy="true"</code>; ações desabilitadas.</td></tr>
+    <tr><td><strong>Vazio</strong></td><td>“Nenhum usuário encontrado” + ação “Limpar filtros”.</td></tr>
+    <tr><td><strong>Erro</strong></td><td><code>Alert severity="error"</code> com “Tentar novamente”.</td></tr>
+    <tr><td><strong>Parcial</strong></td><td>Tabela mantida + alerta de falha da ação, sem apagar os dados.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<ul class="check">
+  <li><input type="checkbox"> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Os campos MUI vinculam rótulo e entrada com <code>id</code> gerado internamente; <code>useId()</code> identifica os títulos dos diálogos. Erros usam <code>helperText</code>/<code>role="alert"</code> e os selects possuem <code>aria-label</code>.</li>
+  <li><input type="checkbox"> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Operável integralmente via <code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Espaço</code> e <code>Esc</code>, com <code>:focus-visible</code> nítido.</li>
+  <li><input type="checkbox"> <strong>Tamanho do Alvo (2.5.8):</strong> Botões e controles interativos possuem área mínima de <strong>44×44px</strong> em telas operacionais.</li>
+  <li><input type="checkbox"> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste de texto &gt;= 4.5:1 e status acompanhado de rótulo textual além da cor.</li>
+  <li><input type="checkbox"> <strong>Mensagens de Status (4.1.3):</strong> Feedbacks dinâmicos anunciados via <code>role="status"</code> ou <code>aria-live="polite"</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<table>
+  <thead><tr><th>Perfil</th><th>GET /users</th><th>POST/PUT/PATCH</th><th>Menu “Usuários”</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge-rbac">ADMINISTRADOR</span></td><td>Permitido</td><td>Permitido</td><td>Visível</td></tr>
+    <tr><td><span class="badge-rbac">GESTOR</span></td><td><code>403</code></td><td><code>403</code></td><td>Oculto</td></tr>
+    <tr><td><span class="badge-rbac">SOLICITANTE</span></td><td><code>403</code></td><td><code>403</code></td><td>Oculto</td></tr>
+    <tr><td><span class="badge-rbac">MOTORISTA</span></td><td><code>403</code></td><td><code>403</code></td><td>Oculto</td></tr>
+    <tr><td><span class="badge-rbac">ATENDENTE_SVO</span></td><td><code>403</code></td><td><code>403</code></td><td>Oculto</td></tr>
+    <tr><td><span class="badge-rbac">EQUIPE_SVO</span></td><td><code>403</code></td><td><code>403</code></td><td>Oculto</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li>Diferença expressa pelo RBAC existente (<code>authorizeRoles</code>), sem feature flag.</li>
+  <li>Sem variáveis de ambiente novas; reutiliza JWT, pool <code>pg</code> e auditoria existentes.</li>
+  <li>Contratos existentes de login, <code>/profiles</code>, <code>/vehicles</code> e <code>/auth</code> permanecem inalterados.</li>
+</ul>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<h3>9.1 Unitários — <code>users.service.test.ts</code></h3>
+<ul>
+  <li>Criação válida, hash aplicado e ausência de senha na resposta.</li>
+  <li>Campos obrigatórios ausentes, e-mail inválido e senha acima de 72 bytes → <code>400</code>.</li>
+  <li>Autoinativação → <code>409</code>; <code>revision</code> divergente → <code>409</code>; e-mail duplicado (<code>23505</code>) → <code>409</code>.</li>
+  <li>Auditoria chamada com a operação correta.</li>
+</ul>
+
+<h3>9.2 Integração — <code>users.integration.test.ts</code></h3>
+<p>Banco <code>aratu_test</code>, <code>setupTestDatabase</code>, <code>truncateTestDatabase</code>, seeds RBAC, <code>app.listen(0)</code> e <code>fetch</code>.</p>
+<ol>
+  <li>Cadastro válido → <code>201</code> sem <code>password_hash</code>.</li>
+  <li>E-mail duplicado → <code>409</code>; e-mail inválido → <code>400</code>; campos ausentes → <code>400</code>.</li>
+  <li>Listagem com cada filtro (<code>nome</code>, <code>perfil</code>, <code>ativo</code>).</li>
+  <li><code>GET /users/:id</code> existente → <code>200</code>; inexistente → <code>404</code>.</li>
+  <li>Edição de nome/e-mail/perfil; e-mail duplicado → <code>409</code>; revisão antiga → <code>409</code>.</li>
+  <li>Inativar → login <code>403 “Acesso desativado”</code>; reativar → login <code>200</code>.</li>
+  <li>Admin tentando inativar a própria conta → <code>409</code>.</li>
+  <li><code>GESTOR</code> em <code>/users</code> → <code>403</code>; sem token → <code>401</code>.</li>
+  <li><code>DELETE /users/:id</code> inexistente.</li>
+  <li><code>audit.logs</code> contém <code>CREATE</code>, <code>UPDATE</code> e <code>STATUS_CHANGE</code>.</li>
+</ol>
+
+<h3>9.3 Frontend</h3>
+<ul>
+  <li><code>usersService.test.mjs</code>: query string, parsing do envelope, erros <code>{ erro }</code> e resposta malformada.</li>
+  <li><code>userFormValidation.test.mjs</code>: criação exige senha; edição não; e-mail/perfil inválidos.</li>
+</ul>
+
+<h3>9.4 Roteiro manual (dados fictícios)</h3>
+<ul>
+  <li>Login como admin fictício, abrir “Usuários”, cadastrar, listar, filtrar, editar, inativar e reativar.</li>
+  <li>Testar e-mail duplicado e campos vazios.</li>
+  <li>Confirmar que a própria linha não oferece inativação.</li>
+  <li>Login de usuário inativado → bloqueado; após reativar → permitido.</li>
+  <li><code>GESTOR</code>: sem menu e <code>403</code> na API.</li>
+  <li>Teclado, <code>Esc</code>, leitor de tela, zoom 200%, 320 px, 4:3 e 16:10.</li>
+</ul>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-29)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivo de referência:</strong> <code>docs/modulos/AUTENTICACAO_RBAC.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do módulo. Atualizar <code>docs/modulos/AUTENTICACAO_RBAC.html</code> com os endpoints <code>/users</code>, regras de autoinativação/unicidade/idempotência, matriz RBAC, fluxo da tela, estados visuais, auditoria e testes automatizados.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>
