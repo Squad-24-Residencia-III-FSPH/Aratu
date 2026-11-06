@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrega e verificação — Manutenções FROTA-59 e FROTA-61</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { max-width: 1080px; margin: 32px auto; padding: 0 20px 48px; font: 16px/1.65 system-ui, sans-serif; color: #17202a; background: #f8fafc; }
+    h1, h2 { line-height: 1.3; color: #115e59; }
+    h2 { margin-top: 32px; }
+    a { color: #115e59; text-underline-offset: 3px; }
+    a:focus-visible { outline: 3px solid #115e59; outline-offset: 3px; }
+    code { overflow-wrap: anywhere; }
+    .notice { padding: 18px; background: #f0fdfa; border: 1px solid #0f766e; border-radius: 8px; }
+    .tableRegion { overflow: auto; }
+    table { width: 100%; border-collapse: collapse; background: white; }
+    th, td { border: 1px solid #94a3b8; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #115e59; color: white; }
+    img { max-width: 100%; height: auto; border: 1px solid #94a3b8; }
+    figure { margin: 24px 0; }
+    figcaption { font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>Manutenções — entrega e verificação da integração</h1>
+  <p>05/11/2026 · Branch <code>feat/be-api-de-manutencoes</code> · FROTA-59 e FROTA-61</p>
+  <p class="notice"><strong>Fluxo integrado:</strong> Manutenção agora abre uma rota protegida e opera sobre a API real. Cadastro, edição, orçamento, execução, encerramento, persistência e disponibilidade foram percorridos no navegador. A integração da tela existente foi autorizada expressamente pelo usuário nesta data, como extensão dos dois SDDs.</p>
+
+  <h2>O que foi entregue nesta execução</h2>
+  <ul>
+    <li>Menu de GESTOR e ADMINISTRADOR ligado à rota <code>/#/maintenance-orders</code>, com redirecionamento dos outros perfis.</li>
+    <li>Substituição de demonstrações e gravações em memória por consultas e mutações reais; a API e as alterações locais anteriores foram preservadas.</li>
+    <li>Serviço tipado, hook para carregamento/seleção, formulários acessíveis, orçamento separado da execução e confirmação explícita de encerramento.</li>
+    <li>Chave de idempotência mantida em tentativas do mesmo conteúdo; revisão otimista, prevenção de submissão duplicada e recarregamento de conflito.</li>
+    <li>Filtros compatíveis com a API: veículo, tipo, situação e intervalo. Lista por abertura, gasto por encerramento. Valores desconhecidos continuam distintos de zero.</li>
+    <li>Quatro testes permanentes de migração e cinco testes frontend de comportamento/contrato.</li>
+  </ul>
+
+  <h2>Arquivos por camada</h2>
+  <div class="tableRegion" tabindex="0" role="region" aria-label="Arquivos da entrega">
+  <table><thead><tr><th scope="col">Camada</th><th scope="col">Arquivos criados ou modificados nesta execução</th></tr></thead><tbody>
+    <tr><td>Navegação</td><td><a href="../../frontend/src/App.tsx">App.tsx</a>, <a href="../../frontend/src/routing/routeDecision.ts">routeDecision.ts</a> e <a href="../../frontend/src/components/sidebarNavigation.ts">sidebarNavigation.ts</a>.</td></tr>
+    <tr><td>Contratos e entrada</td><td><a href="../../frontend/src/maintenance/maintenanceTypes.ts">maintenanceTypes.ts</a> e <a href="../../frontend/src/maintenance/maintenanceForm.ts">maintenanceForm.ts</a>.</td></tr>
+    <tr><td>Rede e ciclo assíncrono</td><td><a href="../../frontend/src/services/maintenanceService.ts">maintenanceService.ts</a> e <a href="../../frontend/src/hooks/useMaintenance.ts">useMaintenance.ts</a>.</td></tr>
+    <tr><td>Interface</td><td><a href="../../frontend/src/pages/ManuPage/ManutencaoPage.tsx">ManutencaoPage.tsx</a>, <a href="../../frontend/src/pages/ManuPage/MaintenanceFormDialog.tsx">MaintenanceFormDialog.tsx</a>, <a href="../../frontend/src/pages/ManuPage/MaintenanceDetailDialog.tsx">MaintenanceDetailDialog.tsx</a>, <a href="../../frontend/src/pages/ManuPage/MaintenanceItems.tsx">MaintenanceItems.tsx</a> e <a href="../../frontend/src/pages/ManuPage/maintenanceStyles.ts">maintenanceStyles.ts</a>. <a href="../../frontend/src/components/ui/FormField.tsx">FormField.tsx</a> passou a aceitar também data e hora locais.</td></tr>
+    <tr><td>Testes</td><td><a href="../../backend/tests/maintenance-migrations.integration.test.ts">maintenance-migrations.integration.test.ts</a>, <a href="../../frontend/tests/maintenance.test.mjs">maintenance.test.mjs</a> e atualização de <a href="../../frontend/tests/sidebarNavigation.test.mjs">sidebarNavigation.test.mjs</a>.</td></tr>
+    <tr><td>Documentação</td><td>Extensão de escopo registrada nos <a href="../plans/frota-59-be-api-de-manutencoes.html#s6">SDD 59</a> e <a href="../plans/frota-61-qa-testes-de-manutencoes.html#s6">SDD 61</a>; fluxo atualizado no <a href="../modulos/MANUTENCOES.html">módulo MANUTENCOES</a>.</td></tr>
+  </tbody></table></div>
+
+  <h2>Verificações automatizadas</h2>
+  <div class="tableRegion" tabindex="0" role="region" aria-label="Resultados automatizados">
+  <table><thead><tr><th scope="col">Verificação</th><th scope="col">Resultado observado</th></tr></thead><tbody>
+    <tr><td><code>node docs/scripts/aratu-check.mjs</code></td><td>Aprovado: zero bloqueantes, zero alertas, tipos backend/frontend sem erros e 85 testes frontend aprovados.</td></tr>
+    <tr><td>Backend: <code>npm run test:integration</code></td><td>84 aprovados, zero falhas, zero omitidos; 43,5 s.</td></tr>
+    <tr><td>Backend: <code>npm test</code>, duas execuções consecutivas</td><td>120 aprovados em cada execução, zero falhas e zero omitidos; 52,7 s e 60,1 s.</td></tr>
+    <tr><td>Backend: <code>npm run build</code></td><td>Aprovado no container.</td></tr>
+    <tr><td>Frontend: <code>npm run lint</code> e <code>npm run build</code></td><td>Aprovados no container. Permanece o aviso de bundle acima de 500 kB (aproximadamente 670 kB sem compressão).</td></tr>
+    <tr><td>Banco e segurança</td><td>IT-MNT-01 a 11 cobrem validação, concorrência, disponibilidade, períodos, orçamento/execução, revisões, auditoria atômica, legado e RBAC nas cinco rotas. Os erros fictícios do IT-MNT-10 são intencionais.</td></tr>
+    <tr><td>Migrações</td><td>IT-MIG-MNT-01 a 04: up/down/up com custo legado; recusa de impeditivas legadas conflitantes; recusa de perda de orçamento e eventos. Ensaios restritos ao banco dedicado de testes.</td></tr>
+  </tbody></table></div>
+  <p>O auditor compara com <code>develop</code> local, anterior ao pull relatado; sua estatística de commits/diff inclui mudanças já recebidas. Não representa sozinha o diff final de um PR. Nenhum commit ou push foi executado.</p>
+
+  <h2>Navegador real e persistência</h2>
+  <p>Ferramenta: navegador integrado com computer use/locators Playwright. O código atual do frontend foi servido em <code>127.0.0.1:5174</code>, com proxy para uma instância real de <code>createApp</code> em <code>127.0.0.1:4301</code>, conectada ao banco exclusivo <code>aratu_maintenance_ui_test</code>. Login feito pela tela com fixtures GESTOR, ADMINISTRADOR e SOLICITANTE. Os testes automatizados usaram <code>aratu_test</code>; nenhum registro operacional da aplicação foi escrito por estes ensaios.</p>
+  <ol>
+    <li>Gestor entrou pela tela e acionou Manutenção por Enter, chegando à rota protegida.</li>
+    <li>Registrou preventiva impeditiva para QAU6A59, a 11.700 km, com dois filtros a R$ 18,75 e serviço de R$ 40,00. Orçamento exibido: R$ 77,50; custo final desconhecido.</li>
+    <li>Editou a descrição e conferiu a revisão 2. Na tela de veículos, a viatura apareceu como Em manutenção.</li>
+    <li>Encerrou com um filtro e o mesmo serviço. Testou Escape na confirmação e depois confirmou por Enter. Orçamento permaneceu R$ 77,50 e execução ficou R$ 58,75, revisão 3.</li>
+    <li>Recarregou a página e reabriu a ordem: valores persistiram e a ordem encerrada ficou somente para consulta. A tela de veículos exibiu Disponível.</li>
+    <li>Filtro Em aberto retornou estado vazio e gasto R$ 0,00. Uma interrupção controlada da API isolada mostrou aviso parcial com dados anteriores e, após recarregar, erro inicial. Reiniciada a API, Tentar novamente recuperou a lista.</li>
+    <li>Solicitante autenticado ficou sem link de manutenção; tentativa direta da rota voltou a <code>/#/solicitacoes/minhas</code>. Administrador acessou a manutenção pelo menu.</li>
+    <li>Administrador criou corretiva não impeditiva sem orçamento. Duas sessões abriram a mesma revisão; a edição do administrador venceu e a do gestor foi recusada com opção Recarregar ordem. A descrição vencedora foi preservada.</li>
+    <li>Gestor encerrou a segunda ordem gratuitamente com relação vazia e confirmação explícita. Orçamento continuou desconhecido e custo final passou a R$ 0,00; autores de abertura e encerramento permaneceram distintos.</li>
+  </ol>
+  <p>Conferência SQL posterior: ambas as ordens DONE na revisão 3; três eventos OPENED/UPDATED/CLOSED e três auditorias por ordem; viatura AVAILABLE. A primeira ordem preservou dois filtros no orçamento e um na execução. A segunda preservou orçamento nulo e execução vazia. <a href="../../.playwright-mcp/maintenance-database.json">Evidência do banco</a>.</p>
+  <figure><img src="../../.playwright-mcp/maintenance-1920x1080.jpg" alt="Lista de manutenção com ordem concluída, orçamento de 77 reais e 50 centavos e custo final de 58 reais e 75 centavos"><figcaption>Orçamento e custo final separados na lista após o encerramento e recarga.</figcaption></figure>
+
+  <h2>Responsividade e acessibilidade verificadas</h2>
+  <p>Viewports exercitados: 320×568, 375×667, 800×600, 1024×768, 1280×800 e 1920×1080. Em todos, a largura do documento permaneceu contida no viewport e os botões/campos visíveis da área principal mediram ao menos 44×44 px. A tabela mantém rolagem horizontal própria. <a href="../../.playwright-mcp/maintenance-responsive.json">Medições</a>.</p>
+  <p>No cadastro em 375 px, o diálogo ficou contido na janela; submissão vazia exibiu erros textuais e campos com aria-invalid e referências de ajuda/erro. Escape fechou o diálogo e devolveu o foco a Registrar Manutenção. Também foram exercitados Enter no menu, em filtros e na confirmação. Os controles de manutenção usam o tom escuro do tema para texto e foco visível. Estes ensaios não equivalem a uma certificação integral WCAG nem a uma auditoria de todos os módulos do shell.</p>
+  <p>Capturas: <a href="../../.playwright-mcp/maintenance-320x568.jpg">320 px</a>, <a href="../../.playwright-mcp/maintenance-375x667.jpg">375 px</a>, <a href="../../.playwright-mcp/maintenance-800x600.jpg">800 px</a>, <a href="../../.playwright-mcp/maintenance-1024x768.jpg">1024 px</a>, <a href="../../.playwright-mcp/maintenance-1280x800.jpg">1280 px</a>, <a href="../../.playwright-mcp/maintenance-1920x1080.jpg">1920 px</a>, <a href="../../.playwright-mcp/maintenance-mobile-validation.jpg">validação móvel</a>, <a href="../../.playwright-mcp/maintenance-revision-conflict.jpg">conflito</a> e <a href="../../.playwright-mcp/maintenance-partial.jpg">falha parcial</a>.</p>
+  <p>Console da aba do gestor: a coleta final de warn/error retornou lista vazia. O proxy de teste registrou ECONNREFUSED durante a interrupção intencional. Não houve inspeção completa da rede pelo navegador. <a href="../../.playwright-mcp/maintenance-final-dom.txt">DOM final</a> e <a href="../../.playwright-mcp/maintenance-console.json">coleta de console</a>.</p>
+
+  <h2>Preparação de PR</h2>
+  <p>A branch contém trabalho local anterior de outras tarefas, inclusive FROTA-54 e alteração da skill testar. Esses arquivos foram preservados. A entrega completa ultrapassa o limite orientativo de 400 linhas dos SDDs: a extensão autorizada inclui navegação, cliente HTTP, ciclo assíncrono, formulários, confirmação e testes. Delimitar esses conjuntos ao preparar os commits e revisar o diff final contra a base atualizada do PR.</p>
+  <p>Sugestão: <code>feat(manutencoes): integrar interface a API e completar testes (FROTA-59, FROTA-61)</code>. Executar <code>/revisar</code> antes do PR para develop; os testes práticos desta integração estão registrados acima. As instâncias temporárias de QA foram encerradas ao fim do ensaio; os serviços Docker originais permanecem disponíveis.</p>
+  <p>código → padrões do projeto, DRY, compatibilidade de contratos, idempotência e preservação histórica · dúvidas: nenhuma pendente.</p>
+</body>
+</html>
