@@ -10,6 +10,7 @@ import { PROFILE_HOMES } from './auth/profiles'
 import type { Profile } from './auth/profiles'
 import { resolveRoute } from './routing/routeDecision'
 import UserManagementPage from './pages/UserManagementPage'
+import DriversPage from './pages/DriversPage'
 
 function LoginRoute() {
   const { session } = useAuth()
@@ -43,6 +44,13 @@ function PrivateRoute() {
     return (
       <Layout>
         <VehiclesPage />
+      </Layout>
+    )
+  }
+  if (decision.kind === 'drivers') {
+    return (
+      <Layout>
+        <DriversPage />
       </Layout>
     )
   }
