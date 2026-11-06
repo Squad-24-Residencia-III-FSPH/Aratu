@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import type { ReactNode } from 'react'
+import type { SxProps, Theme } from '@mui/material/styles'
 import {
   Button,
   Dialog,
@@ -62,6 +63,7 @@ export default function ConfirmDialog({
       aria-describedby={`${baseId}-description`}
       fullWidth
       maxWidth="xs"
+      sx={sx}
       slotProps={paperSx ? { paper: { sx: paperSx } } : undefined}
     >
       <DialogTitle id={`${baseId}-title`}>{title}</DialogTitle>

@@ -18,6 +18,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     'Usuários',
     'Perfis e Permissões',
     'Veículos',
+    'Manutenção',
     'Motoristas',
     'Auditoria',
     'Configurações',
@@ -31,6 +32,10 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
       { label: 'Usuários', path: '/administracao/usuarios' },
       { label: 'Perfis e Permissões', path: '/administracao/perfis' },
       { label: 'Veículos', path: '/veiculos' },
+      { label: 'Manutenção', path: '/maintenance-orders' },
+    ],
+  )
+  assert.equal(navigation.topItems[0].behavior, 'static')
       { label: 'Motoristas', path: '/motoristas' },
     ],
   )

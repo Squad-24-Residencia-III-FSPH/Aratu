@@ -11,7 +11,7 @@ export interface FormFieldProps {
   helperText?: string
   required?: boolean
   disabled?: boolean
-  type?: 'text' | 'email' | 'password' | 'number' | 'date'
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local'
   multiline?: boolean
   minRows?: number
   autoComplete?: string

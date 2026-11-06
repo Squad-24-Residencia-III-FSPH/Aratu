@@ -3,6 +3,7 @@ import type { Profile } from '../auth/profiles.ts'
 import type { AuthSession } from '../auth/types.ts'
 import { tokenExpiresAt } from '../auth/token.ts'
 import { canReadVehicles, VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
+import { canManageMaintenance, MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
 import { canReadDrivers, DRIVERS_PATH } from '../drivers/driverAccess.ts'
 
 type RouteDecision =
@@ -11,6 +12,7 @@ type RouteDecision =
   | { kind: 'home'; profile: Profile }
   | { kind: 'profile-permissions'; profile: 'ADMINISTRADOR' }
   | { kind: 'vehicles'; profile: Profile }
+  | { kind: 'maintenance'; profile: Profile }
   | { kind: 'drivers'; profile: Profile }
 
 export function resolveRoute(session: AuthSession | null, path: string, now = Date.now()): RouteDecision {
@@ -20,6 +22,9 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
     return path === '/login' ? { kind: 'login' } : { kind: 'redirect', to: '/login' }
   }
   const home = PROFILE_HOMES[profile].path
+  if (path === MAINTENANCE_PATH) {
+    return canManageMaintenance(profile) ? { kind: 'maintenance', profile } : { kind: 'redirect', to: home }
+  }
   if (path === PROFILE_PERMISSIONS_PATH) {
     return profile === 'ADMINISTRADOR'
       ? { kind: 'profile-permissions', profile }

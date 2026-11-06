@@ -5,6 +5,7 @@ import LoginPage from './pages/loginPage/LoginPage'
 import PlaceholderPage from './pages/placeholderPage/PlaceholderPage'
 import ProfilePermissionsPage from './pages/profilePermissionsPage/ProfilePermissionsPage'
 import VehiclesPage from './pages/vehiclesPage/VehiclesPage'
+import MaintenancePage from './pages/ManuPage/ManutencaoPage'
 import { useAuth } from './auth/useAuth'
 import { PROFILE_HOMES } from './auth/profiles'
 import type { Profile } from './auth/profiles'
@@ -47,6 +48,7 @@ function PrivateRoute() {
       </Layout>
     )
   }
+  if (decision.kind === 'maintenance') return <Layout><MaintenancePage /></Layout>
   if (decision.kind === 'drivers') {
     return (
       <Layout>

@@ -50,6 +50,7 @@ function setup(initial: Vehicle | null = createVehicle()) {
   const events: CreateVehicleEventInput[] = []
   const audits: AuditEntry[] = []
   const repository: VehiclesRepositoryContract = {
+    async hasActiveMaintenanceBlock(): Promise<boolean> { return false },
     async withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
       return work(fakeClient)
     },

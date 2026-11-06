@@ -192,59 +192,78 @@ export class VehiclesService {
     input: ChangeVehicleStatusInput,
     actorId: string,
   ): Promise<Vehicle> {
+    return this.repository.withTransaction(client =>
+      this.changeVehicleStatusInTransaction(id, input, actorId, client))
+  }
+
+  /**
+   * Compartilha a transação da manutenção para preservar situação, evento e auditoria atomicamente.
+   * @throws {VehicleServiceError} Se a revisão, transição ou liberação de uma OS ativa forem inválidas.
+   */
+  async changeVehicleStatusInTransaction(
+    id: string,
+    input: ChangeVehicleStatusInput,
+    actorId: string,
+    client: PoolClient,
+  ): Promise<Vehicle> {
     this.validateId(id)
     this.validateRevision(input.expectedRevision)
     if (!isOneOf(input.status, VEHICLE_STATUSES)) {
       throw new VehicleServiceError(400, 'Situação de veículo inválida.')
     }
     const metadata = this.validateMetadata(input)
-    return this.repository.withTransaction(async (client) => {
-      const before = await this.repository.findByIdForUpdate(id, client)
-      if (!before) throw new VehicleServiceError(404, 'Veículo não encontrado.')
-      if (before.revision !== input.expectedRevision) {
-        throw new VehicleServiceError(409, 'O veículo foi alterado por outra operação. Atualize os dados e tente novamente.')
-      }
-      if (before.status === input.status) return before
-      if (!ALLOWED_TRANSITIONS[before.status].includes(input.status)) {
-        throw new VehicleServiceError(
-          422,
-          `Transição de ${before.status} para ${input.status} não permitida.`,
-        )
-      }
-      const actor = await this.requireActor(actorId, client)
-      const result = await this.repository.saveStatus(id, input.expectedRevision, input.status, client)
-      if (result.kind === 'not-found') throw new VehicleServiceError(404, 'Veículo não encontrado.')
-      if (result.kind === 'revision-conflict') {
-        throw new VehicleServiceError(409, 'O veículo foi alterado por outra operação. Atualize os dados e tente novamente.')
-      }
-      await this.repository.createEvent({
-        vehicleId: id,
-        eventType: 'STATUS_CHANGED',
-        reportedBy: metadata.reportedBy,
-        registeredBy: actor.id,
-        actorSnapshot: actor,
-        reason: metadata.reason,
-        beforeState: before,
-        afterState: result.vehicle,
-      }, client)
-      await this.auditService.recordAudit({
-        userId: actor.id,
-        table: 'fleet.vehicles',
-        recordId: id,
-        operation: VEHICLE_AUDIT_OPERATIONS.statusChange,
-        before: auditState(before),
-        after: auditState(result.vehicle),
-        actorSnapshot: auditActor(actor),
-        reason: metadata.reason,
-      }, client)
-      return result.vehicle
-    })
+    const before = await this.repository.findByIdForUpdate(id, client)
+    if (!before) throw new VehicleServiceError(404, 'Veículo não encontrado.')
+    if (before.revision !== input.expectedRevision) {
+      throw new VehicleServiceError(409, 'O veículo foi alterado por outra operação. Atualize os dados e tente novamente.')
+    }
+    if (input.status === 'AVAILABLE' && await this.repository.hasActiveMaintenanceBlock(id, client)) {
+      throw new VehicleServiceError(422, 'O veículo possui uma manutenção impeditiva ativa. Encerre a ordem antes de liberar a viatura.')
+    }
+    if (before.status === input.status) return before
+    if (!ALLOWED_TRANSITIONS[before.status].includes(input.status)) {
+      throw new VehicleServiceError(
+        422,
+        `Transição de ${before.status} para ${input.status} não permitida.`,
+      )
+    }
+    const actor = await this.requireActor(actorId, client)
+    const result = await this.repository.saveStatus(id, input.expectedRevision, input.status, client)
+    if (result.kind === 'not-found') throw new VehicleServiceError(404, 'Veículo não encontrado.')
+    if (result.kind === 'revision-conflict') {
+      throw new VehicleServiceError(409, 'O veículo foi alterado por outra operação. Atualize os dados e tente novamente.')
+    }
+    await this.repository.createEvent({
+      vehicleId: id,
+      eventType: 'STATUS_CHANGED',
+      reportedBy: metadata.reportedBy,
+      registeredBy: actor.id,
+      actorSnapshot: actor,
+      reason: metadata.reason,
+      beforeState: before,
+      afterState: result.vehicle,
+    }, client)
+    await this.auditService.recordAudit({
+      userId: actor.id,
+      table: 'fleet.vehicles',
+      recordId: id,
+      operation: VEHICLE_AUDIT_OPERATIONS.statusChange,
+      before: auditState(before),
+      after: auditState(result.vehicle),
+      actorSnapshot: auditActor(actor),
+      reason: metadata.reason,
+    }, client)
+    return result.vehicle
   }
 
-  /** Retorna true somente para AVAILABLE; estados impeditivos retornam false. */
+  /** Inclui impedimentos de OS legadas ao verificar disponibilidade sob a trava da viatura. */
   async isAvailableForAllocation(vehicleId: string): Promise<boolean> {
-    const vehicle = await this.getVehicle(vehicleId)
-    return vehicle.status === 'AVAILABLE'
+    this.validateId(vehicleId)
+    return this.repository.withTransaction(async client => {
+      const vehicle = await this.repository.findByIdForUpdate(vehicleId, client)
+      if (!vehicle) throw new VehicleServiceError(404, 'Veículo não encontrado.')
+      return vehicle.status === 'AVAILABLE' && !await this.repository.hasActiveMaintenanceBlock(vehicleId, client)
+    })
   }
 
   private validateAttributes(input: VehicleAttributes): VehicleAttributes {
