@@ -18,6 +18,9 @@ import { VehiclesService } from './services/vehicles.service'
 import { createVehiclesRouter } from './routes/vehicles.routes'
 import { UsersService } from './services/users.service'
 import { createUsersRouter } from './routes/users.routes'
+import { DriversRepository } from './repositories/drivers.repository'
+import { DriversService } from './services/drivers.service'
+import { createDriversRouter } from './routes/drivers.routes'
 import { ServicesRepository } from './repositories/services.repository'
 import { FleetServicesService } from './services/fleet-services.service'
 import { createServicesRouter } from './routes/services.routes'
@@ -70,6 +73,8 @@ export function createApp({ jwtConfig, users, roles, audits, pool }: AppDependen
     const vehiclesRepository = new VehiclesRepository(pool)
     const vehiclesService = new VehiclesService(vehiclesRepository, auditService)
     app.use('/vehicles', createVehiclesRouter(vehiclesService, jwtConfig))
+    const driversService = new DriversService(new DriversRepository(pool), auditService)
+    app.use('/drivers', createDriversRouter(driversService, jwtConfig))
     const fleetServicesService = new FleetServicesService(new ServicesRepository(pool), auditService)
     app.use('/services', createServicesRouter(fleetServicesService, jwtConfig))
   }
