@@ -4,6 +4,7 @@ import type { AuthSession } from '../auth/types.ts'
 import { tokenExpiresAt } from '../auth/token.ts'
 import { canReadVehicles, VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 import { canManageMaintenance, MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
+import { canReadDrivers, DRIVERS_PATH } from '../drivers/driverAccess.ts'
 
 type RouteDecision =
   | { kind: 'login' }
@@ -12,6 +13,7 @@ type RouteDecision =
   | { kind: 'profile-permissions'; profile: 'ADMINISTRADOR' }
   | { kind: 'vehicles'; profile: Profile }
   | { kind: 'maintenance'; profile: Profile }
+  | { kind: 'drivers'; profile: Profile }
 
 export function resolveRoute(session: AuthSession | null, path: string, now = Date.now()): RouteDecision {
   const profile = session && resolveProfile(session.perfil)
@@ -31,6 +33,11 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
   if (path === VEHICLES_PATH) {
     return canReadVehicles(profile)
       ? { kind: 'vehicles', profile }
+      : { kind: 'redirect', to: home }
+  }
+  if (path === DRIVERS_PATH) {
+    return canReadDrivers(profile)
+      ? { kind: 'drivers', profile }
       : { kind: 'redirect', to: home }
   }
   return path === home ? { kind: 'home', profile } : { kind: 'redirect', to: home }

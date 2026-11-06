@@ -1,4 +1,6 @@
 import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material'
+import type { ReactNode } from 'react'
+import type { SxProps, Theme } from '@mui/material'
 
 export type StateFeedbackKind = 'loading' | 'empty' | 'error' | 'forbidden' | 'partial'
 
@@ -8,6 +10,13 @@ export interface StateFeedbackProps {
   description?: string
   actionLabel?: string
   onAction?: () => void
+  icon?: ReactNode
+  centered?: boolean
+  sx?: SxProps<Theme>
+  progressSize?: number
+  titleSx?: SxProps<Theme>
+  descriptionSx?: SxProps<Theme>
+  actionSx?: SxProps<Theme>
 }
 
 /** Feedback dos estados carregando, vazio, erro, acesso negado e parcial. */
@@ -17,16 +26,39 @@ export default function StateFeedback({
   description,
   actionLabel,
   onAction,
+  icon,
+  centered = false,
+  sx,
+  progressSize = 24,
+  titleSx,
+  descriptionSx,
+  actionSx,
 }: StateFeedbackProps) {
+  const centeredAlertSx = {
+    mb: 0,
+    alignItems: 'center',
+    flexDirection: 'column',
+    textAlign: 'center',
+    '& .MuiAlert-icon': { mr: 0, mb: 2 },
+    '& .MuiAlert-message': { width: '100%' },
+    '& .MuiAlert-action': { mt: 1, mr: 0, p: 0 },
+  }
+  const alertSx: SxProps<Theme> = sx
+    ? [
+        centered ? centeredAlertSx : { mb: 3, alignItems: 'center' },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]
+    : centered ? centeredAlertSx : { mb: 3, alignItems: 'center' }
+
   if (kind === 'loading') {
     return (
       <Box
         role="status"
         aria-live="polite"
         aria-busy="true"
-        sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 4 }}
+        sx={sx ?? { display: 'flex', alignItems: 'center', gap: 1.5, py: 4 }}
       >
-        <CircularProgress size={24} />
+        <CircularProgress size={progressSize} />
         <Typography>{title ?? 'Carregando veículos...'}</Typography>
       </Box>
     )
@@ -43,14 +75,17 @@ export default function StateFeedback({
   return (
     <Alert
       severity={severity}
-      sx={{ mb: 3, alignItems: 'center' }}
+      icon={icon}
+      sx={alertSx}
       action={onAction && actionLabel
-        ? <Button color="inherit" onClick={onAction} sx={{ minHeight: 44 }}>{actionLabel}</Button>
+        ? <Button color="inherit" onClick={onAction} sx={actionSx ?? { minHeight: 44 }}>{actionLabel}</Button>
         : undefined}
     >
-      {title ?? messages[kind]}
+      {title && titleSx
+        ? <Typography variant="subtitle1" sx={titleSx}>{title}</Typography>
+        : title ?? messages[kind]}
       {description && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
+        <Typography variant="body2" sx={descriptionSx ?? { mt: 0.5 }}>
           {description}
         </Typography>
       )}

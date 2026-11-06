@@ -9,6 +9,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material'
+import type { ButtonProps, SxProps, Theme } from '@mui/material'
 
 export interface ConfirmDialogProps {
   open: boolean
@@ -21,8 +22,14 @@ export interface ConfirmDialogProps {
   confirmDisabled?: boolean
   danger?: boolean
   children?: ReactNode
-  /** Permite que o domínio aplique seus tokens de contraste também ao diálogo portado. */
-  sx?: SxProps<Theme>
+  cancelLabel?: string
+  loadingLabel?: string
+  confirmColor?: ButtonProps['color']
+  autoFocusCancel?: boolean
+  paperSx?: SxProps<Theme>
+  actionsSx?: SxProps<Theme>
+  cancelSx?: SxProps<Theme>
+  confirmSx?: SxProps<Theme>
 }
 
 /** Diálogo de confirmação acessível, com foco preso e fechamento por `Esc`. */
@@ -37,7 +44,14 @@ export default function ConfirmDialog({
   confirmDisabled = false,
   danger = false,
   children,
-  sx,
+  cancelLabel = 'Cancelar',
+  loadingLabel = 'Processando...',
+  confirmColor,
+  autoFocusCancel = false,
+  paperSx,
+  actionsSx,
+  cancelSx,
+  confirmSx,
 }: ConfirmDialogProps) {
   const baseId = useId()
 
@@ -50,6 +64,7 @@ export default function ConfirmDialog({
       fullWidth
       maxWidth="xs"
       sx={sx}
+      slotProps={paperSx ? { paper: { sx: paperSx } } : undefined}
     >
       <DialogTitle id={`${baseId}-title`}>{title}</DialogTitle>
       <DialogContent>
@@ -58,19 +73,25 @@ export default function ConfirmDialog({
         </DialogContentText>
         {children}
       </DialogContent>
-      <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onCancel} disabled={loading} color="inherit" sx={{ minHeight: 44 }}>
-          Cancelar
+      <DialogActions sx={actionsSx ?? { p: 2 }}>
+        <Button
+          onClick={onCancel}
+          disabled={loading}
+          color="inherit"
+          autoFocus={autoFocusCancel}
+          sx={cancelSx ?? { minHeight: 44 }}
+        >
+          {cancelLabel}
         </Button>
         <Button
           onClick={onConfirm}
           disabled={loading || confirmDisabled}
           variant="contained"
-          color={danger ? 'error' : 'primary'}
+          color={confirmColor ?? (danger ? 'error' : 'primary')}
           aria-busy={loading ? 'true' : undefined}
-          sx={{ minHeight: 44 }}
+          sx={confirmSx ?? { minHeight: 44 }}
         >
-          {loading ? 'Processando...' : confirmLabel}
+          {loading ? loadingLabel : confirmLabel}
         </Button>
       </DialogActions>
     </Dialog>

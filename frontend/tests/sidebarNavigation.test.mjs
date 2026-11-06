@@ -19,6 +19,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     'Perfis e Permissões',
     'Veículos',
     'Manutenção',
+    'Motoristas',
     'Auditoria',
     'Configurações',
     'Ajuda',
@@ -35,6 +36,11 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     ],
   )
   assert.equal(navigation.topItems[0].behavior, 'static')
+      { label: 'Motoristas', path: '/motoristas' },
+    ],
+  )
+  assert.equal(navigation.topItems[0].behavior, 'static')
+  assert.equal(navigation.topItems[4].behavior, 'link')
   assert.equal(navigation.topItems[5].behavior, 'static')
   assert.equal(navigation.topItems[6].behavior, 'static')
   assert.equal(navigation.footerItems[0].behavior, 'static')
@@ -74,9 +80,11 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     { behavior: vehicles.behavior, path: vehicles.path },
     { behavior: 'link', path: '/veiculos' },
   )
+  const drivers = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Motoristas')
+  assert.deepEqual({ behavior: drivers.behavior, path: drivers.path }, { behavior: 'link', path: '/motoristas' })
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]
-      .filter((item) => !['Veículos', 'Manutenção'].includes(item.label))
+      .filter((item) => !['Veículos', 'Motoristas'].includes(item.label))
       .every((item) => item.behavior === 'button'),
   )
   assert.equal(navigation.showDividerAfterTop, true)

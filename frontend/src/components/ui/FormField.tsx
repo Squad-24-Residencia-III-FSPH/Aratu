@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import type { ReactNode } from 'react'
 import { MenuItem, TextField } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material'
 
 export interface FormFieldProps {
   label: string
@@ -10,7 +11,7 @@ export interface FormFieldProps {
   helperText?: string
   required?: boolean
   disabled?: boolean
-  type?: 'text' | 'number' | 'date' | 'datetime-local'
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local'
   multiline?: boolean
   minRows?: number
   autoComplete?: string
@@ -18,6 +19,21 @@ export interface FormFieldProps {
   inputMode?: 'text' | 'numeric'
   maxLength?: number
   autoFocus?: boolean
+  sx?: SxProps<Theme>
+  hideLabel?: boolean
+  startAdornment?: ReactNode
+}
+
+const visuallyHiddenLabel = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
 }
 
 interface FeedbackIds {
@@ -59,6 +75,9 @@ export function FormField({
   inputMode,
   maxLength,
   autoFocus,
+  sx,
+  hideLabel = false,
+  startAdornment,
 }: FormFieldProps) {
   const id = useId()
   const { describedBy, helperContent } = useFeedbackIds(error, helperText)
@@ -81,14 +100,19 @@ export function FormField({
       autoComplete={autoComplete}
       placeholder={placeholder}
       autoFocus={autoFocus}
+      sx={sx}
       slotProps={{
+        ...(startAdornment ? { input: { startAdornment } } : {}),
         htmlInput: {
           'aria-invalid': error ? true : undefined,
           'aria-describedby': describedBy,
           ...(maxLength ? { maxLength } : {}),
           ...(inputMode ? { inputMode } : {}),
         },
-        inputLabel: { shrink: true },
+        inputLabel: {
+          shrink: true,
+          ...(hideLabel ? { sx: visuallyHiddenLabel } : {}),
+        },
       }}
     />
   )
@@ -109,6 +133,10 @@ interface FormSelectBaseProps {
   /** Quando informado, acrescenta uma opção vazia (uso em filtros). */
   emptyLabel?: string
   autoFocus?: boolean
+  sx?: SxProps<Theme>
+  hideLabel?: boolean
+  displayEmpty?: boolean
+  emptyOptionDisabled?: boolean
 }
 
 interface SingleSelectProps extends FormSelectBaseProps {
@@ -149,20 +177,26 @@ export function FormSelect(props: FormSelectProps) {
       fullWidth
       size="small"
       autoFocus={props.autoFocus}
+      sx={props.sx}
       slotProps={{
         select: {
           multiple,
-          displayEmpty: false,
+          displayEmpty: props.displayEmpty ?? false,
           inputProps: {
             'aria-invalid': props.error ? true : undefined,
             'aria-describedby': describedBy,
           },
         },
-        inputLabel: { shrink: true },
+        inputLabel: {
+          shrink: true,
+          ...(props.hideLabel ? { sx: visuallyHiddenLabel } : {}),
+        },
       }}
     >
       {!multiple && props.emptyLabel !== undefined && (
-        <MenuItem value="">{props.emptyLabel}</MenuItem>
+        <MenuItem value="" disabled={props.emptyOptionDisabled ?? false}>
+          {props.emptyLabel}
+        </MenuItem>
       )}
       {props.options.map((option) => (
         <MenuItem key={option.value} value={option.value}>
