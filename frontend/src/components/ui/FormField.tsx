@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import type { ReactNode } from 'react'
 import { MenuItem, TextField } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material'
 
 export interface FormFieldProps {
   label: string
@@ -18,6 +19,20 @@ export interface FormFieldProps {
   inputMode?: 'text' | 'numeric'
   maxLength?: number
   autoFocus?: boolean
+  sx?: SxProps<Theme>
+  hideLabel?: boolean
+}
+
+const visuallyHiddenLabel = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
 }
 
 interface FeedbackIds {
@@ -59,6 +74,8 @@ export function FormField({
   inputMode,
   maxLength,
   autoFocus,
+  sx,
+  hideLabel = false,
 }: FormFieldProps) {
   const id = useId()
   const { describedBy, helperContent } = useFeedbackIds(error, helperText)
@@ -81,6 +98,7 @@ export function FormField({
       autoComplete={autoComplete}
       placeholder={placeholder}
       autoFocus={autoFocus}
+      sx={sx}
       slotProps={{
         htmlInput: {
           'aria-invalid': error ? true : undefined,
@@ -88,7 +106,10 @@ export function FormField({
           ...(maxLength ? { maxLength } : {}),
           ...(inputMode ? { inputMode } : {}),
         },
-        inputLabel: { shrink: true },
+        inputLabel: {
+          shrink: true,
+          ...(hideLabel ? { sx: visuallyHiddenLabel } : {}),
+        },
       }}
     />
   )
@@ -109,6 +130,9 @@ interface FormSelectBaseProps {
   /** Quando informado, acrescenta uma opção vazia (uso em filtros). */
   emptyLabel?: string
   autoFocus?: boolean
+  sx?: SxProps<Theme>
+  hideLabel?: boolean
+  displayEmpty?: boolean
 }
 
 interface SingleSelectProps extends FormSelectBaseProps {
@@ -149,16 +173,20 @@ export function FormSelect(props: FormSelectProps) {
       fullWidth
       size="small"
       autoFocus={props.autoFocus}
+      sx={props.sx}
       slotProps={{
         select: {
           multiple,
-          displayEmpty: false,
+          displayEmpty: props.displayEmpty ?? false,
           inputProps: {
             'aria-invalid': props.error ? true : undefined,
             'aria-describedby': describedBy,
           },
         },
-        inputLabel: { shrink: true },
+        inputLabel: {
+          shrink: true,
+          ...(props.hideLabel ? { sx: visuallyHiddenLabel } : {}),
+        },
       }}
     >
       {!multiple && props.emptyLabel !== undefined && (

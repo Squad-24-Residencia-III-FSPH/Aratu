@@ -8,6 +8,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material'
 
 export interface ConfirmDialogProps {
   open: boolean
@@ -20,6 +21,7 @@ export interface ConfirmDialogProps {
   confirmDisabled?: boolean
   danger?: boolean
   children?: ReactNode
+  paperSx?: SxProps<Theme>
 }
 
 /** Diálogo de confirmação acessível, com foco preso e fechamento por `Esc`. */
@@ -34,6 +36,7 @@ export default function ConfirmDialog({
   confirmDisabled = false,
   danger = false,
   children,
+  paperSx,
 }: ConfirmDialogProps) {
   const baseId = useId()
 
@@ -45,6 +48,7 @@ export default function ConfirmDialog({
       aria-describedby={`${baseId}-description`}
       fullWidth
       maxWidth="xs"
+      slotProps={paperSx ? { paper: { sx: paperSx } } : undefined}
     >
       <DialogTitle id={`${baseId}-title`}>{title}</DialogTitle>
       <DialogContent>
