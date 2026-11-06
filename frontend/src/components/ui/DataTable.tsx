@@ -31,9 +31,11 @@ export interface DataTableProps<T> {
   actionsWidth?: number | string
   loadingContent?: ReactNode
   emptyContent?: ReactNode
+  stateCellSx?: SxProps<Theme>
   containerClassName?: string
   paperSx?: SxProps<Theme>
   headerCellSx?: SxProps<Theme>
+  cellSx?: SxProps<Theme>
 }
 
 /** Tabela acessível com cabeçalho semântico, legenda e rolagem focável. */
@@ -49,9 +51,11 @@ export default function DataTable<T>({
   actionsWidth,
   loadingContent,
   emptyContent,
+  stateCellSx,
   containerClassName,
   paperSx,
   headerCellSx,
+  cellSx,
 }: DataTableProps<T>) {
   const columnCount = columns.length + (renderActions ? 1 : 0)
 
@@ -118,13 +122,13 @@ export default function DataTable<T>({
           <TableBody>
             {busy && loadingContent !== undefined ? (
               <TableRow>
-                <TableCell colSpan={columnCount} align="center" sx={{ py: 0 }}>
+                <TableCell colSpan={columnCount} align="center" sx={stateCellSx ?? { py: 0 }}>
                   {loadingContent}
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columnCount} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={columnCount} align="center" sx={stateCellSx ?? { py: 4 }}>
                   {emptyContent ?? 'Nenhum veículo para exibir.'}
                 </TableCell>
               </TableRow>
@@ -135,7 +139,10 @@ export default function DataTable<T>({
                     <TableCell
                       key={column.key}
                       align={column.align ?? 'left'}
-                      sx={column.width !== undefined ? { width: column.width } : undefined}
+                      sx={[
+                        column.width !== undefined ? { width: column.width } : {},
+                        ...(Array.isArray(cellSx) ? cellSx : cellSx ? [cellSx] : []),
+                      ]}
                     >
                       {column.render(row)}
                     </TableCell>

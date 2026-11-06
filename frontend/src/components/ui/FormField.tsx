@@ -11,7 +11,7 @@ export interface FormFieldProps {
   helperText?: string
   required?: boolean
   disabled?: boolean
-  type?: 'text' | 'number' | 'date'
+  type?: 'text' | 'email' | 'password' | 'number' | 'date'
   multiline?: boolean
   minRows?: number
   autoComplete?: string
@@ -21,6 +21,7 @@ export interface FormFieldProps {
   autoFocus?: boolean
   sx?: SxProps<Theme>
   hideLabel?: boolean
+  startAdornment?: ReactNode
 }
 
 const visuallyHiddenLabel = {
@@ -76,6 +77,7 @@ export function FormField({
   autoFocus,
   sx,
   hideLabel = false,
+  startAdornment,
 }: FormFieldProps) {
   const id = useId()
   const { describedBy, helperContent } = useFeedbackIds(error, helperText)
@@ -100,6 +102,7 @@ export function FormField({
       autoFocus={autoFocus}
       sx={sx}
       slotProps={{
+        ...(startAdornment ? { input: { startAdornment } } : {}),
         htmlInput: {
           'aria-invalid': error ? true : undefined,
           'aria-describedby': describedBy,
@@ -133,6 +136,7 @@ interface FormSelectBaseProps {
   sx?: SxProps<Theme>
   hideLabel?: boolean
   displayEmpty?: boolean
+  emptyOptionDisabled?: boolean
 }
 
 interface SingleSelectProps extends FormSelectBaseProps {
@@ -190,7 +194,9 @@ export function FormSelect(props: FormSelectProps) {
       }}
     >
       {!multiple && props.emptyLabel !== undefined && (
-        <MenuItem value="">{props.emptyLabel}</MenuItem>
+        <MenuItem value="" disabled={props.emptyOptionDisabled ?? false}>
+          {props.emptyLabel}
+        </MenuItem>
       )}
       {props.options.map((option) => (
         <MenuItem key={option.value} value={option.value}>

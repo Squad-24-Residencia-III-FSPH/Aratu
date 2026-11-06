@@ -1,4 +1,5 @@
 import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material'
+import type { ReactNode } from 'react'
 import type { SxProps, Theme } from '@mui/material'
 
 export type StateFeedbackKind = 'loading' | 'empty' | 'error' | 'forbidden' | 'partial'
@@ -9,8 +10,13 @@ export interface StateFeedbackProps {
   description?: string
   actionLabel?: string
   onAction?: () => void
+  icon?: ReactNode
   centered?: boolean
   sx?: SxProps<Theme>
+  progressSize?: number
+  titleSx?: SxProps<Theme>
+  descriptionSx?: SxProps<Theme>
+  actionSx?: SxProps<Theme>
 }
 
 /** Feedback dos estados carregando, vazio, erro, acesso negado e parcial. */
@@ -20,8 +26,13 @@ export default function StateFeedback({
   description,
   actionLabel,
   onAction,
+  icon,
   centered = false,
   sx,
+  progressSize = 24,
+  titleSx,
+  descriptionSx,
+  actionSx,
 }: StateFeedbackProps) {
   const centeredAlertSx = {
     mb: 0,
@@ -47,7 +58,7 @@ export default function StateFeedback({
         aria-busy="true"
         sx={sx ?? { display: 'flex', alignItems: 'center', gap: 1.5, py: 4 }}
       >
-        <CircularProgress size={24} />
+        <CircularProgress size={progressSize} />
         <Typography>{title ?? 'Carregando veículos...'}</Typography>
       </Box>
     )
@@ -64,14 +75,17 @@ export default function StateFeedback({
   return (
     <Alert
       severity={severity}
+      icon={icon}
       sx={alertSx}
       action={onAction && actionLabel
-        ? <Button color="inherit" onClick={onAction} sx={{ minHeight: 44 }}>{actionLabel}</Button>
+        ? <Button color="inherit" onClick={onAction} sx={actionSx ?? { minHeight: 44 }}>{actionLabel}</Button>
         : undefined}
     >
-      {title ?? messages[kind]}
+      {title && titleSx
+        ? <Typography variant="subtitle1" sx={titleSx}>{title}</Typography>
+        : title ?? messages[kind]}
       {description && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
+        <Typography variant="body2" sx={descriptionSx ?? { mt: 0.5 }}>
           {description}
         </Typography>
       )}
