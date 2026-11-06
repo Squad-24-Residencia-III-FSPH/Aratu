@@ -1,0 +1,25 @@
+.page {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px 32px;
+  box-sizing: border-box;
+  color: #1e293b;
+}
+
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 0 8px 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 0 4px 20px;
+  }
+}

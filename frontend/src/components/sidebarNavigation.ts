@@ -1,6 +1,7 @@
 import { PROFILE_HOMES, PROFILE_PERMISSIONS_PATH } from '../auth/profiles.ts'
 import type { Profile } from '../auth/profiles.ts'
 import { VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
+import { DRIVERS_PATH } from '../drivers/driverAccess.ts'
 
 export type SidebarIconName =
   | 'home'
@@ -62,6 +63,7 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
       path: VEHICLES_PATH,
       profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'],
     },
+    { label: 'Motoristas', icon: 'drivers', behavior: 'link', path: DRIVERS_PATH },
     { label: 'Auditoria', icon: 'audit', behavior: 'static' },
     { label: 'Configurações', icon: 'settings', behavior: 'static' },
   ],
@@ -93,7 +95,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
           path: VEHICLES_PATH,
           profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'],
         },
-        { label: 'Motoristas', icon: 'drivers', behavior: 'button' },
+        { label: 'Motoristas', icon: 'drivers', behavior: 'link', path: DRIVERS_PATH, profiles: ['GESTOR'] },
         { label: 'Tipos de serviço', icon: 'requests', behavior: 'button' },
         { label: 'Manutenção', icon: 'maintenance', behavior: 'button' },
         { label: 'Abastecimento', icon: 'fuel', behavior: 'button' },
