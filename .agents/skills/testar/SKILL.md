@@ -3,7 +3,7 @@ name: testar
 description: >
   Executa e valida a bateria de testes funcionais, responsividade multi-dispositivo (monitores
   antigos 4:3 e 16:10, e celulares/tablets), acessibilidade WCAG 2.2 Nível AA e casos de borda de uma tarefa
-  do Sistema Aratu no navegador (React 19 em localhost:5173 operado via Playwright MCP ou /browser),
+  do Sistema Aratu, percorrendo o fluxo operacional em navegador real (React 19 em localhost:5173),
   na API REST (Express 5 em localhost:3000) e no PostgreSQL 18, auditando perfis RBAC,
   5 estados visuais, resiliência de entrada e dados 100% fictícios (LGPD).
   Use quando o usuário pedir /testar ou solicitar a verificação prática de uma funcionalidade.
@@ -13,7 +13,7 @@ license: MIT
 
 # Testar Tarefa no Ambiente Local — Sistema Aratu
 
-Obtém o contexto da tarefa (plano SDD em `docs/plans/` ou dados do Jira via `.agents/skills/buscar-tarefa/SKILL.md`), verifica a saúde dos containers Docker (`db`, `backend`, `frontend`), executa os cenários de teste de ponta a ponta, auditoria mandatória de **responsividade multi-dispositivo** (monitores legados 4:3 e 16:10, e dispositivos móveis/celulares) e casos de borda obrigatórios (interface React 19 em `http://localhost:5173` operada via **Playwright MCP** ou comando `/browser`, API Express 5 em `http://localhost:3000` e persistência no **PostgreSQL 18**), auditando rigorosamente os critérios de acessibilidade (**WCAG 2.2 Nível AA**) e controle de acesso (**RBAC**).
+Obtém o contexto da tarefa (plano SDD em `docs/plans/` ou dados do Jira via `.agents/skills/buscar-tarefa/SKILL.md`), verifica a saúde dos containers Docker (`db`, `backend`, `frontend`), executa os cenários de teste de ponta a ponta, auditoria mandatória de **responsividade multi-dispositivo** (monitores legados 4:3 e 16:10, e dispositivos móveis/celulares) e casos de borda obrigatórios (interface React 19 em `http://localhost:5173` operada com a ferramenta de navegador disponível, API Express 5 em `http://localhost:3000` e persistência no **PostgreSQL 18**), auditando rigorosamente os critérios de acessibilidade (**WCAG 2.2 Nível AA**) e controle de acesso (**RBAC**).
 
 ---
 
@@ -36,10 +36,11 @@ Obtém o contexto da tarefa (plano SDD em `docs/plans/` ou dados do Jira via `.a
 
 ### Passo 1 — Levantar Contexto, Plano SDD e Rodar Suíte Automatizada (`aratu-check.mjs`)
 
-1. Execute o verificador estático e a suíte de testes automatizados nativos (`node --test`):
+1. Execute o verificador estático (inclui tipos e testes frontend):
    ```bash
    node docs/scripts/aratu-check.mjs
    ```
+   O auditor não executa a suíte backend. Confira que o banco dedicado de testes é distinto do banco da aplicação antes de executar, na pasta `backend`, `npm run test:integration` e `npm test`. Cumpra também as repetições e verificações adicionais exigidas pelo SDD.
 2. Se existir plano técnico em `docs/plans/<nome-do-plano>.html`, leia as seções **2 (Requisitos)**, **5 (Contratos REST)**, **6 (Front-end e 5 Estados Visuais)**, **7 (Acessibilidade WCAG 2.2 AA)** e **9 (Casos de Teste)**.
 3. Caso não haja plano local e tenha sido informada uma chave do Jira, execute `.agents/skills/buscar-tarefa/SKILL.md`.
 
@@ -71,6 +72,7 @@ Se algum serviço estiver parado, avise o desenvolvedor antes de subir ou reinic
   4. `MOTORISTA` (Motorista)
   5. `OPERADOR_SVO` (Operador / Equipe SVO)
 - **Proteção de Dados (LGPD):** utilize exclusivamente dados fictícios e sintéticos ao preencher formulários durante a bateria de testes.
+- Confirme que a conta existe no ambiente acessado pelo navegador. Usuários de fixtures em `aratu_test` não são automaticamente contas da aplicação em `localhost:5173`. Use os nomes de perfil definidos no código e nas seeds atuais; não crie contas nem redefina senhas para contornar uma falha de acesso sem autorização.
 
 ---
 
@@ -84,17 +86,23 @@ Monte e execute a lista de cenários cobrindo:
 - **Controle de Acesso (RBAC):** teste o endpoint sem autenticação (`401 Unauthorized`) e autenticado com um perfil sem permissão para aquela rota (`403 Forbidden`).
 - **Concorrência / Idempotência (quando aplicável):** verifique que a repetição ou envio concorrente de uma alocação não duplica registros no PostgreSQL 18.
 
-#### 4.2 Validação na Interface Web React 19 (`http://localhost:5173`) com Playwright (MCP / Navegador)
-Quando a tarefa tiver impacto visual no frontend, a interação deve ser realizada no navegador real utilizando as ferramentas do **Playwright MCP** (configurado em `~/.gemini/config/mcp_config.json` e `.vscode/mcp.json` com `@playwright/mcp@latest`) ou pelo comando nativo `/browser`:
+#### 4.2 Validação na Interface Web React 19 (`http://localhost:5173`) em Navegador Real
+**Todo `/testar` deve verificar no navegador se o fluxo solicitado está disponível e, quando estiver, percorrê-lo pela interface até o resultado final.** A classificação da issue como backend/QA, um SDD que atribua a tela a outra tarefa ou a aprovação dos testes automatizados não dispensam essa verificação. Use Playwright MCP, `/browser` ou a ferramenta de navegador/computer use disponível na sessão, respeitando suas instruções.
+
+Requisições HTTP, `fetch` no console, testes com servidor em porta efêmera, inspeção do código e capturas de uma tela sem interação não comprovam um fluxo percorrido na interface. São evidências das respectivas camadas.
 
 1. **Abertura e Conexão no Navegador:**
-   - Navegue até `http://localhost:5173` (ou `http://127.0.0.1:5173`) utilizando a ferramenta do Playwright MCP (`browser_navigate`) ou o comando `/browser`.
-   - *Nota de ambiente:* Caso as ferramentas MCP não apareçam ativas na sessão corrente, oriente o desenvolvedor a recarregar a janela da IDE ou a digitar `/browser http://localhost:5173`.
+   - Navegue até `http://localhost:5173` (ou `http://127.0.0.1:5173`) e inspecione a tela e a navegação disponíveis com o perfil apropriado.
+   - Se Playwright MCP não estiver disponível, descubra e use outra ferramenta de navegador/computer use habilitada antes de pedir uma ação ao desenvolvedor. Se nenhuma permitir o ensaio, registre a limitação como pendência de UI.
+   - Se a tela, ação ou integração ainda não existir, registre a URL, o perfil e a evidência observada. Marque o fluxo como **⚠️ não executado/bloqueado**, indicando a dependência concreta. Continue os testes independentes de API/banco; não implemente a tela para contornar o bloqueio sem solicitação.
 2. **Inspeção de Console e Erros de Rede:**
-   - Monitore o console do navegador confirmando a ausência de exceções JavaScript não tratadas, avisos de hydration ou requisições HTTP quebradas (404/500).
+   - Monitore console e rede com as capacidades disponíveis. Registre exceções JavaScript não tratadas e requisições quebradas (404/500). Se a ferramenta não expuser console ou rede, marque essa inspeção como não conclusiva; não declare ausência de erros sem observação.
 3. **Exercício do Fluxo Operacional (RBAC):**
-   - Realize o login ou navegação com o perfil indicado para a tarefa (usando dados 100% fictícios conforme LGPD);
-   - Preencha formulários, acione filtros, paginações e submissões, observando a renderização dos componentes em tempo real.
+   - Realize login e navegação pelo menu com o perfil indicado, usando contas de desenvolvimento confirmadas e dados fictícios;
+   - Percorra as ações previstas na tarefa: preencher, validar entradas inválidas, salvar, consultar, filtrar, editar, confirmar/cancelar e encerrar, conforme aplicável. Acione os controles pela interface e confira os feedbacks; não substitua etapas visuais por chamadas diretas à API;
+   - Verifique o resultado final visível e recarregue/reabra o registro para comprovar persistência. Nas operações que mudam disponibilidade, confira também a situação do veículo antes, durante e após o fluxo;
+   - Para manutenções, quando a interface oferecer as ações: abrir preventiva/corretiva, conferir orçamento, testar impeditiva e bloqueio da viatura, consultar histórico/filtros, editar e encerrar com custo final, verificando a liberação correspondente;
+   - Registre por cenário o perfil, a URL, as ações efetivamente realizadas, o resultado esperado, o observado e a captura/DOM que demonstra o resultado. Comprove também a restrição visual com perfil sem permissão, sem presumir que o RBAC da API garante o comportamento da tela.
 4. **Verificação dos 5 Estados Visuais:**
    - Audite os estados: *Ideal*, *Carregando (`aria-busy="true"`)*, *Vazio*, *Erro* e *Parcial*.
 
@@ -171,11 +179,13 @@ docker compose exec db psql -U admin -d meubanco -c "SELECT id, status, created_
 
 Apresente o resultado de forma estruturada e transparente (cenários que não puderam ser executados devem ser marcados como ⚠️, nunca como ✅):
 
+**Regra de conclusão:** declare separadamente os resultados de testes automatizados, API/banco e fluxo no navegador. Só declare aprovação de ponta a ponta quando o caminho principal tiver sido percorrido na interface e seu resultado final observado. Se o navegador não foi usado ou o fluxo estiver indisponível, a conclusão deve ser “backend aprovado; validação no navegador pendente/bloqueada”, conforme os resultados reais. Responsividade e acessibilidade visual também exigem observação no navegador; não inferir conformidade a partir de testes backend. No resumo, diferencie testes únicos de repetições e subconjuntos para evitar dupla contagem.
+
 ```markdown
 ## Relatório de Testes — Sistema Aratu
 
 - **Tarefa / Branch:** `{identificador / branch}`
-- **Ambiente:** Frontend (`http://localhost:5173`) · Backend (`http://localhost:3000`) · DB (`PostgreSQL 18`) · Operação de UI: `Playwright MCP / /browser`
+- **Ambiente:** Frontend (`http://localhost:5173`) · Backend (`http://localhost:3000`) · DB (`PostgreSQL 18`) · Operação de UI: `{ferramenta realmente utilizada ou motivo da indisponibilidade}`
 - **Perfis RBAC Testados:** `{lista de perfis}`
 - **Data:** `{YYYY-MM-DD}`
 

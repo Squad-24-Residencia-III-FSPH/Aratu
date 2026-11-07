@@ -271,14 +271,15 @@ Idempotency-Key: 4a804230-53ea-49c4-b942-2b2bc7cdb662
 <hr>
 
 <h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
-<p><strong>Fora do escopo — FROTA-66, executada por outra pessoa.</strong> Nenhum arquivo de frontend será criado ou alterado. Os contratos da seção 5 são o ponto de integração, especialmente o novo ID retornado por PUT, o histórico de versões e os totais do filtro.</p>
+<p><strong>A implementação da tela de abastecimentos permanece fora do escopo — FROTA-66, executada por outra pessoa.</strong> Os contratos da seção 5 são o ponto de integração, especialmente o novo ID retornado por PUT, o histórico de versões e os totais do filtro. Os ajustes pontuais no componente de confirmação e no teste do menu, autorizados em 07/11/2026 durante a integração de develop, corrigem erros herdados e não implementam essa tela.</p>
+<p><strong>Atualização de validação em 07/11/2026:</strong> conforme a skill <code>testar</code>, todo <code>/testar</code> deve verificar no navegador se o fluxo de abastecimentos está disponível e percorrê-lo até o resultado final quando existir. A atribuição da tela à FROTA-66 não dispensa essa inspeção. Se a interface, a ação ou a integração estiver indisponível, registrar a evidência e a dependência como <strong>⚠️ não executado/bloqueado</strong>; continuar os testes independentes de API/banco sem criar a tela para contornar o impedimento.</p>
 <div class="table-scroll" tabindex="0" role="region" aria-label="Tabela do plano; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Estado da futura tela</th><th scope="col">Suporte da API nesta entrega</th></tr></thead><tbody><tr><td>Ideal</td><td>Dados tipados, versão vigente e totais consistentes.</td></tr><tr><td>Carregando</td><td>Responsabilidade de apresentação da FROTA-66; não há implementação de componentes aqui.</td></tr><tr><td>Vazio</td><td>200, items=[], total=0, totalPages=0, totalLiters="0.000", totalValue="0.00".</td></tr><tr><td>Erro</td><td>Status semântico e texto no campo erro, sem detalhes internos.</td></tr><tr><td>Parcial/intermitente</td><td>Mutações atômicas: sucesso completo ou rollback. Reenvio com a mesma chave resolve perda de resposta sem duplicar registro; apresentação fica na FROTA-66.</td></tr></tbody></table></div>
 
 <hr>
 
 <h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
 <p>Aplicável à API: mensagens claras em português, identificando campo/problema/próximo passo, sem depender de cor e sem expor termos SQL. Exemplos: “Informe uma quantidade de litros maior que zero.”; “A quilometragem informada ultrapassa a leitura posterior a este abastecimento. Revise a data ou a quilometragem.”; “Este abastecimento já foi corrigido. Consulte a versão atual antes de continuar.”</p>
-<p>A interface, useId, foco, teclado, anúncios e alvos de toque serão verificados na FROTA-66. Não registrar testes visuais como concluídos nesta entrega. Este documento usa idioma pt-BR, sumário navegável, cabeçalhos semânticos e tabelas com cabeçalhos identificados.</p>
+<p>A implementação da interface, useId, foco, teclado, anúncios e alvos de toque pertence à FROTA-66. Na execução de <code>/testar</code>, verificar no navegador a disponibilidade real do fluxo e, quando disponível, observar também responsividade e acessibilidade. Se não houver interface acessível para o ensaio, registrar a limitação e as evidências; não declarar testes visuais concluídos nem inferir conformidade a partir da API ou dos testes automatizados. Este documento usa idioma pt-BR, sumário navegável, cabeçalhos semânticos e tabelas com cabeçalhos identificados.</p>
 
 <hr>
 
@@ -298,14 +299,22 @@ Idempotency-Key: 4a804230-53ea-49c4-b942-2b2bc7cdb662
 <pre><code># Na pasta backend, durante a implementação:
 npm run test:db:setup
 npx tsx --test --test-concurrency=1 tests/fuelings.service.test.ts tests/fuelings.integration.test.ts tests/fueling-migrations.integration.test.ts
+npm run test:integration
 npm test
 npm run build
 
 # Na raiz, antes do PR:
 node docs/scripts/aratu-check.mjs</code></pre>
-<p>Roteiro manual de API: autenticar como Gestor, criar abastecimento fictício, consultar por período, corrigir km com evidência, abrir o ID anterior e o atual e verificar as trilhas; repetir tentativa com Motorista (403) e sem token (401). Nenhum roteiro de tela integra esta entrega.</p>
-<p><strong>Critério de conclusão:</strong> casos mínimos do Jira e cenários de histórico/concorrência passam; suite completa e build sem regressões; plano de consulta medido, sem alegar resultados não executados. Este SDD é planejamento: nenhum teste da futura API foi executado durante sua elaboração.</p>
-<h3>9.3 Ordem de implementação</h3>
+<p>Roteiro manual de API: autenticar como Gestor, criar abastecimento fictício, consultar por período, corrigir km com evidência, abrir o ID anterior e o atual e verificar as trilhas; repetir tentativa com Motorista (403) e sem token (401). Esse ensaio comprova a camada HTTP e a persistência. O roteiro do navegador é obrigatório conforme a seção 9.3 e deve ter evidências próprias.</p>
+<p><code>aratu-check.mjs</code> verifica critérios estáticos, tipos e testes frontend; não executa a suíte backend. Confirmar que <code>DATABASE_URL_TEST</code> aponta para o banco dedicado antes de executar os comandos backend. Conferir também se os volumes dos serviços Docker correspondem à worktree avaliada: serviços montados em outra pasta não comprovam esta implementação. Servidor em porta efêmera, <code>fetch</code>, HTTP e inspeção de código devem ser relatados nas camadas em que foram executados.</p>
+<p><strong>Critério de conclusão:</strong> declarar separadamente testes automatizados, API/banco e fluxo no navegador. Para aprovação do backend, os casos mínimos do Jira e cenários de histórico/concorrência devem passar, com suíte completa e build sem regressões e evidências reais da medição de consultas. Só declarar aprovação de ponta a ponta após percorrer o caminho principal pela interface e observar seu resultado final. Sem ensaio visual ou com fluxo indisponível, usar a conclusão <strong>“backend aprovado; validação no navegador pendente/bloqueada”</strong>, conforme os resultados reais. Distinguir testes únicos, subconjuntos e repetições no resumo. Os resultados históricos de validação permanecem nos relatórios; esta atualização de orientação não declara um novo ensaio executado.</p>
+<h3>9.3 Verificação obrigatória do fluxo no navegador</h3>
+<ol><li>Abrir <code>http://localhost:5173</code> com a ferramenta de navegador/computer use habilitada, usando conta de desenvolvimento confirmada de GESTOR ou ADMINISTRADOR. Fixtures em <code>aratu_test</code> não são automaticamente contas da aplicação. Não criar contas nem redefinir senhas para contornar falha de acesso sem autorização.</li>
+<li>Inspecionar a navegação e a disponibilidade da tela, das ações e da integração de abastecimentos. Registrar perfil, URL, ações realizadas, resultado esperado e observado e captura/DOM que demonstra o resultado. Se faltar acesso, tela ou ação, registrar a dependência concreta e a pendência; não substituir a inspeção por uma chamada à API.</li>
+<li>Quando o fluxo existir, percorrer pela interface: validar entradas inválidas, cadastrar dados fictícios, consultar e filtrar, retificar com justificativa/evidência, conferir versão antiga e atual e reabrir/recarregar o registro para comprovar persistência. Verificar também a restrição visual com perfil sem permissão, sem inferi-la do RBAC da API.</li>
+<li>Observar os cinco estados visuais previstos, teclado/foco, rótulos, anúncios, contraste, alvos e responsividade nas dimensões da skill <code>testar</code>, conforme as ações efetivamente disponíveis. Monitorar console e rede quando a ferramenta permitir; se não expuser essas informações, registrar a inspeção como não conclusiva.</li>
+<li>Se nenhuma ferramenta de navegador permitir o ensaio, registrar essa limitação como pendência de UI e continuar apenas os testes independentes. Uma captura sem interação, um teste automatizado ou um servidor em porta efêmera não comprovam o fluxo percorrido na interface.</li></ol>
+<h3>9.4 Ordem de implementação</h3>
 <ol><li>Conferir develop atualizada e preparar a branch sem transportar alterações de outras tarefas.</li><li>Implementar complemento de migração e seus testes de preservação/rollback.</li><li>Definir types e repository com projeções, histórico, linha do tempo e idempotência.</li><li>Implementar Service e testes de regras/atomicidade.</li><li>Implementar controller/router e registrar em app.ts.</li><li>Executar a matriz de integração da FROTA-65, corrigir regressões e medir SQL.</li><li>Documentar o contrato para a pessoa responsável pela FROTA-66, revisar o diff e preparar PR para develop.</li></ol>
 
 <hr>
@@ -313,7 +322,7 @@ node docs/scripts/aratu-check.mjs</code></pre>
 <h2 id="s10">10. Checklist Pré-PR</h2>
 <ul class="check">
 <li>☐ Branch derivada de develop atualizada; PR para develop, com escopo FROTA-64 e FROTA-65.</li>
-<li>☐ Commits Conventional Commits; nenhuma alteração em frontend ou outras tarefas.</li>
+<li>☐ Commits Conventional Commits; alterações fora da API limitadas aos ajustes de integração expressamente autorizados, sem implementar a tela FROTA-66.</li>
 <li>☐ Autorização nos quatro endpoints conforme decisão confirmada.</li>
 <li>☐ Regra cronológica confirmada documentada no PR e coberta por teste retroativo.</li>
 <li>☐ Toda mutação preserva fato original, leitura, autor, motivo, evidência e antes/depois.</li>
@@ -321,17 +330,19 @@ node docs/scripts/aratu-check.mjs</code></pre>
 <li>☐ Migração aditiva e down recusada após uso operacional; sem remoção de histórico.</li>
 <li>☐ TypeScript estrito, zero any; TSDoc semântico em português nos métodos públicos.</li>
 <li>☐ Queries parametrizadas, projeções explícitas, conexões liberadas e medição de SQL.</li>
-<li>☐ npm test, npm run build e pré-auditoria executados; evidências registradas.</li>
+<li>☐ Integração backend, npm test, npm run build e pré-auditoria executados no ambiente correto; evidências registradas e repetições identificadas.</li>
+<li>☐ Disponibilidade do fluxo verificada no navegador; caminho principal percorrido e resultado final observado quando disponível, ou impedimento concreto registrado com perfil/URL/evidência.</li>
+<li>☐ Resultados de automatizados, API/banco e navegador apresentados separadamente; nenhuma aprovação de ponta a ponta ou de acessibilidade visual sem ensaio correspondente.</li>
 <li>☐ Mensagens acessíveis em português; testes e documentos sem dados pessoais reais.</li>
 <li>☐ Documentação FROTA atualizada, incluindo novo ID do PUT e histórico completo.</li>
-</ul><p>Planejar commits revisáveis por camada, sem adicionar refatoração em massa. Verificações de frontend não se aplicam ao diff desta entrega.</p>
+</ul><p>Planejar commits revisáveis por camada, sem adicionar refatoração em massa. A implementação da tela FROTA-66 permanece separada; a execução de <code>/testar</code> deve cumprir a inspeção de disponibilidade e os critérios de evidência do navegador descritos neste plano.</p>
 
 <hr>
 
 <h2 id="s11">11. Atualização da Documentação do Módulo</h2>
 <p><strong>Impacta o módulo FROTA.</strong> O arquivo docs/modulos/FROTA.html não existia na base inspecionada. Na implementação, criá-lo a partir de docs/modulos/EXEMPLO_MODULO.html e complementar docs/manuais/modulos.md com a API de abastecimentos.</p>
 <p>Documentar os quatro contratos, DTOs, precisão decimal, filtros/totais, mensagens, matriz de perfis, idempotência, sequência cronológica, complemento de schema e rollback. Descrever o PUT como retificação que devolve novo ID; registrar consulta de versões antigas, antes/depois, autoria, justificativa, evidência e snapshots.</p>
-<p>Registrar as decisões confirmadas e a divergência refinada do texto antigo do Jira. Documentar o protocolo de lock comum para futuros escritores de hodômetro. Indicar expressamente que a interface e sua validação de acessibilidade pertencem à FROTA-66; não apresentá-la como implementada.</p>
+<p>Registrar as decisões confirmadas e a divergência refinada do texto antigo do Jira. Documentar o protocolo de lock comum para futuros escritores de hodômetro. Indicar expressamente que a implementação da interface pertence à FROTA-66 e relatar separadamente a disponibilidade e o resultado de qualquer ensaio no navegador, incluindo pendências concretas. Não apresentar a tela como implementada nem sua acessibilidade como validada sem observação.</p>
 
 <hr>
 
