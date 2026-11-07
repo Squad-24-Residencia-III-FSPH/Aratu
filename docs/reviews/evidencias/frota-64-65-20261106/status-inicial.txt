@@ -1,0 +1,17 @@
+ M backend/src/app.ts
+ M backend/tests/database.integration.test.ts
+ M docs/manuais/modulos.md
+?? backend/src/controllers/fuelings.controller.ts
+?? backend/src/database/migrations/202611050001_extend_fuelings.down.sql
+?? backend/src/database/migrations/202611050001_extend_fuelings.sql
+?? backend/src/repositories/fuelings.repository.ts
+?? backend/src/routes/fuelings.routes.ts
+?? backend/src/services/fuelings.service.ts
+?? backend/src/types/fueling.types.ts
+?? backend/tests/fueling-migrations.integration.test.ts
+?? backend/tests/fuelings.integration.test.ts
+?? backend/tests/fuelings.service.test.ts
+?? docs/modulos/FROTA.html
+?? docs/plans/frota-64-api-abastecimentos-testes.html
+?? docs/reviews/frota-64-api-de-abastecimentos.html
+?? docs/reviews/frota-65-testes-de-abastecimentos.html

@@ -1,0 +1,296 @@
+ Container aratu-backend-run-2b4299844897 Creating 
+ Container aratu-backend-run-2b4299844897 Created 
+
+> backend@1.0.0 test
+> tsx --test --test-concurrency=1 tests/**/*.test.ts
+
+✔ T01: AuditService e createRecordAudit normalizam campos, higienizam senhas e repassam ao repositório (206.235676ms)
+✔ T02: AuditService rejeita tabela ou operação em branco sem acionar o repositório (1.431938ms)
+✔ T03: AuditRepository executa INSERT parametrizado via Pool ou PoolClient transacional e projeta camelCase (0.846131ms)
+✔ UsersRepository consulta a tabela padronizada auth.users com projeção explícita (0.469347ms)
+✔ T04 e T05: Rotas /auth/login e /auth/logout gravam trilha completa em audit.logs sem expor senhas (690.598375ms)
+✔ bcrypt cria hash e diferencia a senha correta de uma incorreta (567.645468ms)
+✔ hash de senha vazia não é criado e hash ausente não autentica (0.885379ms)
+✔ configuração JWT exige segredo e usa oito horas por padrão (1.198226ms)
+✔ login normaliza e-mail, valida bcrypt e emite JWT com id e perfil (188.398285ms)
+✔ login não diferencia usuário inexistente de senha incorreta; conta inativa não recebe token (369.173536ms)
+✔ POST /auth/login mantém contrato do frontend e mensagens de erro definidas (724.985862ms)
+✔ GET /profiles exige JWT de ADMINISTRADOR e retorna os perfis permitidos (21.159482ms)
+✔ logout protegido rejeita token ausente/inválido e aceita token válido (213.035227ms)
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+✔ IT01: conecta ao PostgreSQL 18 e confirma a versão do banco de testes (533.223872ms)
+✔ IT02: aplica as migrações RBAC e cria tabelas e colunas esperadas (180.386041ms)
+✔ IT03: seed RBAC é idempotente e aplica as permissões iniciais (356.614912ms)
+✔ IT04: RolesRepository lista perfis e recupera permissões por perfil (121.164342ms)
+✔ IT05: UsersRepository encontra usuário por e-mail sem perder o perfil (128.775645ms)
+✔ IT06: findById retorna somente a projeção pública de usuário (127.184953ms)
+✔ IT07: list filtra por perfil, status e termo sem expor hashes (143.81525ms)
+✔ IT08: create normaliza e-mail e respeita a unicidade case-insensitive (132.669536ms)
+✔ IT09: update altera somente os campos informados e incrementa a revisão (172.807162ms)
+✔ IT10: transação revertida não persiste usuário (114.237722ms)
+✔ IT11: rollback restaura as invariantes da coluna role legada (303.362091ms)
+✔ IT12: evolução de fleet.vehicles e unicidade case-insensitive da placa (FROTA-42) (147.632289ms)
+✔ IT13: tabela fleet.drivers e fleet.driver_events append-only (FROTA-48) (235.600505ms)
+✔ IT14: tabelas fleet.services e fleet.vehicle_services (FROTA-165) (211.295ms)
+✔ IT15: seed inicial da frota (seedInitialFleet) é idempotente (384.32414ms)
+✔ IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restauram o estado e permitem reaplicar (1149.891685ms)
+✔ IT17: criação de trip.requests, exigência de justificativa na rejeição e imutabilidade de trip.request_events (FROTA-77) (204.775788ms)
+✔ IT18: criação de trip.trips, bloqueio de período invertido, km regressivo e duplicidade de viagem IN_PROGRESS (FROTA-93) (232.49191ms)
+✔ IT19: preservação histórica bi-temporal, retificação de hodômetro (supersedes_id), parada cancelada sem DELETE e snapshots da época (282.879114ms)
+✔ IT20: consulta de conflito de agenda por período usando os índices de trip.trips (240.480938ms)
+✔ IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e reaplicação limpa (1203.364871ms)
+✔ IT22: criação de svo.occurrences, exigência de motivo no cancelamento, consistência de triagem e imutabilidade de svo.occurrence_events (FROTA-110) (203.376623ms)
+✔ IT23: criação de svo.teams, svo.team_members, unicidade de nome/vínculo, preservação de histórico de saída e seed idempotente (FROTA-168) (419.896825ms)
+✔ IT24: criação de svo.execution_orders, bloqueio de segunda ordem para mesma solicitação, exigência de failure_reason em NOT_PERFORMED e validação de hodômetro/período (FROTA-114) (488.120341ms)
+✔ IT25: preservação histórica no SVO: snapshots da época, retificação de hodômetro (supersedes_id), reabertura excepcional e imutabilidade de svo.execution_order_events (421.717439ms)
+✔ IT26: rollbacks (.down.sql) das migrations 202610280008, 202610280007 e 202610280006 e reaplicação limpa (792.835054ms)
+✔ IT27: criação de fleet.maintenance_orders, bloqueio de custo negativo/datas invertidas/cancelamento sem motivo e imutabilidade de fleet.maintenance_order_events (FROTA-58) (196.140295ms)
+✔ IT28: criação de fleet.fuelings, validação de litros/valor/km, retificação encadeada (52.000 km -> 51.200 km), integração com trip.odometer_readings e imutabilidade de fleet.fueling_events (FROTA-63) (255.541408ms)
+✔ IT29: criação de fleet.vehicle_documents, bloqueio de vencimento anterior à emissão, renovação encadeada e imutabilidade de fleet.vehicle_document_events (FROTA-68) (185.690117ms)
+✔ IT30: criação de fleet.fines, identificação posterior de motorista/viagem, preservação dos snapshots da época e imutabilidade de fleet.fine_events (FROTA-72) (238.045045ms)
+✔ IT31: rollbacks (.down.sql) das migrations 202610280012, 202610280011, 202610280010 e 202610280009 e reaplicação limpa (530.953236ms)
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+✔ QA19: migração aplica em base sem abastecimentos e runner reexecuta sem duplicar (620.825358ms)
+✔ QA19: migração e down sem uso operacional preservam legado byte a byte e campos desconhecidos (501.866299ms)
+✔ QA19: ramificação legada bloqueia a migração atomicamente, sem perder registros (547.681936ms)
+✔ QA19: down após gravação pela API é recusada e conserva schema e histórico (633.351682ms)
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+✔ QA01: gestor e administrador registram fato, leitura, evento e auditoria com autoria segura (699.595345ms)
+✔ QA02/05/17: entradas inválidas não alteram fatos nem trilhas (530.761743ms)
+✔ QA02/06: precisão decimal, limites exatos, filtros AND e totais de todas as páginas (737.095124ms)
+✔ QA03/04/15: retroativo respeita anterior, posterior e igualdade sem usar a leitura atual como mínimo (602.643217ms)
+✔ QA05: data futura é 422 em criação e correção; datas equivalentes produzem replay (617.355105ms)
+✔ QA06/20: consultas rejeitam filtros repetidos, formas inválidas e identificadores malformados (507.494735ms)
+✔ QA07: os quatro endpoints autorizam somente gestor/administrador antes de revelar registros (445.779362ms)
+✔ QA08/09: duas retificações preservam bytes originais, snapshots, eventos e totais vigentes (604.532452ms)
+✔ QA10/17: revisão obsoleta, alvo substituído, troca de veículo e metadados ausentes são recusados (581.726179ms)
+✔ QA11: replay POST/PUT continua devolvendo a versão original após correções posteriores (541.942445ms)
+✔ QA10/11: POST e PUT simultâneos repetidos gravam uma única cadeia; correções diferentes conflitam (634.966707ms)
+✔ QA11: mesma chave em veículos distintos é resolvida pelo índice único por autor após rollback (439.898884ms)
+Erro interno na API: Error: Falha fictícia de auditoria QA
+    at Object.create (/app/tests/fuelings.integration.test.ts:145:64)
+    at AuditService.recordAudit (/app/src/services/audit.service.ts:97:28)
+    at FuelingsService.record (/app/src/services/fuelings.service.ts:271:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async VehiclesRepository.withTransaction (/app/src/repositories/vehicles.repository.ts:35:22)
+    at async FuelingsService.mutate (/app/src/services/fuelings.service.ts:221:14)
+    at async respond (/app/src/controllers/fuelings.controller.ts:11:33)
+Erro interno na API: Error: Falha fictícia de auditoria QA
+    at Object.create (/app/tests/fuelings.integration.test.ts:145:64)
+    at AuditService.recordAudit (/app/src/services/audit.service.ts:97:28)
+    at FuelingsService.record (/app/src/services/fuelings.service.ts:271:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async VehiclesRepository.withTransaction (/app/src/repositories/vehicles.repository.ts:35:22)
+    at async FuelingsService.mutate (/app/src/services/fuelings.service.ts:221:14)
+    at async respond (/app/src/controllers/fuelings.controller.ts:11:33)
+✔ QA12: falha de auditoria em POST e PUT reverte todas as trilhas e permite reenvio (599.589861ms)
+Erro interno na API: error: Falha fictícia QA
+    at /app/node_modules/pg/lib/client.js:694:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async FuelingsRepository.insertReading (/app/src/repositories/fuelings.repository.ts:239:5)
+    at async FuelingsService.record (/app/src/services/fuelings.service.ts:269:5)
+    at async VehiclesRepository.withTransaction (/app/src/repositories/vehicles.repository.ts:35:22)
+    at async FuelingsService.mutate (/app/src/services/fuelings.service.ts:221:14)
+    at async respond (/app/src/controllers/fuelings.controller.ts:11:33) {
+  length: 133,
+  severity: 'ERROR',
+  code: 'P0001',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: 'PL/pgSQL function fail_fueling_qa() line 2 at RAISE',
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pl_exec.c',
+  line: '3909',
+  routine: 'exec_stmt_raise'
+}
+Erro interno na API: error: Falha fictícia QA
+    at /app/node_modules/pg/lib/client.js:694:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async FuelingsRepository.insertReading (/app/src/repositories/fuelings.repository.ts:239:5)
+    at async FuelingsService.record (/app/src/services/fuelings.service.ts:269:5)
+    at async VehiclesRepository.withTransaction (/app/src/repositories/vehicles.repository.ts:35:22)
+    at async FuelingsService.mutate (/app/src/services/fuelings.service.ts:221:14)
+    at async respond (/app/src/controllers/fuelings.controller.ts:11:33) {
+  length: 133,
+  severity: 'ERROR',
+  code: 'P0001',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: 'PL/pgSQL function fail_fueling_qa() line 2 at RAISE',
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pl_exec.c',
+  line: '3909',
+  routine: 'exec_stmt_raise'
+}
+Erro interno na API: error: Falha fictícia QA
+    at /app/node_modules/pg/lib/client.js:694:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async FuelingsRepository.insertEvent (/app/src/repositories/fuelings.repository.ts:250:5)
+    at async FuelingsService.record (/app/src/services/fuelings.service.ts:270:5)
+    at async VehiclesRepository.withTransaction (/app/src/repositories/vehicles.repository.ts:35:22)
+    at async FuelingsService.mutate (/app/src/services/fuelings.service.ts:221:14)
+    at async respond (/app/src/controllers/fuelings.controller.ts:11:33) {
+  length: 133,
+  severity: 'ERROR',
+  code: 'P0001',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: 'PL/pgSQL function fail_fueling_qa() line 2 at RAISE',
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pl_exec.c',
+  line: '3909',
+  routine: 'exec_stmt_raise'
+}
+Erro interno na API: error: Falha fictícia QA
+    at /app/node_modules/pg/lib/client.js:694:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async FuelingsRepository.insertEvent (/app/src/repositories/fuelings.repository.ts:250:5)
+    at async FuelingsService.record (/app/src/services/fuelings.service.ts:270:5)
+    at async VehiclesRepository.withTransaction (/app/src/repositories/vehicles.repository.ts:35:22)
+    at async FuelingsService.mutate (/app/src/services/fuelings.service.ts:221:14)
+    at async respond (/app/src/controllers/fuelings.controller.ts:11:33) {
+  length: 133,
+  severity: 'ERROR',
+  code: 'P0001',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: 'PL/pgSQL function fail_fueling_qa() line 2 at RAISE',
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pl_exec.c',
+  line: '3909',
+  routine: 'exec_stmt_raise'
+}
+✔ QA12: falha de leitura ou evento reverte inclusive a versão recém-inserida (771.525816ms)
+✔ QA13: escritor de viagem com a mesma trava faz a API reler limites depois de esperar (1557.34253ms)
+✔ QA14: legado mantém null, contribui para cronologia e sua correção inicia leitura sem inventar passado (513.807005ms)
+✔ QA14: viagens legadas usam instantes reais e trilha START/END é autoritativa mesmo anulada (829.787053ms)
+✔ QA15/16: limites unilaterais, mesmo instante e anulações não ressuscitam predecessores (495.039579ms)
+✔ QA14/16: leituras corrigidas substituem valores antigos e correções do próprio fato não se bloqueiam (444.833248ms)
+✔ QA14: histórico inconsistente gera conflito e não é reparado silenciosamente (401.931393ms)
+✔ QA18: fatos, eventos e leituras são imutáveis inclusive por SQL direto (455.247532ms)
+✔ QA05: relógio injetado aceita o instante exato e recusa um milissegundo à frente (425.905131ms)
+✔ QA13: cadastros concorrentes com leituras incompatíveis aceitam somente um fato (417.584866ms)
+✔ QA08/17: mudança de motorista captura somente novo vínculo e aceita comprovante HTTP(S) sem descrição (433.560752ms)
+✔ QA14: ciclos legados de abastecimentos e leituras são diagnosticados sem ocultar ou reparar fatos (499.900298ms)
+✔ QA14: vínculos legados entre veículos diferentes impedem a mutação afetada (407.843906ms)
+✔ R1: retificar só o posto preserva microssegundos do fato, da leitura e do evento (418.748044ms)
+✔ R2: cronologia, ordenação e período distinguem microssegundos anteriores, iguais e posteriores (512.181036ms)
+✔ R3: currentId segue a sucessora legada mesmo quando sua revisão é menor (386.808355ms)
+✔ service valida o domínio sem HTTP e só consulta a cronologia depois da trava (6.984176ms)
+✔ relógio controlado distingue data futura do instante permitido (1.811348ms)
+✔ limites contraditórios ou sem instante geram conflito de histórico e preservam o ledger (1.218477ms)
+✔ fronteiras unilaterais e igualdade no mesmo instante são respeitadas (3.047849ms)
+✔ replay normalizado não abre nova transação e recusa conteúdo diferente (1.906406ms)
+✔ falha de leitura ou evento interrompe a unidade de trabalho antes de auditar (0.724902ms)
+✔ valores/formas inválidas falham antes de qualquer escrita (2.847485ms)
+✔ microssegundos preservam offsets, precisão máxima e o limite futuro do relógio (0.996488ms)
+✔ cronologia anterior a 1970 preserva a fração sem inverter os limites (0.756684ms)
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+✔ IT-RBAC-01: ADMINISTRADOR obtém sucesso ao listar os perfis RBAC em GET /profiles (511.678303ms)
+✔ IT-RBAC-02: ADMINISTRADOR recebe 403 Forbidden ao acessar endpoint exclusivo de MOTORISTA (352.053607ms)
+✔ IT-RBAC-03: GESTOR obtém sucesso ao acessar rota autorizada para seu perfil (338.199632ms)
+✔ IT-RBAC-04: GESTOR recebe 403 Forbidden ao tentar acessar rota exclusiva de ADMINISTRADOR (332.335108ms)
+✔ IT-RBAC-05: SOLICITANTE obtém sucesso ao acessar rota autorizada para seu perfil (323.572711ms)
+✔ IT-RBAC-06: SOLICITANTE recebe 403 Forbidden ao tentar acessar rota exclusiva de ADMINISTRADOR (331.290436ms)
+✔ IT-RBAC-07: MOTORISTA obtém sucesso ao acessar rota autorizada para seu perfil (347.713033ms)
+✔ IT-RBAC-08: MOTORISTA recebe 403 Forbidden ao tentar acessar rota exclusiva de ADMINISTRADOR (333.239393ms)
+✔ IT-RBAC-09: ATENDENTE_SVO obtém sucesso ao acessar rota autorizada para seu perfil (340.592617ms)
+✔ IT-RBAC-10: ATENDENTE_SVO recebe 403 Forbidden ao tentar acessar rota exclusiva de ADMINISTRADOR (329.490062ms)
+✔ IT-RBAC-11: EQUIPE_SVO obtém sucesso ao acessar rota autorizada para seu perfil (321.578205ms)
+✔ IT-RBAC-12: EQUIPE_SVO recebe 403 Forbidden ao tentar acessar rota exclusiva de ADMINISTRADOR (324.88119ms)
+✔ IT-RBAC-13: Todos os 6 perfis RBAC realizam logout com sucesso em POST /auth/logout (363.222643ms)
+✔ IT-RBAC-14: Requisição sem cabeçalho Authorization é rejeitada com 401 Unauthorized (322.304801ms)
+✔ IT-RBAC-15: Requisição com token JWT expirado é rejeitada com 401 Unauthorized (322.593942ms)
+✔ IT-RBAC-16: Requisição com token adulterado, forjado ou com perfil desconhecido é rejeitada com 401 (329.686751ms)
+✔ IT-RBAC-17: Todos os 6 perfis realizam login válido via POST /auth/login e recebem credenciais e tokens legítimos (1567.769642ms)
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+✔ IT-USERS-01: cadastro válido retorna 201 sem credenciais e registra auditoria (726.109101ms)
+✔ IT-USERS-02: e-mail duplicado retorna 409 e payload inválido retorna 400 (540.122658ms)
+✔ IT-USERS-03: listagem filtra por nome, perfil e situação com envelope paginado (337.863463ms)
+✔ IT-USERS-04: detalhe retorna 200 para existente e 404 para inexistente (328.587921ms)
+✔ IT-USERS-05: edição atualiza dados, mas rejeita revisão antiga e e-mail duplicado (362.924764ms)
+✔ IT-USERS-06: inativação bloqueia login, reativação libera e autoinativação falha (761.465884ms)
+✔ IT-USERS-07: /users exige autenticação e perfil ADMINISTRADOR e não expõe DELETE (329.888229ms)
+✔ IT-USERS-08: alterações registram UPDATE e STATUS_CHANGE na auditoria (344.627523ms)
+✔ US-SVC-01: criação válida normaliza e-mail, cria conta ativa e audita CREATE (224.107119ms)
+✔ US-SVC-02: e-mail duplicado retorna 409 e campos inválidos retornam 400 (221.564677ms)
+✔ US-SVC-03: edição incrementa revisão e audita UPDATE, mas rejeita revisão antiga (2.581092ms)
+✔ US-SVC-04: autoinativação é bloqueada e inativação/reativação são idempotentes (2.041394ms)
+✔ US-SVC-05: listagem valida perfil, situação e paginação e repassa filtros (1.33135ms)
+✔ US-SVC-06: detalhe rejeita identificador inválido e usuário inexistente (1.130634ms)
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+✔ IT-VEH-01: cadastro válido cria veículo disponível com histórico e auditoria (543.441385ms)
+✔ IT-VEH-02: placas fora do formato antigo ou Mercosul retornam 400 (324.312261ms)
+✔ IT-VEH-03: placa duplicada mesmo em minúsculas retorna 409 (340.059778ms)
+✔ IT-VEH-04: detalhe inexistente retorna 404 e identificador malformado retorna 400 (327.124748ms)
+✔ IT-VEH-05: listagem filtra por situação, categoria e operação e rejeita filtro inválido (416.378665ms)
+✔ IT-VEH-06: edição válida atualiza dados, revision, histórico e auditoria (353.590945ms)
+✔ IT-VEH-07: edição com revision antiga retorna 409 (354.692384ms)
+✔ IT-VEH-08: transições permitidas, transição proibida e idempotência do PATCH (387.734012ms)
+✔ IT-VEH-09: RBAC restringe leitura e escrita conforme os perfis (376.144843ms)
+✔ IT-VEH-10: edições concorrentes com a mesma revision resultam em 200 e 409 (366.546536ms)
+✔ IT-VEH-11: falha do ator inativado faz rollback do cadastro e da auditoria (370.384581ms)
+✔ rotas reais de veículos permitem e negam leitura e escrita conforme os papéis configurados (228.797326ms)
+✔ cadastro normaliza a placa e grava histórico e auditoria com estado AVAILABLE (2.187443ms)
+✔ placa inválida e duplicada retornam erros de domínio 400 e 409 (1.375749ms)
+✔ transições bloqueiam inativo para manutenção e disponibilidade respeita os três estados (1.454646ms)
+✔ normaliza campos descritivos (brand, model, year, vehicleType, ownership) e rejeita ano inválido (0.810241ms)
+ℹ tests 133
+ℹ suites 0
+ℹ pass 133
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57720.963184
+npm notice
+npm notice New major version of npm available! 11.19.1 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice

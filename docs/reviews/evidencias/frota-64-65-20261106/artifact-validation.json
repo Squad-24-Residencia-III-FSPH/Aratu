@@ -1,0 +1,11 @@
+{
+  "report": "C:\\Users\\obrcr\\.codex\\worktrees\\frota-64-65-abastecimentos\\Aratu\\docs\\reviews\\frota-64-65-validacao-independente.html",
+  "validLocalLinksAndAnchors": 77,
+  "qaGroups": 20,
+  "independentProbes": 8,
+  "tablesWithAccessibleHeaders": true,
+  "scrollRegionsFocusable": 3,
+  "preexistingFilesUnchanged": 117,
+  "checks": "PASSOU",
+  "limits": "Verificação estrutural do HTML; sem alegação de inspeção visual da futura tela."
+}
