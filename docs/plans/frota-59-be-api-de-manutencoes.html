@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-59 — [BE] API de manutenções (registro preventiva/corretiva e histórico) (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  @media (max-width: 650px) { body { padding: 12px; } table { display: block; overflow-x: auto; } code { overflow-wrap: anywhere; } }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-59: [BE] API de manutenções (registro preventiva/corretiva e histórico)</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-59</code> — [BE] API de manutenções (registro preventiva/corretiva e histórico)</p>
+  <p><strong>Branch de entrega (Gitflow):</strong> <code>feat/be-api-de-manutencoes</code> — API, QA e integração autorizada de 59/61 reunidos no commit <code>d887de7</code>; destino do futuro PR: <code>develop</code>.</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>MANUTENCOES</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data original:</strong> 03/11/2026 · <strong>Consolidação:</strong> 05/11/2026 · <strong>Situação:</strong> implementado e verificado nos limites documentados; revisão final/PR pendentes.</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p>Permitir a GESTOR e ADMINISTRADOR registrar, consultar, editar e encerrar manutenções preventivas/corretivas, conhecendo o que a oficina orçou, o que executou e quanto a frota gastou. A FROTA-59 entrega API, migração, regras e testes unitários; a FROTA-61 entrega cobertura de integração/QA. A ligação da tela recebida na FROTA-60 foi incluída expressamente pelo usuário em 05/11/2026.</p>
+<p>Escopo executado: cinco endpoints, orçamento e execução separados, previsão civil, hodômetro livre, revisão otimista, autoria/histórico, impedimento de veículo e integração React real com menu/rota. Sem catálogo de periodicidade, alertas por peça, novas permissões, endpoints de cancelamento ou implementação da futura API de início de viagem. A migração de vínculos veículo/serviço da FROTA-54 é independente e não integra este commit.</p>
+<p>Referências: <a href="./frota-61-qa-testes-de-manutencoes.html">SDD FROTA-61</a>, <a href="../modulos/MANUTENCOES.html">módulo MANUTENCOES</a> e <a href="../reviews/frota-59-61-integracao-interface.html">verificação da integração</a>.</p>
+<h3 id="base-develop">Base recebida da develop e situação consolidada</h3>
+<p>Em 05/11/2026, o pull com avanço direto registrado passou de <code>79c5949</code> para <code>bf592b8</code>, incorporando 13 commits, inclusive o merge do PR #50. O inventário abaixo foi conferido no histórico com <code>git diff --name-status 79c5949 bf592b8</code>: 29 arquivos alterados. Esta é a base recebida naquela atualização; a consolidação documental não executou outro pull nem afirma que o remoto permaneça nesse ponto.</p>
+<p>A atualização trouxe a navegação, o fluxo de veículos integrado à API, sete componentes UI compartilhados e o arquivo demonstrativo de manutenção. Na base recebida, Manutenção ainda era um botão sem destino e a página não era montada; seus dados e gravações eram locais. O usuário autorizou incluir a integração ao concluir FROTA-59 e FROTA-61. O commit <code>d887de7</code> registra a API, os testes e essa integração posterior, mantendo os cinco endpoints e seus contratos.</p>
+<details><summary>Inventário completo dos arquivos recebidos da develop</summary>
+<table><thead><tr><th scope="col">Situação no pull</th><th scope="col">Arquivo</th><th scope="col">Relação com esta entrega</th></tr></thead><tbody>
+<tr><td>Adicionado</td><td><a href="../../docs/reviews/frota-35-fe-criar-interface-para-atribuicao-de-perfil.html"><code>docs/reviews/frota-35-fe-criar-interface-para-atribuicao-de-perfil.html</code></a></td><td>Revisão recebida como contexto; não substitui a verificação desta integração.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../docs/reviews/frota-46-fe-criar-interface-de-cadastro-e-consulta-de-veiculos.html"><code>docs/reviews/frota-46-fe-criar-interface-de-cadastro-e-consulta-de-veiculos.html</code></a></td><td>Revisão recebida como contexto; não substitui a verificação desta integração.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../docs/reviews/sidebar-veiculos-sidebar-e-telas-de-veiculos-e-manutencao.html"><code>docs/reviews/sidebar-veiculos-sidebar-e-telas-de-veiculos-e-manutencao.html</code></a></td><td>Revisão recebida como contexto; não substitui a verificação desta integração.</td></tr>
+<tr><td>Modificado</td><td><a href="../../frontend/src/App.tsx"><code>frontend/src/App.tsx</code></a></td><td>Navegação recebida com veículos; extensão posterior para manutenção.</td></tr>
+<tr><td>Modificado</td><td><a href="../../frontend/src/components/Sidebar.tsx"><code>frontend/src/components/Sidebar.tsx</code></a></td><td>Estrutura visual compartilhada recebida e preservada.</td></tr>
+<tr><td>Modificado</td><td><a href="../../frontend/src/components/Topbar.tsx"><code>frontend/src/components/Topbar.tsx</code></a></td><td>Estrutura visual compartilhada recebida e preservada.</td></tr>
+<tr><td>Modificado</td><td><a href="../../frontend/src/components/layout.tsx"><code>frontend/src/components/layout.tsx</code></a></td><td>Estrutura visual compartilhada recebida e preservada.</td></tr>
+<tr><td>Modificado</td><td><a href="../../frontend/src/components/sidebarNavigation.ts"><code>frontend/src/components/sidebarNavigation.ts</code></a></td><td>Navegação recebida com veículos; extensão posterior para manutenção.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/components/ui/ConfirmDialog.tsx"><code>frontend/src/components/ui/ConfirmDialog.tsx</code></a></td><td>Componente compartilhado recebido e reutilizado pela manutenção.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/components/ui/DataTable.tsx"><code>frontend/src/components/ui/DataTable.tsx</code></a></td><td>Componente compartilhado recebido e reutilizado pela manutenção.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/components/ui/FilterBar.tsx"><code>frontend/src/components/ui/FilterBar.tsx</code></a></td><td>Componente compartilhado recebido e reutilizado pela manutenção.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/components/ui/FormField.tsx"><code>frontend/src/components/ui/FormField.tsx</code></a></td><td>Componente compartilhado recebido e reutilizado pela manutenção.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/components/ui/PageHeader.tsx"><code>frontend/src/components/ui/PageHeader.tsx</code></a></td><td>Componente compartilhado recebido e reutilizado pela manutenção.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/components/ui/StateFeedback.tsx"><code>frontend/src/components/ui/StateFeedback.tsx</code></a></td><td>Componente compartilhado recebido e reutilizado pela manutenção.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/components/ui/StatusChip.tsx"><code>frontend/src/components/ui/StatusChip.tsx</code></a></td><td>Componente compartilhado recebido e reutilizado pela manutenção.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/pages/ManuPage/ManutencaoPage.tsx"><code>frontend/src/pages/ManuPage/ManutencaoPage.tsx</code></a></td><td>Tela demonstrativa recebida; depois integrada à API nesta entrega.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/pages/vehiclesPage/VehicleFormDialog.tsx"><code>frontend/src/pages/vehiclesPage/VehicleFormDialog.tsx</code></a></td><td>Fluxo real de veículos recebido e preservado; serviço e tipos reutilizados.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/pages/vehiclesPage/VehicleStatusDialog.tsx"><code>frontend/src/pages/vehiclesPage/VehicleStatusDialog.tsx</code></a></td><td>Fluxo real de veículos recebido e preservado; serviço e tipos reutilizados.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/pages/vehiclesPage/VehiclesPage.tsx"><code>frontend/src/pages/vehiclesPage/VehiclesPage.tsx</code></a></td><td>Fluxo real de veículos recebido e preservado; serviço e tipos reutilizados.</td></tr>
+<tr><td>Modificado</td><td><a href="../../frontend/src/routing/routeDecision.ts"><code>frontend/src/routing/routeDecision.ts</code></a></td><td>Navegação recebida com veículos; extensão posterior para manutenção.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/services/vehiclesService.ts"><code>frontend/src/services/vehiclesService.ts</code></a></td><td>Fluxo real de veículos recebido e preservado; serviço e tipos reutilizados.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/vehicles/vehicleAccess.ts"><code>frontend/src/vehicles/vehicleAccess.ts</code></a></td><td>Fluxo real de veículos recebido e preservado; serviço e tipos reutilizados.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/vehicles/vehicleForm.ts"><code>frontend/src/vehicles/vehicleForm.ts</code></a></td><td>Fluxo real de veículos recebido e preservado; serviço e tipos reutilizados.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/src/vehicles/vehicleTypes.ts"><code>frontend/src/vehicles/vehicleTypes.ts</code></a></td><td>Fluxo real de veículos recebido e preservado; serviço e tipos reutilizados.</td></tr>
+<tr><td>Modificado</td><td><a href="../../frontend/tests/routing.test.mjs"><code>frontend/tests/routing.test.mjs</code></a></td><td>Cobertura de veículos/navegação recebida; testes de manutenção acrescentados depois.</td></tr>
+<tr><td>Modificado</td><td><a href="../../frontend/tests/sidebarNavigation.test.mjs"><code>frontend/tests/sidebarNavigation.test.mjs</code></a></td><td>Cobertura de veículos/navegação recebida; testes de manutenção acrescentados depois.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/tests/vehicleForm.test.mjs"><code>frontend/tests/vehicleForm.test.mjs</code></a></td><td>Cobertura de veículos/navegação recebida; testes de manutenção acrescentados depois.</td></tr>
+<tr><td>Adicionado</td><td><a href="../../frontend/tests/vehiclesService.test.mjs"><code>frontend/tests/vehiclesService.test.mjs</code></a></td><td>Cobertura de veículos/navegação recebida; testes de manutenção acrescentados depois.</td></tr>
+<tr><td>Removido</td><td><code>package-lock.json</code></td><td>Remoção na raiz recebida da develop; não foi produzida pela manutenção.</td></tr>
+</tbody></table>
+</details>
+<details><summary>Inventário completo dos 36 arquivos da implementação d887de7</summary><table><thead><tr><th scope="col">Situação na entrega</th><th scope="col">Arquivo</th></tr></thead><tbody>
+<tr><td>Alterado</td><td><a href="../../backend/src/app.ts"><code>backend/src/app.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../backend/src/controllers/maintenance-orders.controller.ts"><code>backend/src/controllers/maintenance-orders.controller.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../backend/src/database/migrations/202611030002_extend_maintenance_orders.down.sql"><code>backend/src/database/migrations/202611030002_extend_maintenance_orders.down.sql</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../backend/src/database/migrations/202611030002_extend_maintenance_orders.sql"><code>backend/src/database/migrations/202611030002_extend_maintenance_orders.sql</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../backend/src/repositories/maintenance-orders.repository.ts"><code>backend/src/repositories/maintenance-orders.repository.ts</code></a></td></tr>
+<tr><td>Alterado</td><td><a href="../../backend/src/repositories/vehicles.repository.ts"><code>backend/src/repositories/vehicles.repository.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../backend/src/routes/maintenance-orders.routes.ts"><code>backend/src/routes/maintenance-orders.routes.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../backend/src/services/maintenance-orders.service.ts"><code>backend/src/services/maintenance-orders.service.ts</code></a></td></tr>
+<tr><td>Alterado</td><td><a href="../../backend/src/services/vehicles.service.ts"><code>backend/src/services/vehicles.service.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../backend/src/types/maintenance.types.ts"><code>backend/src/types/maintenance.types.ts</code></a></td></tr>
+<tr><td>Alterado</td><td><a href="../../backend/tests/database.integration.test.ts"><code>backend/tests/database.integration.test.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../backend/tests/maintenance-migrations.integration.test.ts"><code>backend/tests/maintenance-migrations.integration.test.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../backend/tests/maintenance-orders.integration.test.ts"><code>backend/tests/maintenance-orders.integration.test.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../backend/tests/maintenance-orders.service.test.ts"><code>backend/tests/maintenance-orders.service.test.ts</code></a></td></tr>
+<tr><td>Alterado</td><td><a href="../../backend/tests/vehicles.service.test.ts"><code>backend/tests/vehicles.service.test.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../docs/modulos/MANUTENCOES.html"><code>docs/modulos/MANUTENCOES.html</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../docs/plans/frota-59-be-api-de-manutencoes.html"><code>docs/plans/frota-59-be-api-de-manutencoes.html</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../docs/plans/frota-61-qa-testes-de-manutencoes.html"><code>docs/plans/frota-61-qa-testes-de-manutencoes.html</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../docs/reviews/frota-59-61-integracao-interface.html"><code>docs/reviews/frota-59-61-integracao-interface.html</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../docs/reviews/frota-59-be-api-de-manutencoes.html"><code>docs/reviews/frota-59-be-api-de-manutencoes.html</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../docs/reviews/frota-61-qa-testes-de-manutencoes.html"><code>docs/reviews/frota-61-qa-testes-de-manutencoes.html</code></a></td></tr>
+<tr><td>Alterado</td><td><a href="../../frontend/src/App.tsx"><code>frontend/src/App.tsx</code></a></td></tr>
+<tr><td>Alterado</td><td><a href="../../frontend/src/components/sidebarNavigation.ts"><code>frontend/src/components/sidebarNavigation.ts</code></a></td></tr>
+<tr><td>Alterado</td><td><a href="../../frontend/src/components/ui/FormField.tsx"><code>frontend/src/components/ui/FormField.tsx</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../frontend/src/hooks/useMaintenance.ts"><code>frontend/src/hooks/useMaintenance.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../frontend/src/maintenance/maintenanceForm.ts"><code>frontend/src/maintenance/maintenanceForm.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../frontend/src/maintenance/maintenanceTypes.ts"><code>frontend/src/maintenance/maintenanceTypes.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../frontend/src/pages/ManuPage/MaintenanceDetailDialog.tsx"><code>frontend/src/pages/ManuPage/MaintenanceDetailDialog.tsx</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../frontend/src/pages/ManuPage/MaintenanceFormDialog.tsx"><code>frontend/src/pages/ManuPage/MaintenanceFormDialog.tsx</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../frontend/src/pages/ManuPage/MaintenanceItems.tsx"><code>frontend/src/pages/ManuPage/MaintenanceItems.tsx</code></a></td></tr>
+<tr><td>Alterado</td><td><a href="../../frontend/src/pages/ManuPage/ManutencaoPage.tsx"><code>frontend/src/pages/ManuPage/ManutencaoPage.tsx</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../frontend/src/pages/ManuPage/maintenanceStyles.ts"><code>frontend/src/pages/ManuPage/maintenanceStyles.ts</code></a></td></tr>
+<tr><td>Alterado</td><td><a href="../../frontend/src/routing/routeDecision.ts"><code>frontend/src/routing/routeDecision.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../frontend/src/services/maintenanceService.ts"><code>frontend/src/services/maintenanceService.ts</code></a></td></tr>
+<tr><td>Novo</td><td><a href="../../frontend/tests/maintenance.test.mjs"><code>frontend/tests/maintenance.test.mjs</code></a></td></tr>
+<tr><td>Alterado</td><td><a href="../../frontend/tests/sidebarNavigation.test.mjs"><code>frontend/tests/sidebarNavigation.test.mjs</code></a></td></tr>
+</tbody></table></details>
+<p>As alterações locais anteriores foram preservadas no pull, conforme a conferência registrada pelo usuário. A FROTA-54, o ajuste da skill testar e o manual de padrões têm alterações locais independentes e ficaram fora de <code>d887de7</code>. No arquivo compartilhado <code>backend/tests/database.integration.test.ts</code>, o commit inclui somente as adaptações de manutenção; os trechos da FROTA-54 continuam locais.</p>
+
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<table><thead><tr><th scope="col">Condição</th><th scope="col">Ação e resultado esperado</th></tr></thead><tbody>
+<tr><td>Veículo disponível e sem viagem em andamento</td><td>Abrir uma ordem impeditiva muda a situação para IN_MAINTENANCE. Uma não impeditiva preserva a situação.</td></tr>
+<tr><td>Viagem IN_PROGRESS ou veículo INACTIVE</td><td>Rejeitar abertura impeditiva com 422 quando há viagem em andamento, inativação ou manutenção manual prévia sem OS correspondente. Uma segunda ordem impeditiva ativa para a mesma viatura retorna 409, inclusive se as requisições forem simultâneas. Impedimento manual preexistente não pertence à nova ordem.</td></tr>
+<tr><td>Edição de ordem OPEN ou IN_PROGRESS</td><td>Manter o vínculo com o veículo. A previsão, quando informada, deve ser igual ou posterior à data local de entrada. O fechamento não pode anteceder a abertura. Alterar descrição, previsão, oficina, tipo, km, orçamento ou caráter impeditivo sob revisão. Ativar o impedimento exige as mesmas verificações da abertura. Ao retirá-lo, aplicar a mesma regra de liberação do encerramento.</td></tr>
+<tr><td>Peça, fluido ou serviço</td><td>Peças têm descrição, quantidade positiva e preço unitário não negativo. Serviços têm descrição e valor não negativo. Usar BRL e aritmética decimal exata. Arredondar cada subtotal de peça ao centavo (metade para cima), depois somar peças e serviços.</td></tr>
+<tr><td>Troca a 11.700, 12.000 ou 12.400 km</td><td>Aceitar o item escolhido nos três casos. Quando informado, o hodômetro exige inteiro não negativo. O exemplo do filtro não gera regra de periodicidade.</td></tr>
+<tr><td>Encerramento de ordem ativa</td><td>Confirmar os itens orçados ou enviar a relação executada completa. Calcular o custo final no servidor, preservar o orçamento, gravar DONE e liberar o bloqueio da ordem. Preservar INACTIVE se já houve inativação independente. Ordem sem impedimento não libera veículo.</td></tr>
+<tr><td>Ordem encerrada ou cancelada</td><td>GET continua disponível. PUT ou novo encerramento com efeito divergente retorna 409, sem alterar o registro. Reenvio não duplica eventos. O escopo público contém cinco rotas.</td></tr>
+</tbody></table>
+<p><strong>Aceite da integração autorizada:</strong> dado o perfil gestor/administrador, ao abrir Manutenção, deve carregar registros reais; ao salvar/editar/encerrar, deve refletir a persistência após recarga. Dada revisão vencida, recusar a alteração sem sobrescrever a vencedora e oferecer recarga. Dado custo desconhecido, não apresentá-lo como zero. Dado perfil sem acesso, ocultar o atalho e redirecionar a tentativa de rota. Os efeitos críticos de impedimento e custo continuam no backend.</p>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<p>Inventário do comportamento entregue em d887de7, distinguindo artefatos próprios e arquivos recebidos/reutilizados. O inventário completo do pull está na seção 1.</p>
+<h3>Backend e migração</h3>
+<table><thead><tr><th scope="col">Arquivo</th><th scope="col">Responsabilidade</th></tr></thead><tbody>
+<tr><td><a href="../../backend/src/types/maintenance.types.ts"><code>backend/src/types/maintenance.types.ts</code></a></td><td>Novo na entrega: ordens, itens, filtros, DTOs, revisões e erros; BIGINT como string.</td></tr>
+<tr><td><a href="../../backend/src/routes/maintenance-orders.routes.ts"><code>backend/src/routes/maintenance-orders.routes.ts</code></a></td><td>Novo: cinco rotas com JWT e autorização GESTOR/ADMINISTRADOR.</td></tr>
+<tr><td><a href="../../backend/src/controllers/maintenance-orders.controller.ts"><code>backend/src/controllers/maintenance-orders.controller.ts</code></a></td><td>Novo: borda HTTP, leitura de payload/query/chave e tradução de erros.</td></tr>
+<tr><td><a href="../../backend/src/services/maintenance-orders.service.ts"><code>backend/src/services/maintenance-orders.service.ts</code></a></td><td>Novo: validações, aritmética decimal exata, orçamento/execução, idempotência, revisão e transação com auditoria.</td></tr>
+<tr><td><a href="../../backend/src/repositories/maintenance-orders.repository.ts"><code>backend/src/repositories/maintenance-orders.repository.ts</code></a></td><td>Novo: persistência, eventos, viagens em andamento, filtros e gasto na mesma fotografia do banco.</td></tr>
+<tr><td><a href="../../backend/src/repositories/vehicles.repository.ts"><code>backend/src/repositories/vehicles.repository.ts</code></a></td><td>Alterado: consulta de impedimentos ativos sob a trava da viatura e filtro de disponíveis.</td></tr>
+<tr><td><a href="../../backend/src/services/vehicles.service.ts"><code>backend/src/services/vehicles.service.ts</code></a></td><td>Alterado: operação de situação participante da transação da OS; proteção de liberação manual e disponibilidade.</td></tr>
+<tr><td><a href="../../backend/src/app.ts"><code>backend/src/app.ts</code></a></td><td>Alterado: monta router e injeta repositórios, VehiclesService e AuditService.</td></tr>
+<tr><td><a href="../../backend/src/database/migrations/202611030002_extend_maintenance_orders.sql"><code>backend/src/database/migrations/202611030002_extend_maintenance_orders.sql</code></a></td><td>Novo: previsão, orçamento, execução, chave e índices; rejeita impeditivas legadas duplicadas.</td></tr>
+<tr><td><a href="../../backend/src/database/migrations/202611030002_extend_maintenance_orders.down.sql"><code>backend/src/database/migrations/202611030002_extend_maintenance_orders.down.sql</code></a></td><td>Novo: reversão transacional protegida contra perda de dados/eventos.</td></tr>
+</tbody></table>
+<h3>Frontend criado na integração</h3>
+<table><thead><tr><th scope="col">Arquivo</th><th scope="col">Responsabilidade</th></tr></thead><tbody>
+<tr><td><a href="../../frontend/src/maintenance/maintenanceTypes.ts"><code>frontend/src/maintenance/maintenanceTypes.ts</code></a></td><td>Contratos da API, enums, rótulos, acesso por perfil, datas e apresentação monetária sem converter desconhecido em zero.</td></tr>
+<tr><td><a href="../../frontend/src/maintenance/maintenanceForm.ts"><code>frontend/src/maintenance/maintenanceForm.ts</code></a></td><td>Normalização de vírgula decimal para strings canônicas; validação da entrada e erros associados aos campos.</td></tr>
+<tr><td><a href="../../frontend/src/services/maintenanceService.ts"><code>frontend/src/services/maintenanceService.ts</code></a></td><td>GET da lista/detalhe, POST, PUT e PATCH de encerramento; leitura tipada, erros HTTP, filtros e Idempotency-Key.</td></tr>
+<tr><td><a href="../../frontend/src/hooks/useMaintenance.ts"><code>frontend/src/hooks/useMaintenance.ts</code></a></td><td>Ciclo assíncrono de ordens e veículos, descarte de respostas antigas, detalhe, recarga e falha parcial.</td></tr>
+<tr><td><a href="../../frontend/src/pages/ManuPage/MaintenanceFormDialog.tsx"><code>frontend/src/pages/ManuPage/MaintenanceFormDialog.tsx</code></a></td><td>Abertura/edição sob revisão, orçamento, origem e justificativa; chave estável nas tentativas do mesmo conteúdo.</td></tr>
+<tr><td><a href="../../frontend/src/pages/ManuPage/MaintenanceDetailDialog.tsx"><code>frontend/src/pages/ManuPage/MaintenanceDetailDialog.tsx</code></a></td><td>Detalhe, consulta de ordens terminais, execução separada, confirmação do encerramento e recuperação de conflito.</td></tr>
+<tr><td><a href="../../frontend/src/pages/ManuPage/MaintenanceItems.tsx"><code>frontend/src/pages/ManuPage/MaintenanceItems.tsx</code></a></td><td>Editor compartilhado de peças/serviços para orçamento e execução e leitura dos subtotais retornados pela API.</td></tr>
+<tr><td><a href="../../frontend/src/pages/ManuPage/maintenanceStyles.ts"><code>frontend/src/pages/ManuPage/maintenanceStyles.ts</code></a></td><td>Contraste com tokens do tema, foco visível e alvos mínimos de 44px na manutenção.</td></tr>
+</tbody></table>
+<h3>Frontend recebido e depois alterado</h3>
+<table><thead><tr><th scope="col">Arquivo</th><th scope="col">Integração realizada</th></tr></thead><tbody>
+<tr><td><a href="../../frontend/src/App.tsx"><code>frontend/src/App.tsx</code></a></td><td>Recebido da develop; passou a montar MaintenancePage no ramo protegido.</td></tr>
+<tr><td><a href="../../frontend/src/routing/routeDecision.ts"><code>frontend/src/routing/routeDecision.ts</code></a></td><td>Recebido da develop; resolve /maintenance-orders para GESTOR/ADMINISTRADOR e redireciona os demais perfis.</td></tr>
+<tr><td><a href="../../frontend/src/components/sidebarNavigation.ts"><code>frontend/src/components/sidebarNavigation.ts</code></a></td><td>Recebido da develop; Manutenção virou link nos menus de gestor/administrador, filtrado pelos mesmos perfis.</td></tr>
+<tr><td><a href="../../frontend/src/components/ui/FormField.tsx"><code>frontend/src/components/ui/FormField.tsx</code></a></td><td>Recebido da develop; extensão compatível da prop type com datetime-local, mantendo IDs e associações acessíveis.</td></tr>
+<tr><td><a href="../../frontend/src/pages/ManuPage/ManutencaoPage.tsx"><code>frontend/src/pages/ManuPage/ManutencaoPage.tsx</code></a></td><td>Arquivo recebido e integrado; remove demonstrações, lista fixa de veículos e gravações em memória. O componente exportado usa o nome MaintenancePage.</td></tr>
+</tbody></table>
+<h3>Testes coordenados com a FROTA-61</h3>
+<table><thead><tr><th scope="col">Arquivo</th><th scope="col">Cobertura/ajuste</th></tr></thead><tbody>
+<tr><td><a href="../../backend/tests/maintenance-orders.service.test.ts"><code>backend/tests/maintenance-orders.service.test.ts</code></a></td><td>12 testes unitários do domínio, cálculo exato, idempotência, disponibilidade e falha de auditoria.</td></tr>
+<tr><td><a href="../../backend/tests/maintenance-orders.integration.test.ts"><code>backend/tests/maintenance-orders.integration.test.ts</code></a></td><td>11 cenários IT-MNT-01 a 11 com HTTP real e PostgreSQL, incluindo concorrência e RBAC nas cinco rotas.</td></tr>
+<tr><td><a href="../../backend/tests/maintenance-migrations.integration.test.ts"><code>backend/tests/maintenance-migrations.integration.test.ts</code></a></td><td>Quatro cenários IT-MIG-MNT-01 a 04: legado up/down/up, duplicidade impeditiva e recusa de perda de orçamento/eventos.</td></tr>
+<tr><td><a href="../../backend/tests/database.integration.test.ts"><code>backend/tests/database.integration.test.ts</code></a></td><td>Adaptações nos rollbacks existentes para desfazer primeiro a extensão de manutenção e conferir as quatro colunas restauradas.</td></tr>
+<tr><td><a href="../../backend/tests/vehicles.service.test.ts"><code>backend/tests/vehicles.service.test.ts</code></a></td><td>Contrato simulado atualizado para hasActiveMaintenanceBlock.</td></tr>
+<tr><td><a href="../../frontend/tests/maintenance.test.mjs"><code>frontend/tests/maintenance.test.mjs</code></a></td><td>Cinco testes de comportamento: rota/menu por perfil, decimal localizado, soma independente da lista, contratos de gravação e rejeição de conflitos/respostas inválidas.</td></tr>
+<tr><td><a href="../../frontend/tests/sidebarNavigation.test.mjs"><code>frontend/tests/sidebarNavigation.test.mjs</code></a></td><td>Expectativas do menu administrativo e operacional ajustadas para o link protegido de manutenção.</td></tr>
+</tbody></table><p>Arquivos já recebidos e apenas reutilizados: Sidebar.tsx, Topbar.tsx, layout.tsx, os demais seis componentes UI, vehiclesService.ts e vehicleTypes.ts. Não foram recriados nesta entrega. Planos, módulo e três relatórios de 59/61 completam os 36 arquivos registrados no commit.</p>
+
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p>A migração implementada é <code>202611030002_extend_maintenance_orders.sql</code>, com o correspondente <code>.down.sql</code>. Manter fleet.maintenance_orders, fleet.maintenance_order_events e seus índices de histórico. Cada conjunto de itens é um documento da oficina lido integralmente com a ordem. Dois arrays preservam as versões orçada e executada. Cada evento guarda o estado anterior e posterior completo. O valor final continua em cost NUMERIC(12,2).</p><pre><code>BEGIN;
+ALTER TABLE fleet.maintenance_orders
+  ADD COLUMN expected_completion_date date,
+  ADD COLUMN estimate_items jsonb CHECK (jsonb_typeof(estimate_items) = 'array'),
+  ADD COLUMN actual_items jsonb CHECK (jsonb_typeof(actual_items) = 'array'),
+  ADD COLUMN creation_key uuid;
+CREATE UNIQUE INDEX fleet_maintenance_orders_creation_key
+  ON fleet.maintenance_orders (created_by, creation_key)
+  WHERE creation_key IS NOT NULL;
+CREATE UNIQUE INDEX fleet_maintenance_orders_one_active_block
+  ON fleet.maintenance_orders (vehicle_id)
+  WHERE blocks_vehicle AND status IN ('OPEN', 'IN_PROGRESS');
+COMMIT;</code></pre><p>Antes do DDL, agrupar as ordens impeditivas ativas por vehicle_id e interromper a migração se houver contagem maior que um. Encaminhar as ordens conflitantes ao gestor para regularização auditada. Sem preenchimento retroativo de peças, previsão ou chaves. NULL significa detalhamento desconhecido, [] significa relação confirmada sem itens. Manter valores antigos consultáveis, inclusive custo único de ordem legada e DONE sem valor conhecido. Para ordens novas, cost permanece nulo até o fechamento.</p><p>Rollback da aplicação após uso: retornar a versão anterior e preservar as colunas, eventos e dados. O arquivo .down.sql deve abortar se houver dados novos ou se o retorno comprometer registros operacionais. Em base vazia ou comprovadamente compatível, remover os dois índices e as quatro colunas em uma transação. Nunca remover as tabelas da FROTA-58. Ensaiar up/down/up e a recusa do rollback destrutivo em banco de teste.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<table><thead><tr><th scope="col">Rota</th><th scope="col">Entrada, saída e efeito</th></tr></thead><tbody>
+<tr><td>POST /maintenance-orders</td><td>201 e ordem persistida. Cabeçalho Idempotency-Key UUID por autor. Corpo com vehicleId, type, description, blocksVehicle, reportedBy e reason. Opcionais openedAt (padrão: instante do registro), workshop, odometerKm, expectedCompletionDate e estimateItems.</td></tr>
+<tr><td>GET /maintenance-orders/:id</td><td>200 com veículo da época, oficina, datas, status, revisão, orçamento discriminado, subtotais, total estimado, itens executados e custo final. Para legado, devolver também o cost registrado sem inventar discriminação.</td></tr>
+<tr><td>PUT /maintenance-orders/:id</td><td>200 com a ordem revisada. Receber os campos editáveis da seção 2, expectedRevision, reportedBy e reason. Preservar a data de abertura, o veículo e a autoria original. Gravar UPDATED.</td></tr>
+<tr><td>PATCH /maintenance-orders/:id/close</td><td>200 com a ordem encerrada. Receber expectedRevision, reportedBy, reason e opcional closedAt. Exigir exatamente uma alternativa: confirmEstimate=true se houver orçamento ou actualItems com as linhas executadas, inclusive [] para serviço gratuito sem itens. Se o cliente enviar cost para conferência, exigir valor não negativo e igualdade com o total calculado. Divergência retorna 400.</td></tr>
+<tr><td>GET /maintenance-orders</td><td>200 { items, totalSpent }. Consultas opcionais vehicleId, type, status, from e to (instantes ISO com fuso, intervalo [from,to)). A lista usa opened_at e ordena por opened_at DESC, id DESC. Total usa closed_at das ordens DONE e os mesmos filtros de veículo/tipo/situação. Assim, uma ordem aberta antes do período pode contribuir só para o total. Com status OPEN o total gasto é zero.</td></tr>
+</tbody></table><p>Exemplo de estimateItems ou actualItems. Usar strings decimais canônicas para valores em BRL (duas casas), quantidades de peças com até três casas e subtotais monetários de saída com duas casas. Validar escala, finitude, limite do total em NUMERIC(12,2) e intervalo coerente antes de gravar. Não confiar em subtotal recebido.</p><pre><code>[
+  {"kind":"PART","description":"Filtro de teste","quantity":"2","unitPrice":"18.75"},
+  {"kind":"LABOR","description":"Instalação de teste","amount":"40.00"}
+]</code></pre><p>Orçamento do exemplo: R$ 77,50. Se apenas um filtro for instalado, o encerramento com itens ajustados gera R$ 58,75. O detalhe devolve estimateItems, estimatedTotal, actualItems, finalCost e os subtotais por linha. totalSpent soma valores finais conhecidos, sem adicionar orçamento ou tratar um valor individual desconhecido como gratuito. Lista vazia é []. Usar consultas parametrizadas ($1, $2…), projeções explícitas e uma única fotografia do banco para lista e soma.</p><p>Transação: adquirir a trava de fleet.vehicles por ID em ordem consistente antes da trava da OS, conferir expectedRevision na alteração e consultar trip.trips para o veículo com status IN_PROGRESS. A aplicação que inicia viagens precisa adquirir a mesma trava e revalidar disponibilidade. Ao abrir, editar ou encerrar, gravar a OS, evento OPENED/UPDATED/CLOSED, snapshot do veículo e audit.logs pelo mesmo PoolClient. A mudança de situação reaproveita a máquina de estados e os históricos de VehiclesService, sem abrir outra transação. Proteger também PATCH /vehicles/:id/status contra liberação manual enquanto houver impeditiva ativa. Ao encerrar ou remover o impedimento, atualizar primeiro a ordem e depois liberar a viatura, dentro da mesma transação.</p><p>Idempotência: na abertura, verificar a chave inclusive após esperar pela trava. Comparar a requisição normalizada com o snapshot imutável OPENED, não com a ordem editada. Repetição igual devolve o mesmo ID. Reutilização com outro conteúdo retorna 409. Tratar colisão de índice após rollback, inclusive entre veículos diferentes. Na edição/encerramento, revisão antiga retorna 409 sem novo evento. Ler a chave no evento de abertura junto com o payload original normalizado, inclusive a distinção entre openedAt omitido e informado. Registrar occurred_at (data do fato), registered_at, autor autenticado, actor_snapshot, reported_by, reason e evidência de origem. Nunca aceitar registered_by do corpo.</p><p>Erros JSON no campo erro: 400 para tipo ausente ou inválido, valor negativo, quantidade inválida, período invertido ou payload inconsistente. 401 sem autenticação válida, 403 para perfil sem acesso, 404 para ordem ou veículo inexistente, 409 para colisão ou revisão obsoleta, 422 para viagem em andamento ou transição incompatível. Falha de auditoria reverte toda a operação.</p>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p><strong>Escopo consolidado:</strong> a FROTA-60 forneceu o arquivo visual recebido da develop. A integração dessa tela passou a fazer parte da entrega conjunta 59/61 por autorização explícita em 05/11/2026. A atribuição anterior de toda a integração/validação visual exclusivamente à FROTA-60 foi substituída por esta definição.</p>
+<ol>
+<li><strong>Acessar:</strong> o menu Manutenção abre <code>/#/maintenance-orders</code> para GESTOR e ADMINISTRADOR. A montagem passa por App e resolveRoute; os demais perfis não recebem o atalho e voltam à própria área se tentarem o endereço.</li>
+<li><strong>Consultar:</strong> useMaintenance consulta a lista, o detalhe e os veículos reais. Filtros aplicados: veículo, tipo, situação e instantes de início/fim. O início é incluído e o fim excluído. Os controles de data/hora usam o horário local do dispositivo e enviam ISO com fuso.</li>
+<li><strong>Separar períodos:</strong> a lista considera a abertura; o gasto considera o encerramento, inclusive de ordens abertas antes do intervalo. A soma vem de totalSpent da API; orçamento não compõe gasto. Os cartões de contagem usam as entradas listadas no período. A lista vazia pode coexistir com gasto não nulo.</li>
+<li><strong>Registrar:</strong> selecionar o veículo real, tipo, descrição, caráter impeditivo e informar origem/justificativa. Oficina, hodômetro, previsão, entrada e orçamento são opcionais conforme contrato. A entrada em branco usa o instante do registro. Não há catálogo de periodicidade nem peças inventadas.</li>
+<li><strong>Editar:</strong> carregar o detalhe atual, preservar veículo, abertura e autor original, enviar expectedRevision. Permitir alterações dos campos editáveis e do orçamento. Em 409, mostrar o motivo e oferecer Recarregar ordem, mantendo a revisão vencedora no banco.</li>
+<li><strong>Encerrar:</strong> confirmar orçamento integral ou informar relação completa executada. Relação vazia representa gratuidade explicitamente confirmada. ConfirmDialog cita a OS, a viatura e o efeito sobre o impedimento. Orçamento permanece separado da execução; custo final e disponibilidade são calculados/validados pelo backend.</li>
+<li><strong>Preservar:</strong> ordens DONE/CANCELED ficam disponíveis para leitura. IDs continuam strings. Valores desconhecidos são apresentados como não informados; zero aparece como R$ 0,00. Datas civis não sofrem deslocamento de fuso; instantes são apresentados em America/Sao_Paulo.</li>
+</ol>
+<p>O serviço maintenanceService concentra HTTP e validação de resposta. useMaintenance concentra efeitos e ignora respostas de filtros/seleções anteriores. Formulários impedem submissão concorrente; a abertura mantém Idempotency-Key em novas tentativas do mesmo conteúdo. Valores de peças/serviços aceitam vírgula na entrada e são enviados como strings decimais; não há cálculo financeiro em ponto flutuante no frontend.</p>
+<p>Reuso efetivo da develop: FormField, FormSelect (exportado pelo mesmo arquivo), DataTable, FilterBar, PageHeader, StatusChip, StateFeedback e ConfirmDialog. O serviço listVehicles e o tipo Vehicle também são reutilizados. Sidebar, Topbar e layout existentes são preservados; não foram introduzidos AppShell, StatCard ou EntityCard inexistentes nesta base.</p>
+<table><thead><tr><th scope="col">Estado</th><th scope="col">Comportamento implementado</th></tr></thead><tbody>
+<tr><td>Ideal</td><td>Ordens persistidas, situação textual, orçamento/custo final separados e ação individualizada de consulta.</td></tr>
+<tr><td>Carregando</td><td>StateFeedback com mensagem de manutenções, role=status e aria-busy; tabela/cartões sinalizam atualização.</td></tr>
+<tr><td>Vazio</td><td>Mensagem específica de ausência para os filtros, sem apagar o gasto calculado pela API.</td></tr>
+<tr><td>Erro</td><td>Falha inicial ou de detalhe com mensagem orientadora e Tentar novamente.</td></tr>
+<tr><td>Parcial</td><td>Dados anteriores permanecem visíveis com aviso de desatualização; falha na consulta de veículos tem alerta e recarga, bloqueando novo cadastro quando necessário.</td></tr>
+</tbody></table>
+
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>As mensagens de domínio continuam no campo erro, em português, com motivo e ação possível, sem SQL ou stack trace. A interface usa FormField/FormSelect com useId, rótulos persistentes, aria-invalid, aria-describedby e erros textuais anunciados; mensagens de sucesso usam role=status. Situação, tipo, impedimento, custo zero e custo desconhecido têm representação textual.</p>
+<p>Requisitos da integração: operação por Tab/Shift+Tab/Enter/Espaço, Escape em diálogos, retorno de foco ao acionador, foco visível com tokens do tema, alvos de pelo menos 44×44px, títulos/contexto de OS acessíveis e rolagem horizontal confinada à tabela. Controles da manutenção utilizam primary.dark para texto/foco, preservando a paleta central.</p>
+<p>Conferência realizada: Enter no menu/filtro/confirmação; Escape e retorno ao botão Registrar Manutenção; formulário vazio com erros associados; diálogo contido em 375px; ausência de transbordamento do documento em 320×568, 375×667, 800×600, 1024×768, 1280×800 e 1920×1080. Os controles visíveis da área principal atingiram 44×44px. O resultado cobre os ensaios descritos e não certifica integralmente WCAG, leitura por NVDA/TalkBack, zoom de 200% ou todas as telas do shell.</p>
+
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<p>GESTOR e ADMINISTRADOR podem usar as cinco rotas. SOLICITANTE, MOTORISTA, ATENDENTE_SVO e EQUIPE_SVO recebem 403 inclusive em leitura. A lista de veículos disponíveis e isAvailableForAllocation passam a refletir o bloqueio. A mudança compartilhada em VehiclesService preserva assinatura e comportamento das chamadas válidas existentes. O frontend aplica a mesma restrição de menu/rota; a autorização da API continua obrigatória. Sem configuração nova de produção.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<ul>
+<li>Testar o cálculo de peças fracionárias, serviços, zero, negativos e limite monetário; comparar orçamento e execução antes/depois.</li>
+<li>Testar abertura simultânea, promoção de ordem a impeditiva, encerramento com viatura inativada e a reversão de OS/veículo/eventos quando AuditService falha.</li>
+<li>Ensaiar migração sobre ordem histórica com custo único, consultar histórico e conferir o rollback protegido. Executar npm run build e npm test no backend. <a href="./frota-61-qa-testes-de-manutencoes.html">SDD da FROTA-61</a></li>
+</ul>
+
+<h3>Cobertura complementar consolidada</h3>
+<table><thead><tr><th scope="col">Conjunto</th><th scope="col">Aceite coberto</th></tr></thead><tbody>
+<tr><td>IT-MIG-MNT-01 a 04</td><td>Preservar custo legado em up/down/up; recusar duas impeditivas legadas e rollback com orçamento/eventos novos, sem estado parcial.</td></tr>
+<tr><td>Frontend — cinco testes novos</td><td>Negar menu/rota aos perfis sem acesso; aceitar decimal localizado; preservar totalSpent com items vazio; enviar chave/revisão/execução e rejeitar respostas inválidas.</td></tr>
+<tr><td>Roteiro de UI</td><td>Gestor: preventiva impeditiva, edição, confirmação/encerramento parcial, recarga e liberação. Administrador: corretiva não impeditiva. Duas sessões: revisão vencida e recuperação. Solicitante: menu/rota negados. Erro/parcial/vazio, gratuidade, autoria e responsividade.</td></tr>
+</tbody></table>
+<h3>Resultados registrados em 05/11/2026</h3>
+<table><thead><tr><th scope="col">Verificação</th><th scope="col">Evidência consolidada</th></tr></thead><tbody>
+<tr><td>aratu-check.mjs</td><td>Zero bloqueantes e zero alertas; tipos backend/frontend aprovados; 85 testes frontend aprovados.</td></tr>
+<tr><td>Backend — integração</td><td>84 testes aprovados, zero falhas e zero omitidos; 43,5 s.</td></tr>
+<tr><td>Backend — suíte completa</td><td>Duas execuções consecutivas com 120 aprovados, zero falhas e zero omitidos; 52,7 s e 60,1 s.</td></tr>
+<tr><td>Build/lint</td><td>Build backend e frontend e lint frontend aprovados. Permanece aviso de bundle frontend acima de 500 kB, aproximadamente 670 kB sem compressão.</td></tr>
+<tr><td>UI com API real</td><td>Cadastro, edição, revisão 3, orçamento R$ 77,50 preservado e execução R$ 58,75; bloqueio/liberação na tela de veículos e persistência após recarga.</td></tr>
+<tr><td>Desvios na UI</td><td>Vazio por filtro; erro inicial e falha parcial por interrupção controlada; recuperação por nova tentativa; conflito entre sessões e recarga da revisão vencedora; corretiva gratuita com orçamento desconhecido.</td></tr>
+<tr><td>Autorização e história</td><td>Gestor e administrador acessaram o módulo; solicitante sem atalho e redirecionado pela rota. SQL confirmou três eventos e três auditorias por ordem, inclusive autores distintos na segunda OS.</td></tr>
+</tbody></table><p>Os totais de 120/84 pertencem ao checkout completo verificado, que também continha dois testes locais da FROTA-54 fora do commit de manutenção; não representam execução de um checkout isolado de d887de7 sem essas alterações. O auditor comparou com develop local anterior ao pull, incluindo mudanças herdadas em suas estatísticas. Sua saída não substitui o diff final do PR.</p>
+<p>Ambientes: testes automatizados em aratu_test; navegador em 127.0.0.1:5174 → API real em 127.0.0.1:4301 → aratu_maintenance_ui_test, com fixtures fictícias. Nenhum registro operacional foi escrito por esses ensaios. As instâncias temporárias foram encerradas; os serviços Docker originais foram preservados.</p>
+<p>Os erros do IT-MNT-10 e ECONNREFUSED durante a interrupção da API de QA foram provocados para verificar rollback/recuperação. Coleta final do console da aba do gestor: sem warn/error retornados; inspeção completa de rede não realizada. Evidências e limites estão no <a href="../reviews/frota-59-61-integracao-interface.html">relatório de integração</a>.</p>
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+<p>Estado consolidado em 05/11/2026. Itens marcados referenciam a entrega e os ensaios registrados; pendências permanecem explícitas.</p>
+<ul class="check">
+<li><label><input type="checkbox" checked disabled> Branch feat/be-api-de-manutencoes reutilizada; pull registrado até bf592b8 incorporado antes da implementação.</label></li>
+<li><label><input type="checkbox" checked disabled> Commit d887de7 no padrão Conventional Commits registra a entrega conjunta FROTA-59/FROTA-61; sem push.</label></li>
+<li><label><input type="checkbox" checked disabled> API em camadas, SQL parametrizado, projeções explícitas, transações com liberação de cliente e histórico auditável conferidos nos ensaios da entrega.</label></li>
+<li><label><input type="checkbox" checked disabled> Tipos backend/frontend, build dos dois projetos, lint frontend e testes automatizados passaram no checkout registrado.</label></li>
+<li><label><input type="checkbox" checked disabled> RBAC das cinco rotas, menu/rota protegida, orçamento separado da execução, revisão, idempotência e disponibilidade verificados.</label></li>
+<li><label><input type="checkbox" checked disabled> Fluxo de manutenção percorrido no navegador, com recarga, validação de erros, conflito, encerramento e seis viewports; dados inteiramente fictícios.</label></li>
+<li><label><input type="checkbox" checked disabled> Reuso de componentes da develop, mensagens acessíveis, nomes/contratos e documentação do módulo registrados neste SDD e no relatório.</label></li>
+<li><label><input type="checkbox" disabled> Limite de 400 linhas: não atendido. O commit tem 36 arquivos, 3341 inserções e 768 remoções; inclui API, integração autorizada, testes e documentação. A justificativa de escopo deve acompanhar a revisão humana.</label></li>
+<li><label><input type="checkbox" disabled> Executar revisão final do conteúdo commitado contra a base atualizada do PR; os relatórios anteriores permanecem registros datados.</label></li>
+<li><label><input type="checkbox" disabled> Criar PR com destino develop. Não foi feito push nem abertura de PR por esta entrega.</label></li>
+</ul>
+<p>Limitações a acompanhar: aviso de bundle; medição SQL com volume operacional representativo; início de viagens ainda sem API nesta base, cuja futura implementação deverá adquirir a mesma trava de veículo. Não marcar certificação integral de acessibilidade a partir dos ensaios parciais descritos na seção 7.</p>
+
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+<p>O arquivo <a href="../modulos/MANUTENCOES.html">docs/modulos/MANUTENCOES.html</a> foi criado e atualizado a partir da estrutura do módulo. Documenta os cinco endpoints, orçamento versus execução, períodos por abertura/encerramento, bloqueio/liberação, autoria, revisão, idempotência, migração/rollback, menu/rota, formulários e cenários automatizados.</p>
+<p>O <a href="../reviews/frota-59-61-integracao-interface.html">relatório de integração de 05/11/2026</a> relaciona arquivos, comandos/resultados, roteiro efetivamente executado e evidências locais. As capturas/DOM/JSON ficam em .playwright-mcp e são artefatos locais ignorados pelo Git; o relatório HTML e os planos constam da entrega. Os relatórios individuais anteriores de 59/61 são registros históricos, não aprovação automática do PR após o pull.</p>
+
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis definidos na seção 8.</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

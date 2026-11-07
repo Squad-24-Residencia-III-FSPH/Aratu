@@ -510,6 +510,7 @@ test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restaur
   const pool = getTestPool()
   const downFiles = [
     '202611050001_extend_fuelings.down.sql',
+    '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
     '202610280010_create_fuelings.down.sql',
@@ -1026,6 +1027,7 @@ test('IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e r
   const pool = getTestPool()
   const downFiles = [
     '202611050001_extend_fuelings.down.sql',
+    '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
     '202610280010_create_fuelings.down.sql',
@@ -1482,6 +1484,7 @@ test('IT26: rollbacks (.down.sql) das migrations 202610280008, 202610280007 e 20
   const pool = getTestPool()
   const downFiles = [
     '202611050001_extend_fuelings.down.sql',
+    '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
     '202610280010_create_fuelings.down.sql',
@@ -2012,6 +2015,7 @@ test('IT31: rollbacks (.down.sql) das migrations 202610280012, 202610280011, 202
   const pool = getTestPool()
   const downFiles = [
     '202611050001_extend_fuelings.down.sql',
+    '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
     '202610280010_create_fuelings.down.sql',
@@ -2075,6 +2079,12 @@ test('IT31: rollbacks (.down.sql) das migrations 202610280012, 202610280011, 202
       )
   `)
   assert.equal(restoredTables.rows[0]?.count, '8')
+  const restoredMaintenanceColumns = await pool.query<{ count: string }>(`
+    SELECT count(*)::text AS count FROM information_schema.columns
+    WHERE table_schema = 'fleet' AND table_name = 'maintenance_orders'
+      AND column_name IN ('expected_completion_date', 'estimate_items', 'actual_items', 'creation_key')
+  `)
+  assert.equal(restoredMaintenanceColumns.rows[0]?.count, '4')
 })
 
 
