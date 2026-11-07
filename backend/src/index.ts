@@ -4,13 +4,15 @@ import process from 'node:process'
 import { createApp } from './app'
 import { createPool } from './database/pool'
 import { loadJwtConfig } from './services/jwt-config.service'
+import { loadVehicleDocumentAlertDays } from './services/vehicle-document-config.service'
 
 dotenv.config({ path: '../.env' })
 
 const PORT = Number(process.env.PORT ?? 3000)
 const pool = createPool(process.env.DATABASE_URL ?? '')
 const jwtConfig = loadJwtConfig(process.env)
-const app = createApp({ pool, jwtConfig })
+const vehicleDocumentAlertDays = loadVehicleDocumentAlertDays(process.env)
+const app = createApp({ pool, jwtConfig, vehicleDocumentAlertDays })
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   log(`Servidor rodando na porta ${PORT}`)

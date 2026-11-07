@@ -9,7 +9,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material'
-import type { ButtonProps, SxProps, Theme } from '@mui/material'
+import type { ButtonProps } from '@mui/material'
 
 export interface ConfirmDialogProps {
   open: boolean
@@ -26,6 +26,8 @@ export interface ConfirmDialogProps {
   loadingLabel?: string
   confirmColor?: ButtonProps['color']
   autoFocusCancel?: boolean
+  /** Estilos do diálogo, incluindo ajustes de controles dos fluxos que o reutilizam. */
+  sx?: SxProps<Theme>
   paperSx?: SxProps<Theme>
   actionsSx?: SxProps<Theme>
   cancelSx?: SxProps<Theme>
@@ -48,6 +50,7 @@ export default function ConfirmDialog({
   loadingLabel = 'Processando...',
   confirmColor,
   autoFocusCancel = false,
+  sx,
   paperSx,
   actionsSx,
   cancelSx,

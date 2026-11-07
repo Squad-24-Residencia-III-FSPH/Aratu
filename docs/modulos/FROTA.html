@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FROTA — Documentação Técnica e Funcional (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #075985;
+      --brand: #0369a1;
+      --brand-surface: #f0f9ff;
+      --brand-border: #bae6fd;
+      --brand-hover: #e0f2fe;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>FROTA — Documentação Técnica e Funcional</h1>
+
+<div class="meta-block">
+  <p><strong>Módulo (chave):</strong> <code>FROTA</code></p>
+  <p><strong>Índice de referência:</strong> <code>docs/manuais/modulos.md</code></p>
+  <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/</code>, <code>backend/src/controllers/</code>, <code>backend/src/services/</code>, <code>backend/src/repositories/</code></p>
+  <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/</code>, <code>frontend/src/components/</code>, <code>frontend/src/services/</code></p>
+  <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (schema nativo <code>fleet</code>)</p>
+  <p><strong>Versão da documentação:</strong> 2026-11-07 (inclui <code>FROTA-43</code>, <code>FROTA-45</code>, <code>FROTA-53</code> e <code>FROTA-67</code>)</p>
+</div>
+
+<hr>
+
+<h2>1. Visão Geral</h2>
+<p>O módulo <strong>FROTA</strong> concentra o cadastro, a disponibilidade operacional e o controle de regularidade documental dos veículos e tipos de serviço da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e do <strong>Serviço de Verificação de Óbito (SVO)</strong>. Abrange três subdomínios principais:</p>
+<ol>
+  <li><strong>Veículos (<code>/vehicles</code>):</strong> cadastro de viaturas administrativas e do SVO, capacidades (assentos, corpos, carga), regime de propriedade e máquina de estados de situação (<code>AVAILABLE</code>, <code>IN_MAINTENANCE</code>, <code>INACTIVE</code>).</li>
+  <li><strong>Catálogo de Tipos de Serviço (<code>/services</code>):</strong> configuração de serviços de transporte institucional e remoção cadavérica, exigências de triagem, peso e identificação.</li>
+  <li><strong>Documentos de Veículos (<code>/vehicle-documents</code> — FROTA-67 / US09):</strong> gestão de documentos obrigatórios e contratuais (CRLV, licenciamento, IPVA, seguro, contrato de locação e outros), alerta preventivo de vencimentos, encadeamento de renovações (<code>supersedesId</code>) e anulação justificada sem exclusão física.</li>
+</ol>
+
+<hr>
+
+<h2>2. Regras de Negócio e Transições de Estado</h2>
+<ul>
+  <li><strong>Máquina de estados do veículo (<code>VehiclesService::changeVehicleStatusInTransaction</code>):</strong> <code>AVAILABLE ↔ IN_MAINTENANCE</code>, <code>AVAILABLE ↔ INACTIVE</code> e <code>IN_MAINTENANCE → INACTIVE</code>. A liberação manual para <code>AVAILABLE</code> é recusada (<code>422</code>) enquanto houver ordem de manutenção impeditiva ativa.</li>
+  <li><strong>Situação calculada de documentos (<code>VehicleDocumentsService</code> / <code>resolveVehicleDocumentStatus</code>):</strong> nunca é persistida como coluna estática; é derivada na camada de serviço no fuso da FSPH (<code>America/Maceio</code>) com a seguinte ordem de precedência:
+    <ol>
+      <li><span class="badge-status">ANNULLED</span> — documento anulado justificadamente (<code>isAnnulled = true</code>);</li>
+      <li><span class="badge-status">RENEWED</span> — documento substituído por renovação ativa não anulada (<code>supersededById !== null</code>);</li>
+      <li><span class="badge-status">EXPIRED</span> — vigente com <code>expiresAt &lt; hoje</code> (no dia do vencimento o documento ainda é válido);</li>
+      <li><span class="badge-status">EXPIRING</span> — vigente com <code>hoje ≤ expiresAt ≤ hoje + alertDays</code> (intervalo inclusivo);</li>
+      <li><span class="badge-status">VALID</span> — vigente com <code>expiresAt &gt; hoje + alertDays</code>.</li>
+    </ol>
+  </li>
+  <li><strong>Prazo de alerta configurável (<code>loadVehicleDocumentAlertDays</code>):</strong> definido pela variável de ambiente <code>VEHICLE_DOCUMENT_ALERT_DAYS</code> (padrão <code>30</code> dias, inteiro <code>1..365</code>) e sobrescritível por consulta via query param <code>GET /vehicle-documents/expiring?days=N</code>.</li>
+  <li><strong>Renovação encadeada e reversão automática (<code>VehicleDocumentsService::create</code> e <code>annul</code>):</strong> informar <code>supersedesId</code> no <code>POST /vehicle-documents</code> exige mesmo veículo e mesmo tipo de documento, não anulado e ainda não superado (<code>409</code>). O documento anterior passa a <code>RENEWED</code> e sai dos alertas sem ser apagado. Caso uma renovação seja anulada por erro de lançamento, o documento anterior volta automaticamente a ser vigente; em cadeia <code>A ← R ← R3</code>, é proibido anular o intermediário <code>R</code> enquanto <code>R3</code> estiver ativo (<code>409</code>).</li>
+  <li><strong>Prevenção de duplicidade e concorrência:</strong> toda mutação trava primeiro o veículo (<code>SELECT ... FOR UPDATE</code> em <code>fleet.vehicles</code>) e depois o documento, impedindo duplicidade de documento não anulado com mesmo <code>(vehicle_id, document_type, expires_at)</code> (<code>409</code>) e exigindo revisão otimista (<code>expectedRevision</code>) em edições e anulações.</li>
+</ul>
+
+<hr>
+
+<h2>3. Escopo de Impacto e Matriz de Acesso (RBAC)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Perfil RBAC</th>
+      <th scope="col"><code>/vehicles</code></th>
+      <th scope="col"><code>/services</code></th>
+      <th scope="col"><code>/vehicle-documents</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Leitura e escrita completas</td>
+      <td>Leitura (ativos/inativos) e escrita</td>
+      <td>Leitura, alerta, cadastro, renovação, edição e anulação</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">GESTOR</span></td>
+      <td>Leitura e escrita completas</td>
+      <td>Leitura (ativos/inativos) e escrita</td>
+      <td>Leitura, alerta, cadastro, renovação, edição e anulação</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td>Somente leitura (<code>GET</code>)</td>
+      <td>Somente leitura de ativos (<code>GET</code>)</td>
+      <td>Negado (<code>403</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td>Negado (<code>403</code>)</td>
+      <td>Somente leitura de ativos (<code>GET</code>)</td>
+      <td>Negado (<code>403</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">MOTORISTA</span> / <span class="badge-rbac">EQUIPE_SVO</span></td>
+      <td>Negado (<code>403</code>)</td>
+      <td>Negado (<code>403</code>)</td>
+      <td>Negado (<code>403</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>4. Tabelas do Banco de Dados (PostgreSQL 18 — Schema <code>fleet</code>)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Tabela</th>
+      <th scope="col">Descrição Funcional</th>
+      <th scope="col">Colunas-Chave</th>
+      <th scope="col">Constraints e Índices</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-tabela">fleet.vehicles</span> / <span class="badge-tabela">fleet.vehicle_events</span></td>
+      <td>Cadastro vigente da viatura e trilha imutável de eventos de criação, edição e mudança de situação</td>
+      <td><code>id</code>, <code>license_plate</code>, <code>ownership</code>, <code>categories</code>, <code>seats</code>, <code>body_limit</code>, <code>operation_type</code>, <code>status</code>, <code>revision</code></td>
+      <td>Índice único <code>fleet_vehicles_license_plate_upper_unique</code>; trigger append-only em <code>fleet.vehicle_events</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.services</span> / <span class="badge-tabela">fleet.vehicle_services</span></td>
+      <td>Catálogo de tipos de serviço da FSPH/SVO e vínculo com viaturas</td>
+      <td><code>id</code>, <code>name</code>, <code>categories</code>, <code>requires_triage</code>, <code>requires_weight</code>, <code>requires_identification</code>, <code>active</code>, <code>revision</code></td>
+      <td>Índice único <code>fleet_services_name_lower_unique</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.vehicle_documents</span></td>
+      <td>Documentos obrigatórios e contratuais por veículo, com encadeamento de renovação e anulação lógica</td>
+      <td><code>id</code>, <code>vehicle_id</code>, <code>document_type</code>, <code>document_number</code>, <code>issued_at</code>, <code>expires_at</code>, <code>notes</code>, <code>supersedes_id</code>, <code>is_annulled</code>, <code>annulment_reason</code>, <code>vehicle_snapshot</code>, <code>created_by</code>, <code>revision</code></td>
+      <td>CHECK <code>fleet_vehicle_documents_dates_valid</code> (<code>expires_at &gt;= issued_at</code>); índices <code>fleet_vehicle_documents_by_expiration</code>, <code>fleet_vehicle_documents_by_vehicle</code> e <code>fleet_vehicle_documents_by_supersedes</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.vehicle_document_events</span></td>
+      <td>Livro append-only de eventos de documentos (<code>REGISTERED</code>, <code>RENEWED</code>, <code>UPDATED</code>, <code>ANNULLED</code>)</td>
+      <td><code>id</code>, <code>vehicle_document_id</code>, <code>event_type</code>, <code>occurred_at</code>, <code>registered_at</code>, <code>reported_by</code>, <code>registered_by</code>, <code>actor_snapshot</code>, <code>reason</code>, <code>before_state</code>, <code>after_state</code></td>
+      <td>Trigger <code>fleet_vehicle_document_events_append_only</code> bloqueando <code>UPDATE</code> e <code>DELETE</code>; índice <code>fleet_vehicle_document_events_by_document</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>5. Contratos de API REST — Documentos de Veículos (<code>/vehicle-documents</code>)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Método</th>
+      <th scope="col">Endpoint</th>
+      <th scope="col">Controller / Service</th>
+      <th scope="col">Resumo do Contrato</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/vehicle-documents</code></td>
+      <td><code>list</code> → <code>VehicleDocumentsService::list</code></td>
+      <td>Filtros opcionais <code>vehicleId</code>, <code>documentType</code>, <code>status</code> (<code>VALID | EXPIRING | EXPIRED | RENEWED | ANNULLED</code>) → <code>200 OK</code> <code>{ referenceDate, alertDays, items }</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/vehicle-documents/expiring</code></td>
+      <td><code>listExpiring</code> → <code>VehicleDocumentsService::listExpiring</code></td>
+      <td>Query opcional <code>?days=1..365</code> → <code>200 OK</code> com documentos vigentes <code>EXPIRED</code> e <code>EXPIRING</code> de veículos ativos (exclui veículos <code>INACTIVE</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/vehicle-documents/:id</code></td>
+      <td><code>getById</code> → <code>VehicleDocumentsService::getById</code></td>
+      <td>Retorna <code>200 OK</code> com o documento e sua linha do tempo <code>events</code> (omitindo e-mail do ator por LGPD) ou <code>404</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/vehicle-documents</code></td>
+      <td><code>create</code> → <code>VehicleDocumentsService::create</code></td>
+      <td>Cria documento ou renovação (quando <code>supersedesId</code> é informado) → <code>201 Created</code> ou <code>400/404/409</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">PUT</span></td>
+      <td><code>/vehicle-documents/:id</code></td>
+      <td><code>update</code> → <code>VehicleDocumentsService::updateDocument</code></td>
+      <td>Corrige número, emissão, vencimento e observações com <code>expectedRevision</code>, <code>reportedBy</code> e <code>reason</code> → <code>200 OK</code> ou <code>400/404/409</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">PATCH</span></td>
+      <td><code>/vehicle-documents/:id/annul</code></td>
+      <td><code>annul</code> → <code>VehicleDocumentsService::annul</code></td>
+      <td>Anula documento não superado com <code>expectedRevision</code>, <code>reportedBy</code> e <code>reason</code> → <code>200 OK</code> ou <code>409</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>6. Arquivos Principais de Documentos de Veículos (FROTA-67)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Caminho do Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Responsabilidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/types/vehicle-document.types.ts</code></td>
+      <td>Types / DTOs</td>
+      <td>Constantes de tipos e situações, contratos de entrada/saída, linha do tempo e <code>VehicleDocumentServiceError</code></td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/vehicle-document-config.service.ts</code></td>
+      <td>Service (Config)</td>
+      <td>Validação fail-fast de <code>VEHICLE_DOCUMENT_ALERT_DAYS</code> (padrão 30 dias, intervalo 1..365)</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/vehicle-documents.service.ts</code></td>
+      <td>Service</td>
+      <td>Cálculo de situação, regras de renovação, duplicidade, revisão otimista, anulação e auditoria transacional</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/vehicle-documents.repository.ts</code></td>
+      <td>Repository</td>
+      <td>Consultas SQL parametrizadas em <code>fleet.vehicle_documents</code> e <code>fleet.vehicle_document_events</code></td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/vehicle-documents.controller.ts</code></td>
+      <td>Controller</td>
+      <td>Tradução HTTP Request/Response e formatação de erros em <code>{ erro }</code></td>
+    </tr>
+    <tr>
+      <td><code>backend/src/routes/vehicle-documents.routes.ts</code></td>
+      <td>Routes</td>
+      <td>Proteção JWT, consulta da conta atual e RBAC (<code>GESTOR</code>, <code>ADMINISTRADOR</code>); conta inativa recebe 401 e perfil atual não autorizado recebe 403 mesmo com token anterior</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/vehicle-documents.service.test.ts</code></td>
+      <td>Testes Unitários</td>
+      <td>Testes isolados de cálculo de situação, configuração, validações e cadeia de renovação/anulação</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/vehicle-documents.integration.test.ts</code></td>
+      <td>Testes de Integração</td>
+      <td>Suíte HTTP + PostgreSQL 18 (<code>IT-DOC-01</code> a <code>IT-DOC-11</code>, <code>FROTA-167</code>), incluindo revogação de acesso, rollback de POST/PUT/PATCH e concorrência de cadastros/renovações</td>
+    </tr>
+  </tbody>
+</table>
+
+</body>
+</html>
