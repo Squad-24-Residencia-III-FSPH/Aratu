@@ -1,0 +1,264 @@
+ Container aratu-backend-run-b36a0345dada Creating 
+ Container aratu-backend-run-b36a0345dada Created 
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+◇ injected env (0) from ../.env
+◇ injected env (0) from .env
+Erro interno na API: error: Falha fictícia independente
+    at /app/node_modules/pg/lib/client.js:694:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async FuelingsRepository.insertReading (/app/src/repositories/fuelings.repository.ts:239:5)
+    at async FuelingsService.record (/app/src/services/fuelings.service.ts:269:5)
+    at async VehiclesRepository.withTransaction (/app/src/repositories/vehicles.repository.ts:35:22)
+    at async FuelingsService.mutate (/app/src/services/fuelings.service.ts:221:14)
+    at async respond (/app/src/controllers/fuelings.controller.ts:11:33) {
+  length: 147,
+  severity: 'ERROR',
+  code: 'P0001',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: 'PL/pgSQL function fail_independent_qa() line 1 at RAISE',
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pl_exec.c',
+  line: '3909',
+  routine: 'exec_stmt_raise'
+}
+Erro interno na API: error: Falha fictícia independente
+    at /app/node_modules/pg/lib/client.js:694:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async FuelingsRepository.insertReading (/app/src/repositories/fuelings.repository.ts:239:5)
+    at async FuelingsService.record (/app/src/services/fuelings.service.ts:269:5)
+    at async VehiclesRepository.withTransaction (/app/src/repositories/vehicles.repository.ts:35:22)
+    at async FuelingsService.mutate (/app/src/services/fuelings.service.ts:221:14)
+    at async respond (/app/src/controllers/fuelings.controller.ts:11:33) {
+  length: 147,
+  severity: 'ERROR',
+  code: 'P0001',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: 'PL/pgSQL function fail_independent_qa() line 1 at RAISE',
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pl_exec.c',
+  line: '3909',
+  routine: 'exec_stmt_raise'
+}
+Erro interno na API: error: Falha fictícia independente
+    at /app/node_modules/pg/lib/client.js:694:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async FuelingsRepository.insertEvent (/app/src/repositories/fuelings.repository.ts:250:5)
+    at async FuelingsService.record (/app/src/services/fuelings.service.ts:270:5)
+    at async VehiclesRepository.withTransaction (/app/src/repositories/vehicles.repository.ts:35:22)
+    at async FuelingsService.mutate (/app/src/services/fuelings.service.ts:221:14)
+    at async respond (/app/src/controllers/fuelings.controller.ts:11:33) {
+  length: 147,
+  severity: 'ERROR',
+  code: 'P0001',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: 'PL/pgSQL function fail_independent_qa() line 1 at RAISE',
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pl_exec.c',
+  line: '3909',
+  routine: 'exec_stmt_raise'
+}
+Erro interno na API: error: Falha fictícia independente
+    at /app/node_modules/pg/lib/client.js:694:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async FuelingsRepository.insertEvent (/app/src/repositories/fuelings.repository.ts:250:5)
+    at async FuelingsService.record (/app/src/services/fuelings.service.ts:270:5)
+    at async VehiclesRepository.withTransaction (/app/src/repositories/vehicles.repository.ts:35:22)
+    at async FuelingsService.mutate (/app/src/services/fuelings.service.ts:221:14)
+    at async respond (/app/src/controllers/fuelings.controller.ts:11:33) {
+  length: 147,
+  severity: 'ERROR',
+  code: 'P0001',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: 'PL/pgSQL function fail_independent_qa() line 1 at RAISE',
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pl_exec.c',
+  line: '3909',
+  routine: 'exec_stmt_raise'
+}
+{
+  "environment": {
+    "database": "aratu_test",
+    "postgres": "18.6"
+  },
+  "baseUrl": "http://127.0.0.1:45129",
+  "sourceHashes": {
+    "src/app.ts": "8308cf88fe182605f13b5fdec483b2bebc5bf189cdbc80c70e4ffc2132b98384",
+    "src/services/fuelings.service.ts": "615bce663b89def11c241904f8f04ea1e32c94b5dc8b92403ddccd772a4dc042",
+    "src/repositories/fuelings.repository.ts": "e8e1187426931e3488e16e76d320d43c129df7d577e847be3aa0a2c39a6c803f",
+    "tests/fuelings.integration.test.ts": "dbae4457bd85430b115b9737cb6ceae64815ebb81821d05f9cf66473b7a5f9f8"
+  },
+  "passed": 8,
+  "failed": 0,
+  "results": [
+    {
+      "id": "P1",
+      "description": "GESTOR e ADMINISTRADOR operam os quatro endpoints; respostas sem campos restritos",
+      "status": "PASSOU",
+      "evidence": [
+        {
+          "role": "GESTOR",
+          "POST": 201,
+          "GET": 200,
+          "detail": 200,
+          "PUT": 200
+        },
+        {
+          "role": "ADMINISTRADOR",
+          "POST": 201,
+          "GET": 200,
+          "detail": 200,
+          "PUT": 200
+        }
+      ]
+    },
+    {
+      "id": "P2",
+      "description": "R1: somente notas em legado com .000001 preserva SQL exato nas três trilhas",
+      "status": "PASSOU",
+      "evidence": {
+        "fueledAt": "2026-10-02T12:00:00.000001Z",
+        "checks": [
+          {
+            "fact": true,
+            "reading": true,
+            "event": true
+          }
+        ],
+        "originalUnchanged": true
+      }
+    },
+    {
+      "id": "P3",
+      "description": "R2: datas pré-1970, microssegundos adjacentes, offset, igualdade, replay, período e ordem",
+      "status": "PASSOU",
+      "evidence": {
+        "orderedInstants": [
+          "1970-01-01T00:00:00.000Z",
+          "1969-12-31T23:59:59.999999Z",
+          "1969-12-31T23:59:59.999998Z",
+          "1969-12-31T23:59:59.999997Z"
+        ],
+        "halfOpenInstants": [
+          "1969-12-31T23:59:59.999999Z",
+          "1969-12-31T23:59:59.999998Z"
+        ],
+        "equalKmConflict": 422,
+        "replay": "mesmo ID"
+      }
+    },
+    {
+      "id": "P4",
+      "description": "R2: um microssegundo futuro é recusado com banco real e relógio fixo",
+      "status": "PASSOU",
+      "evidence": {
+        "future": "FUTURE_DATE",
+        "noPartialWrites": true,
+        "exactReturned": "2026-10-02T12:00:00.123Z"
+      }
+    },
+    {
+      "id": "P5",
+      "description": "R2: excesso de precisão HTTP, intervalos invertidos, offset fracionário e três casas",
+      "status": "PASSOU",
+      "evidence": {
+        "normalized": "2026-10-02T12:00:00.123450Z",
+        "threeDigits": "2026-10-02T12:00:01.120Z",
+        "invalidRequests": 5,
+        "noPartialWrites": true
+      }
+    },
+    {
+      "id": "P6",
+      "description": "R3: revision 5 → 1; revisão alvo errada continua bloqueada e ponta pode ser retificada",
+      "status": "PASSOU",
+      "evidence": {
+        "rootRevision": 5,
+        "leafRevision": 1,
+        "staleRevision": 409,
+        "correctedRevision": 2,
+        "tipAgrees": true
+      }
+    },
+    {
+      "id": "P7",
+      "description": "QA12/20: rollback de leitura/evento permite reenviar POST e PUT com a mesma chave",
+      "status": "PASSOU",
+      "evidence": [
+        {
+          "table": "trip.odometer_readings",
+          "method": "POST",
+          "failure": 500,
+          "retry": 201,
+          "replayUnchanged": true
+        },
+        {
+          "table": "trip.odometer_readings",
+          "method": "PUT",
+          "failure": 500,
+          "retry": 200,
+          "replayUnchanged": true
+        },
+        {
+          "table": "fleet.fueling_events",
+          "method": "POST",
+          "failure": 500,
+          "retry": 201,
+          "replayUnchanged": true
+        },
+        {
+          "table": "fleet.fueling_events",
+          "method": "PUT",
+          "failure": 500,
+          "retry": 200,
+          "replayUnchanged": true
+        }
+      ]
+    },
+    {
+      "id": "P8",
+      "description": "QA03/08: PUT rejeita ambas as fronteiras e permite retificar combustível e data",
+      "status": "PASSOU",
+      "evidence": {
+        "lowerBound": 422,
+        "upperBound": 422,
+        "fuelType": "GASOLINE",
+        "changedFueledAt": "2026-10-02T13:00:00.123456Z",
+        "oldVersionUnchanged": true,
+        "malformedJson": 400
+      }
+    }
+  ]
+}

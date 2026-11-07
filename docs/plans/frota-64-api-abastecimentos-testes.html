@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-64 — API de abastecimentos e testes — FROTA-64 e FROTA-65 (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+
+    body { overflow-wrap: anywhere; }
+    .table-scroll { overflow-x: auto; margin: 16px 0; }
+    .table-scroll table { margin: 0; }
+    .table-scroll:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+    @media (max-width: 600px) {
+      body { margin: 16px auto; padding: 0 16px 40px; }
+      h1 { font-size: 1.35rem; }
+      table { min-width: 580px; }
+    }
+    @media print { .table-scroll { overflow: visible; } table { min-width: 0; } }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-64: API de abastecimentos e testes — FROTA-64 e FROTA-65</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-64</code> — API de abastecimentos e testes — FROTA-64 e FROTA-65</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/be-api-de-abastecimentos</code> (sugerida para implementação; base <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>FROTA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data:</strong> 05/11/2026 · decisões confirmadas nesta conversa</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p>Permitir que o Gestor e o Administrador registrem, consultem e retifiquem abastecimentos da frota FSPH/SVO, com controle de litros, gasto, posto e quilometragem e preservação integral do histórico.</p>
+<div class="notice-block"><strong>Entrega delimitada:</strong> este SDD cobre somente <strong>FROTA-64 — API</strong> e <strong>FROTA-65 — testes automatizados</strong>, sob a história FROTA-62. A <strong>FROTA-66 — interface</strong> será executada por outra pessoa e não compõe esta implementação.</div>
+<h3>1.1 Contexto Jira consultado em 05/11/2026</h3>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Tabela do plano; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Item</th><th scope="col">Situação e escopo</th></tr></thead><tbody><tr><td><a href="https://squad24.atlassian.net/browse/FROTA-62">FROTA-62</a></td><td>Story, Em andamento, prioridade Medium. “Como gestor, quero registrar abastecimentos, para controlar os custos e o consumo de combustível.” Os critérios da história ainda estão a definir no refinamento.</td></tr><tr><td><a href="https://squad24.atlassian.net/browse/FROTA-64">FROTA-64</a></td><td>Subtask, Em andamento. GET /fuelings, GET /fuelings/:id, POST /fuelings e PUT /fuelings/:id; filtros por veículo, motorista e período; validações; autorização; AuditService. Depende da FROTA-63.</td></tr><tr><td><a href="https://squad24.atlassian.net/browse/FROTA-65">FROTA-65</a></td><td>Subtask, Em andamento. Criar backend/tests/fuelings.integration.test.ts e comprovar cadastro 201, litros/valor inválidos 400, km inválido 422, data futura 422, filtros e acesso negado 403. npm test deve passar. Depende da FROTA-64.</td></tr><tr><td><a href="https://squad24.atlassian.net/browse/FROTA-63">FROTA-63</a></td><td>Concluída, vinculada à FROTA-160. A migração de abastecimentos e seus eventos já existe no repositório; reutilizar, sem recriar a tabela.</td></tr><tr><td><a href="https://squad24.atlassian.net/browse/FROTA-66">FROTA-66</a></td><td>A fazer. Tela de registro/consulta e indicadores: fora desta entrega. Receberá o contrato documentado na seção 5; não há alteração no frontend.</td></tr></tbody></table></div>
+<p>Não foram encontrados comentários nos cinco itens consultados. Os rótulos de módulo inferidos automaticamente pelo script não substituem o domínio real: esta entrega pertence a <strong>FROTA</strong>.</p>
+<h3>1.2 Decisões confirmadas pelo usuário</h3>
+<ol><li>Somente <code>GESTOR</code> e <code>ADMINISTRADOR</code> registram e consultam nesta entrega. <code>MOTORISTA</code> não recebe acesso.</li>
+<li>A quilometragem é validada pela <strong>sequência dos fatos</strong>: lançamentos retroativos e correções podem ficar abaixo da leitura atual, desde que respeitem as leituras anteriores e posteriores à data do abastecimento.</li>
+<li>“Sempre manter um histórico de todas essas mudanças”: nenhuma correção apaga ou sobrescreve a versão anterior, a leitura de hodômetro ou os eventos de auditoria.</li></ol>
+<p><strong>Refinamento registrado neste SDD:</strong> a frase do Jira “não pode ser menor que a última registrada” passa a significar compatibilidade cronológica. O caso QA de km menor continua retornando 422 quando viola a leitura anterior ao fato; km inferior a uma viagem posterior pode ser válido. A confirmação está nesta conversa; os cards do Jira não foram alterados.</p>
+<h3>1.3 Limites e situação Git</h3>
+<p>Entram contratos, camadas da API, complemento mínimo de migração para idempotência/imutabilidade, histórico consultável, transações, testes e documentação. Não entram tela, navegação, testes de UI, integração Prime, cálculo de km/L, upload de arquivos, cancelamento/anulação por endpoint, exportação ou implementação da API de viagens.</p>
+<p>Base inspecionada: <code>feat/be-api-de-manutencoes</code>, commit <code>9df510c</code>; develop local: <code>79c5949</code>. Há alterações locais preexistentes de outras tarefas. Nenhuma troca de branch, commit, push ou atualização dessas alterações faz parte da geração deste SDD.</p>
+<p>Branch sugerida para a implementação: <code>feat/be-api-de-abastecimentos</code>, a partir de develop atualizada, PR para develop. As referências de manutenção abaixo são exemplos disponíveis na branch inspecionada, não uma dependência obrigatória de merge. Revalidar a presença dos métodos de VehiclesRepository na base escolhida. Commits sugeridos: <code>feat(frota): implementar API de abastecimentos (FROTA-64)</code> e <code>test(frota): validar abastecimentos e historico (FROTA-65)</code>.</p>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<h3>2.1 Regras funcionais</h3><div class="table-scroll" tabindex="0" role="region" aria-label="Tabela do plano; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Dado</th><th scope="col">Quando</th><th scope="col">Então</th></tr></thead><tbody><tr><td>Usuário GESTOR/ADMINISTRADOR, veículo existente e dados válidos</td><td>Registra um abastecimento</td><td>201; grava abastecimento, leitura FUELING, evento RECORDED e audit.logs no mesmo commit.</td></tr><tr><td>Campos obrigatórios ausentes, litros/valor zero ou negativos, km negativo/fracionário, enum ou formato inválido</td><td>Envia POST/PUT</td><td>400 com mensagem em português indicando o campo e a correção; nenhuma gravação parcial.</td></tr><tr><td>Data válida com fuso, posterior ao relógio do serviço</td><td>Envia cadastro ou correção</td><td>422. Relógio injetável para testes; comparar instantes, sem tolerância futura inventada.</td></tr><tr><td>Leitura de 51.000 km antes e 52.000 km depois</td><td>Registra 51.200 km entre esses fatos</td><td>Aceita, mesmo que o lançamento seja feito depois da leitura de 52.000 km.</td></tr><tr><td>As mesmas leituras</td><td>Registra 50.900 ou 52.100 km entre os fatos</td><td>422 por incoerência cronológica. Igualdade com as fronteiras é aceita.</td></tr><tr><td>Lançamento incorreto de 52.000 km e evidência de 51.200 km</td><td>Retifica com sequência válida</td><td>Nova versão com supersedes_id, novo evento RECTIFIED e nova leitura retificadora. O original permanece consultável e deixa de contar nos totais vigentes.</td></tr><tr><td>Versão já substituída ou expectedRevision desatualizada</td><td>Tenta uma nova correção sobre ela</td><td>409; orientar a carregar a versão vigente. Não criar ramificações na cadeia.</td></tr><tr><td>Mesma chave de idempotência e autor</td><td>Repete exatamente a mesma operação</td><td>Mesmo resultado original e mesmo ID, sem duplicar fatos, eventos ou auditoria. Payload/operação/alvo diferentes: 409.</td></tr><tr><td>Falha ao gravar leitura, evento ou AuditService</td><td>A operação está em andamento</td><td>Rollback de toda a unidade de trabalho; nenhum abastecimento fica sem trilha.</td></tr><tr><td>Filtros por veículo, motorista e período</td><td>Consulta a coleção</td><td>Somente versões vigentes, não anuladas; filtros combinados por AND; totais dos mesmos registros, sem contar versões antigas.</td></tr><tr><td>Perfil sem acesso ou token ausente/inválido</td><td>Chama qualquer um dos quatro endpoints</td><td>403 para perfil não autorizado; 401 para autenticação ausente/inválida, antes de revelar existência de registros.</td></tr></tbody></table></div>
+<h3>2.2 Histórico e precisão</h3>
+<p><strong>Correções autorizadas após a revisão, em 06/11/2026:</strong> preservar os microssegundos de <code>fueledAt</code> no legado e nas retificações que omitem a data; aceitar até seis casas nos instantes e filtros, normalizando UTC sem perda e comparando a cronologia com precisão de microssegundos. Resolver <code>currentId</code> pela única ponta sem sucessora, sem pressupor revisões crescentes em cadeias legadas. As três falhas da revisão R1–R3 recebem testes de regressão; RBAC, histórico append-only e escopo sem frontend permanecem conforme as decisões registradas.</p>
+<p>Cada versão registra o quê, quando ocorreu, quando foi registrado, quem informou, quem cadastrou, justificativa e evidência. <code>fueledAt</code> representa o fato; <code>registeredAt</code> vem do banco. Autor e snapshots são obtidos no servidor. Nenhum payload pode forjar autoria, supersedesId, revision, timestamps de registro ou isAnnulled.</p>
+<p>Litros são decimais exatos com até 3 casas e valor em reais com até 2, transmitidos como strings decimais. Rejeitar excesso de escala/faixa, vírgula, notação científica e valores não finitos; não arredondar silenciosamente. IDs BIGINT são strings; quilometragem é inteiro de 0 a 2.147.483.647.</p>
+<p>Não condicionar lançamentos históricos ao status atual do veículo ou motorista: validar existência, sem alterar disponibilidade, CNH, escalas ou status de manutenção. Não impor compatibilidade de combustível não prevista no cadastro. Não há novo parâmetro de configuração nem feature flag.</p>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<p><strong>Ajuste técnico constatado na implementação:</strong> backend/tests/database.integration.test.ts também recebe a reversão da extensão antes da tabela-base e a asserção de imutabilidade do fato. A suíte antiga removia a tabela sem invalidar a versão complementar de schema; a correção mantém a reaplicação íntegra, sem mudar fluxos de negócio.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Tabela do plano; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Arquivo</th><th scope="col">Ação e responsabilidade</th></tr></thead><tbody><tr><td>backend/src/types/fueling.types.ts</td><td>Novo: DTOs, FuelType, Fueling, FuelingVersion, FuelingHistoryEvent, FuelingFilters, FuelingList e erros de domínio com códigos semânticos.</td></tr><tr><td>backend/src/repositories/fuelings.repository.ts</td><td>Novo: SQL parametrizado, projeções, versões, eventos, leituras, consultas cronológicas, idempotência e filtros/totais.</td></tr><tr><td>backend/src/services/fuelings.service.ts</td><td>Novo: cadastro, retificação, consultas, validação cronológica e orquestração transacional; sem Express ou SQL.</td></tr><tr><td>backend/src/controllers/fuelings.controller.ts</td><td>Novo: validação da forma de body/query, tradução dos erros de domínio para HTTP e envelope { erro }.</td></tr><tr><td>backend/src/routes/fuelings.routes.ts</td><td>Novo: fábrica createFuelingsRouter, autenticação, authorizeRoles e quatro rotas.</td></tr><tr><td>backend/src/app.ts</td><td>Alterar: instanciar repository/service e montar /fuelings usando o pool e AuditService existentes.</td></tr><tr><td>backend/src/database/migrations/202611050001_extend_fuelings.sql e .down.sql</td><td>Novos: complemento aditivo, índices únicos e imutabilidade dos fatos. Confirmar número livre antes de implementar.</td></tr><tr><td>backend/tests/fuelings.service.test.ts</td><td>Novo: regras de valores, datas, cronologia, correção, relógio controlado e contratos de falha.</td></tr><tr><td>backend/tests/fuelings.integration.test.ts</td><td>Novo, entrega FROTA-65: API real, PostgreSQL 18, RBAC, trilhas, idempotência e concorrência.</td></tr><tr><td>backend/tests/fueling-migrations.integration.test.ts</td><td>Novo: aplicar, reexecutar, preservar legado, detectar duplicidade e validar rollback seguro.</td></tr><tr><td>docs/modulos/FROTA.html e docs/manuais/modulos.md</td><td>Criar documentação FROTA a partir do template e incluir abastecimentos no índice; preservar demais módulos.</td></tr></tbody></table></div>
+<p>Reuso obrigatório: <code>VehiclesRepository.withTransaction</code>, <code>findByIdForUpdate</code>, <code>findActorSnapshot</code>, <code>AuditService.recordAudit</code>, <code>createAuthMiddleware</code>, <code>authorizeRoles</code>, <code>createApp</code>, fixtures RBAC e helpers de banco de teste. Se esses métodos estiverem disponíveis na base da implementação, não duplicá-los.</p>
+<p>Padrões concretos consultados: rotas/controllers/repository/service de maintenance-orders e vehicles, <code>backend/tests/maintenance-orders.integration.test.ts</code>, <code>backend/tests/helpers/db-test.ts</code> e <code>backend/tests/fixtures/rbac-users.fixture.ts</code>. Não extrair validadores genéricos nem refatorar manutenção nesta entrega.</p>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<h3>4.1 Estrutura existente e preservação</h3>
+<p>Reutilizar <code>202610280010_create_fuelings.sql</code>: <code>fleet.fuelings</code>, <code>fleet.fueling_events</code> e vínculo <code>trip.odometer_readings.fueling_id</code>. Eventos e leituras já possuem triggers append-only. A tabela de abastecimentos ainda permite UPDATE/DELETE; a migração complementar abaixo fecha essa lacuna.</p>
+<p>Manter PK <code>id BIGINT GENERATED ALWAYS AS IDENTITY</code>, FKs <code>ON DELETE RESTRICT</code>, litros NUMERIC(10,3), valor NUMERIC(12,2), combustível do enum existente e todos os snapshots/colunas históricas. Prevalece a nomenclatura canônica atual de schemas nativos sobre exemplos antigos de prefixos de três letras presentes em material operacional.</p>
+<h3>4.2 Migração complementar planejada</h3>
+<p>As duas colunas novas são nulas para registros legados. As novas mutações da API sempre preenchem ambas. <code>request_payload</code> contém a entrada normalizada, tipo da operação e ID alvo, sem token, para comparar reenvios; a resposta pode ser reconstruída pela versão imutável gravada. Não inventar metadados para registros antigos.</p>
+<pre><code>BEGIN;
+LOCK TABLE fleet.fuelings IN SHARE ROW EXCLUSIVE MODE;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT supersedes_id FROM fleet.fuelings
+    WHERE supersedes_id IS NOT NULL
+    GROUP BY supersedes_id HAVING count(*) &gt; 1
+  ) THEN
+    RAISE EXCEPTION &#x27;Há retificações ramificadas. Revise o histórico antes de migrar.&#x27;;
+  END IF;
+END;
+$$;
+
+ALTER TABLE fleet.fuelings
+  ADD COLUMN request_key UUID,
+  ADD COLUMN request_payload JSONB,
+  ADD CONSTRAINT fleet_fuelings_request_pair CHECK (
+    (request_key IS NULL AND request_payload IS NULL) OR
+    (request_key IS NOT NULL AND request_payload IS NOT NULL
+      AND jsonb_typeof(request_payload) = &#x27;object&#x27;)
+  );
+
+CREATE UNIQUE INDEX fleet_fuelings_request_key
+  ON fleet.fuelings (created_by, request_key)
+  WHERE request_key IS NOT NULL;
+CREATE UNIQUE INDEX fleet_fuelings_one_successor
+  ON fleet.fuelings (supersedes_id)
+  WHERE supersedes_id IS NOT NULL;
+
+CREATE FUNCTION fleet.prevent_fueling_mutation()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION &#x27;Abastecimentos são imutáveis. Registre uma retificação.&#x27;;
+END;
+$$;
+CREATE TRIGGER fleet_fuelings_append_only
+  BEFORE UPDATE OR DELETE ON fleet.fuelings
+  FOR EACH ROW EXECUTE FUNCTION fleet.prevent_fueling_mutation();
+COMMIT;</code></pre>
+<p>O índice por supersedes_id já existente não precisa ser removido nesta entrega. Reaproveitar os índices por veículo/data, motorista/data, eventos por abastecimento e leituras por veículo/data. Filtros temporais usam comparações diretas, sem DATE(coluna). Só adicionar índices de performance após medir com EXPLAIN (ANALYZE, BUFFERS), em dados fictícios representativos.</p>
+<h3>4.3 Rollback obrigatório</h3>
+<p>Antes do uso operacional, a reversão pode remover apenas os objetos adicionados. Depois de qualquer operação da nova API, reverter somente a aplicação, preservando schema e histórico. Nunca executar a down original da FROTA-63 para desfazer esta entrega: ela remove tabelas e vínculos compartilhados.</p>
+<pre><code>BEGIN;
+LOCK TABLE fleet.fuelings IN ACCESS EXCLUSIVE MODE;
+DO $$
+BEGIN
+  IF EXISTS (SELECT id FROM fleet.fuelings
+             WHERE request_key IS NOT NULL OR request_payload IS NOT NULL) THEN
+    RAISE EXCEPTION &#x27;Rollback recusado para preservar histórico. Reverta apenas a aplicação.&#x27;;
+  END IF;
+END;
+$$;
+DROP TRIGGER fleet_fuelings_append_only ON fleet.fuelings;
+DROP FUNCTION fleet.prevent_fueling_mutation();
+DROP INDEX fleet.fleet_fuelings_one_successor;
+DROP INDEX fleet.fleet_fuelings_request_key;
+ALTER TABLE fleet.fuelings
+  DROP CONSTRAINT fleet_fuelings_request_pair,
+  DROP COLUMN request_key,
+  DROP COLUMN request_payload;
+COMMIT;</code></pre>
+<p>O DatabaseMigrator já controla transação e versão da migração. Nenhum backfill de autoria, snapshots, evidências ou horários será feito. Versões antigas com campos nulos continuam consultáveis como informação não registrada. Cadeias cíclicas, ramificadas ou vínculos inconsistentes devem gerar diagnóstico e impedir a mutação afetada, sem “conserto” destrutivo automático.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<h3>5.1 Contrato público para implementação e integração da FROTA-66</h3>
+<p>Rotas montadas diretamente na raiz, como o backend atual, sem acrescentar /api. Todos os endpoints exigem Bearer token e GESTOR/ADMINISTRADOR. IDs são strings; datas de resposta são ISO 8601; valores decimais são strings.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Tabela do plano; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Endpoint</th><th scope="col">Entrada</th><th scope="col">Resposta</th></tr></thead><tbody><tr><td>GET /fuelings</td><td>vehicleId?, driverId?, from?, to?, page? (1), pageSize? (20, máximo 100). Instantes ISO com fuso; intervalo [from,to), from &lt; to. Rejeitar parâmetros repetidos/arrays e páginas inválidas.</td><td>200 { items, total, page, pageSize, totalPages, totalLiters, totalValue }. Paginar versões vigentes por fueledAt DESC, id numérico DESC. Totais abrangem todo o filtro, não só a página; vazio: [] e totais zero formatados.</td></tr><tr><td>GET /fuelings/:id</td><td>ID de qualquer versão, inclusive antiga.</td><td>200 { fueling, currentId, versions, events }. fueling é exatamente o ID solicitado; versions é a cadeia completa e events contém todas as mudanças, com autoria, motivo, evidência e before/after. Não redirecionar silenciosamente o ID antigo.</td></tr><tr><td>POST /fuelings</td><td>Idempotency-Key UUID obrigatório e CreateFuelingInput.</td><td>201 FuelingVersion. Reenvio equivalente: mesma versão e 201, mesmo que já exista uma correção posterior.</td></tr><tr><td>PUT /fuelings/:id</td><td>Idempotency-Key UUID, expectedRevision, metadados da correção e campos editáveis.</td><td>200 FuelingVersion com NOVO id, supersedesId apontando para o alvo e revision incrementada. O chamador passa a usar o novo ID. Versão anterior continua intacta.</td></tr></tbody></table></div>
+<h3>5.2 DTOs e campos</h3>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Tabela do plano; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Campo</th><th scope="col">Contrato</th></tr></thead><tbody><tr><td>vehicleId</td><td>String BIGINT positiva, obrigatória na criação. Identidade do veículo permanece a mesma na retificação, seguindo o padrão de edição operacional existente; rejeitar tentativa de troca com 400.</td></tr><tr><td>driverId</td><td>String BIGINT positiva opcional/nula; deve existir quando informada. Não representa permissão de acesso do motorista.</td></tr><tr><td>fueledAt</td><td>Obrigatório na criação; instante ISO com Z ou offset; data real, não futura. Editável na retificação, com nova validação cronológica.</td></tr><tr><td>fuelType</td><td>Obrigatório: GASOLINE, ETHANOL, DIESEL, DIESEL_S10, GNV, FLEX ou OTHER, conforme CHECK existente.</td></tr><tr><td>liters / totalValue</td><td>Obrigatórios: strings positivas, até 7 dígitos inteiros + 3 decimais / 10 inteiros + 2 decimais. Resposta com escalas 3 e 2. Não usar float para calcular totais.</td></tr><tr><td>odometerKm</td><td>Obrigatório na criação, número inteiro não negativo dentro de INTEGER; correção também valida a sequência histórica.</td></tr><tr><td>station / notes</td><td>Textos opcionais/nulos; se presentes e não nulos, trim e conteúdo não vazio. Sem cadastro de postos novo.</td></tr><tr><td>reportedBy / reason</td><td>Textos obrigatórios não vazios em toda mutação; identificar a origem da informação e motivo do registro/correção.</td></tr><tr><td>evidenceDescription / attachmentUrl</td><td>Ao menos um não vazio em toda mutação. Descrição do comprovante/canal ou URL HTTP(S) válida; URL é somente armazenada, sem download no backend. Não introduzir serviço de upload.</td></tr><tr><td>expectedRevision</td><td>Obrigatório no PUT, inteiro positivo que deve coincidir com a versão alvo vigente.</td></tr><tr><td>Campos do servidor</td><td>id, createdBy, actorSnapshot, vehicleSnapshot, driverSnapshot, registeredAt, createdAt, revision, supersedesId e isAnnulled não são controlados pelo cliente. Rejeitar campos de controle enviados para falsificar histórico.</td></tr></tbody></table></div>
+<p>PUT segue o comportamento de edição já usado em manutenção: campos editáveis omitidos preservam os valores do alvo; null só limpa opcionais. Campos editáveis: driverId, fueledAt, fuelType, liters, totalValue, odometerKm, station e notes. reportedBy, reason e evidência são novos metadados da retificação e não são herdados automaticamente. Mesmo uma correção apenas de posto gera versão e evento, preservando before/after.</p>
+<pre><code>POST /fuelings
+Authorization: Bearer &lt;token&gt;
+Idempotency-Key: 4a804230-53ea-49c4-b942-2b2bc7cdb662
+{
+  &quot;vehicleId&quot;: &quot;101&quot;,
+  &quot;driverId&quot;: null,
+  &quot;fueledAt&quot;: &quot;2026-11-04T10:00:00-03:00&quot;,
+  &quot;fuelType&quot;: &quot;DIESEL_S10&quot;,
+  &quot;liters&quot;: &quot;40.500&quot;,
+  &quot;totalValue&quot;: &quot;250.00&quot;,
+  &quot;odometerKm&quot;: 51200,
+  &quot;station&quot;: &quot;Posto Fictício QA&quot;,
+  &quot;reportedBy&quot;: &quot;Equipe fictícia por formulário&quot;,
+  &quot;reason&quot;: &quot;Registro de abastecimento de teste&quot;,
+  &quot;evidenceDescription&quot;: &quot;Comprovante fictício QA-001&quot;
+}</code></pre>
+<p><code>FuelingVersion</code> devolve os campos do fato e seus metadados, incluindo id, supersedesId, revision, fueledAt, registeredAt, createdBy e snapshots seguros. Não devolver request_key/request_payload como campos públicos. Snapshots do motorista limitados a identificação funcional (id e nome); não copiar CPF, telefone ou CNH para o contrato de abastecimento.</p>
+<h3>5.3 Histórico completo, sem substituição destrutiva</h3>
+<ol><li>POST insere uma versão raiz revision=1, evento RECORDED, leitura FUELING com fueling_id e auditoria CREATE. Todos usam o mesmo ator autenticado e cliente transacional.</li>
+<li>PUT insere nova linha fleet.fuelings, supersedes_id = alvo.id, revision = alvo.revision + 1; nunca executa UPDATE no fato original. Evento RECTIFIED da nova versão contém before_state da anterior e after_state da nova, razão, evidência, informante e ator.</li>
+<li>Insere nova leitura FUELING vinculada à nova versão. supersedes_id aponta para a leitura vigente da versão anterior; inclusive alterações apenas de posto mantêm uma cadeia explícita de leituras, sem duplicação na visão vigente. Se o legado nunca teve leitura vinculada, iniciar uma leitura sem inventar o registro antigo.</li>
+<li>Auditoria UPDATE usa table=fleet.fuelings, recordId do novo registro e snapshots antes/depois contendo ambos os IDs. A operação é correção de negócio, embora fisicamente use INSERT.</li>
+<li>Preservar snapshots anteriores. Para a nova versão, reutilizar o snapshot histórico do veículo e do motorista quando a identidade não mudou; se houver alteração de motorista, capturar o novo vínculo sem modificar o antigo. Snapshot do autor sempre corresponde ao responsável por aquela mutação. Snapshot ausente no legado permanece desconhecido, sem alegar reconstrução histórica.</li>
+<li>Consulta do detalhe percorre a cadeia desde a raiz, traz versões e eventos com ordenação por registered_at/id e exibe também o instante do fato. Usar proteção contra ciclos no CTE recursivo. O histórico não depende dos dados cadastrais atuais para reconstruir nomes, autoria ou valores antigos.</li></ol>
+<p>Uma linha é vigente quando <code>NOT EXISTS (SELECT id FROM fleet.fuelings next WHERE next.supersedes_id = current.id)</code> e não está anulada. Verificar a existência de sucessor antes de filtrar a anulação: um sucessor anulado não deve ressuscitar o original. Aplicar a mesma regra às leituras. Nenhum DELETE é exposto.</p>
+<h3>5.4 Validação cronológica e dados legados</h3>
+<ol><li>Obter as leituras vigentes e não anuladas de trip.odometer_readings do veículo, incluindo abastecimentos/viagens e leituras operacionais já existentes.</li>
+<li>Complementar a linha do tempo com abastecimentos vigentes sem qualquer leitura vinculada e com start_km/started_at e end_km/finished_at de viagens sem trilha correspondente. Não somar a coluna antiga quando existir trilha START/END, mesmo retificada ou anulada: a trilha é a fonte autoritativa. Não usar datas agendadas como datas reais.</li>
+<li>Na correção, excluir a cadeia do fato corrigido e suas leituras do conjunto de comparação. O valor antigo incorreto não pode bloquear a própria retificação. Recalcular os limites usando a nova data quando fueledAt mudar.</li>
+<li>Calcular limite inferior pelas leituras anteriores (maior km) e superior pelas posteriores (menor km). Sem anterior, somente limite mínimo zero; sem posterior, não existe limite superior artificial. Leituras no mesmo instante exigem km igual. Limites incompatíveis ou quilometragem legada sem instante real geram conflito 409 orientando revisão do histórico, sem alterar dados.</li>
+<li>Aceitar limiteInferior ≤ odometerKm ≤ limiteSuperior. Retornar 422 ao violar uma fronteira, com mensagem que indica a quilometragem/data impeditiva sem revelar dados pessoais.</li></ol>
+<p>Consultas e fontes ficam em métodos dedicados do FuelingsRepository; a decisão de aceitar/rejeitar pertence ao FuelingsService. A consulta ao histórico legado é leitura de compatibilidade, não migração retroativa. As tabelas trip.trips têm start_km/end_km: não basta consultar exclusivamente abastecimentos.</p>
+<h3>5.5 Transação, concorrência e idempotência</h3>
+<ol><li>Validar forma, tipos, chave UUID e normalizar a entrada. Normalizar datas e decimais antes de comparar reenvios; preservar a diferença entre campo omitido e null no PUT.</li>
+<li>Consultar request_key por autor. Em reenvio equivalente, devolver a versão original antes de rejeitar expectedRevision obsoleta; mesma chave com outra operação, alvo ou conteúdo retorna 409.</li>
+<li>Abrir withTransaction; obter lock de fleet.vehicles por findByIdForUpdate; no PUT, reler e bloquear também a versão alvo. Manter a ordem veículo → abastecimento em todas as mutações.</li>
+<li>Reconsultar a chave após o lock; validar existência, revisão, ausência de sucessor, snapshots e cronologia dentro da transação. Não fazer checagem de km apenas antes de obter a trava.</li>
+<li>Gravar versão, leitura, evento e AuditService.recordAudit(..., client); commit somente depois de todos. finally libera conexão. Nenhuma chamada externa ocorre sob lock.</li>
+<li>O índice único por autor/chave cobre corridas entre veículos diferentes; em violação 23505, fazer rollback antes de reler a chave e distinguir replay de conflito. O índice de sucessor impede duas retificações do mesmo alvo.</li></ol>
+<p>A API de viagens ainda não está implementada nesta base. Os escritores futuros de hodômetro devem adquirir a mesma trava do veículo; documentar esse requisito de integração. Nesta entrega, testar concorrência com um escritor simulado que usa o mesmo protocolo. Não alegar garantia contra SQL externo ou escritores futuros que ignorem o lock.</p>
+<h3>5.6 Responsabilidades e erros</h3>
+<p>FuelingsService recebe contratos do repositório, VehiclesRepository, AuditLogger e relógio. Expõe list, getById, create e rectify. Erros de domínio usam códigos como INVALID_INPUT, FUTURE_DATE, ODOMETER_CONFLICT, NOT_FOUND e REVISION_CONFLICT; o controller os traduz para HTTP, preservando o envelope existente <code>{ "erro": "mensagem orientadora" }</code>.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Tabela do plano; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">HTTP</th><th scope="col">Uso</th></tr></thead><tbody><tr><td>400</td><td>Campo/formato inválido, volume/valor não positivo, ID inválido, query inválida, chave ausente ou campo de controle indevido.</td></tr><tr><td>401 / 403</td><td>Falha de autenticação / perfil não autorizado.</td></tr><tr><td>404</td><td>Abastecimento, veículo ou motorista referenciado inexistente, após autorização.</td></tr><tr><td>409</td><td>Versão já retificada, revisão obsoleta, conflito de chave ou histórico legado inconsistente/incompleto.</td></tr><tr><td>422</td><td>Data futura ou quilometragem incompatível com a sequência temporal.</td></tr><tr><td>500</td><td>Erro inesperado, tratado pelo middleware global; sem SQL, stack, tokens ou dados pessoais na resposta.</td></tr></tbody></table></div>
+<p>Listagem, paginação e totais devem usar uma mesma fotografia do banco (uma instrução SQL com CTEs ou transação de leitura consistente), evitando totais diferentes da coleção no mesmo retorno. SUM executado em NUMERIC, com COALESCE e escalas explícitas. Projeções de colunas explícitas, filtros no SQL e parâmetros $1, $2; não carregar toda a frota para filtrar em JavaScript.</p>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p><strong>Fora do escopo — FROTA-66, executada por outra pessoa.</strong> Nenhum arquivo de frontend será criado ou alterado. Os contratos da seção 5 são o ponto de integração, especialmente o novo ID retornado por PUT, o histórico de versões e os totais do filtro.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Tabela do plano; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Estado da futura tela</th><th scope="col">Suporte da API nesta entrega</th></tr></thead><tbody><tr><td>Ideal</td><td>Dados tipados, versão vigente e totais consistentes.</td></tr><tr><td>Carregando</td><td>Responsabilidade de apresentação da FROTA-66; não há implementação de componentes aqui.</td></tr><tr><td>Vazio</td><td>200, items=[], total=0, totalPages=0, totalLiters="0.000", totalValue="0.00".</td></tr><tr><td>Erro</td><td>Status semântico e texto no campo erro, sem detalhes internos.</td></tr><tr><td>Parcial/intermitente</td><td>Mutações atômicas: sucesso completo ou rollback. Reenvio com a mesma chave resolve perda de resposta sem duplicar registro; apresentação fica na FROTA-66.</td></tr></tbody></table></div>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>Aplicável à API: mensagens claras em português, identificando campo/problema/próximo passo, sem depender de cor e sem expor termos SQL. Exemplos: “Informe uma quantidade de litros maior que zero.”; “A quilometragem informada ultrapassa a leitura posterior a este abastecimento. Revise a data ou a quilometragem.”; “Este abastecimento já foi corrigido. Consulte a versão atual antes de continuar.”</p>
+<p>A interface, useId, foco, teclado, anúncios e alvos de toque serão verificados na FROTA-66. Não registrar testes visuais como concluídos nesta entrega. Este documento usa idioma pt-BR, sumário navegável, cabeçalhos semânticos e tabelas com cabeçalhos identificados.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Tabela do plano; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Perfil / contexto</th><th scope="col">GET coleção / detalhe</th><th scope="col">POST / PUT</th></tr></thead><tbody><tr><td>GESTOR</td><td>Permitido</td><td>Permitido</td></tr><tr><td>ADMINISTRADOR</td><td>Permitido</td><td>Permitido</td></tr><tr><td>MOTORISTA</td><td>403</td><td>403</td></tr><tr><td>SOLICITANTE</td><td>403</td><td>403</td></tr><tr><td>ATENDENTE_SVO / EQUIPE_SVO</td><td>403</td><td>403</td></tr><tr><td>Sem token ou token inválido</td><td>401</td><td>401</td></tr></tbody></table></div>
+<p>Aplicar authorizeRoles(['GESTOR', 'ADMINISTRADOR']) uma única vez no router protegido, inclusive consultas. Reutilizar os perfis concretos do código, sem criar aliases ADMIN/MANAGER nem novas permissões. O driverId do abastecimento não concede acesso ao motorista.</p>
+<p>Impacto: fleet.fuelings, fleet.fueling_events, trip.odometer_readings, audit.logs e montagem em app.ts. Veículos, motoristas, usuários e viagens fornecem contexto e locks; não alterar seus fluxos de negócio nem dados cadastrais. Sem mudança de status/odômetro na tabela de veículos, que não possui coluna atual de km nesta base.</p>
+<p>Configuração: reutilizar DATABASE_URL, DATABASE_URL_TEST e configuração JWT atuais; não criar segredos, serviços Docker, flags ou dependências npm. Testes exclusivamente no banco de teste, nunca no banco operacional. Campos de auditoria e snapshots permanecem restritos aos dois perfis autorizados.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<h3>9.1 Matriz de validação FROTA-65</h3><div class="table-scroll" tabindex="0" role="region" aria-label="Tabela do plano; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">ID</th><th scope="col">Cenário</th><th scope="col">Verificação</th></tr></thead><tbody><tr><td>QA01</td><td>Cadastro válido por GESTOR e ADMINISTRADOR</td><td>201; conferir fato, leitura, evento RECORDED, audit CREATE e snapshots/autoria no banco.</td></tr><tr><td>QA02</td><td>Litros/valor zero, negativo, ausente, escala excedida, overflow e texto inválido</td><td>400; nenhuma gravação. Testar limites exatos de NUMERIC e soma sem erro de ponto flutuante.</td></tr><tr><td>QA03</td><td>Km abaixo da leitura anterior ou acima da posterior</td><td>422 em cadastro e correção; igual às fronteiras aceito.</td></tr><tr><td>QA04</td><td>Registro retroativo consistente</td><td>51.200 km entre 51.000 e 52.000 aceito, embora já exista a leitura de 52.000. Comprova refinamento confirmado.</td></tr><tr><td>QA05</td><td>Data futura, inválida e offsets equivalentes</td><td>Futura 422; inválida 400; instantes equivalentes normalizados; relógio controlado, sem teste dependente da data do dia.</td></tr><tr><td>QA06</td><td>Filtro combinado veículo/motorista/período</td><td>Incluir início e excluir fim; descartar outros veículos/motoristas; ordenar/paginar; totais do filtro inteiro, não da página.</td></tr><tr><td>QA07</td><td>Todos os perfis não autorizados e token ausente/inválido</td><td>403/401 nos quatro endpoints, sem vazamento de existência ou mudança de ledger.</td></tr><tr><td>QA08</td><td>Correção de km, data, litros, valor, posto, motorista e notas</td><td>Novo ID, supersedesId e revision; original byte a byte preservado; evento RECTIFIED e auditoria com before/after; trilha de leituras coerente.</td></tr><tr><td>QA09</td><td>Duas correções sucessivas e consulta por ID antigo</td><td>Detalhe mantém versão pedida, currentId e cadeia completa; totais contam só a ponta. Snapshots anteriores não mudam após edição do cadastro.</td></tr><tr><td>QA10</td><td>Revisão obsoleta, alvo substituído e duas correções concorrentes</td><td>Apenas uma sucessora; segunda tentativa 409; sem ramificação ou evento órfão.</td></tr><tr><td>QA11</td><td>Idempotência sequencial e simultânea em POST e PUT</td><td>Mesmo autor/chave/payload produz um único fato e uma única trilha; após correção posterior, replay devolve a versão original. Chave divergente →409, incluindo alvos/operações diferentes.</td></tr><tr><td>QA12</td><td>Falha injetada de auditoria/evento/leitura</td><td>500 e rollback completo; reenvio após restauração funciona. Conferir contagens e conteúdo de todas as tabelas afetadas.</td></tr><tr><td>QA13</td><td>Concorrência de km do mesmo veículo</td><td>Escritor simulado de viagem usa lock compartilhado; segunda operação relê limites depois do lock e recusa sequência inválida. Sem sleeps frágeis, usar barreiras/conexões distintas.</td></tr><tr><td>QA14</td><td>Legado sem snapshots/leitura e viagem com start_km/end_km</td><td>Consulta preserva null; fallback cronológico funciona sem duplicar fonte; dado sem instante real/conflitante retorna 409 na mutação afetada.</td></tr><tr><td>QA15</td><td>Mesmo instante, nenhuma leitura, só anterior ou só posterior</td><td>Igualdade no mesmo instante; limites unilaterais corretos; quilometragem negativa sempre 400.</td></tr><tr><td>QA16</td><td>Leituras retificadas/anuladas e abastecimento legado anulado</td><td>Não ressuscitar predecessores nem contar versões obsoletas; correção pode reduzir valor incorreto respeitando as demais leituras.</td></tr><tr><td>QA17</td><td>Autoria forjada, tentativa de troca de veículo, campos de controle e evidência ausente</td><td>400; autoria persistida sempre do token/consulta autenticada; não herdar justificativa antiga como nova.</td></tr><tr><td>QA18</td><td>SQL direto UPDATE/DELETE no fato, eventos e leituras</td><td>Triggers impedem alteração; confirmar que transação falha sem comprometer as linhas históricas.</td></tr><tr><td>QA19</td><td>Migração e rollback</td><td>Aplicar em base vazia e com legado; runner reexecuta sem duplicar; duplicidade de sucessores bloqueia sem apagar; down permitida sem novos registros e recusada após uso.</td></tr><tr><td>QA20</td><td>Mensagens de erro e indisponibilidade</td><td>Envelope {erro}, texto orientador, sem SQL/stack/token/CPF/CNH; reenvio após perda da resposta não duplica operação.</td></tr></tbody></table></div>
+<h3>9.2 Execução e evidências</h3>
+<p>Unitários do Service cobrem decisões de domínio e relógio injetado. Integração usa node:test, createApp em porta efêmera, pg e fixtures RBAC existentes. Não substituir integração real por mocks de banco. Usar dados exclusivamente fictícios; gerar UUIDs por operação e nomes/placas de teste.</p>
+<p>Reutilizar setupTestDatabase/getTestPool/closeTestPool. Isolar testes de migração em base/schema de teste compatível com o runner; limpeza destrutiva somente no banco de teste confirmado. Testes de erro verificam rollback comparando o ledger antes/depois. Conexões HTTP e pools devem ser fechados em after/finally.</p>
+<pre><code># Na pasta backend, durante a implementação:
+npm run test:db:setup
+npx tsx --test --test-concurrency=1 tests/fuelings.service.test.ts tests/fuelings.integration.test.ts tests/fueling-migrations.integration.test.ts
+npm test
+npm run build
+
+# Na raiz, antes do PR:
+node docs/scripts/aratu-check.mjs</code></pre>
+<p>Roteiro manual de API: autenticar como Gestor, criar abastecimento fictício, consultar por período, corrigir km com evidência, abrir o ID anterior e o atual e verificar as trilhas; repetir tentativa com Motorista (403) e sem token (401). Nenhum roteiro de tela integra esta entrega.</p>
+<p><strong>Critério de conclusão:</strong> casos mínimos do Jira e cenários de histórico/concorrência passam; suite completa e build sem regressões; plano de consulta medido, sem alegar resultados não executados. Este SDD é planejamento: nenhum teste da futura API foi executado durante sua elaboração.</p>
+<h3>9.3 Ordem de implementação</h3>
+<ol><li>Conferir develop atualizada e preparar a branch sem transportar alterações de outras tarefas.</li><li>Implementar complemento de migração e seus testes de preservação/rollback.</li><li>Definir types e repository com projeções, histórico, linha do tempo e idempotência.</li><li>Implementar Service e testes de regras/atomicidade.</li><li>Implementar controller/router e registrar em app.ts.</li><li>Executar a matriz de integração da FROTA-65, corrigir regressões e medir SQL.</li><li>Documentar o contrato para a pessoa responsável pela FROTA-66, revisar o diff e preparar PR para develop.</li></ol>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+<ul class="check">
+<li>☐ Branch derivada de develop atualizada; PR para develop, com escopo FROTA-64 e FROTA-65.</li>
+<li>☐ Commits Conventional Commits; nenhuma alteração em frontend ou outras tarefas.</li>
+<li>☐ Autorização nos quatro endpoints conforme decisão confirmada.</li>
+<li>☐ Regra cronológica confirmada documentada no PR e coberta por teste retroativo.</li>
+<li>☐ Toda mutação preserva fato original, leitura, autor, motivo, evidência e antes/depois.</li>
+<li>☐ Replay, concorrência, versão antiga e rollback de auditoria comprovados.</li>
+<li>☐ Migração aditiva e down recusada após uso operacional; sem remoção de histórico.</li>
+<li>☐ TypeScript estrito, zero any; TSDoc semântico em português nos métodos públicos.</li>
+<li>☐ Queries parametrizadas, projeções explícitas, conexões liberadas e medição de SQL.</li>
+<li>☐ npm test, npm run build e pré-auditoria executados; evidências registradas.</li>
+<li>☐ Mensagens acessíveis em português; testes e documentos sem dados pessoais reais.</li>
+<li>☐ Documentação FROTA atualizada, incluindo novo ID do PUT e histórico completo.</li>
+</ul><p>Planejar commits revisáveis por camada, sem adicionar refatoração em massa. Verificações de frontend não se aplicam ao diff desta entrega.</p>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+<p><strong>Impacta o módulo FROTA.</strong> O arquivo docs/modulos/FROTA.html não existia na base inspecionada. Na implementação, criá-lo a partir de docs/modulos/EXEMPLO_MODULO.html e complementar docs/manuais/modulos.md com a API de abastecimentos.</p>
+<p>Documentar os quatro contratos, DTOs, precisão decimal, filtros/totais, mensagens, matriz de perfis, idempotência, sequência cronológica, complemento de schema e rollback. Descrever o PUT como retificação que devolve novo ID; registrar consulta de versões antigas, antes/depois, autoria, justificativa, evidência e snapshots.</p>
+<p>Registrar as decisões confirmadas e a divergência refinada do texto antigo do Jira. Documentar o protocolo de lock comum para futuros escritores de hodômetro. Indicar expressamente que a interface e sua validação de acessibilidade pertencem à FROTA-66; não apresentá-la como implementada.</p>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+<p>Aplicar a ordem de precedência da skill canônica principios:</p>
+<ol><li><strong>Padrões do projeto:</strong> Routes → Controllers → Services → Repositories; injeção leve; pg; schemas nativos; nomes de código em inglês e documentação em português.</li>
+<li><strong>Escopo de impacto:</strong> somente API/testes de abastecimentos; GESTOR/ADMINISTRADOR; sem FROTA-66.</li>
+<li><strong>Compatibilidade:</strong> preservar registros antigos, snapshots e formatos existentes; documentar claramente o novo contrato de retificação.</li>
+<li><strong>Idempotência e atomicidade:</strong> mesma chave não duplica; trava por veículo; fato, leitura, evento e auditoria no mesmo commit.</li>
+<li><strong>YAGNI:</strong> sem integração Prime, tela, cancelamento, novos serviços ou configurações.</li>
+<li><strong>DRY:</strong> reusar transação, autoria, autenticação, autorização, auditoria e infraestrutura de testes.</li>
+<li><strong>SOLID:</strong> I/O isolado, Service independente de Express e contratos enxutos.</li>
+<li><strong>KISS:</strong> extensão localizada; sem framework de eventos, ORM ou abstrações genéricas novas.</li>
+<li><strong>Clean Code:</strong> TypeScript estrito, retorno explícito, constantes e TSDoc semântico conforme docs/manuais/padroes-docblocks.md.</li></ol>
+<blockquote><strong>O passado não se apaga.</strong> Todas as mudanças são encadeadas e auditáveis. Não usar UPDATE/DELETE para corrigir fatos, não reconstruir snapshots antigos com cadastros atuais e não ocultar a versão original.</blockquote>
+<p>Aplicar Repository e Chain of Responsibility existentes, snapshots e trilha append-only. Não introduzir State/FSM ou Strategy onde não há ciclo de vida/algoritmos variantes nesta entrega.</p>
+<p>Qualquer divergência nova de negócio, base ou integração durante a implementação deve ser investigada nas fontes e, permanecendo inconclusiva, perguntada ao usuário antes de alterar escopo. Dados de teste e exemplos são fictícios. Sem commits/push sem instrução explícita.</p>
+<p><strong>plano → escopo de impacto, compatibilidade, preservação histórica e atomicidade · dúvidas de negócio levantadas: resolvidas nas decisões da seção 1.2.</strong></p>
+
+</body>
+</html>

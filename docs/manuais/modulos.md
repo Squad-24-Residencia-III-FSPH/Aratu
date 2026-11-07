@@ -9,7 +9,7 @@ Este documento apresenta o índice dos módulos funcionais do **Aratu — Sistem
 | # | Chave do Módulo | Nome Funcional | Perfis Operadores (RBAC) | Tabelas Principais (PostgreSQL 18) | Responsabilidade Principal |
 |---|---|---|---|---|---|
 | 1 | `AUTENTICACAO_RBAC` | Autenticação, Usuários e Setores | `ADMINISTRADOR` (gestão) / Todos os perfis (acesso) | `auth.users`, `auth.sectors`, `audit.logs` | Controle de sessão acessível, cadastro de servidores/setores e autorização baseada em papéis (`ADMINISTRADOR`, `GESTOR`, `SOLICITANTE`, `MOTORISTA`, `ATENDENTE_SVO`, `EQUIPE_SVO`). |
-| 2 | `FROTA` | Gestão de Frota, Veículos e Serviços | `GESTOR`, `ADMINISTRADOR`, `ATENDENTE_SVO` | `fleet.vehicles`, `fleet.vehicle_events`, `fleet.services`, `fleet.vehicle_services` | API de cadastro, consulta, edição e controle de situação dos veículos; placa única; capacidades, operação Administrativa/SVO e histórico imutável. A leitura aceita ATENDENTE_SVO; escrita é exclusiva de GESTOR e ADMINISTRADOR. |
+| 2 | `FROTA` | Gestão de Frota, Veículos e Serviços | `GESTOR`, `ADMINISTRADOR`, `ATENDENTE_SVO` | `fleet.vehicles`, `fleet.vehicle_events`, `fleet.services`, `fleet.vehicle_services`, `fleet.fuelings`, `fleet.fueling_events` | API de cadastro, consulta, edição e controle de situação dos veículos; placa única; capacidades, operação Administrativa/SVO e histórico imutável. A leitura de veículos aceita ATENDENTE_SVO; escrita é exclusiva de GESTOR e ADMINISTRADOR. Abastecimentos: registro, filtros, totais e retificação com histórico completo, exclusivamente para GESTOR e ADMINISTRADOR (FROTA-64/FROTA-65). |
 | 3 | `MOTORISTAS` | Gestão de Motoristas e Escalas | `GESTOR`, `MOTORISTA`, `ADMINISTRADOR` | `fleet.drivers` | Cadastro de condutores, controle de ativação/revisão, disponibilidade e escala operacional. |
 | 4 | `VIAGENS` | Solicitações, Políticas e Viagens Institucionais | `SOLICITANTE`, `GESTOR`, `MOTORISTA` | `trip.requests`, `trip.approval_policies`, `trip.trips`, `trip.allocations` | Fluxo completo de pedido de transporte institucional, versionamento, aprovação manual/automática, alocação concorrente em viagens, par ida e volta e registro de hodômetro. |
 | 5 | `SVO` | Operações do Serviço de Verificação de Óbito | `ATENDENTE_SVO`, `EQUIPE_SVO`, `GESTOR`, `ADMINISTRADOR` | `svo.occurrences`, `svo.custody_records`, `svo.release_orders` | Triagem obrigatória, despacho prioritário de viatura de remoção cadavérica, eventos de atendimento (coleta, custódia, laudo, liberação) e sigilo operacional estrito. |
@@ -24,6 +24,8 @@ A documentação técnica e funcional aprofundada de cada módulo é mantida em 
 Atualmente, o repositório dispõe de um **documento genérico de referência e template** que deve ser utilizado como base sempre que um módulo do Aratu for documentado:
 
 - 📄 **[`docs/modulos/EXEMPLO_MODULO.html`](../modulos/EXEMPLO_MODULO.html)** — Template padrão de documentação de módulo do Sistema Aratu.
+
+- 📄 **[`docs/modulos/FROTA.html`](../modulos/FROTA.html)** — Veículos e API de abastecimentos: contratos, precisão decimal, histórico, idempotência, concorrência e rollback seguro.
 
 ### O que a documentação HTML de cada módulo deve cobrir
 
