@@ -509,6 +509,7 @@ test('IT15: seed inicial da frota (seedInitialFleet) é idempotente', async () =
 test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restauram o estado e permitem reaplicar', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611080001_add_fine_creation_key.down.sql',
     '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
@@ -1025,6 +1026,7 @@ test('IT20: consulta de conflito de agenda por período usando os índices de tr
 test('IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e reaplicação limpa', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611080001_add_fine_creation_key.down.sql',
     '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
@@ -1481,6 +1483,7 @@ test('IT25: preservação histórica no SVO: snapshots da época, retificação 
 test('IT26: rollbacks (.down.sql) das migrations 202610280008, 202610280007 e 202610280006 e reaplicação limpa', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611080001_add_fine_creation_key.down.sql',
     '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
@@ -2005,6 +2008,7 @@ test('IT30: criação de fleet.fines, identificação posterior de motorista/via
 test('IT31: rollbacks (.down.sql) das migrations 202610280012, 202610280011, 202610280010 e 202610280009 e reaplicação limpa', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611080001_add_fine_creation_key.down.sql',
     '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',

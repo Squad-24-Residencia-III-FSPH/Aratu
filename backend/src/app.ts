@@ -27,6 +27,9 @@ import { createDriversRouter } from './routes/drivers.routes'
 import { ServicesRepository } from './repositories/services.repository'
 import { FleetServicesService } from './services/fleet-services.service'
 import { createServicesRouter } from './routes/services.routes'
+import { FinesRepository } from './repositories/fines.repository'
+import { FinesService } from './services/fines.service'
+import { createFinesRouter } from './routes/fines.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -84,6 +87,10 @@ export function createApp({ jwtConfig, users, roles, audits, pool }: AppDependen
     app.use('/drivers', createDriversRouter(driversService, jwtConfig))
     const fleetServicesService = new FleetServicesService(new ServicesRepository(pool), auditService)
     app.use('/services', createServicesRouter(fleetServicesService, jwtConfig))
+    const finesService = new FinesService(new FinesRepository(pool), vehiclesRepository,
+      new DriversRepository(pool), auditService)
+    const currentUsers = userRepository instanceof UsersRepository ? userRepository : new UsersRepository(pool)
+    app.use('/fines', createFinesRouter(finesService, jwtConfig, currentUsers))
   }
   if (rolesRepository && auditService && userRepository instanceof UsersRepository) {
     const usersService = new UsersService(userRepository, rolesRepository, auditService)

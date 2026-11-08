@@ -2,6 +2,7 @@ import jwt = require('jsonwebtoken')
 import type { NextFunction, Request, Response } from 'express'
 import { USER_ROLES } from '../types/auth'
 import type { AuthenticatedUser } from '../types/auth'
+import type { UsersRepositoryContract } from '../repositories/users.repository'
 
 /**
  * Predicado de tipo para validação em tempo de execução das claims contidas no payload do token JWT.
@@ -51,6 +52,28 @@ export function createAuthMiddleware(secret: string) {
       return
     }
     req.usuario = { id: payload.id, perfil: payload.perfil }
+    next()
+  }
+}
+
+/**
+ * Revalida a conta antes do RBAC para revogar tokens de contas inativas ou com perfil alterado.
+ * @param users - Consulta ao cadastro atual, sem confiar no perfil histórico do token.
+ * @returns Middleware a encadear após o JWT; falhas de persistência seguem ao Express 5.
+ */
+export function createCurrentUserMiddleware(users: Pick<UsersRepositoryContract, 'findById'>) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    if (!req.usuario || !/^[1-9]\d*$/.test(req.usuario.id)
+      || BigInt(req.usuario.id) > 9223372036854775807n) {
+      res.status(401).json({ erro: 'Autenticação necessária.' })
+      return
+    }
+    const user = await users.findById(req.usuario.id)
+    if (!user?.active) {
+      res.status(401).json({ erro: 'Sua conta não está ativa. Entre novamente ou procure a administração.' })
+      return
+    }
+    req.usuario = { id: user.id, perfil: user.role }
     next()
   }
 }
