@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FROTA — Gestão da frota e multas (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #075985;
+      --brand: #0369a1;
+      --brand-surface: #f0f9ff;
+      --brand-border: #bae6fd;
+      --brand-hover: #e0f2fe;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+<h1>FROTA — Gestão da frota e multas</h1>
+<div class="meta-block">
+<p><strong>Atualizado:</strong> 08/11/2026 · FSPH / SVO · FROTA-73 e FROTA-75</p>
+<p><strong>Base:</strong> develop / c9899b8 · branch feat/us10-gerenciar-multas · alterações locais ainda sem commit.</p>
+<p><strong>Backend:</strong> Express 5, TypeScript e PostgreSQL 18; rotas, controllers, services e repositories em backend/src.</p>
+<p><strong>Escopo desta atualização:</strong> API de multas e testes automatizados. Tela de multas: FROTA-74, entregue separadamente.</p>
+</div>
+<h2>1. Visão Geral</h2>
+<p>O módulo reúne veículos, serviços e registro de infrações da frota. A API de multas permite registrar notificações, identificar ou retirar o motorista, consultar viagens candidatas e acompanhar recurso, pagamento, cancelamento e reabertura com rastreabilidade. A associação de um motorista depende de confirmação do gestor e não é uma conclusão automática de culpabilidade.</p>
+<p>Veículos e serviços permanecem nas APIs /vehicles e /services. A documentação de <a href="MANUTENCOES.html">manutenção</a> preserva os contratos de /maintenance-orders e sua interface existente. Esta entrega não depende dos arquivos da FROTA-67.</p>
+<h2>2. Regras de Negócio e Transições de Estado</h2>
+<ul>
+<li><strong>FinesService::create:</strong> exige veículo, instante da infração com fuso, código, descrição, valor, reportedBy, reason e evidenceDescription. Motorista, viagem, local, vencimento e observações são opcionais. Valores desconhecidos permanecem null.</li>
+<li><strong>Moeda:</strong> string decimal com exatamente duas casas, de "0.00" a "9999999999.99". Validação em centavos inteiros; não aceitar número JSON, vírgula, sinal ou arredondamento implícito.</li>
+<li><strong>Reenvio:</strong> Idempotency-Key UUID, única por autor. Mesmo pedido normalizado retorna 201 e o estado vigente da mesma multa, sem evento ou auditoria extra, inclusive após edição. Conteúdo divergente retorna 409. Não existe unicidade por veículo/data/código.</li>
+<li><strong>FinesService::updateFine:</strong> PUT parcial exige expectedRevision, occurredAt e metadados; pelo menos um atributo editável. Omitido mantém valor; null somente em opcionais. Estado fechado exige reabertura. Correção efetiva incrementa a revisão uma vez; no-op não grava evento.</li>
+<li><strong>Confirmação:</strong> tripId exige driverId correspondente. Veículo, motorista e intervalo real são revalidados na transação; vínculo incompatível retorna 422 e deve ser corrigido explicitamente. Veículo/motorista hoje inativo ou CNH vencida não impedem registro histórico.</li>
+<li><strong>Concorrência:</strong> transação via VehiclesRepository, veículos travados por id crescente antes da multa; multa FOR UPDATE e viagem FOR SHARE. Evento e audit.logs compartilham o mesmo cliente, com rollback integral em falha e liberação em finally.</li>
+<li><strong>Histórico:</strong> eventos append-only preservam before/after, informante, autor, justificativa, evidência, occurredAt e registeredAt. Identificação gera DRIVER_IDENTIFIED; troca/remoção gera DRIVER_CHANGED; outras correções geram RECTIFIED com supersedesId do último evento. Legado sem predecessor usa null.</li>
+<li><strong>Snapshots:</strong> fonte TRIP_SNAPSHOT quando disponível, ou CURRENT_REGISTRY com capturedAt. Correções financeiras/textuais não recalculam retratos antigos. Contexto atual do cadastro aparece separadamente em vehicle/driver.</li>
+</ul>
+<table><thead><tr><th scope="col">Estado</th><th scope="col">Destinos</th><th scope="col">Efeito</th></tr></thead><tbody>
+<tr><td>PENDING</td><td>CONTESTED, PAID, CANCELED</td><td>Evento correspondente ao destino.</td></tr>
+<tr><td>CONTESTED</td><td>PENDING, PAID, CANCELED</td><td>PENDING registra REOPENED.</td></tr>
+<tr><td>PAID</td><td>PENDING</td><td>Reabre e limpa paidAt vigente, mantendo o evento anterior.</td></tr>
+<tr><td>CANCELED</td><td>PENDING</td><td>Reabre e limpa cancellationReason vigente, preservando o motivo anterior.</td></tr>
+<tr><td>Mesmo estado</td><td>Sem transição</td><td>Revisão vigente: no-op; revisão antiga: 409.</td></tr>
+</tbody></table>
+<p>Toda transição exige origem, justificativa e evidência. PAID exige paidAt, usado como instante do evento; occurredAt opcional deve representar o mesmo instante. Outros destinos exigem occurredAt e não aceitam paidAt. CANCELED usa reason como motivo do cancelamento. Não há rota DELETE.</p>
+<h2>3. Escopo de Impacto e Matriz de Acesso (RBAC)</h2>
+<table><thead><tr><th scope="col">Perfil/condição</th><th scope="col">Multas</th><th scope="col">Demais capacidades da frota</th></tr></thead><tbody>
+<tr><td>GESTOR e ADMINISTRADOR ativos</td><td>Todas as seis rotas.</td><td>Gestão de veículos, serviços e manutenção.</td></tr>
+<tr><td>SOLICITANTE e ATENDENTE_SVO</td><td>403 em todas as rotas.</td><td>Leitura de serviços ativos; ATENDENTE_SVO também consulta veículos.</td></tr>
+<tr><td>MOTORISTA e EQUIPE_SVO</td><td>403, mesmo que o motorista esteja associado à multa.</td><td>Permissões próprias dos demais módulos.</td></tr>
+<tr><td>Token inválido/expirado, conta ausente ou inativa</td><td>401.</td><td>Contratos existentes preservados.</td></tr>
+<tr><td>Perfil alterado após emitir JWT</td><td>Autorizar pelo perfil atual.</td><td>Revalidação nova é encadeada somente em /fines.</td></tr>
+</tbody></table>
+<p>Pipeline das multas: JWT → createCurrentUserMiddleware → RBAC → controller → service. Erro na consulta de conta interrompe a operação com 500 genérico; não há fallback para o perfil do token.</p>
+<h2>4. Tabelas do Banco de Dados (PostgreSQL 18)</h2>
+<table><thead><tr><th scope="col">Tabela</th><th scope="col">Grão e colunas</th><th scope="col">Integridade</th></tr></thead><tbody>
+<tr><td>fleet.fines</td><td>Estado vigente de uma multa. id BIGINT identity; vehicle_id obrigatório; driver_id/trip_id opcionais; amount NUMERIC(12,2); due_at DATE; instantes TIMESTAMPTZ; revision; snapshots JSONB; creation_key UUID nullable.</td><td>FKs RESTRICT; valor não negativo; status controlado; cancelamento exige motivo. Índices por veículo/data, motorista/data, viagem, status/vencimento. Índice único parcial (created_by, creation_key).</td></tr>
+<tr><td>fleet.fine_events</td><td>Um acontecimento confirmado. fine_id, event_type, occurred_at, registered_at, reported_by, registered_by, actor_snapshot, reason, evidence_description, attachment_url, supersedes_id, before_state e after_state.</td><td>Trigger recusa UPDATE/DELETE. FKs RESTRICT; índice por multa/instante e supersedes_id.</td></tr>
+<tr><td>audit.logs</td><td>Uma mutação auditada da multa, com antes/depois e autoria.</td><td>Gravação na mesma transação da entidade e do evento.</td></tr>
+<tr><td>fleet.vehicles, fleet.drivers, trip.trips, auth.users/roles</td><td>Referências cadastrais, viagens institucionais e conta/perfil atuais.</td><td>A API de multas não muda disponibilidade nem dados de viagens.</td></tr>
+</tbody></table>
+<p>A FROTA-72 permanece intacta. A extensão 202611080001 adiciona somente creation_key e índice. Registros antigos mantêm chave/snapshots nulos, sem preenchimento retroativo. O down funciona antes do uso e recusa remover a chave após cadastro/evento que a utilize. Após uso, reverter somente a aplicação e corrigir adiante.</p>
+<h2>5. Contratos de API REST (Backend Express 5)</h2>
+<table><thead><tr><th scope="col">Método/rota</th><th scope="col">Entrada</th><th scope="col">Resposta</th></tr></thead><tbody>
+<tr><td>GET /fines</td><td>vehicleId?, driverId?, status?, from?, to?</td><td>200 { items: Fine[] }; filtros AND e intervalo [from,to); ordenação infractionAt DESC, id DESC.</td></tr>
+<tr><td>GET /fines/driver-suggestions</td><td>vehicleId e infractionAt</td><td>200 { items: FineDriverSuggestion[] }; nenhuma escolha automática.</td></tr>
+<tr><td>GET /fines/:id</td><td>id textual positivo</td><td>200 FineDetail com events; 404 ausente. Estado e histórico na mesma consulta.</td></tr>
+<tr><td>POST /fines</td><td>CreateFineInput; Idempotency-Key UUID</td><td>201 Fine, inclusive replay idêntico; situação inicial PENDING, revision 1.</td></tr>
+<tr><td>PUT /fines/:id</td><td>UpdateFineInput parcial, expectedRevision e occurredAt</td><td>200 Fine; situação somente na rota própria.</td></tr>
+<tr><td>PATCH /fines/:id/status</td><td>status, expectedRevision, metadados e instante</td><td>200 Fine; no-op não duplica eventos.</td></tr>
+</tbody></table>
+<p>IDs são strings decimais positivas até BIGINT; revisões são inteiros positivos até INTEGER. Instantes ISO com Z ou deslocamento são normalizados em UTC. dueAt é data civil AAAA-MM-DD. Campo desconhecido/controlado, query repetida ou não escalar é rejeitado. attachmentUrl aceita HTTP(S) sem credenciais; o servidor não busca anexos.</p>
+<p><strong>Sugestões:</strong> viagens IN_PROGRESS, FINISHED ou CONFIRMED efetivamente iniciadas, nunca canceladas/agendadas. Início incluído, fim real excluído. IN_PROGRESS sem fim: limite inclusivo no instante de referência capturado uma vez. Viagem concluída sem fim é excluída. Ordenação startedAt DESC, id DESC; uma entrada por viagem. Nome histórico quando disponível, com nameSource explícita.</p>
+<p><strong>Saídas:</strong> Fine contém atributos, estado, autoria por id, revisão, datas, vehicle { id, licensePlate, model }, driver { id, name } ou null, e snapshots mínimos. FineDetail acrescenta events com id, eventType, occurredAt, registeredAt, reportedBy, reason, evidenceDescription, attachmentUrl, supersedesId, actor { id, name, role }, before e after públicos. Timeline ordenada por registeredAt/id crescentes. O pedido técnico de reenvio nunca é publicado.</p>
+<p><strong>Erros:</strong> { erro: string } em português. 400 entrada; 401 sessão/conta; 403 perfil; 404 referência; 409 revisão/chave/estado fechado; 422 transição/vínculo; 500 falha inesperada sem SQL/stack.</p>
+<pre><code>POST /fines
+Idempotency-Key: 11111111-1111-4111-8111-111111111173
+{
+  "vehicleId": "101",
+  "infractionAt": "2026-11-01T14:00:00-03:00",
+  "infractionCode": "QA-001",
+  "description": "Infração fictícia",
+  "amount": "195.23",
+  "reportedBy": "Setor fictício de frota",
+  "reason": "Registro de notificação sintética",
+  "evidenceDescription": "Documento fictício de teste"
+}</code></pre>
+<p>Autenticação Bearer obrigatória. Contratos tipados completos: <a href="../../backend/src/types/fine.types.ts">fine.types.ts</a>. Veículos: /vehicles (GET, GET /:id, POST, PUT /:id, PATCH /:id/status). Serviços: /services (GET, GET /:id, POST, PUT /:id, PATCH /:id/activate e /:id/deactivate). Manutenção permanece documentada <a href="MANUTENCOES.html">no módulo próprio</a>.</p>
+<h2>6. Camadas de Negócio e Persistência (Backend)</h2>
+<p>FinesController valida estrutura HTTP/query e traduz códigos de domínio; FinesService concentra validações, FSM, snapshots, replay e coordenação atômica. FinesRepository reúne SQL parametrizado e projeções públicas. VehiclesRepository fornece transação e locks; DriversRepository fornece cadastro; AuditService grava a trilha no mesmo PoolClient. Sem ORM, pacote novo, feature flag ou dependência de documentos.</p>
+<h2>7. Interface e Acessibilidade (Frontend React 19 + WCAG 2.2 AA)</h2>
+<p>A FROTA-74 entregará a tela. Esta entrega oferece mensagens textuais orientadoras e contratos para estados ideal, carregando, vazio, erro e parcial na sugestão. Nenhuma conformidade visual, teclado, contraste ou leitor de tela é certificada por testes de backend. A interface deve preservar formulário em erro, confirmar candidatos e tratar conflitos 409 sem sobrescrever dados.</p>
+<p>O frontend já existente possui falhas anteriores à US10 no ConfirmDialog: imports duplicados e referência sx sem declaração. A checagem global também aponta três suítes de frontend com falha. Esses arquivos são idênticos ao HEAD c9899b8 e não foram modificados nesta entrega.</p>
+<h2>8. Arquivos Principais (Referência Rápida)</h2>
+<ul>
+<li><a href="../../backend/src/types/fine.types.ts">backend/src/types/fine.types.ts</a> — contratos e FSM.</li>
+<li><a href="../../backend/src/repositories/fines.repository.ts">backend/src/repositories/fines.repository.ts</a> — persistência e timeline pública.</li>
+<li><a href="../../backend/src/services/fines.service.ts">backend/src/services/fines.service.ts</a> — domínio.</li>
+<li><a href="../../backend/src/controllers/fines.controller.ts">backend/src/controllers/fines.controller.ts</a> e <a href="../../backend/src/routes/fines.routes.ts">backend/src/routes/fines.routes.ts</a> — borda HTTP e RBAC.</li>
+<li><a href="../../backend/src/middlewares/auth.middleware.ts">backend/src/middlewares/auth.middleware.ts</a> e <a href="../../backend/src/app.ts">backend/src/app.ts</a> — conta atual e composição.</li>
+<li><a href="../../backend/src/database/migrations/202611080001_add_fine_creation_key.sql">202611080001_add_fine_creation_key.sql</a> e .down.sql — extensão compatível.</li>
+<li><a href="../../backend/tests/fines.service.test.ts">fines.service.test.ts</a>, <a href="../../backend/tests/fines.integration.test.ts">fines.integration.test.ts</a> e <a href="../../backend/tests/auth.test.ts">auth.test.ts</a> — testes FROTA-75.</li>
+</ul>
+<h2>9. Dependências, Integrações e Proteção de Dados (LGPD)</h2>
+<p>Requer infraestrutura FROTA-72 e PostgreSQL real. Consulta somente viagens institucionais; ordens SVO não são candidatas e não recebem novos vínculos pela API. Snapshots privados de autoria preservam id/nome/e-mail/perfil internamente; respostas projetam somente id/nome/perfil. CPF, CNH, e-mail do autor, passageiros e dados SVO não fazem parte da projeção pública, inclusive no before/after de eventos legados. Os exemplos e testes são integralmente fictícios.</p>
+<h2>10. Testes automatizados — FROTA-75</h2>
+<p>node:test, assert/strict, tsx, fetch e PostgreSQL 18. Banco exclusivo de testes confirmado pelo nome, diferente do banco operacional antes de qualquer limpeza. Fixtures RBAC renovadas por cenário, sem credenciais nos relatórios. Servidores locais em portas efêmeras e pools fechados ao final.</p>
+<p>Os casos IT-FINE-01 a 19 estão mapeados nos nomes das suítes de integração e complementados pelos unitários: moeda/calendário/contrato, registro opcional, sugestões e confirmação, retificação, matriz de situação, filtros, conta atual/RBAC, replay, concorrência com locks reais, rollback de auditoria/eventos, privacidade, imutabilidade, legado e down protegido. Testes de autenticação preservam os mocks de login que implementam apenas findByEmail.</p>
+<pre><code>cd backend
+npx tsx --test tests/auth.test.ts tests/fines.service.test.ts
+npx tsx --test --test-concurrency=1 tests/fines.integration.test.ts
+npm run build
+npx tsc --noEmit
+npm test
+# Na raiz:
+node docs/scripts/aratu-check.mjs</code></pre>
+<p id="validation">Validação independente em 08/11/2026 sobre c9899b8 + todos os arquivos locais da entrega, ainda sem commit: <strong>npm test passou 177/177 testes, sem falhas, cancelamentos ou skips, em 64,534 s</strong>. Há 18 testes de integração de multas e 8 testes de serviço, além dos testes de conta atual. Build e typecheck backend passaram localmente e no container. Banco confirmado antes da limpeza: aratu_test, PostgreSQL 18.6, diferente da base operacional meubanco; nenhuma migration ou escrita operacional foi feita. Contagens e metadados operacionais conferidos antes/depois permaneceram iguais. Servidores/pools foram encerrados e não restaram transações de teste ociosas ou função temporária de falha.</p>
+<p><strong>Melhorias P3 da revisão encerradas:</strong> QA-01 agora comprova duas conexões esperando locks dos dois veículos e duas consultas reais sem chave antes do INSERT, exige um erro PostgreSQL 23505 e respostas 201/409, com uma única multa/evento/auditoria e a chave do vencedor. A instrumentação fica no teste e é restaurada em finally. QA-02 confirma troca válida e trocas opostas A→B/B→A sem deadlock, revisões 3/2, snapshots preservados e contagens 2 multas/5 eventos/5 auditorias. Ambos passaram isoladamente e na suíte completa atualizada; nenhum código da aplicação mudou nesta validação.</p>
+<p>Fluxo HTTP independente confirmou login, sugestões, identificação e troca entre dois motoristas, pagamento/reabertura, timeline e bloqueios 401/403; estado final revision 5, cinco eventos e cinco auditorias. Conferiu também TIMESTAMPTZ e recusa de down por registrationRequest mesmo com chaves nulas, em transação integralmente revertida na base isolada. Essas verificações adicionais são evidências locais complementares, sem alegação de novos testes de regressão versionados.</p>
+<p><strong>Limitação global:</strong> aratu-check continua com exit 1 por falhas preexistentes do frontend, idêntico ao HEAD: build/typecheck do ConfirmDialog e uso de sx pelo MaintenanceDetailDialog; três suítes falham (driversPage, sidebarNavigation, userManagementPage), enquanto 91 testes frontend passam. Não houve violação estática nova apontada nos caminhos efetivamente lidos; o auditor omite app.ts por recortar seu caminho incorretamente, e esse arquivo foi conferido diretamente. Backend validado não significa pipeline global aprovado. A interface de multas, responsividade e WCAG visual não foram certificadas; pertencem à FROTA-74.</p>
+<p><a href="../tests/frota-73-75-validacao-multas.md">Relatório independente das duas tarefas</a>, com matriz IT-FINE-01 a 19, comandos, limites e evidências. Logs locais desta etapa: .tmp/frota-73-75-qa-backend-tests.log, .tmp/frota-73-75-qa-p3-tests.log, .tmp/frota-73-75-qa-http.log e .tmp/frota-73-75-qa-audit.log. Os relatórios originais de revisão foram preservados, com hashes SHA-256 iguais antes/depois. Sem commit ou push.</p>
+<p>Código → padrões do projeto, compatibilidade, atomicidade, DRY e YAGNI · dúvidas: nenhuma pendente.</p>
+</body></html>
