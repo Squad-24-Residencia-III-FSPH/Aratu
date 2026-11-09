@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MANUTENCOES — Sistema Aratu</title>
+  <style>
+    :root {
+      --brand-strong: #075985;
+      --brand: #0369a1;
+      --brand-surface: #f0f9ff;
+      --brand-border: #bae6fd;
+      --brand-hover: #e0f2fe;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+<h1>MANUTENCOES — Documentação Técnica e Funcional</h1>
+<div class="meta-block"><p>FROTA-59 · 2026-11-03 · Fundação de Saúde Parreiras Horta e Serviço de Verificação de Óbito</p><p>Backend Express 5, TypeScript e PostgreSQL 18</p></div>
+<h2>1. Visão Geral</h2>
+<p>A API registra manutenção preventiva ou corretiva, orçamento discriminado e execução efetiva. O gestor consulta o histórico da viatura e o gasto conhecido com ordens encerradas. Todos os identificadores BIGINT são strings.</p>
+<h2>2. Regras de Negócio e Transições de Estado</h2>
+<p>Ordens iniciam OPEN. OPEN e IN_PROGRESS aceitam revisão e encerramento para DONE. DONE e CANCELED permanecem consultáveis e rejeitam novas mutações com 409. O orçamento é preservado no encerramento. Não há regra de intervalo por peça ou hodômetro.</p>
+<p>Itens PART recebem description, quantity positiva com até três casas e unitPrice. Itens LABOR recebem description e amount. Valores em BRL são strings com duas casas decimais. O servidor arredonda metade para cima por peça e soma centavos exatos. Subtotais enviados pelo cliente são ignorados.</p>
+<p>A ordem impeditiva exige veículo AVAILABLE sem viagem IN_PROGRESS e sem outra OS impeditiva ativa. Abrir ou promover a ordem muda a viatura para IN_MAINTENANCE. Remover o impedimento ou encerrar libera somente o impedimento pertencente à ordem. Uma inativação independente é preservada. Uma ordem não impeditiva preserva a situação do veículo.</p>
+<p>Alterações exigem expectedRevision, reportedBy e reason. O veículo é travado antes da ordem. Ordem, eventos, situação da viatura e auditoria compartilham PoolClient e rollback. A liberação manual em PATCH /vehicles/:id/status recebe 422 enquanto houver OS impeditiva ativa.</p>
+<h2>3. Escopo de Impacto e Matriz de Acesso</h2>
+<table><thead><tr><th scope="col">Perfil</th><th scope="col">Permissões</th></tr></thead><tbody><tr><td>GESTOR e ADMINISTRADOR</td><td>As cinco rotas</td></tr><tr><td>SOLICITANTE, MOTORISTA, ATENDENTE_SVO e EQUIPE_SVO</td><td>403 inclusive em consultas</td></tr></tbody></table>
+<h2>4. Tabelas do Banco de Dados</h2>
+<p>fleet.maintenance_orders guarda o estado vigente e o snapshot do veículo na abertura. expected_completion_date é data civil. estimate_items e actual_items são documentos JSONB. NULL indica detalhamento desconhecido e [] indica relação confirmada vazia. cost NUMERIC(12,2) permanece desconhecido até o encerramento de ordens novas. Custos legados continuam consultáveis.</p>
+<p>fleet.maintenance_order_events é append-only e registra antes/depois, occurred_at, registered_at, registered_by, actor_snapshot, reported_by, reason e evidência de origem proveniente de reportedBy. O evento OPENED inclui openingRequest imutável e creationKey. audit.logs registra cada mutação na mesma transação.</p>
+<p>A migração 202611030002 verifica duplicidade de impeditivas ativas antes de criar os índices únicos por veículo ativo e por autor/chave UUID. Não há preenchimento retroativo. O rollback recusa remoção de colunas com dados ou eventos novos. Após uso operacional, o retorno da aplicação preserva as colunas.</p>
+<h2>5. Contratos REST</h2>
+<table><thead><tr><th scope="col">Rota</th><th scope="col">Contrato</th></tr></thead><tbody>
+<tr><td>POST /maintenance-orders</td><td>201. Exige cabeçalho Idempotency-Key UUID e vehicleId, type, description, blocksVehicle, reportedBy, reason. Opcionais openedAt, workshop, odometerKm, expectedCompletionDate, estimateItems. Reenvio equivalente retorna o mesmo ID, mesmo após edição. Conteúdo divergente para a mesma chave e autor retorna 409. openedAt omitido é distinguido de um instante informado.</td></tr>
+<tr><td>GET /maintenance-orders/:id</td><td>200 com ordem, revisão, vehicleSnapshot, estimateItems e seus subtotais, estimatedTotal, actualItems, finalCost e cost legado. Valores desconhecidos são null.</td></tr>
+<tr><td>PUT /maintenance-orders/:id</td><td>200. Campos editáveis type, description, blocksVehicle, workshop, odometerKm, expectedCompletionDate e estimateItems. Campos omitidos preservam os valores atuais. Exige expectedRevision, reportedBy e reason. Veículo, autoria e abertura permanecem os originais.</td></tr>
+<tr><td>PATCH /maintenance-orders/:id/close</td><td>200. Exige expectedRevision, reportedBy, reason e exatamente uma alternativa, confirmEstimate=true ou actualItems completo, inclusive []. closedAt é opcional. cost opcional deve coincidir com a execução calculada.</td></tr>
+<tr><td>GET /maintenance-orders</td><td>200 { items, totalSpent }. Filtros vehicleId, type, status, from e to. Instantes ISO com fuso, intervalo [from,to). items usa opened_at e ordenação opened_at DESC, id DESC. totalSpent usa closed_at de DONE com os mesmos filtros de veículo, tipo e situação. Com status OPEN o gasto é 0.00. Uma única consulta mantém a mesma fotografia do banco.</td></tr>
+</tbody></table>
+<p>Erros no campo erro em português. 400 para payload, valores ou período inválidos. 401 sem autenticação válida. 403 sem perfil. 404 para recurso ausente. 409 para revisão obsoleta, chave divergente ou segunda impeditiva. 422 para viagem ativa, impedimento manual ou transição incompatível.</p>
+<h3>Exemplos para integração da FROTA-60</h3>
+<pre><code>POST /maintenance-orders
+Idempotency-Key 00000000-0000-4000-8000-000000000059
+{
+  "vehicleId": "21", "type": "PREVENTIVE", "description": "Troca de filtro fictício",
+  "blocksVehicle": true, "reportedBy": "Oficina fictícia por telefone", "reason": "Revisão fictícia",
+  "estimateItems": [
+    {"kind":"PART", "description":"Filtro fictício", "quantity":"2", "unitPrice":"18.75"},
+    {"kind":"LABOR", "description":"Instalação fictícia", "amount":"40.00"}
+  ]
+}</code></pre>
+<p>Trecho da resposta de abertura. O detalhe completo também inclui os campos descritivos, datas, veículo da época e autoria.</p>
+<pre><code>{
+  "id":"1", "vehicleId":"21", "status":"OPEN", "revision":1,
+  "estimateItems":[
+    {"kind":"PART","description":"Filtro fictício","quantity":"2","unitPrice":"18.75","subtotal":"37.50"},
+    {"kind":"LABOR","description":"Instalação fictícia","amount":"40.00","subtotal":"40.00"}
+  ],
+  "estimatedTotal":"77.50", "actualItems":null, "cost":null, "finalCost":null
+}</code></pre>
+<p>Encerrar com um filtro e o mesmo serviço retorna finalCost e cost iguais a "58.75", mantendo estimatedTotal em "77.50". A listagem sem resultados retorna {"items":[],"totalSpent":"0.00"}.</p>
+<h2>6. Camadas de Negócio e Persistência</h2>
+<p>MaintenanceOrdersService valida entradas, calcula centavos e orquestra transações. MaintenanceOrdersRepository concentra SQL parametrizado. VehiclesService.changeVehicleStatusInTransaction reutiliza a máquina de estados e os históricos. O controller traduz erros e o router protege todas as rotas com JWT e RBAC.</p>
+<h2>7. Interface e Acessibilidade</h2>
+<p>A integração da interface foi incluída por autorização do usuário em 05/11/2026, ao concluir as FROTA-59 e FROTA-61. O item Manutenção abre <code>/#/maintenance-orders</code> para GESTOR e ADMINISTRADOR. Os demais perfis não recebem o atalho e são redirecionados à própria área ao tentar a rota. A API continua aplicando sua autorização independente.</p>
+<p>A tela consulta veículos e ordens reais, cadastra, edita e encerra sob revisão. Aberturas reutilizam a chave de idempotência quando o mesmo conteúdo é reenviado após falha. Os formulários pedem origem da informação e justificativa; o autor do registro continua vindo da sessão no backend. Peças e serviços são enviados em strings decimais, aceitando vírgula na entrada, sem cálculo financeiro em ponto flutuante na tela.</p>
+<p>O detalhe separa orçamento, execução e custo final, distingue valores desconhecidos de zero e preserva leitura das ordens encerradas. Encerrar exige confirmar o orçamento integral ou informar a execução completa, com confirmação explícita para relação gratuita sem itens. Um conflito de revisão oferece recarregar a ordem atual, sem sobrescrever a revisão vencedora.</p>
+<p>Os filtros são veículo, tipo, situação e período em horário local do dispositivo, com início incluído e fim excluído. A lista usa a entrada, enquanto o gasto recebido da API usa o encerramento; uma lista vazia pode ter gasto no período. Há estados carregando, vazio, erro com nova tentativa e parcial com aviso de dados anteriores. Campos reutilizam rótulos, mensagens associadas e alvos de 44px; tabelas têm rolagem horizontal contida.</p>
+<h2>8. Arquivos Principais</h2>
+<ul><li>backend/src/types/maintenance.types.ts</li><li>backend/src/routes/maintenance-orders.routes.ts</li><li>backend/src/controllers/maintenance-orders.controller.ts</li><li>backend/src/services/maintenance-orders.service.ts</li><li>backend/src/repositories/maintenance-orders.repository.ts</li><li>backend/src/services/vehicles.service.ts</li><li>backend/tests/maintenance-orders.service.test.ts</li></ul>
+<h2>9. Dependências, Integrações e Proteção de Dados</h2>
+<p>A API de início de viagens ainda não existe nesta base. Conforme decisão da FROTA-59, sua implementação futura deverá travar fleet.vehicles antes de iniciar a viagem e revalidar a disponibilidade dentro da mesma transação. A manutenção já consulta trip.trips sob a trava da viatura.</p>
+<p>A FROTA-61 mantém a suíte HTTP e PostgreSQL de manutenção. Os snapshots de autoria e veículo são protegidos pelo mesmo RBAC das ordens. Exemplos e testes usam exclusivamente dados fictícios.</p>
+<h2>10. Testes automatizados — FROTA-61</h2>
+<p>A suíte <a href="../../backend/tests/maintenance-orders.integration.test.ts">maintenance-orders.integration.test.ts</a> usa servidor HTTP real em porta efêmera e o banco dedicado de testes, com migrações e fixtures RBAC renovadas entre cenários. Consulte a <a href="../plans/frota-61-qa-testes-de-manutencoes.html#s9">matriz de aceite do SDD</a>.</p>
+<table><thead><tr><th scope="col">Caso</th><th scope="col">Verificação</th></tr></thead><tbody>
+<tr><td>IT-MNT-01 a 04</td><td>Tipos, validações e datas; quilometragem livre; orçamento preservado e execução parcial ou integral; arredondamento, gratuidade e valores desconhecidos.</td></tr>
+<tr><td>IT-MNT-05 a 07</td><td>Disponibilidade para alocação, viagem ativa, aberturas em conexões concorrentes, idempotência após edição, mudança de impedimento e preservação de veículo inativo.</td></tr>
+<tr><td>IT-MNT-08 e 09</td><td>Filtros e limites de período por abertura/encerramento; revisão concorrente, encerramento único, autoria da sessão, auditoria e histórico imutável.</td></tr>
+<tr><td>IT-MNT-10 e 11</td><td>Rollback de abertura e fechamento após falha de auditoria; 25 combinações de recusa nas cinco rotas, abertura/fechamento pelos dois perfis autorizados, recurso ausente e custo legado.</td></tr>
+</tbody></table>
+<p>Na pasta <code>backend</code>, execute <code>npm run test:integration</code> e depois <code>npm test</code> duas vezes consecutivas. Exija zero falhas e zero testes omitidos. As duas mensagens de falha fictícia de auditoria no terminal são provocadas pelo IT-MNT-10; as respostas HTTP devem conter apenas o erro genérico, com todos os dados anteriores preservados.</p>
+<p>A suíte <a href="../../backend/tests/maintenance-migrations.integration.test.ts">maintenance-migrations.integration.test.ts</a> adiciona IT-MIG-MNT-01 a 04: up/down/up com custo legado, impeditivas legadas conflitantes, orçamento novo e preservação de eventos. <a href="../../frontend/tests/maintenance.test.mjs">maintenance.test.mjs</a> cobre rota/menu, entrada decimal, contratos de gravação, totais independentes da lista e erros de revisão. Consulte as <a href="../reviews/frota-59-61-integracao-interface.html">evidências da integração de 05/11/2026</a>.</p>
+</body>
+</html>

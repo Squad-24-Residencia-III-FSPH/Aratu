@@ -1,0 +1,1472 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FROTA-59/61 — Medição C8</title><style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style></head><body>
+<h1>FROTA-59/61 — Medição da consulta histórica (C8)</h1>
+<div class="meta-block"><p>Data: 05/11/2026 · PostgreSQL 18.6 em Docker · Base exclusiva <code>aratu_c8_benchmark_test</code>.</p><p>Consulta extraída diretamente de <code>MaintenanceOrdersRepository.list</code> do commit <code>dfa437c</code>, sem reescrever o SQL para o ensaio. O backend não foi alterado nesta correção.</p></div>
+<h2>Resultado</h2><p>O filtro por veículo examina 100 ordens e apresenta mediana de 0,403 ms para o mês. O filtro mensal da frota examina todas as 100 mil ordens, embora retorne 810, e tem mediana de 66,935 ms. A listagem sem filtros retorna 100 mil ordens, tem mediana de 3.626,924 ms e escreve 18.039 blocos temporários de 8 KiB (140,93 MiB). Esses valores são tempos do executor PostgreSQL, não latência HTTP.</p>
+<table><thead><tr><th scope="col">Cenário</th><th scope="col">Ordens retornadas</th><th scope="col">Três execuções (ms)</th><th scope="col">Mediana (ms)</th><th scope="col">Shared hit</th><th scope="col">Shared read</th><th scope="col">Temp written</th><th scope="col">Gasto fictício (BRL)</th></tr></thead><tbody><tr><td>veiculo_mes</td><td>1</td><td>0.343 / 0.403 / 0.441</td><td>0.403</td><td>112 / 103 / 103</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td><td>58.75</td></tr><tr><td>frota_mes</td><td>810</td><td>62.484 / 66.935 / 77.539</td><td>66.935</td><td>9091 / 9091 / 9091</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td><td>38070.00</td></tr><tr><td>frota_mes_tipo</td><td>405</td><td>45.164 / 54.717 / 66.179</td><td>54.717</td><td>9091 / 9091 / 9091</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td><td>19035.00</td></tr><tr><td>veiculo_historico</td><td>100</td><td>3.429 / 3.511 / 3.593</td><td>3.511</td><td>103 / 103 / 103</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td><td>5875.00</td></tr><tr><td>frota_historico</td><td>100000</td><td>3510.324 / 3626.924 / 3742.131</td><td>3626.924</td><td>9091 / 9091 / 9091</td><td>0 / 0 / 0</td><td>18039 / 18039 / 18039</td><td>4700000.00</td></tr></tbody></table>
+<h2>Método e dados</h2><p>100 mil ordens sintéticas distribuídas em mil veículos, 100 ordens por veículo, com datas ao longo de dez anos (2020–2029). Tipos alternados, 80% DONE e 20% OPEN, orçamento e execução discriminados em JSONB, snapshots sintéticos. Nenhum dado operacional ou pessoal real foi usado.</p><p>Distribuição determinística para reprodução: veículo = 1 + g%1000, tipo = paridade de g e status = g%5; por isso tipo e status se correlacionam com o veículo. É uma carga sintética declarada, não uma estimativa homologada do volume/variedade real da FSPH. Valores de custo servem apenas para verificar a agregação.</p><p>Após inserir os dados, foi executado ANALYZE. Para cada cenário: três EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON), seguidos de uma execução real de list para conferir quantidade e soma. Os testes foram sequenciais, sem concorrência de clientes. Os índices originais foram mantidos; não houve alteração de work_mem, planner ou configuração de produção. Os dados estavam em cache: todos os cenários tiveram shared read zero. Não há medição de partida fria nem percentis de carga concorrente.</p>
+<table><thead><tr><th scope="col">Configuração</th><th scope="col">Valor</th></tr></thead><tbody><tr><td>version</td><td>PostgreSQL 18.6 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit</td></tr><tr><td>current_database</td><td>aratu_c8_benchmark_test</td></tr><tr><td>shared_buffers</td><td>128MB</td></tr><tr><td>work_mem</td><td>4MB</td></tr><tr><td>effective_cache_size</td><td>4GB</td></tr></tbody></table>
+<h2>Leitura dos planos</h2><p>Veículo/mês e veículo/histórico usam Bitmap Heap Scan por veículo; leem as 100 ordens desse veículo e o período é aplicado no agregado. Frota/mês usa Seq Scan nas 100 mil ordens. Frota/mês/tipo também usa Seq Scan, descarta 50 mil pelo tipo e processa 50 mil. O FILTER de jsonb_agg/sum não reduz o conjunto da leitura por data. Sem filtros, a composição/ordenação do JSON de 100 mil ordens causa escrita temporária.</p><p><strong>C8 permanece como atenção de desempenho medida.</strong> O custo do histórico sem filtro está comprovado neste volume. Não se alterou o contrato com paginação nem se criou índice sem comparar alternativas. Uma otimização posterior deve separar leituras por opened_at/closed_at dentro da mesma fotografia transacional e preservar totalSpent de ordens abertas antes do intervalo. Paginação ou exigência de filtros muda o contrato/fluxo e requer definição própria.</p>
+<h2>Planos completos</h2><details><summary>veiculo_mes — filtros e três planos completos</summary><pre><code>{
+  &quot;filters&quot;: {
+    &quot;vehicleId&quot;: &quot;2&quot;,
+    &quot;from&quot;: &quot;2026-11-01T00:00:00Z&quot;,
+    &quot;to&quot;: &quot;2026-12-01T00:00:00Z&quot;
+  },
+  &quot;plans&quot;: [
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 381.73,
+        &quot;Total Cost&quot;: 381.75,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 0.324,
+        &quot;Actual Total Time&quot;: 0.325,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 112,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Bitmap Heap Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 5.19,
+            &quot;Total Cost&quot;: 374.98,
+            &quot;Plan Rows&quot;: 100,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.036,
+            &quot;Actual Total Time&quot;: 0.148,
+            &quot;Actual Rows&quot;: 100,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Recheck Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+            &quot;Rows Removed by Index Recheck&quot;: 0,
+            &quot;Exact Heap Blocks&quot;: 100,
+            &quot;Lossy Heap Blocks&quot;: 0,
+            &quot;Shared Hit Blocks&quot;: 103,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0,
+            &quot;Plans&quot;: [
+              {
+                &quot;Node Type&quot;: &quot;Bitmap Index Scan&quot;,
+                &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+                &quot;Parallel Aware&quot;: false,
+                &quot;Async Capable&quot;: false,
+                &quot;Index Name&quot;: &quot;fleet_maintenance_orders_by_vehicle&quot;,
+                &quot;Startup Cost&quot;: 0,
+                &quot;Total Cost&quot;: 5.17,
+                &quot;Plan Rows&quot;: 100,
+                &quot;Plan Width&quot;: 0,
+                &quot;Actual Startup Time&quot;: 0.02,
+                &quot;Actual Total Time&quot;: 0.02,
+                &quot;Actual Rows&quot;: 100,
+                &quot;Actual Loops&quot;: 1,
+                &quot;Disabled&quot;: false,
+                &quot;Index Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+                &quot;Index Searches&quot;: 1,
+                &quot;Shared Hit Blocks&quot;: 3,
+                &quot;Shared Read Blocks&quot;: 0,
+                &quot;Shared Dirtied Blocks&quot;: 0,
+                &quot;Shared Written Blocks&quot;: 0,
+                &quot;Local Hit Blocks&quot;: 0,
+                &quot;Local Read Blocks&quot;: 0,
+                &quot;Local Dirtied Blocks&quot;: 0,
+                &quot;Local Written Blocks&quot;: 0,
+                &quot;Temp Read Blocks&quot;: 0,
+                &quot;Temp Written Blocks&quot;: 0
+              }
+            ]
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 138,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.928,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 0.441
+    },
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 381.73,
+        &quot;Total Cost&quot;: 381.75,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 0.27,
+        &quot;Actual Total Time&quot;: 0.27,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 103,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Bitmap Heap Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 5.19,
+            &quot;Total Cost&quot;: 374.98,
+            &quot;Plan Rows&quot;: 100,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.045,
+            &quot;Actual Total Time&quot;: 0.16,
+            &quot;Actual Rows&quot;: 100,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Recheck Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+            &quot;Rows Removed by Index Recheck&quot;: 0,
+            &quot;Exact Heap Blocks&quot;: 100,
+            &quot;Lossy Heap Blocks&quot;: 0,
+            &quot;Shared Hit Blocks&quot;: 103,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0,
+            &quot;Plans&quot;: [
+              {
+                &quot;Node Type&quot;: &quot;Bitmap Index Scan&quot;,
+                &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+                &quot;Parallel Aware&quot;: false,
+                &quot;Async Capable&quot;: false,
+                &quot;Index Name&quot;: &quot;fleet_maintenance_orders_by_vehicle&quot;,
+                &quot;Startup Cost&quot;: 0,
+                &quot;Total Cost&quot;: 5.17,
+                &quot;Plan Rows&quot;: 100,
+                &quot;Plan Width&quot;: 0,
+                &quot;Actual Startup Time&quot;: 0.028,
+                &quot;Actual Total Time&quot;: 0.028,
+                &quot;Actual Rows&quot;: 100,
+                &quot;Actual Loops&quot;: 1,
+                &quot;Disabled&quot;: false,
+                &quot;Index Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+                &quot;Index Searches&quot;: 1,
+                &quot;Shared Hit Blocks&quot;: 3,
+                &quot;Shared Read Blocks&quot;: 0,
+                &quot;Shared Dirtied Blocks&quot;: 0,
+                &quot;Shared Written Blocks&quot;: 0,
+                &quot;Local Hit Blocks&quot;: 0,
+                &quot;Local Read Blocks&quot;: 0,
+                &quot;Local Dirtied Blocks&quot;: 0,
+                &quot;Local Written Blocks&quot;: 0,
+                &quot;Temp Read Blocks&quot;: 0,
+                &quot;Temp Written Blocks&quot;: 0
+              }
+            ]
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.157,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 0.343
+    },
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 381.73,
+        &quot;Total Cost&quot;: 381.75,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 0.318,
+        &quot;Actual Total Time&quot;: 0.319,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 103,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Bitmap Heap Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 5.19,
+            &quot;Total Cost&quot;: 374.98,
+            &quot;Plan Rows&quot;: 100,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.051,
+            &quot;Actual Total Time&quot;: 0.18,
+            &quot;Actual Rows&quot;: 100,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Recheck Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+            &quot;Rows Removed by Index Recheck&quot;: 0,
+            &quot;Exact Heap Blocks&quot;: 100,
+            &quot;Lossy Heap Blocks&quot;: 0,
+            &quot;Shared Hit Blocks&quot;: 103,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0,
+            &quot;Plans&quot;: [
+              {
+                &quot;Node Type&quot;: &quot;Bitmap Index Scan&quot;,
+                &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+                &quot;Parallel Aware&quot;: false,
+                &quot;Async Capable&quot;: false,
+                &quot;Index Name&quot;: &quot;fleet_maintenance_orders_by_vehicle&quot;,
+                &quot;Startup Cost&quot;: 0,
+                &quot;Total Cost&quot;: 5.17,
+                &quot;Plan Rows&quot;: 100,
+                &quot;Plan Width&quot;: 0,
+                &quot;Actual Startup Time&quot;: 0.031,
+                &quot;Actual Total Time&quot;: 0.032,
+                &quot;Actual Rows&quot;: 100,
+                &quot;Actual Loops&quot;: 1,
+                &quot;Disabled&quot;: false,
+                &quot;Index Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+                &quot;Index Searches&quot;: 1,
+                &quot;Shared Hit Blocks&quot;: 3,
+                &quot;Shared Read Blocks&quot;: 0,
+                &quot;Shared Dirtied Blocks&quot;: 0,
+                &quot;Shared Written Blocks&quot;: 0,
+                &quot;Local Hit Blocks&quot;: 0,
+                &quot;Local Read Blocks&quot;: 0,
+                &quot;Local Dirtied Blocks&quot;: 0,
+                &quot;Local Written Blocks&quot;: 0,
+                &quot;Temp Read Blocks&quot;: 0,
+                &quot;Temp Written Blocks&quot;: 0
+              }
+            ]
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.172,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 0.403
+    }
+  ]
+}</code></pre></details><details><summary>frota_mes — filtros e três planos completos</summary><pre><code>{
+  &quot;filters&quot;: {
+    &quot;from&quot;: &quot;2026-11-01T00:00:00Z&quot;,
+    &quot;to&quot;: &quot;2026-12-01T00:00:00Z&quot;
+  },
+  &quot;plans&quot;: [
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 16841.01,
+        &quot;Total Cost&quot;: 16841.02,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 61.576,
+        &quot;Actual Total Time&quot;: 61.578,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 9091,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Seq Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 0,
+            &quot;Total Cost&quot;: 10091,
+            &quot;Plan Rows&quot;: 100000,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.169,
+            &quot;Actual Total Time&quot;: 13.895,
+            &quot;Actual Rows&quot;: 100000,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Shared Hit Blocks&quot;: 9091,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.211,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 62.484
+    },
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 16841.01,
+        &quot;Total Cost&quot;: 16841.02,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 65.948,
+        &quot;Actual Total Time&quot;: 65.95,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 9091,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Seq Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 0,
+            &quot;Total Cost&quot;: 10091,
+            &quot;Plan Rows&quot;: 100000,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.023,
+            &quot;Actual Total Time&quot;: 14.818,
+            &quot;Actual Rows&quot;: 100000,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Shared Hit Blocks&quot;: 9091,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.121,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 66.935
+    },
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 16841.01,
+        &quot;Total Cost&quot;: 16841.02,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 76.274,
+        &quot;Actual Total Time&quot;: 76.276,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 9091,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Seq Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 0,
+            &quot;Total Cost&quot;: 10091,
+            &quot;Plan Rows&quot;: 100000,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.031,
+            &quot;Actual Total Time&quot;: 15.488,
+            &quot;Actual Rows&quot;: 100000,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Shared Hit Blocks&quot;: 9091,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.266,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 77.539
+    }
+  ]
+}</code></pre></details><details><summary>frota_mes_tipo — filtros e três planos completos</summary><pre><code>{
+  &quot;filters&quot;: {
+    &quot;type&quot;: &quot;PREVENTIVE&quot;,
+    &quot;from&quot;: &quot;2026-11-01T00:00:00Z&quot;,
+    &quot;to&quot;: &quot;2026-12-01T00:00:00Z&quot;
+  },
+  &quot;plans&quot;: [
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 13682.25,
+        &quot;Total Cost&quot;: 13682.27,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 65.63,
+        &quot;Actual Total Time&quot;: 65.632,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 9091,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Seq Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 0,
+            &quot;Total Cost&quot;: 10341,
+            &quot;Plan Rows&quot;: 49500,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.036,
+            &quot;Actual Total Time&quot;: 27.883,
+            &quot;Actual Rows&quot;: 50000,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Filter&quot;: &quot;(type = 'PREVENTIVE'::text)&quot;,
+            &quot;Rows Removed by Filter&quot;: 50000,
+            &quot;Shared Hit Blocks&quot;: 9091,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.279,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 66.179
+    },
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 13682.25,
+        &quot;Total Cost&quot;: 13682.27,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 54.065,
+        &quot;Actual Total Time&quot;: 54.068,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 9091,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Seq Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 0,
+            &quot;Total Cost&quot;: 10341,
+            &quot;Plan Rows&quot;: 49500,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.019,
+            &quot;Actual Total Time&quot;: 20.866,
+            &quot;Actual Rows&quot;: 50000,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Filter&quot;: &quot;(type = 'PREVENTIVE'::text)&quot;,
+            &quot;Rows Removed by Filter&quot;: 50000,
+            &quot;Shared Hit Blocks&quot;: 9091,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.238,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 54.717
+    },
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 13682.25,
+        &quot;Total Cost&quot;: 13682.27,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 44.613,
+        &quot;Actual Total Time&quot;: 44.615,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 9091,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Seq Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 0,
+            &quot;Total Cost&quot;: 10341,
+            &quot;Plan Rows&quot;: 49500,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.018,
+            &quot;Actual Total Time&quot;: 17.859,
+            &quot;Actual Rows&quot;: 50000,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Filter&quot;: &quot;(type = 'PREVENTIVE'::text)&quot;,
+            &quot;Rows Removed by Filter&quot;: 50000,
+            &quot;Shared Hit Blocks&quot;: 9091,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.277,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 45.164
+    }
+  ]
+}</code></pre></details><details><summary>veiculo_historico — filtros e três planos completos</summary><pre><code>{
+  &quot;filters&quot;: {
+    &quot;vehicleId&quot;: &quot;2&quot;
+  },
+  &quot;plans&quot;: [
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 380.73,
+        &quot;Total Cost&quot;: 380.75,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 3.285,
+        &quot;Actual Total Time&quot;: 3.288,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 103,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Bitmap Heap Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 5.19,
+            &quot;Total Cost&quot;: 374.98,
+            &quot;Plan Rows&quot;: 100,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.08,
+            &quot;Actual Total Time&quot;: 0.224,
+            &quot;Actual Rows&quot;: 100,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Recheck Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+            &quot;Rows Removed by Index Recheck&quot;: 0,
+            &quot;Exact Heap Blocks&quot;: 100,
+            &quot;Lossy Heap Blocks&quot;: 0,
+            &quot;Shared Hit Blocks&quot;: 103,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0,
+            &quot;Plans&quot;: [
+              {
+                &quot;Node Type&quot;: &quot;Bitmap Index Scan&quot;,
+                &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+                &quot;Parallel Aware&quot;: false,
+                &quot;Async Capable&quot;: false,
+                &quot;Index Name&quot;: &quot;fleet_maintenance_orders_by_vehicle&quot;,
+                &quot;Startup Cost&quot;: 0,
+                &quot;Total Cost&quot;: 5.17,
+                &quot;Plan Rows&quot;: 100,
+                &quot;Plan Width&quot;: 0,
+                &quot;Actual Startup Time&quot;: 0.054,
+                &quot;Actual Total Time&quot;: 0.055,
+                &quot;Actual Rows&quot;: 100,
+                &quot;Actual Loops&quot;: 1,
+                &quot;Disabled&quot;: false,
+                &quot;Index Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+                &quot;Index Searches&quot;: 1,
+                &quot;Shared Hit Blocks&quot;: 3,
+                &quot;Shared Read Blocks&quot;: 0,
+                &quot;Shared Dirtied Blocks&quot;: 0,
+                &quot;Shared Written Blocks&quot;: 0,
+                &quot;Local Hit Blocks&quot;: 0,
+                &quot;Local Read Blocks&quot;: 0,
+                &quot;Local Dirtied Blocks&quot;: 0,
+                &quot;Local Written Blocks&quot;: 0,
+                &quot;Temp Read Blocks&quot;: 0,
+                &quot;Temp Written Blocks&quot;: 0
+              }
+            ]
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.245,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 3.593
+    },
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 380.73,
+        &quot;Total Cost&quot;: 380.75,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 3.21,
+        &quot;Actual Total Time&quot;: 3.212,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 103,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Bitmap Heap Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 5.19,
+            &quot;Total Cost&quot;: 374.98,
+            &quot;Plan Rows&quot;: 100,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.062,
+            &quot;Actual Total Time&quot;: 0.256,
+            &quot;Actual Rows&quot;: 100,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Recheck Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+            &quot;Rows Removed by Index Recheck&quot;: 0,
+            &quot;Exact Heap Blocks&quot;: 100,
+            &quot;Lossy Heap Blocks&quot;: 0,
+            &quot;Shared Hit Blocks&quot;: 103,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0,
+            &quot;Plans&quot;: [
+              {
+                &quot;Node Type&quot;: &quot;Bitmap Index Scan&quot;,
+                &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+                &quot;Parallel Aware&quot;: false,
+                &quot;Async Capable&quot;: false,
+                &quot;Index Name&quot;: &quot;fleet_maintenance_orders_by_vehicle&quot;,
+                &quot;Startup Cost&quot;: 0,
+                &quot;Total Cost&quot;: 5.17,
+                &quot;Plan Rows&quot;: 100,
+                &quot;Plan Width&quot;: 0,
+                &quot;Actual Startup Time&quot;: 0.04,
+                &quot;Actual Total Time&quot;: 0.041,
+                &quot;Actual Rows&quot;: 100,
+                &quot;Actual Loops&quot;: 1,
+                &quot;Disabled&quot;: false,
+                &quot;Index Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+                &quot;Index Searches&quot;: 1,
+                &quot;Shared Hit Blocks&quot;: 3,
+                &quot;Shared Read Blocks&quot;: 0,
+                &quot;Shared Dirtied Blocks&quot;: 0,
+                &quot;Shared Written Blocks&quot;: 0,
+                &quot;Local Hit Blocks&quot;: 0,
+                &quot;Local Read Blocks&quot;: 0,
+                &quot;Local Dirtied Blocks&quot;: 0,
+                &quot;Local Written Blocks&quot;: 0,
+                &quot;Temp Read Blocks&quot;: 0,
+                &quot;Temp Written Blocks&quot;: 0
+              }
+            ]
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.191,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 3.511
+    },
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 380.73,
+        &quot;Total Cost&quot;: 380.75,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 3.168,
+        &quot;Actual Total Time&quot;: 3.17,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 103,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Bitmap Heap Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 5.19,
+            &quot;Total Cost&quot;: 374.98,
+            &quot;Plan Rows&quot;: 100,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.049,
+            &quot;Actual Total Time&quot;: 0.175,
+            &quot;Actual Rows&quot;: 100,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Recheck Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+            &quot;Rows Removed by Index Recheck&quot;: 0,
+            &quot;Exact Heap Blocks&quot;: 100,
+            &quot;Lossy Heap Blocks&quot;: 0,
+            &quot;Shared Hit Blocks&quot;: 103,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0,
+            &quot;Plans&quot;: [
+              {
+                &quot;Node Type&quot;: &quot;Bitmap Index Scan&quot;,
+                &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+                &quot;Parallel Aware&quot;: false,
+                &quot;Async Capable&quot;: false,
+                &quot;Index Name&quot;: &quot;fleet_maintenance_orders_by_vehicle&quot;,
+                &quot;Startup Cost&quot;: 0,
+                &quot;Total Cost&quot;: 5.17,
+                &quot;Plan Rows&quot;: 100,
+                &quot;Plan Width&quot;: 0,
+                &quot;Actual Startup Time&quot;: 0.031,
+                &quot;Actual Total Time&quot;: 0.031,
+                &quot;Actual Rows&quot;: 100,
+                &quot;Actual Loops&quot;: 1,
+                &quot;Disabled&quot;: false,
+                &quot;Index Cond&quot;: &quot;(vehicle_id = '2'::bigint)&quot;,
+                &quot;Index Searches&quot;: 1,
+                &quot;Shared Hit Blocks&quot;: 3,
+                &quot;Shared Read Blocks&quot;: 0,
+                &quot;Shared Dirtied Blocks&quot;: 0,
+                &quot;Shared Written Blocks&quot;: 0,
+                &quot;Local Hit Blocks&quot;: 0,
+                &quot;Local Read Blocks&quot;: 0,
+                &quot;Local Dirtied Blocks&quot;: 0,
+                &quot;Local Written Blocks&quot;: 0,
+                &quot;Temp Read Blocks&quot;: 0,
+                &quot;Temp Written Blocks&quot;: 0
+              }
+            ]
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.216,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 3.429
+    }
+  ]
+}</code></pre></details><details><summary>frota_historico — filtros e três planos completos</summary><pre><code>{
+  &quot;filters&quot;: {},
+  &quot;plans&quot;: [
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 15841,
+        &quot;Total Cost&quot;: 15841.02,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 3631.494,
+        &quot;Actual Total Time&quot;: 3631.498,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 9091,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 18021,
+        &quot;Temp Written Blocks&quot;: 18039,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Seq Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 0,
+            &quot;Total Cost&quot;: 10091,
+            &quot;Plan Rows&quot;: 100000,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.031,
+            &quot;Actual Total Time&quot;: 17.642,
+            &quot;Actual Rows&quot;: 100000,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Shared Hit Blocks&quot;: 9091,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.179,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 3742.131
+    },
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 15841,
+        &quot;Total Cost&quot;: 15841.02,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 3404.823,
+        &quot;Actual Total Time&quot;: 3404.845,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 9091,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 18021,
+        &quot;Temp Written Blocks&quot;: 18039,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Seq Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 0,
+            &quot;Total Cost&quot;: 10091,
+            &quot;Plan Rows&quot;: 100000,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.088,
+            &quot;Actual Total Time&quot;: 24.712,
+            &quot;Actual Rows&quot;: 100000,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Shared Hit Blocks&quot;: 9091,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.379,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 3510.324
+    },
+    {
+      &quot;Plan&quot;: {
+        &quot;Node Type&quot;: &quot;Aggregate&quot;,
+        &quot;Strategy&quot;: &quot;Plain&quot;,
+        &quot;Partial Mode&quot;: &quot;Simple&quot;,
+        &quot;Parallel Aware&quot;: false,
+        &quot;Async Capable&quot;: false,
+        &quot;Startup Cost&quot;: 15841,
+        &quot;Total Cost&quot;: 15841.02,
+        &quot;Plan Rows&quot;: 1,
+        &quot;Plan Width&quot;: 64,
+        &quot;Actual Startup Time&quot;: 3522.202,
+        &quot;Actual Total Time&quot;: 3522.204,
+        &quot;Actual Rows&quot;: 1,
+        &quot;Actual Loops&quot;: 1,
+        &quot;Disabled&quot;: false,
+        &quot;Shared Hit Blocks&quot;: 9091,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 18021,
+        &quot;Temp Written Blocks&quot;: 18039,
+        &quot;Plans&quot;: [
+          {
+            &quot;Node Type&quot;: &quot;Seq Scan&quot;,
+            &quot;Parent Relationship&quot;: &quot;Outer&quot;,
+            &quot;Parallel Aware&quot;: false,
+            &quot;Async Capable&quot;: false,
+            &quot;Relation Name&quot;: &quot;maintenance_orders&quot;,
+            &quot;Alias&quot;: &quot;maintenance_orders&quot;,
+            &quot;Startup Cost&quot;: 0,
+            &quot;Total Cost&quot;: 10091,
+            &quot;Plan Rows&quot;: 100000,
+            &quot;Plan Width&quot;: 730,
+            &quot;Actual Startup Time&quot;: 0.032,
+            &quot;Actual Total Time&quot;: 26.924,
+            &quot;Actual Rows&quot;: 100000,
+            &quot;Actual Loops&quot;: 1,
+            &quot;Disabled&quot;: false,
+            &quot;Shared Hit Blocks&quot;: 9091,
+            &quot;Shared Read Blocks&quot;: 0,
+            &quot;Shared Dirtied Blocks&quot;: 0,
+            &quot;Shared Written Blocks&quot;: 0,
+            &quot;Local Hit Blocks&quot;: 0,
+            &quot;Local Read Blocks&quot;: 0,
+            &quot;Local Dirtied Blocks&quot;: 0,
+            &quot;Local Written Blocks&quot;: 0,
+            &quot;Temp Read Blocks&quot;: 0,
+            &quot;Temp Written Blocks&quot;: 0
+          }
+        ]
+      },
+      &quot;Planning&quot;: {
+        &quot;Shared Hit Blocks&quot;: 2,
+        &quot;Shared Read Blocks&quot;: 0,
+        &quot;Shared Dirtied Blocks&quot;: 0,
+        &quot;Shared Written Blocks&quot;: 0,
+        &quot;Local Hit Blocks&quot;: 0,
+        &quot;Local Read Blocks&quot;: 0,
+        &quot;Local Dirtied Blocks&quot;: 0,
+        &quot;Local Written Blocks&quot;: 0,
+        &quot;Temp Read Blocks&quot;: 0,
+        &quot;Temp Written Blocks&quot;: 0
+      },
+      &quot;Planning Time&quot;: 0.428,
+      &quot;Triggers&quot;: [],
+      &quot;Execution Time&quot;: 3626.924
+    }
+  ]
+}</code></pre></details>
+<h2>Reprodução</h2><p>O código abaixo deve rodar na raiz de um snapshot do backend, usando suas dependências instaladas, com POSTGRES_DB_TEST=aratu_c8_benchmark_test e DATABASE_URL_TEST vazia (o helper deriva a conexão de DATABASE_URL sem imprimi-la). Ele se recusa a popular uma base que já contenha ordens. Foi executado em /tmp/aratu-review59-head/backend, dentro do container backend, extraído com git archive HEAD backend. A conexão e os tokens de fixtures nunca são impressos.</p><pre><code>import fs from 'node:fs/promises'
+import type { Pool } from 'pg'
+import { setupTestDatabase, getTestPool, closeTestPool } from './tests/helpers/db-test'
+import { seedRolesAndPermissions } from './src/database/scripts/seed'
+import { seedRbacTestUsers } from './tests/fixtures/rbac-users.fixture'
+import { MaintenanceOrdersRepository } from './src/repositories/maintenance-orders.repository'
+import type { MaintenanceFilters } from './src/types/maintenance.types'
+
+async function main() {
+  if(process.env.POSTGRES_DB_TEST !== 'aratu_c8_benchmark_test') throw Error('Banco de benchmark não confirmado')
+  await setupTestDatabase()
+  const pool=getTestPool()
+  await seedRolesAndPermissions(pool)
+  const users=await seedRbacTestUsers(pool)
+  const count=await pool.query&lt;{total:string}&gt;('SELECT count(*)::text AS total FROM fleet.maintenance_orders')
+  if(count.rows[0]!.total !== '0') throw Error('Use um banco de benchmark vazio')
+  await pool.query(`INSERT INTO fleet.vehicles (license_plate,categories,seats,body_limit,operation_type)
+    SELECT 'QBM'||lpad(g::text,4,'0'),ARRAY['PASSENGER'],4,0,'ADMINISTRATIVE' FROM generate_series(0,999) g`)
+  await pool.query(`INSERT INTO fleet.maintenance_orders
+    (vehicle_id,type,description,status,blocks_vehicle,opened_at,closed_at,created_by,closed_by,cost,
+     workshop,odometer_km,vehicle_snapshot,estimate_items,actual_items)
+    SELECT 1+(g%1000), CASE WHEN g%2=0 THEN 'PREVENTIVE' ELSE 'CORRECTIVE' END,
+      'Manutenção fictícia de benchmark '||g, CASE WHEN g%5=0 THEN 'OPEN' ELSE 'DONE' END,false,
+      '2020-01-01T12:00:00Z'::timestamptz+(g%3650)*interval '1 day',
+      CASE WHEN g%5&lt;&gt;0 THEN '2020-01-01T12:00:00Z'::timestamptz+(g%3650)*interval '1 day'+interval '5 days' END,
+      $1,CASE WHEN g%5&lt;&gt;0 THEN $1::bigint END,CASE WHEN g%5&lt;&gt;0 THEN 58.75 END,
+      'Oficina fictícia de benchmark', g%200000,
+      jsonb_build_object('id',(1+g%1000)::text,'licensePlate','QBM'||lpad((g%1000)::text,4,'0'),
+        'model','Modelo fictício de benchmark','categories',ARRAY['PASSENGER'],'seats',4,'status','AVAILABLE'),
+      '[{&quot;kind&quot;:&quot;PART&quot;,&quot;description&quot;:&quot;Filtro fictício&quot;,&quot;quantity&quot;:&quot;2&quot;,&quot;unitPrice&quot;:&quot;18.75&quot;},{&quot;kind&quot;:&quot;LABOR&quot;,&quot;description&quot;:&quot;Instalação fictícia&quot;,&quot;amount&quot;:&quot;40.00&quot;}]'::jsonb,
+      CASE WHEN g%5&lt;&gt;0 THEN '[{&quot;kind&quot;:&quot;PART&quot;,&quot;description&quot;:&quot;Filtro fictício&quot;,&quot;quantity&quot;:&quot;1&quot;,&quot;unitPrice&quot;:&quot;18.75&quot;},{&quot;kind&quot;:&quot;LABOR&quot;,&quot;description&quot;:&quot;Instalação fictícia&quot;,&quot;amount&quot;:&quot;40.00&quot;}]'::jsonb END
+    FROM generate_series(0,99999) g`, [users.get('GESTOR')!.id])
+  await pool.query('ANALYZE fleet.maintenance_orders')
+  let queryText='', parameters:unknown[]=[]
+  const capture=new MaintenanceOrdersRepository({query:async(text:string,values:unknown[])=&gt;{
+    queryText=text;parameters=values;return {rows:[{items:[],totalSpent:'0.00'}]}
+  }} as unknown as Pool)
+  const scenarios:{name:string;filters:MaintenanceFilters}[]=[
+    {name:'veiculo_mes',filters:{vehicleId:'2',from:'2026-11-01T00:00:00Z',to:'2026-12-01T00:00:00Z'}},
+    {name:'frota_mes',filters:{from:'2026-11-01T00:00:00Z',to:'2026-12-01T00:00:00Z'}},
+    {name:'frota_mes_tipo',filters:{type:'PREVENTIVE',from:'2026-11-01T00:00:00Z',to:'2026-12-01T00:00:00Z'}},
+    {name:'veiculo_historico',filters:{vehicleId:'2'}},
+    {name:'frota_historico',filters:{}},
+  ]
+  const results=[]
+  for(const scenario of scenarios){
+    await capture.list(scenario.filters)
+    const samples=[]
+    for(let i=0;i&lt;3;i++){
+      const response=await pool.query('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) '+queryText,parameters)
+      samples.push(response.rows[0]['QUERY PLAN'][0])
+    }
+    const times=samples.map(p=&gt;p['Execution Time']).sort((a,b)=&gt;a-b)
+    const actual=await new MaintenanceOrdersRepository(pool).list(scenario.filters)
+    const summary={name:scenario.name,filters:scenario.filters,executionMs:times,medianMs:times[1],
+      planningMs:samples.map(p=&gt;p['Planning Time']),sharedHits:samples.map(p=&gt;p.Plan['Shared Hit Blocks']),
+      sharedReads:samples.map(p=&gt;p.Plan['Shared Read Blocks']),tempWritten:samples.map(p=&gt;p.Plan['Temp Written Blocks']),
+      returnedOrders:actual.items.length,totalSpent:actual.totalSpent,plans:samples}
+    results.push(summary)
+    console.log(JSON.stringify({...summary,plans:undefined}))
+  }
+  const metadata=await pool.query(`SELECT version(),current_database(),
+    current_setting('shared_buffers') AS shared_buffers,current_setting('work_mem') AS work_mem,
+    current_setting('effective_cache_size') AS effective_cache_size`)
+  await fs.writeFile('/tmp/maintenance-c8-benchmark.json',JSON.stringify({
+    generatedAt:new Date().toISOString(),metadata:metadata.rows[0],orders:100000,vehicles:1000,
+    period:'2020-01-01 a 2029-12-28',query:queryText,results},null,2))
+  await closeTestPool()
+}
+main().catch(async error=&gt;{console.error(error);await closeTestPool();process.exitCode=1})
+</code></pre>
+<p><a href="frota-59-be-api-de-manutencoes.html">Revisão FROTA-59</a> · <a href="frota-61-qa-testes-de-manutencoes.html">Revisão FROTA-61</a></p></body></html>

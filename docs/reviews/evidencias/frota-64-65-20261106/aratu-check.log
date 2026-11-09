@@ -1,0 +1,15 @@
+## Pré-Auditoria Automatizada (`aratu-check.mjs`) — Sistema Aratu
+
+- **Branch atual:** `feat/be-api-de-abastecimentos` (🟢 Gitflow válido)
+- **Branch base comparada:** `develop`
+- **Estatística do Diff:** Sem commits divergentes da base
+- **Commits na branch (0):** 🟢 Todos em Conventional Commits
+- **Arquivos de código auditados (12):** `ackend/src/app.ts`, `backend/tests/database.integration.test.ts`, `backend/src/controllers/fuelings.controller.ts`, `backend/src/database/migrations/202611050001_extend_fuelings.down.sql`, `backend/src/database/migrations/202611050001_extend_fuelings.sql`, `backend/src/repositories/fuelings.repository.ts`, `backend/src/routes/fuelings.routes.ts`, `backend/src/services/fuelings.service.ts`, `backend/src/types/fueling.types.ts`, `backend/tests/fueling-migrations.integration.test.ts`, `backend/tests/fuelings.integration.test.ts`, `backend/tests/fuelings.service.test.ts`
+
+### Resumo de Achados Estáticos: 🔴 0 Bloqueante(s) · 🟡 0 Atenção
+- 🟢 Nenhuma violação estática detectada nos critérios de camadas, SQL, TypeScript ou WCAG.
+
+### Compilação TypeScript e Testes Automatizados
+- **Backend (`npx tsc --noEmit`):** 🟢 Zero erros
+- **Frontend (`npx tsc -b --noEmit`):** 🟢 Zero erros
+- **Frontend (`node --test tests/*.test.mjs`):** 🟢 Sucesso (80 passaram, 0 falharam)
