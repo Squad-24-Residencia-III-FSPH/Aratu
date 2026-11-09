@@ -4,6 +4,7 @@ import type {
   ChangeFleetServiceStatusInput,
   CreateFleetServiceInput,
   FleetServiceFilters,
+  ReplaceCompatibleVehiclesInput,
   UpdateFleetServiceInput,
 } from '../types/fleet-service.types'
 import type { FleetServicesService } from '../services/fleet-services.service'
@@ -77,6 +78,19 @@ export function createServicesController(service: FleetServicesService) {
         res,
         next,
         () => service.setServiceActive(String(req.params.id), false, input, req.usuario?.id ?? ''),
+      )
+    },
+
+    listVehicles(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return respondWithDomainErrors(res, next, () => service.listCompatibleVehicles(String(req.params.id)))
+    },
+
+    replaceVehicles(req: Request, res: Response, next: NextFunction): Promise<void> {
+      const input = bodyRecord(req.body) as unknown as ReplaceCompatibleVehiclesInput
+      return respondWithDomainErrors(
+        res,
+        next,
+        () => service.replaceCompatibleVehicles(String(req.params.id), input, req.usuario?.id ?? ''),
       )
     },
   }

@@ -16,8 +16,10 @@ export function createServicesRouter(service: FleetServicesService, jwtConfig: J
 
   router.get('/', controller.list)
   router.get('/:id', controller.getById)
+  router.get('/:id/vehicles', authorizeWrite, controller.listVehicles)
   router.post('/', authorizeWrite, controller.create)
   router.put('/:id', authorizeWrite, controller.update)
+  router.put('/:id/vehicles', authorizeWrite, controller.replaceVehicles)
   router.patch('/:id/activate', authorizeWrite, controller.activate)
   router.patch('/:id/deactivate', authorizeWrite, controller.deactivate)
 

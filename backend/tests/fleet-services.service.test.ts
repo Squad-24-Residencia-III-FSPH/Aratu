@@ -9,6 +9,7 @@ import type {
   FleetServiceMutationResult,
   NormalizedFleetServiceAttributes,
 } from '../src/types/fleet-service.types'
+import type { Vehicle } from '../src/types/vehicle.types'
 import { FleetServiceError } from '../src/types/fleet-service.types'
 import type { ServicesRepositoryContract } from '../src/repositories/services.repository'
 import { FleetServicesService } from '../src/services/fleet-services.service'
@@ -38,9 +39,39 @@ function createService(overrides: Partial<FleetService> = {}): FleetService {
   }
 }
 
-function setup(initial: FleetService[] = [createService()]) {
+function createVehicle(overrides: Partial<Vehicle> = {}): Vehicle {
+  return {
+    id: '41',
+    licensePlate: 'SVO1A01',
+    brand: 'Chevrolet',
+    model: 'S10',
+    year: 2024,
+    vehicleType: 'CAMINHONETE',
+    ownership: 'OWNED',
+    categories: ['BODY'],
+    seats: 2,
+    bodyLimit: 2,
+    weightLimit: null,
+    operationType: 'SVO',
+    status: 'AVAILABLE',
+    revision: 1,
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    updatedAt: new Date('2026-01-01T00:00:00Z'),
+    ...overrides,
+  }
+}
+
+const defaultVehicles: Vehicle[] = [
+  createVehicle(),
+  createVehicle({ id: '42', licensePlate: 'SVO1A02' }),
+  createVehicle({ id: '43', licensePlate: 'SVO1A03', status: 'INACTIVE' }),
+]
+
+function setup(initial: FleetService[] = [createService()], vehicles: Vehicle[] = defaultVehicles) {
   let stored = [...initial]
   const audits: AuditEntry[] = []
+  const links = new Map<string, { vehicleId: string; isActive: boolean; revision: number }>()
+  const linkKey = (serviceId: string, vehicleId: string) => `${serviceId}:${vehicleId}`
   const replace = (service: FleetService) => {
     stored = stored.map((item) => (item.id === service.id ? service : item))
   }
@@ -77,7 +108,42 @@ function setup(initial: FleetService[] = [createService()]) {
       replace(service)
       return { kind: 'updated', service }
     },
+    async saveRevision(id: string, expectedRevision: number): Promise<FleetServiceMutationResult> {
+      const current = stored.find((item) => item.id === id)
+      if (!current) return { kind: 'not-found' }
+      if (current.revision !== expectedRevision) return { kind: 'revision-conflict' }
+      const service = createService({ ...current, revision: current.revision + 1 })
+      replace(service)
+      return { kind: 'updated', service }
+    },
     async findActorSnapshot(): Promise<FleetServiceActorSnapshot> { return actor },
+    async listCompatibleVehicles(serviceId: string): Promise<Vehicle[]> {
+      return vehicles.filter((vehicle) => links.get(linkKey(serviceId, vehicle.id))?.isActive === true)
+    },
+    async findVehiclesByIds(ids: string[]): Promise<Vehicle[]> {
+      return vehicles.filter((vehicle) => ids.includes(vehicle.id))
+    },
+    async findActiveVehicleIdsForUpdate(serviceId: string): Promise<string[]> {
+      return [...links.entries()]
+        .filter(([key, link]) => key.startsWith(`${serviceId}:`) && link.isActive)
+        .map(([, link]) => link.vehicleId)
+        .sort()
+    },
+    async findVehicleLink(serviceId: string, vehicleId: string): Promise<{ isActive: boolean } | null> {
+      const link = links.get(linkKey(serviceId, vehicleId))
+      return link ? { isActive: link.isActive } : null
+    },
+    async createVehicleLink(serviceId: string, vehicleId: string): Promise<void> {
+      links.set(linkKey(serviceId, vehicleId), { vehicleId, isActive: true, revision: 1 })
+    },
+    async setVehicleLinkActive(serviceId: string, vehicleId: string, active: boolean): Promise<void> {
+      const key = linkKey(serviceId, vehicleId)
+      const current = links.get(key)
+      links.set(key, { vehicleId, isActive: active, revision: (current?.revision ?? 0) + 1 })
+    },
+    async isVehicleLinked(serviceId: string, vehicleId: string): Promise<boolean> {
+      return links.get(linkKey(serviceId, vehicleId))?.isActive === true
+    },
   }
   const auditService: AuditLogger = {
     async recordAudit(input): Promise<AuditEntry> {
@@ -97,7 +163,7 @@ function setup(initial: FleetService[] = [createService()]) {
       return entry
     },
   }
-  return { service: new FleetServicesService(repository, auditService), audits }
+  return { service: new FleetServicesService(repository, auditService), audits, links }
 }
 
 function domainError(statusCode: number) {
@@ -210,4 +276,99 @@ test('não gestores veem só ativos e recebem 404 no detalhe de inativo; gestore
   assert.deepEqual(inactiveOnly.map((item) => item.id), ['12'])
   assert.equal((await context.service.getService('12', 'GESTOR')).active, false)
   await assert.rejects(context.service.getService('abc', 'GESTOR'), domainError(400))
+})
+
+test('compatibilidade: lista somente vínculos ativos e valida o tipo de serviço', async () => {
+  const context = setup()
+  assert.deepEqual(await context.service.listCompatibleVehicles('11'), { serviceId: '11', revision: 1, vehicles: [] })
+
+  await context.service.replaceCompatibleVehicles('11', { vehicleIds: ['41'], expectedRevision: 1, reason: 'Habilita' }, actor.id)
+  const listed = await context.service.listCompatibleVehicles('11')
+  assert.equal(listed.revision, 2)
+  assert.deepEqual(listed.vehicles.map((vehicle) => vehicle.licensePlate), ['SVO1A01'])
+
+  await assert.rejects(context.service.listCompatibleVehicles('abc'), domainError(400))
+  await assert.rejects(context.service.listCompatibleVehicles('99'), domainError(404))
+})
+
+test('compatibilidade: substituição ativa desejados, desativa ausentes e audita uma vez', async () => {
+  const context = setup()
+  const first = await context.service.replaceCompatibleVehicles(
+    '11',
+    { vehicleIds: ['41', '42'], expectedRevision: 1, reason: 'Habilita SVO' },
+    actor.id,
+  )
+  assert.equal(first.revision, 2)
+  assert.deepEqual(first.vehicles.map((vehicle) => vehicle.id), ['41', '42'])
+  assert.equal(context.audits.length, 1)
+  assert.deepEqual(context.audits[0]?.before, { vehicleIds: [] })
+  assert.deepEqual(context.audits[0]?.after, { vehicleIds: ['41', '42'] })
+  assert.equal(context.audits[0]?.operation, 'UPDATE')
+  assert.equal(context.audits[0]?.reason, 'Habilita SVO')
+
+  const second = await context.service.replaceCompatibleVehicles(
+    '11',
+    { vehicleIds: ['41'], expectedRevision: 2, reason: 'Remove SVO1A02' },
+    actor.id,
+  )
+  assert.equal(second.revision, 3)
+  assert.deepEqual(second.vehicles.map((vehicle) => vehicle.id), ['41'])
+  assert.equal(context.links.get('11:42')?.isActive, false)
+  assert.equal(context.links.get('11:42')?.revision, 2)
+})
+
+test('compatibilidade: revincular reativa a mesma linha sem duplicar', async () => {
+  const context = setup()
+  await context.service.replaceCompatibleVehicles('11', { vehicleIds: ['42'], expectedRevision: 1, reason: 'Habilita' }, actor.id)
+  await context.service.replaceCompatibleVehicles('11', { vehicleIds: [], expectedRevision: 2, reason: 'Remove' }, actor.id)
+  await context.service.replaceCompatibleVehicles('11', { vehicleIds: ['42'], expectedRevision: 3, reason: 'Retoma' }, actor.id)
+
+  assert.equal(context.links.size, 1)
+  assert.equal(context.links.get('11:42')?.isActive, true)
+  assert.equal(context.links.get('11:42')?.revision, 3)
+})
+
+test('compatibilidade: payload inválido, veículo inativo/inexistente e revisão antiga retornam erro', async () => {
+  const context = setup()
+  await assert.rejects(
+    context.service.replaceCompatibleVehicles('11', { vehicleIds: ['41', '41'], expectedRevision: 1, reason: 'x' }, actor.id),
+    domainError(400),
+  )
+  await assert.rejects(
+    context.service.replaceCompatibleVehicles('11', { vehicleIds: ['43'], expectedRevision: 1, reason: 'x' }, actor.id),
+    domainError(400),
+  )
+  await assert.rejects(
+    context.service.replaceCompatibleVehicles('11', { vehicleIds: ['999'], expectedRevision: 1, reason: 'x' }, actor.id),
+    domainError(400),
+  )
+  await assert.rejects(
+    context.service.replaceCompatibleVehicles('11', { vehicleIds: '41' as unknown as string[], expectedRevision: 1, reason: 'x' }, actor.id),
+    domainError(400),
+  )
+  await assert.rejects(
+    context.service.replaceCompatibleVehicles('11', { vehicleIds: ['41'], expectedRevision: 1, reason: ' ' }, actor.id),
+    domainError(400),
+  )
+  await assert.rejects(
+    context.service.replaceCompatibleVehicles('99', { vehicleIds: ['41'], expectedRevision: 1, reason: 'x' }, actor.id),
+    domainError(404),
+  )
+  assert.equal(context.links.size, 0)
+
+  await context.service.replaceCompatibleVehicles('11', { vehicleIds: ['41'], expectedRevision: 1, reason: 'x' }, actor.id)
+  await assert.rejects(
+    context.service.replaceCompatibleVehicles('11', { vehicleIds: ['42'], expectedRevision: 1, reason: 'x' }, actor.id),
+    domainError(409),
+  )
+})
+
+test('compatibilidade: isVehicleCompatible responde apenas para vínculo ativo', async () => {
+  const context = setup()
+  assert.equal(await context.service.isVehicleCompatible('11', '41'), false)
+  await context.service.replaceCompatibleVehicles('11', { vehicleIds: ['41'], expectedRevision: 1, reason: 'Habilita' }, actor.id)
+  assert.equal(await context.service.isVehicleCompatible('11', '41'), true)
+  assert.equal(await context.service.isVehicleCompatible('11', '42'), false)
+  assert.equal(await context.service.isVehicleCompatible('abc', '41'), false)
+  assert.equal(await context.service.isVehicleCompatible('11', '0'), false)
 })
