@@ -16,6 +16,9 @@ import { ProfileService } from './services/profile.service'
 import { VehiclesRepository } from './repositories/vehicles.repository'
 import { VehiclesService } from './services/vehicles.service'
 import { createVehiclesRouter } from './routes/vehicles.routes'
+import { FuelingsRepository } from './repositories/fuelings.repository'
+import { FuelingsService } from './services/fuelings.service'
+import { createFuelingsRouter } from './routes/fuelings.routes'
 import { MaintenanceOrdersRepository } from './repositories/maintenance-orders.repository'
 import { MaintenanceOrdersService } from './services/maintenance-orders.service'
 import { createMaintenanceOrdersRouter } from './routes/maintenance-orders.routes'
@@ -89,6 +92,8 @@ export function createApp({
     const vehiclesRepository = new VehiclesRepository(pool)
     const vehiclesService = new VehiclesService(vehiclesRepository, auditService)
     app.use('/vehicles', createVehiclesRouter(vehiclesService, jwtConfig))
+    const fuelingsService = new FuelingsService(new FuelingsRepository(pool), vehiclesRepository, auditService)
+    app.use('/fuelings', createFuelingsRouter(fuelingsService, jwtConfig))
     const maintenanceService = new MaintenanceOrdersService(
       new MaintenanceOrdersRepository(pool), vehiclesRepository, vehiclesService, auditService,
     )

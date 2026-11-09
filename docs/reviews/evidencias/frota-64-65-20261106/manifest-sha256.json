@@ -1,0 +1,18 @@
+{
+  "report": "frota-64-65-validacao-independente.html",
+  "sha256": {
+    "frota-64-65-validacao-independente.html": "4ec5cea5fd3cd560f95d63b0fe7b2b3c78871546c06021212a3e96a9345455c8",
+    "evidencias/frota-64-65-20261106/aratu-check.log": "72dc762ecb5859094e4c1ddf6ead1e992a61910d418e3ed4841e5afc5d74600c",
+    "evidencias/frota-64-65-20261106/backend-build.log": "8aa64de917b7d926f595496f2fc2e67b40976626ffedec3a09097e700101e293",
+    "evidencias/frota-64-65-20261106/backend-test.log": "2269f786298bb49b2da99adaaa5eb36c126e5fa68aaf425c4fdc934a4cfa0607",
+    "evidencias/frota-64-65-20261106/diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "evidencias/frota-64-65-20261106/docker-mounts.txt": "335588056d8ce852a07511294c8023a7ee88ee6b979fbd32eb950e3e9fdf5276",
+    "evidencias/frota-64-65-20261106/docker-ps.txt": "b0432a7b472b7fcedd0f1fa746266c891b2f23b59a6cb173481fe1e365246165",
+    "evidencias/frota-64-65-20261106/independent-probes.cjs": "ddc2ae85ffcd27ac6f7aef3a3d03cfb59dcf3932d6dd94a0d46cecad621d04df",
+    "evidencias/frota-64-65-20261106/independent-probes.json": "8106d78f09a9b1d12271cae91588d9bb99605977c2b0f6cb2371b060a6b9a81e",
+    "evidencias/frota-64-65-20261106/independent-probes.log": "6d6fda85afd3cb6cf480083391cbb1f843c10fa899827a5024d3a237d0151a88",
+    "evidencias/frota-64-65-20261106/preservation.json": "1ed6c2dcce75af19fc7ef96da3e555ffb541f158193bbc22875f1c2fa7f5ce8e",
+    "evidencias/frota-64-65-20261106/source-hashes.json": "d8ba459914e9fc2048841bc558fc78fb92f5f9b59261d8cb0435763ea22ab55d",
+    "evidencias/frota-64-65-20261106/status-inicial.txt": "6948fee270f01377c926a48ca684379ae1ccc43c3894b377fd93eb75a0948953"
+  }
+}

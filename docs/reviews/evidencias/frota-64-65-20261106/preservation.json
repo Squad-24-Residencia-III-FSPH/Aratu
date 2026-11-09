@@ -1,0 +1,10 @@
+{
+  "checkedAt": "06/11/2026, 07:40:24",
+  "timeZone": "America/Sao_Paulo",
+  "preexistingFilesCompared": 117,
+  "changed": [],
+  "containerSourceHashesMatch": true,
+  "branch": "feat/be-api-de-abastecimentos",
+  "head": "bf592b861de3f48779d6f6314079c629ec34e22c",
+  "scope": "Somente novos relatórios, evidências e arquivos temporários desta validação; sem commit ou push."
+}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FROTA — Documentação Técnica e Funcional (Sistema Aratu)</title>
+  <title>Frota e abastecimentos — Sistema Aratu</title>
   <style>
     :root {
       --brand-strong: #075985;
@@ -298,6 +298,171 @@
     </tr>
   </tbody>
 </table>
+  body { overflow-wrap:anywhere; } .tableScroll { overflow-x:auto; } .tableScroll:focus-visible { outline:2px solid #115e59; outline-offset:3px; } @media(max-width:600px) { body { margin:16px auto; padding:0 16px 40px; } table { min-width:600px; } }
+</style>
+</head>
+<body>
+<h1>FROTA — Veículos e abastecimentos</h1>
+<div class="meta-block"><p><strong>Contexto:</strong> Squad 24 · FSPH / SVO</p>
+<p><strong>Atualização:</strong> 05/11/2026 · FROTA-64 e FROTA-65</p>
+<p><strong>Backend:</strong> Express 5 / TypeScript / pg. <strong>Banco:</strong> PostgreSQL 18, schemas fleet, trip e audit.</p>
+<p><strong>Frontend existente:</strong> VehiclesPage. Interface de abastecimentos: FROTA-66, fora desta entrega.</p>
+<p><strong>Referências:</strong> <a href="../manuais/modulos.md">Índice de módulos</a> · <a href="../plans/frota-64-api-abastecimentos-testes.html">SDD de abastecimentos</a></p>
+</div>
+<nav aria-label="Sumário"><ol><li><a href="#s1">Visão geral</a></li>
+<li><a href="#s2">Regras de negócio</a></li>
+<li><a href="#s3">Acesso</a></li>
+<li><a href="#s4">Banco de dados</a></li>
+<li><a href="#s5">Contratos REST</a></li>
+<li><a href="#s6">Camadas</a></li>
+<li><a href="#s7">Interface e acessibilidade</a></li>
+<li><a href="#s8">Arquivos</a></li>
+<li><a href="#s9">Integrações e proteção de dados</a></li>
+</ol>
+</nav>
+<hr><h2 id="s1">1. Visão geral</h2>
+<p>O módulo mantém o cadastro e a situação dos veículos e permite ao Gestor e ao Administrador registrar gastos com combustível, consultar totais e retificar informações preservando todo o histórico. Serviços e vínculos de veículos têm estrutura de banco; esta entrega não implementa sua API.</p>
+<hr><h2 id="s2">2. Regras de negócio e preservação histórica</h2>
+<ol><li>Veículos: placa única, capacidades e operação validadas em VehiclesService. Cadastro, alteração e situação gravam evento e auditoria na mesma transação. Transições: AVAILABLE → IN_MAINTENANCE/INACTIVE; IN_MAINTENANCE → AVAILABLE/INACTIVE; INACTIVE → AVAILABLE.</li>
+<li>FuelingsService::create exige veículo, instante com fuso, combustível, litros, valor e km. Valida a existência do veículo e motorista sem condicionar lançamentos históricos à sua situação atual.</li>
+<li>Litros e reais usam strings decimais positivas, até 7 dígitos inteiros/3 casas e 10 dígitos inteiros/2 casas, respectivamente. Excesso de escala, números JSON, vírgula e notação científica são recusados; não há arredondamento silencioso. O banco soma NUMERIC, sem ponto flutuante.</li>
+<li>Quilometragem é inteiro entre zero e 2.147.483.647. Leituras anteriores fornecem o maior limite inferior; posteriores, o menor limite superior. No mesmo instante, km deve coincidir. Data futura e fronteira violada retornam 422.</li>
+<li>Refinamento confirmado no SDD: registro retroativo de 51.200 km entre 51.000 e 52.000 é válido, mesmo com a leitura posterior já lançada. Isso detalha a frase antiga do Jira sobre a última leitura.</li>
+<li>FuelingsService::rectify insere nova versão com supersedesId e revision incrementada. Veículo permanece o mesmo; campos editáveis omitidos são preservados e null limpa somente opcionais. Mesmo a correção apenas do posto cria versão e leitura retificadora.</li>
+<li>Cada ato exige reportedBy, reason e evidenceDescription ou attachmentUrl HTTP(S). Autor vem da sessão e do cadastro autenticado; snapshots antigos não são reconstruídos. Ao trocar motorista, a nova versão captura somente id e nome funcional do novo vínculo.</li>
+<li>GET detalhe mantém exatamente o ID solicitado e retorna toda a cadeia e os eventos. Listagem/totais contam apenas pontas não anuladas; um sucessor anulado nunca ressuscita o predecessor.</li>
+<li>Mutações usam VehiclesRepository::withTransaction e a ordem de travas veículo → versão. Fato, leitura, evento e AuditService::recordAudit usam o mesmo cliente. Qualquer falha provoca rollback completo.</li>
+<li>Idempotency-Key UUID é obrigatória no POST e PUT. Mesma chave, autor, operação, alvo e entrada normalizada devolvem a versão original, inclusive após correções posteriores. Outra entrada com a chave retorna 409. O PUT distingue campos omitidos de null.</li>
+<li>Legado: leituras vigentes são prioritárias. Abastecimentos sem leitura e km de viagens sem trilha START/END contribuem usando somente fueled_at, started_at e finished_at. Instante real ausente, ciclos ou vínculos incompatíveis geram 409 na mutação afetada, sem correção destrutiva.</li>
+<li>Consulta de coleção, paginação e totais usam uma instrução SQL e a mesma fotografia do banco. A ordem é fueledAt decrescente e id numérico decrescente.</li>
+</ol>
+<hr><h2 id="s3">3. Escopo de impacto e acesso (RBAC)</h2>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Perfil</th><th scope="col">Veículos</th><th scope="col">Abastecimentos: quatro endpoints</th></tr>
+</thead>
+<tbody><tr><td>ADMINISTRADOR / GESTOR</td><td>Consulta e escrita</td><td>Consulta, cadastro e retificação</td></tr>
+<tr><td>ATENDENTE_SVO</td><td>Consulta</td><td>403</td></tr>
+<tr><td>MOTORISTA / SOLICITANTE / EQUIPE_SVO</td><td>Sem acesso à API de veículos</td><td>403</td></tr>
+<tr><td>Sem token ou token inválido</td><td>401</td><td>401</td></tr>
+</tbody>
+</table>
+</div>
+<p>Autenticação precede autorização e consulta de existência. driverId registra um vínculo funcional e não concede acesso. Não há flag ou novo perfil.</p>
+<hr><h2 id="s4">4. Banco de dados (PostgreSQL 18)</h2>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Tabela</th><th scope="col">Grão e colunas relevantes</th><th scope="col">Integridade e índices</th></tr>
+</thead>
+<tbody><tr><td>fleet.vehicles / fleet.vehicle_events</td><td>Cadastro vigente e eventos imutáveis com autoria, motivo e before/after.</td><td>PK BIGINT IDENTITY; placa única; revisão e FK com RESTRICT.</td></tr>
+<tr><td>fleet.fuelings</td><td>Uma versão imutável do fato. vehicle_id, driver_id, fueled_at, liters NUMERIC(10,3), total_value NUMERIC(12,2), odometer_km, snapshots, metadados, supersedes_id e revision.</td><td>FKs ON DELETE RESTRICT; combustível por CHECK; valores positivos; índices por veículo/data, motorista/data e predecessor.</td></tr>
+<tr><td>fleet.fueling_events</td><td>Uma mudança: RECORDED ou RECTIFIED pela API; legado também admite UPDATED/ANNULLED. occurred_at, registered_at, informante, autor, justificativa, evidência e before_state/after_state.</td><td>Trigger append-only; índice por abastecimento e instante.</td></tr>
+<tr><td>trip.odometer_readings</td><td>Uma leitura operacional ou sua retificação. reading_type=FUELING, fueling_id, supersedes_id, veículo, km e instantes.</td><td>Trigger append-only; índices por veículo/data e abastecimento/data.</td></tr>
+<tr><td>audit.logs</td><td>Uma auditoria CREATE/UPDATE da operação de negócio, com o ID da nova versão, snapshots e motivo.</td><td>Mesma transação das demais trilhas.</td></tr>
+<tr><td>fleet.drivers / trip.trips</td><td>Fontes de vínculo funcional e cronologia legada.</td><td>Somente leitura no fluxo de abastecimentos.</td></tr>
+</tbody>
+</table>
+</div>
+<h3>Migração complementar 202611050001_extend_fuelings</h3>
+<p>Adiciona request_key UUID e request_payload JSONB, nulos no legado, com CHECK de preenchimento conjunto. Cria índices únicos fleet_fuelings_request_key (created_by, request_key) e fleet_fuelings_one_successor (supersedes_id) e trigger que impede UPDATE/DELETE no fato. Ramificações antigas bloqueiam a migração sem perda de dados. O runner registra a versão e reexecuta sem duplicar.</p>
+<p><strong>Rollback:</strong> a down remove somente esta extensão antes do uso operacional. Após qualquer registro com request_key/request_payload, recusa a reversão; reverta somente a aplicação e preserve schema e histórico. Não executar a down original da tabela. Não há backfill de autoria, evidência ou horários.</p>
+<hr><h2 id="s5">5. Contratos REST</h2>
+<p>Rotas na raiz, sem prefixo /api. Bearer token obrigatório. IDs BIGINT são strings, instantes são ISO 8601, valores decimais são strings. Erros seguem <code>{"erro":"mensagem orientadora"}</code>.</p>
+<p><strong>Precisão temporal:</strong> <code>fueledAt</code>, <code>from</code> e <code>to</code> aceitam até seis casas fracionárias com fuso. A normalização para UTC preserva os microssegundos do PostgreSQL e mantém três casas quando a fração adicional é zero. PUT sem <code>fueledAt</code> preserva o instante exato, inclusive em legado; cronologia, filtros, ordenação e idempotência usam essa mesma precisão. A data futura é comparada ao relógio do serviço sem arredondamento.</p>
+<p><strong>Versão vigente:</strong> <code>currentId</code> identifica a única ponta sem sucessora na cadeia de <code>supersedesId</code>, independentemente da ordem numérica de <code>revision</code> no legado. A revisão continua protegendo a versão alvo da retificação. Lista e detalhe concordam sobre a ponta vigente.</p>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Método e rota</th><th scope="col">Entrada</th><th scope="col">Resposta</th></tr>
+</thead>
+<tbody><tr><td>GET /vehicles</td><td>status?, category?, operationType?</td><td>200 Vehicle[]</td></tr>
+<tr><td>GET /vehicles/:id</td><td>ID</td><td>200 Vehicle</td></tr>
+<tr><td>POST /vehicles</td><td>CreateVehicleInput e metadados</td><td>201 Vehicle</td></tr>
+<tr><td>PUT /vehicles/:id</td><td>UpdateVehicleInput e expectedRevision</td><td>200 Vehicle</td></tr>
+<tr><td>PATCH /vehicles/:id/status</td><td>status, expectedRevision e metadados</td><td>200 Vehicle</td></tr>
+<tr><td>GET /fuelings</td><td>vehicleId?, driverId?, from?, to?, page?=1, pageSize?=20 (máximo 100). Intervalo [from,to); from &lt; to. Filtros combinados por AND.</td><td>200 {items,total,page,pageSize,totalPages,totalLiters,totalValue}. Totais do filtro inteiro, mesmo fora da página. Vazio: [], total=0, totalPages=0, "0.000" e "0.00".</td></tr>
+<tr><td>GET /fuelings/:id</td><td>ID de qualquer versão</td><td>200 {fueling,currentId,versions,events}; fueling é o ID solicitado, não a versão mais recente.</td></tr>
+<tr><td>POST /fuelings</td><td>Idempotency-Key UUID e CreateFuelingInput</td><td>201 FuelingVersion; replay mantém versão e status originais.</td></tr>
+<tr><td>PUT /fuelings/:id</td><td>Idempotency-Key UUID, expectedRevision, metadados novos e campos editáveis opcionais</td><td>200 FuelingVersion com NOVO id, supersedesId=alvo e revisão incrementada. Usar o novo ID nas próximas correções.</td></tr>
+</tbody>
+</table>
+</div>
+<h3>DTOs de abastecimentos</h3>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Campo</th><th scope="col">Contrato</th></tr>
+</thead>
+<tbody><tr><td>vehicleId</td><td>String positiva obrigatória na criação; proibida no PUT.</td></tr>
+<tr><td>driverId</td><td>String positiva opcional/nula; deve existir quando informada.</td></tr>
+<tr><td>fueledAt</td><td>Obrigatório na criação; data real com Z/offset; até milissegundos; editável.</td></tr>
+<tr><td>fuelType</td><td>GASOLINE, ETHANOL, DIESEL, DIESEL_S10, GNV, FLEX ou OTHER.</td></tr>
+<tr><td>liters / totalValue</td><td>Obrigatórios na criação, strings positivas; resposta com escalas 3 e 2.</td></tr>
+<tr><td>odometerKm</td><td>Número inteiro obrigatório na criação, não negativo.</td></tr>
+<tr><td>station / notes</td><td>Opcionais/nulos; trim, sem conteúdo vazio.</td></tr>
+<tr><td>reportedBy / reason</td><td>Textos obrigatórios em toda mutação; não herdar na retificação.</td></tr>
+<tr><td>evidenceDescription / attachmentUrl</td><td>Ao menos um em toda mutação; URL HTTP(S) é armazenada, sem download ou upload pelo backend.</td></tr>
+<tr><td>expectedRevision</td><td>Inteiro positivo obrigatório somente no PUT.</td></tr>
+<tr><td>Campos do servidor</td><td>id, createdBy, snapshots, timestamps, revision, supersedesId, isAnnulled. Proibido enviá-los para controlar o histórico.</td></tr>
+<tr><td>FuelingVersion</td><td>Dados do fato, metadados, instantes, autoria, snapshots, revision, supersedesId e anulação. request_key/request_payload não são públicos. Campos legados desconhecidos permanecem null.</td></tr>
+<tr><td>FuelingHistoryEvent</td><td>id, fuelingId, eventType, occurredAt, registeredAt, reportedBy, registeredBy, actorSnapshot, reason, evidência, beforeState, afterState, supersedesId e isAnnulled.</td></tr>
+</tbody>
+</table>
+</div>
+<h3>Erros de abastecimentos</h3>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">HTTP</th><th scope="col">Significado</th></tr>
+</thead>
+<tbody><tr><td>400</td><td>Formato/campo inválido, valor não positivo, chave ausente, filtro repetido ou campo de controle.</td></tr>
+<tr><td>401 / 403</td><td>Autenticação / autorização.</td></tr>
+<tr><td>404</td><td>Abastecimento, veículo ou motorista inexistente.</td></tr>
+<tr><td>409</td><td>Revisão obsoleta, alvo substituído/anulado, chave divergente ou histórico inconsistente/incompleto.</td></tr>
+<tr><td>422</td><td>Data futura ou km incompatível com a sequência cronológica.</td></tr>
+<tr><td>500</td><td>Falha inesperada, com rollback e sem detalhes internos na resposta.</td></tr>
+</tbody>
+</table>
+</div>
+<pre><code>POST /fuelings
+Idempotency-Key: 4a804230-53ea-49c4-b942-2b2bc7cdb662
+{ "vehicleId": "101", "fueledAt": "2026-11-04T10:00:00-03:00",
+  "fuelType": "DIESEL_S10", "liters": "40.500", "totalValue": "250.00",
+  "odometerKm": 51200, "station": "Posto Fictício QA",
+  "reportedBy": "Equipe Fictícia QA", "reason": "Registro fictício de teste",
+  "evidenceDescription": "Comprovante fictício QA-001" }</code></pre>
+<hr><h2 id="s6">6. Camadas de negócio e persistência</h2>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Elemento</th><th scope="col">Responsabilidade</th></tr>
+</thead>
+<tbody><tr><td>createFuelingsRouter / createFuelingsController</td><td>Cadeia autenticação → RBAC → service. Traduz códigos de domínio para HTTP.</td></tr>
+<tr><td>FuelingsService</td><td>list, getById, create e rectify: validação, relógio injetável, cronologia e transação. Não depende de Express nem SQL.</td></tr>
+<tr><td>FuelingsRepository</td><td>Filtros, NUMERIC, versões, eventos, fontes cronológicas, replay e CTEs recursivos protegidos contra ciclos.</td></tr>
+<tr><td>VehiclesRepository / AuditService</td><td>Reuso de transação, trava por veículo, snapshot autenticado e auditoria.</td></tr>
+<tr><td>fueling.types.ts</td><td>DTOs e erros com códigos semânticos.</td></tr>
+<tr><td>VehiclesService / VehiclesRepository</td><td>Cadastro e situação de veículos, preservados por esta entrega.</td></tr>
+</tbody>
+</table>
+</div>
+<hr><h2 id="s7">7. Interface e acessibilidade</h2>
+<p>A página de veículos existente usa VehiclesPage, VehicleFormDialog e VehicleStatusDialog e o cliente vehiclesService. Nenhum arquivo frontend foi modificado por FROTA-64/FROTA-65. A interface de abastecimentos pertence à FROTA-66: foco, teclado, alvos de toque, cinco estados visuais e anúncios precisam ser validados nessa tarefa.</p>
+<p>A API oferece vazio explícito, mensagens orientadoras em português e reenvio idempotente para recuperação após perda de resposta. Exemplo: “Este abastecimento já foi corrigido, anulado ou alterado. Consulte a versão atual antes de continuar.” Não foram realizados testes visuais da futura interface.</p>
+<hr><h2 id="s8">8. Arquivos principais</h2>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Camada</th><th scope="col">Arquivos</th></tr>
+</thead>
+<tbody><tr><td>Rotas e borda HTTP</td><td>backend/src/routes/fuelings.routes.ts; backend/src/controllers/fuelings.controller.ts; backend/src/app.ts</td></tr>
+<tr><td>Domínio e contratos</td><td>backend/src/services/fuelings.service.ts; backend/src/types/fueling.types.ts</td></tr>
+<tr><td>Persistência</td><td>backend/src/repositories/fuelings.repository.ts; backend/src/database/migrations/202611050001_extend_fuelings.sql e .down.sql</td></tr>
+<tr><td>Validação</td><td>backend/tests/fuelings.service.test.ts; backend/tests/fuelings.integration.test.ts; backend/tests/fueling-migrations.integration.test.ts; backend/tests/database.integration.test.ts (compatibilidade das reversões)</td></tr>
+</tbody>
+</table>
+</div>
+<hr><h2 id="s9">9. Dependências, integrações e proteção de dados</h2>
+<p>Integração com veículos, motoristas, viagens e auditoria. Escritores futuros de hodômetro/viagens precisam adquirir a mesma trava de fleet.vehicles antes de ler limites e gravar leituras. A API de viagens ainda não existe nesta base; a garantia de concorrência não cobre escritores externos que ignorem esse protocolo.</p>
+<p>Reutiliza DATABASE_URL, DATABASE_URL_TEST e JWT existentes, sem dependências ou serviços novos. Snapshots do motorista contêm somente id e nome; autoria e evidências ficam restritas ao Gestor e Administrador. Nunca incluir dados reais em testes ou exemplos. URLs de comprovantes não são acessadas pelo servidor.</p>
+<h3>Validação FROTA-65</h3>
+<p>Suíte com banco PostgreSQL 18 dedicado: cadastro, valores, filtros/totais, RBAC, retificação, preservação byte a byte, idempotência, concorrência sob lock, legado e falhas transacionais. Migrações usam um segundo banco exclusivo de teste para aplicação, repetição, ramificação e rollback seguro. Dados integralmente fictícios.</p>
+<h3>Correções e validação em 06/11/2026</h3><p>R1–R3 corrigidos e cobertos por três regressões de integração e dois casos adicionais de domínio. A suíte completa passou com <strong>133 testes backend e 80 testes frontend</strong>, zero falhas; pré-auditoria, TypeScript e build backend aprovados. A validação independente foi solicitada em novo chat. As evidências anteriores abaixo foram preservadas como histórico.</p><h3>Evidências iniciais em 05/11/2026</h3>
+<p>Suíte completa: <strong>128 testes backend e 80 testes frontend passaram, sem falhas</strong>. TypeScript backend/frontend, lint, builds de produção e pré-auditoria estática aprovados (zero bloqueantes e zero alertas). A migração e os fluxos de erro foram exercitados somente em bancos dedicados de teste. Nenhuma alteração frontend compõe esta entrega.</p>
+<p>Foi necessário atualizar os testes existentes de rollback para desfazer a extensão de abastecimentos antes de remover a tabela original e para verificar sua nova imutabilidade. As demais regras de negócio foram preservadas.</p>
+<h3>Medição de consultas</h3>
+<p>PostgreSQL 18.6 local em Docker, EXPLAIN (ANALYZE, BUFFERS), 100 veículos, 20.004 versões de abastecimento e 10.000 leituras fictícias. Cache aquecido por uma execução anterior; valores observados, sem garantia de tempo em produção.</p>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tempos medidos das consultas"><table><thead><tr><th scope="col">Consulta</th><th scope="col">Execução</th><th scope="col">Blocos em cache</th></tr>
+</thead>
+<tbody><tr><td>Coleção filtrada por veículo e período, página de 20</td><td>2.366 ms</td><td>206</td></tr>
+<tr><td>Coleção global e totais NUMERIC, página de 20</td><td>111.809 ms</td><td>422</td></tr>
+<tr><td>Histórico com cinco versões</td><td>0.941 ms</td><td>30</td></tr>
+<tr><td>Cronologia por veículo com fontes legadas e leituras</td><td>31.943 ms</td><td>31857</td></tr>
+</tbody>
+</table>
+</div>
+<p>A consulta filtrada usou fleet_fuelings_by_vehicle e fleet_fuelings_one_successor. Histórico e cronologia reutilizaram os índices existentes de veículo, vínculo, predecessor e PK. Não foi adicionado índice de performance sem demanda medida; os dois novos índices são restrições de unicidade. A consulta global soma todo o filtro; seu custo cresce com o volume.</p>
 
 </body>
 </html>
