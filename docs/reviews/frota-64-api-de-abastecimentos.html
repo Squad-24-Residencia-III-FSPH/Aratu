@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-64 — API de abastecimentos (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+
+ body { overflow-wrap: anywhere; }
+ .table-scroll { overflow-x: auto; margin: 16px 0; }
+ .table-scroll table { margin: 0; }
+ .table-scroll:focus-visible { outline: 3px solid #115e59; outline-offset: 3px; }
+ .finding { border-left: 4px solid #991b1b; padding-left: 16px; margin-block: 24px; }
+ .summary-card .count { color: #0f172a !important; }
+ a, .toc a { display: inline-block; padding-block: 6px; }
+ @media(max-width:600px) { body { margin: 16px auto; padding: 0 16px 40px; } h1 { font-size: 1.35rem; } table { min-width: 620px; } .summary-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+ @media print { .table-scroll { overflow: visible; } table { min-width: 0; } }
+ </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-64: API de abastecimentos</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-64</code> — API de abastecimentos</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/be-api-de-abastecimentos</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <a href="../plans/frota-64-api-abastecimentos-testes.html">Plano conjunto FROTA-64/FROTA-65</a></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>FROTA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data da Revisão:</strong> 06/11/2026 · America/Sao_Paulo</p>
+</div>
+
+<div class="verdict-approved">Veredito atualizado: APROVADO_PARA_REVISAO_HUMANA — R1–R3 corrigidos e cobertos por regressão</div>
+ <p><strong>Zero bloqueantes pendentes nesta revisão.</strong> Permanecem três pontos de atenção de processo/performance. Validação independente solicitada para outro chat.</p>
+ <p>Contadores dos 17 critérios após as correções:</p>
+ <div class="summary-grid"><div class="summary-card"><span class="count">0</span><span class="label">🔴 Critérios bloqueantes</span></div><div class="summary-card"><span class="count">3</span><span class="label">🟡 Critérios em atenção</span></div><div class="summary-card"><span class="count">10</span><span class="label">🟢 Critérios OK</span></div><div class="summary-card"><span class="count">4</span><span class="label">⚪ Critérios N/A</span></div></div>
+ <p><a href="#correcoes">Ver correções e evidências atuais</a> · <a href="frota-65-testes-de-abastecimentos.html">Relatório relacionado</a></p>
+ <section id="correcoes"><h2>Correções verificadas — 06/11/2026</h2>
+<p><strong>R1–R3 corrigidos.</strong> Os três testes de integração falharam com o código anterior e passaram após a correção. A suíte completa passou com <strong>133 testes backend, zero falhas</strong>; pré-auditoria sem alertas, TypeScript backend/frontend e build backend aprovados; 80 testes frontend passaram. Não houve alteração de frontend, migrações, permissões ou dados operacionais.</p>
+<ul><li><strong>R1:</strong> projeção de fueledAt preserva os seis dígitos do PostgreSQL quando há fração submilissegundo. Correção só de posto preserva o instante do fato, da leitura e do evento, e o original permanece byte a byte inalterado.</li>
+<li><strong>R2:</strong> normalização preserva até seis casas e offsets; comparação cronológica, período e data futura usam microssegundos inteiros. Ordenação usa o instante temporal. Regressões cobrem igualdade real, instantes vizinhos, filtro semiaberto, replay de offsets equivalentes, precisão máxima, um microssegundo futuro e datas anteriores a 1970.</li>
+<li><strong>R3:</strong> currentId é a única ponta sem sucessora e a validade da cadeia exige exatamente uma ponta. O legado com revision=5 → revision=1 pode ser consultado e retificado; lista e detalhe concordam.</li></ul>
+<p><strong>Arquivos:</strong> backend/src/repositories/fuelings.repository.ts; backend/src/services/fuelings.service.ts; backend/tests/fuelings.integration.test.ts (R1, R2, R3); backend/tests/fuelings.service.test.ts (dois casos adicionais). SDD e documentação FROTA atualizados.</p>
+<p><strong>Validação independente:</strong> será executada no novo chat solicitado pelo usuário, com GPT-6.1 Sol e esforço high. Este registro não antecipa o resultado daquele chat. Os três pontos de atenção A1–A3 permanecem para preparação do PR e acompanhamento de performance.</p>
+<h3>Reexecução das provas originais após a correção</h3><pre><code>{
+  "database": "aratu_fuelings_review_test",
+  "results": [
+    {
+      "case": "PUT somente de posto em legado com microssegundos",
+      "suppliedFueledAt": false,
+      "returnedOriginal": "2026-10-02T12:00:00.123456Z",
+      "original": "2026-10-02 12:00:00.123456",
+      "corrected": "2026-10-02 12:00:00.123456",
+      "unchanged": true
+    },
+    {
+      "case": "Fato anterior em 456 microssegundos, km inferior coerente",
+      "actual": "accepted"
+    },
+    {
+      "case": "Ponta legada com revisão menor que a predecessora",
+      "rootId": "4",
+      "leafId": "5",
+      "currentIdFromDetail": "5",
+      "currentIdFromList": "5",
+      "correction": "accepted"
+    }
+  ]
+}</code></pre></section><p>O diagnóstico e as medições iniciais abaixo foram preservados como histórico. Os resultados atuais estão na seção de correções acima.</p>
+ <ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<p>Revisão de <code>FROTA-64</code> — API de abastecimentos; módulo FROTA. Jira consultado: subtarefa Em andamento, prioridade Normal, sem comentários; história mãe FROTA-62. Escopo conjunto: API FROTA-64 + QA FROTA-65; interface FROTA-66 fora da entrega.</p>
+   <p><strong>Fonte e decisões:</strong> plano local registra autorização exclusiva de GESTOR/ADMINISTRADOR, validação cronológica (inclusive retroativos) e histórico append-only. A pendência sobre MOTORISTA no Jira está resolvida no SDD: sem acesso nesta entrega. Não foi alterado o Jira.</p>
+   <p><strong>Requisitos FROTA-64:</strong> GET /fuelings com filtros veículo/motorista/período; GET /fuelings/:id; POST e PUT. Litros/valor não positivos ou obrigatórios ausentes: 400; km incompatível e data futura: 422; AuditService; vínculo ao veículo e dependência FROTA-63. A frase do Jira sobre última leitura foi refinada explicitamente no SDD para sequência de fatos.</p>
+   <p><strong>Requisitos FROTA-65:</strong> backend/tests/fuelings.integration.test.ts; cadastro 201, zero/negativo 400, km inválido 422, data futura 422, filtros veículo/período e acesso negado 403; npm test deve passar. Os casos mínimos passaram. As regressões R1–R3 foram acrescentadas e passaram após as correções.</p>
+   <p><strong>Base:</strong> feat/be-api-de-abastecimentos, HEAD/develop <code>bf592b8</code>; origem remota confirmada. Nenhum commit divergente. Foram revisados arquivos modificados e não rastreados na pasta de trabalho <code>C:\Users\obrcr\.codex\worktrees\frota-64-65-abastecimentos\Aratu</code>. Alterações da pasta principal de manutenção foram preservadas e não compõem o parecer.</p>
+   <p>15 arquivos da implementação: +2186/−3 linhas, incluindo novos arquivos; contagem exclui os relatórios criados nesta revisão. Sem modificação da implementação, commit ou push.</p>
+   <div class="table-scroll" tabindex="0" role="region" aria-label="Tabela de revisão; use as setas para rolar"><table><thead><tr><th scope="col">Arquivo</th><th scope="col">Camada</th><th scope="col">Alteração</th><th scope="col">Responsabilidade</th></tr></thead><tbody><tr><td><code>backend/src/app.ts</code></td><td>Composição</td><td>Modificado</td><td>Montagem de /fuelings com pool e auditoria existentes.</td></tr><tr><td><code>backend/src/routes/fuelings.routes.ts</code></td><td>Rotas</td><td>Novo</td><td>Quatro endpoints, autenticação e RBAC GESTOR/ADMINISTRADOR.</td></tr><tr><td><code>backend/src/controllers/fuelings.controller.ts</code></td><td>HTTP</td><td>Novo</td><td>Tradução de erros de domínio e envelope {erro}.</td></tr><tr><td><code>backend/src/services/fuelings.service.ts</code></td><td>Domínio</td><td>Novo</td><td>Normalização, cronologia, idempotência e retificação transacional.</td></tr><tr><td><code>backend/src/types/fueling.types.ts</code></td><td>Contratos</td><td>Novo</td><td>DTOs, decimais e BIGINT como strings, códigos de erro.</td></tr><tr><td><code>backend/src/repositories/fuelings.repository.ts</code></td><td>Persistência</td><td>Novo</td><td>Versões, histórico, totais e fontes de hodômetro.</td></tr><tr><td><code>backend/src/database/migrations/202611050001_extend_fuelings.sql</code></td><td>Migração</td><td>Novo</td><td>Chave idempotente, sucessor único e imutabilidade.</td></tr><tr><td><code>backend/src/database/migrations/202611050001_extend_fuelings.down.sql</code></td><td>Migração</td><td>Novo</td><td>Reversão recusa retirar metadados após uso operacional.</td></tr><tr><td><code>backend/tests/fuelings.integration.test.ts</code></td><td>QA FROTA-65</td><td>Novo</td><td>HTTP real, PostgreSQL, RBAC, histórico, falhas e concorrência.</td></tr><tr><td><code>backend/tests/fuelings.service.test.ts</code></td><td>QA FROTA-65</td><td>Novo</td><td>Domínio isolado e relógio injetado.</td></tr><tr><td><code>backend/tests/fueling-migrations.integration.test.ts</code></td><td>QA FROTA-65</td><td>Novo</td><td>Base de teste exclusiva, aplicação e reversão de DDL.</td></tr><tr><td><code>backend/tests/database.integration.test.ts</code></td><td>Regressão</td><td>Modificado</td><td>Ordem de rollback e assertivas de imutabilidade.</td></tr><tr><td><code>docs/manuais/modulos.md</code></td><td>Documentação</td><td>Modificado</td><td>Índice FROTA e contrato de abastecimentos.</td></tr><tr><td><code>docs/modulos/FROTA.html</code></td><td>Documentação</td><td>Novo</td><td>Contrato funcional e técnico para integração FROTA-66.</td></tr><tr><td><code>docs/plans/frota-64-api-abastecimentos-testes.html</code></td><td>SDD</td><td>Novo</td><td>Plano conjunto e decisões confirmadas.</td></tr></tbody></table></div>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Tabela de revisão; use as setas para rolar"><table><thead><tr><th scope="col">Código</th><th scope="col">Critério</th><th scope="col">Status</th><th scope="col">Evidência</th></tr></thead><tbody><tr><td><code>C1</code></td><td>Escopo e tamanho</td><td><span class="badge-warn">🟡 Atenção</span></td><td>15 arquivos da entrega; +2186/−3 linhas considerando arquivos novos ainda não rastreados. API e QA correspondem ao SDD; excede 400 linhas e requer justificativa no PR.</td></tr><tr><td><code>C2</code></td><td>Gitflow e commits</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Branch feat/be-api-de-abastecimentos aponta para bf592b8, mesmo SHA de develop e origin/develop confirmado por ls-remote. Nenhum commit da entrega; alterações locais revisadas. Conventional Commits e destino do futuro PR ainda não verificáveis.</td></tr><tr><td><code>C3</code></td><td>Requisito, SDD e testes</td><td><span class="badge-ok">🟢 OK</span></td><td>R1–R3 corrigidos e regressões aprovadas: precisão de microssegundos, campos omitidos e ponta legada. Suíte completa com 133 testes backend aprovados; validação independente ainda será realizada no novo chat.</td></tr><tr><td><code>C4</code></td><td>Camadas backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Routes/controller delegam ao service; SQL concentrado no repository; service sem Express/HTTP; reutiliza unidade transacional existente.</td></tr><tr><td><code>C5</code></td><td>Camadas frontend</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhuma alteração frontend na entrega. A FROTA-66 é responsabilidade separada no SDD.</td></tr><tr><td><code>C6</code></td><td>Ciclos e feature flags</td><td><span class="badge-ok">🟢 OK</span></td><td>Inspeção de imports sem ciclos novos; sem flags/configurações/dependências especulativas.</td></tr><tr><td><code>C7</code></td><td>SQL Injection</td><td><span class="badge-ok">🟢 OK</span></td><td>Entradas externas passam por $1…$21 e casts tipados. FUELING_COLUMNS é fragmento estático; interpolação em testes usa lista fixa de tabelas.</td></tr><tr><td><code>C8</code></td><td>Projeção SQL e performance</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Sem SELECT *, sem N+1 na listagem, filtros aplicados no SQL. Medição repetida: global 99,052 ms para 20.004 versões; cronologia 29,720 ms e 31.857 acessos a blocos, com apenas 200 fatos do veículo. Atenção à projeção/materialização integral e retorno de todo o histórico para o service.</td></tr><tr><td><code>C9</code></td><td>Atomicidade e concorrência</td><td><span class="badge-ok">🟢 OK</span></td><td>Lock veículo → abastecimento, releitura depois do lock, índice único por autor/chave e sucessor. Fact/leitura/evento/auditoria usam o mesmo client. Falhas injetadas e concorrência passam; release em finally do repository existente. Garantia não cobre escritores externos sem o protocolo de lock.</td></tr><tr><td><code>C10</code></td><td>PostgreSQL e migrações</td><td><span class="badge-ok">🟢 OK</span></td><td>Extensão aditiva e transacional de tabela preexistente; schemas e índices descritivos; legado preservado. Down recusa remoção de metadados após escrita pela API; integração de migração em banco exclusivo.</td></tr><tr><td><code>C11</code></td><td>RBAC backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Os quatro endpoints usam autenticação e authorizeRoles([GESTOR, ADMINISTRADOR]); demais perfis 403 e token ausente/inválido 401 testados antes de revelar existência.</td></tr><tr><td><code>C12</code></td><td>LGPD e sigilo</td><td><span class="badge-ok">🟢 OK</span></td><td>Fixtures sintéticas; nenhum segredo novo; motorista limitado a id/nome nos snapshots; request_key/request_payload não expostos. Respostas de falha sem SQL/stack/CPF/CNH.</td></tr><tr><td><code>C13</code></td><td>Tipagem estrita</td><td><span class="badge-ok">🟢 OK</span></td><td>TypeScript sem erros localmente e no container da entrega; sem any/@ts-ignore no novo código. DTOs explícitos; formas externas verificadas no service.</td></tr><tr><td><code>C14</code></td><td>Nomes e TSDoc</td><td><span class="badge-ok">🟢 OK</span></td><td>Novos identificadores/rotas/enums em inglês; métodos públicos do service com TSDoc em português e erros de domínio. Perfis GESTOR/ADMINISTRADOR reutilizam o catálogo concreto existente.</td></tr><tr><td><code>C15</code></td><td>Cinco estados visuais</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem tela de abastecimentos nesta entrega; não se declara validação visual da FROTA-66. Vazio explícito e atomicidade da API foram testados.</td></tr><tr><td><code>C16</code></td><td>Formulários acessíveis</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem alteração de formulários no produto. Mensagens da API inspecionadas em português.</td></tr><tr><td><code>C17</code></td><td>Teclado, foco e toque</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem controles de produto alterados. Este relatório tem idioma, cabeçalhos, links e regiões de tabela acessíveis; isto não certifica a interface futura.</td></tr></tbody></table></div>
+
+<hr>
+
+<h2 id="r3">3. Diagnóstico original dos achados corrigidos e pontos de atenção</h2>
+<p>A prioridade P2 indica defeito condicionado ao cenário documentado. A classificação bloqueante segue a skill revisar: requisito funcional/compatibilidade precisa ser atendido antes do merge. Não há P0/P1 identificado.</p><article class="finding"><h3 id="R1">R1 · [P2] Preservar a precisão do instante quando fueledAt é omitido no PUT</h3><p><strong>Classificação inicial (resolvida):</strong> 🔴 Bloqueante para merge · C3 (requisito/SDD e compatibilidade histórica).</p><p><strong>Local:</strong> <code>backend/src/repositories/fuelings.repository.ts:10; backend/src/services/fuelings.service.ts:230</code></p><p><strong>Impacto:</strong> Uma retificação exclusiva de posto altera silenciosamente a data do fato na nova versão. O original continua intacto, mas o campo omitido deixa de ser preservado e a nova leitura é gravada com outro instante.</p><p><strong>Reprodução:</strong> No PostgreSQL 18, inserir legado em <code>2026-10-02T12:00:00.123456Z</code> e enviar PUT com expectedRevision, metadados e station, sem fueledAt. Resultado confirmado no banco: <code>.123456 → .123000</code>. A projeção <code>to_char(...SS.MS...)</code> trunca os microssegundos; o service reutiliza esse valor ao montar o novo fato.</p><p><strong>Correção recomendada:</strong> Manter uma representação interna sem perda do TIMESTAMPTZ original e reutilizá-la quando o campo não foi informado. Não reduzir a precisão do legado. Acrescentar integração que compare os instantes no SQL após uma correção só de posto/notas.</p></article>
+<article class="finding"><h3 id="R2">R2 · [P2] Comparar leituras legadas sem reduzir instantes diferentes ao mesmo milissegundo</h3><p><strong>Classificação inicial (resolvida):</strong> 🔴 Bloqueante para merge · C3 (requisito/SDD e compatibilidade histórica).</p><p><strong>Local:</strong> <code>backend/src/services/fuelings.service.ts:121-123</code></p><p><strong>Impacto:</strong> A API recusa com 422 um abastecimento cuja quilometragem respeita a sequência real. Date.parse reduz o TIMESTAMPTZ de seis casas para milissegundos e passa a tratar uma leitura posterior como simultânea, exigindo igualdade de km.</p><p><strong>Reprodução:</strong> Leitura CHECK de 52.000 km em <code>2026-10-02T12:00:00.123456Z</code>; cadastro de 51.200 km em <code>2026-10-02T12:00:00.123Z</code>, sem outras fronteiras. O cadastro ocorre 456 microssegundos antes e atende ao teto de 52.000 km. Resultado observado: <code>ODOMETER_CONFLICT / HTTP 422</code>.</p><p><strong>Correção recomendada:</strong> Preservar a precisão na classificação anterior/simultâneo/posterior, por comparação exata no repositório ou representação de instantes sem perda. Manter a decisão de domínio no service. Testar fatos anteriores, posteriores e realmente simultâneos com seis casas na origem legada.</p></article>
+<article class="finding"><h3 id="R3">R3 · [P2] Determinar currentId pela ponta da cadeia, em vez da maior revisão</h3><p><strong>Classificação inicial (resolvida):</strong> 🔴 Bloqueante para merge · C3 (requisito/SDD e compatibilidade histórica).</p><p><strong>Local:</strong> <code>backend/src/repositories/fuelings.repository.ts:110</code></p><p><strong>Impacto:</strong> Listagem e detalhe discordam sobre a versão vigente; a versão exibida na listagem não pode ser retificada. A migração aceita o legado, e history informa valid=true, embora selecione um predecessor como currentId.</p><p><strong>Reprodução:</strong> Inserir predecessor legado com revision=5 e sucessor com supersedes_id apontando para ele e revision=1 (default permitido pelo schema). Na reprodução, lista: ID 4; detalhe: currentId=3; PUT da ponta ID 4 com expectedRevision=1: <code>REVISION_CONFLICT / HTTP 409</code>. A regra do SDD define vigência pela ausência de sucessor, sem exigir revisão monotônica no legado.</p><p><strong>Correção recomendada:</strong> Resolver a ponta por NOT EXISTS de sucessor na cadeia e validar que ela é única. Usar revision para controle da versão alvo. Acrescentar teste legado com revisões não monotônicas verificando concordância entre lista, detalhe e retificação.</p></article>
+   <h3>Cobertura a acrescentar na FROTA-65</h3><p>Regressões adicionadas e aprovadas após a revisão inicial: PUT sem fueledAt preservando TIMESTAMPTZ exato; limite cronológico com microssegundos; e cadeia legada cuja revisão não coincide com a ordem de substituição. Testes atuais usam datas de milissegundos e cadeias com revisão crescente ou default uniforme, por isso os 128 testes originais passavam sem capturar essas falhas. A suíte atual contém 133 testes e inclui as regressões.</p>
+   <h3>Evidência observada no PostgreSQL 18</h3><pre><code>{
+  &quot;database&quot;: &quot;aratu_fuelings_review_test&quot;,
+  &quot;results&quot;: [
+    {
+      &quot;case&quot;: &quot;PUT somente de posto em legado com microssegundos&quot;,
+      &quot;suppliedFueledAt&quot;: false,
+      &quot;returnedOriginal&quot;: &quot;2026-10-02T12:00:00.123Z&quot;,
+      &quot;original&quot;: &quot;2026-10-02 12:00:00.123456&quot;,
+      &quot;corrected&quot;: &quot;2026-10-02 12:00:00.123000&quot;,
+      &quot;unchanged&quot;: false
+    },
+    {
+      &quot;case&quot;: &quot;Fato anterior em 456 microssegundos, km inferior coerente&quot;,
+      &quot;actual&quot;: &quot;ODOMETER_CONFLICT&quot;,
+      &quot;message&quot;: &quot;A quilometragem informada conflita com a leitura de 52000 km em 2026-10-02T12:00:00.123456+00:00. Revise a data ou a quilometragem do abastecimento.&quot;
+    },
+    {
+      &quot;case&quot;: &quot;Ponta legada com revisão menor que a predecessora&quot;,
+      &quot;rootId&quot;: &quot;3&quot;,
+      &quot;leafId&quot;: &quot;4&quot;,
+      &quot;currentIdFromDetail&quot;: &quot;3&quot;,
+      &quot;currentIdFromList&quot;: &quot;4&quot;,
+      &quot;correction&quot;: &quot;REVISION_CONFLICT&quot;
+    }
+  ]
+}</code></pre><h3>Itens de atenção</h3><ul><li><strong>A1 · C1:</strong> justificar no PR o tamanho do diff conjunto ou organizar commits coesos de API, testes e documentação. Não há refatoração em massa nesta entrega.</li><li><strong>A2 · C2:</strong> a implementação está inteiramente sem commit. Preparar Conventional Commits e PR para develop após corrigir R1–R3. Nenhum commit/push foi feito nesta revisão.</li><li><strong>A3 · C8:</strong> revisar custo da coleção global e da cronologia. Projeta-se o DTO completo antes de paginar e transfere-se a cronologia inteira ao service. Medição é local, com cache aquecido, sem SLA de produção definido; é atenção de crescimento, não alegação de indisponibilidade atual.</li></ul>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Tabela de revisão; use as setas para rolar"><table><thead><tr><th scope="col">Verificação</th><th scope="col">Resultado e alcance</th></tr></thead><tbody><tr><td>Pré-auditoria</td><td>aratu-check.mjs: zero alertas estáticos; backend/frontend TypeScript sem erros; 80 testes frontend passaram. Limitação do script: o primeiro caminho local foi exibido como ackend/src/app.ts; app.ts foi inspecionado manualmente. O script não executa a suíte backend.</td></tr><tr><td>Backend local</td><td>npm test: 128 testes passaram, zero falhas, skips ou cancelamentos; 57,37 s. npm run build passou.</td></tr><tr><td>Backend no container da entrega</td><td>docker compose run --rm --no-deps -T backend sh -c "npx tsc --noEmit && npm test": TypeScript aprovado e 128 testes passaram, zero falhas; 54,87 s. Container temporário montou o backend desta worktree; o serviço permanente aponta para a pasta de manutenção e não foi usado como evidência do backend revisado.</td></tr><tr><td>Frontend da worktree</td><td>npm run lint e npm run build passaram. 80 testes passaram pela pré-auditoria. Nenhum arquivo frontend foi alterado pela entrega.</td></tr><tr><td>Frontend no serviço existente</td><td>docker compose exec frontend npm run lint e npm run build passaram. Serviço existente montado na pasta de manutenção: resultado apenas complementar, não usado para validar o conteúdo desta entrega. Aviso de chunk >500 kB também existe no build local e não bloqueia a API.</td></tr><tr><td>Diff e base</td><td>git diff --check passou. develop, origin/develop e remoto: bf592b861de3f48779d6f6314079c629ec34e22c. Diff de commits develop...HEAD vazio; análise incluiu todos os 15 arquivos locais da entrega, incluindo 12 novos.</td></tr><tr><td>Provas adicionais R1–R3</td><td>Executadas em aratu_fuelings_review_test, com confirmação do nome antes de limpar. Duas falhas temporais e divergência de currentId reproduzidas. Não são testes verdes nem falhas na suíte original: são lacunas detectadas pela revisão.</td></tr></tbody></table></div><h3>Medição repetida nesta revisão</h3><p>PostgreSQL 18.6, Docker local; EXPLAIN (ANALYZE, BUFFERS); 100 veículos, 20.004 versões e 10.000 leituras fictícias; uma execução de aquecimento antes de cada plano. Medição realizada nesta revisão em 06/11/2026; o script de medição existente tem rótulo de data fixo 05/11/2026, que não foi adotado como data deste relatório.</p><div class="table-scroll" tabindex="0" role="region" aria-label="Tabela de revisão; use as setas para rolar"><table><thead><tr><th scope="col">Consulta</th><th scope="col">Execução (ms)</th><th scope="col">Blocos em cache</th></tr></thead><tbody><tr><td>Coleção filtrada por veículo e período, página de 20</td><td>2.122</td><td>206</td></tr><tr><td>Coleção global e totais NUMERIC, página de 20</td><td>99.052</td><td>422</td></tr><tr><td>Histórico com cinco versões</td><td>0.739</td><td>30</td></tr><tr><td>Cronologia por veículo com fontes legadas e leituras</td><td>29.72</td><td>31857</td></tr></tbody></table></div><p>Banco de carga: aratu_fueling_performance_test. Suíte geral: banco aratu_test; migrações: aratu_fueling_migrations_test. Nenhuma migração ou fixture foi aplicada ao banco operacional. Verificações não certificam a futura UI.</p>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul><li>Conferir as correções R1–R3 e seus testes; validar os resultados do novo chat antes do merge.</li><li>Reexecutar npm test e TypeScript na worktree de abastecimentos após as correções.</li><li>Conferir no PR o refinamento cronológico confirmado e a proibição de alterar MOTORISTA sem novo escopo.</li><li>Documentar o novo ID retornado pelo PUT e o currentId correto para integração FROTA-66.</li><li>Manter a trava do veículo em futuros escritores de viagem/hodômetro; o teste desta entrega simula esse protocolo.</li><li>Justificar tamanho, organizar Conventional Commits e destinar o PR a develop.</li><li>Acompanhar crescimento do custo da coleção global/cronologia com volume representativo.</li></ul><p><strong>Assinatura:</strong> revisão → compatibilidade histórica, atomicidade, padrões do projeto e testes · dúvidas: nenhuma decisão de negócio pendente para este parecer.</p>
+
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "src/app.ts": "8308cf88fe182605f13b5fdec483b2bebc5bf189cdbc80c70e4ffc2132b98384",
+  "src/services/fuelings.service.ts": "615bce663b89def11c241904f8f04ea1e32c94b5dc8b92403ddccd772a4dc042",
+  "src/repositories/fuelings.repository.ts": "e8e1187426931e3488e16e76d320d43c129df7d577e847be3aa0a2c39a6c803f",
+  "tests/fuelings.integration.test.ts": "dbae4457bd85430b115b9737cb6ceae64815ebb81821d05f9cf66473b7a5f9f8"
+}
