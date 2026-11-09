@@ -19,6 +19,7 @@ services:
     environment:
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no arquivo .env}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      VEHICLE_DOCUMENT_ALERT_DAYS: ${VEHICLE_DOCUMENT_ALERT_DAYS:-30}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     depends_on:
       - db

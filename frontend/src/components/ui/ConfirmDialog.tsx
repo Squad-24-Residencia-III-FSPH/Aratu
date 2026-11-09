@@ -25,7 +25,7 @@ export interface ConfirmDialogProps {
   loadingLabel?: string
   confirmColor?: ButtonProps['color']
   autoFocusCancel?: boolean
-  sx?: SxProps<Theme>
+  /** Estilos do diálogo, incluindo ajustes de controles dos fluxos que o reutilizam. */
   paperSx?: SxProps<Theme>
   actionsSx?: SxProps<Theme>
   cancelSx?: SxProps<Theme>
