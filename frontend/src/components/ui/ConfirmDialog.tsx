@@ -8,7 +8,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material'
-import type { ButtonProps } from '@mui/material'
+import type { ButtonProps, SxProps, Theme } from '@mui/material'
 
 export interface ConfirmDialogProps {
   open: boolean
@@ -55,7 +55,6 @@ export default function ConfirmDialog({
   actionsSx,
   cancelSx,
   confirmSx,
-  sx,
 }: ConfirmDialogProps) {
   const baseId = useId()
 
