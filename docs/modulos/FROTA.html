@@ -74,7 +74,7 @@
   <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/</code>, <code>backend/src/controllers/</code>, <code>backend/src/services/</code>, <code>backend/src/repositories/</code></p>
   <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/</code>, <code>frontend/src/components/</code>, <code>frontend/src/services/</code></p>
   <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (schema nativo <code>fleet</code>)</p>
-  <p><strong>Versão da documentação:</strong> 2026-11-07 (inclui <code>FROTA-43</code>, <code>FROTA-45</code>, <code>FROTA-53</code> e <code>FROTA-67</code>)</p>
+  <p><strong>Versão da documentação:</strong> 2026-11-09 (inclui <code>FROTA-43</code>, <code>FROTA-45</code>, <code>FROTA-53</code>, <code>FROTA-54</code> e <code>FROTA-67</code>)</p>
 </div>
 
 <hr>
@@ -83,7 +83,7 @@
 <p>O módulo <strong>FROTA</strong> concentra o cadastro, a disponibilidade operacional e o controle de regularidade documental dos veículos e tipos de serviço da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e do <strong>Serviço de Verificação de Óbito (SVO)</strong>. Abrange três subdomínios principais:</p>
 <ol>
   <li><strong>Veículos (<code>/vehicles</code>):</strong> cadastro de viaturas administrativas e do SVO, capacidades (assentos, corpos, carga), regime de propriedade e máquina de estados de situação (<code>AVAILABLE</code>, <code>IN_MAINTENANCE</code>, <code>INACTIVE</code>).</li>
-  <li><strong>Catálogo de Tipos de Serviço (<code>/services</code>):</strong> configuração de serviços de transporte institucional e remoção cadavérica, exigências de triagem, peso e identificação.</li>
+  <li><strong>Catálogo de Tipos de Serviço (<code>/services</code>):</strong> configuração de serviços de transporte institucional e remoção cadavérica, exigências de triagem, peso e identificação. A compatibilidade veículo × serviço é mantida por <code>GET</code> e <code>PUT /services/:id/vehicles</code> (FROTA-54): o <code>PUT</code> substitui integralmente a lista, exige <code>expectedRevision</code> e <code>reason</code>, recusa veículo inexistente ou <code>INACTIVE</code> (<code>400</code>) e grava auditoria; o vínculo usa desativação lógica (<code>is_active</code>) sem exclusão física.</li>
   <li><strong>Documentos de Veículos (<code>/vehicle-documents</code> — FROTA-67 / US09):</strong> gestão de documentos obrigatórios e contratuais (CRLV, licenciamento, IPVA, seguro, contrato de locação e outros), alerta preventivo de vencimentos, encadeamento de renovações (<code>supersedesId</code>) e anulação justificada sem exclusão física.</li>
 </ol>
 
@@ -152,6 +152,8 @@
   </tbody>
 </table>
 
+<blockquote>A compatibilidade veículo × serviço (<code>GET</code> e <code>PUT /services/:id/vehicles</code>, FROTA-54) é restrita a <span class="badge-rbac">ADMINISTRADOR</span> e <span class="badge-rbac">GESTOR</span>. Os demais perfis recebem <code>403</code>, inclusive <code>SOLICITANTE</code> e <code>ATENDENTE_SVO</code>, que continuam podendo consultar apenas o catálogo ativo em <code>GET /services</code>. A regra de compatibilidade é consumida internamente pelo agendamento (FROTA-96).</blockquote>
+
 <hr>
 
 <h2>4. Tabelas do Banco de Dados (PostgreSQL 18 — Schema <code>fleet</code>)</h2>
@@ -173,9 +175,9 @@
     </tr>
     <tr>
       <td><span class="badge-tabela">fleet.services</span> / <span class="badge-tabela">fleet.vehicle_services</span></td>
-      <td>Catálogo de tipos de serviço da FSPH/SVO e vínculo com viaturas</td>
-      <td><code>id</code>, <code>name</code>, <code>categories</code>, <code>requires_triage</code>, <code>requires_weight</code>, <code>requires_identification</code>, <code>active</code>, <code>revision</code></td>
-      <td>Índice único <code>fleet_services_name_lower_unique</code></td>
+      <td>Catálogo de tipos de serviço da FSPH/SVO e vínculo com viaturas, com desativação lógica da compatibilidade</td>
+      <td><code>fleet.services</code>: <code>id</code>, <code>name</code>, <code>categories</code>, <code>requires_triage</code>, <code>requires_weight</code>, <code>requires_identification</code>, <code>active</code>, <code>revision</code> · <code>fleet.vehicle_services</code>: <code>id</code>, <code>vehicle_id</code>, <code>service_id</code>, <code>is_active</code>, <code>revision</code>, <code>created_at</code></td>
+      <td>Índice único <code>fleet_services_name_lower_unique</code>; par único <code>fleet_vehicle_services_pair_unique (vehicle_id, service_id)</code>; índice parcial <code>fleet_vehicle_services_by_active_service</code></td>
     </tr>
     <tr>
       <td><span class="badge-tabela">fleet.vehicle_documents</span></td>

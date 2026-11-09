@@ -1,5 +1,5 @@
 import type { UserRole } from './auth'
-import type { VehicleCategory } from './vehicle.types'
+import type { Vehicle, VehicleCategory } from './vehicle.types'
 
 /** Perfis que mantêm o catálogo e enxergam também os tipos de serviço inativos. */
 export const SERVICE_MANAGER_ROLES = ['GESTOR', 'ADMINISTRADOR'] as const satisfies readonly UserRole[]
@@ -16,6 +16,7 @@ export const SERVICE_AUDIT_OPERATIONS = {
   create: 'CREATE',
   edit: 'UPDATE',
   statusChange: 'STATUS_CHANGE',
+  compatibilityChange: 'UPDATE',
 } as const
 
 /** Tipo de serviço atendido pela frota (`fleet.services`). */
@@ -73,6 +74,20 @@ export interface ChangeFleetServiceStatusInput {
 /** Filtros da listagem; `active` só é aceito para perfis gestores. */
 export interface FleetServiceFilters {
   active?: boolean
+}
+
+/** Envelope simétrico devolvido pelo GET e pelo PUT de compatibilidade veículo × serviço. */
+export interface CompatibleVehiclesView {
+  serviceId: string
+  revision: number
+  vehicles: Vehicle[]
+}
+
+/** Entrada do PUT: substitui integralmente a lista de veículos compatíveis com o serviço. */
+export interface ReplaceCompatibleVehiclesInput {
+  vehicleIds: string[]
+  expectedRevision: number
+  reason: string
 }
 
 /** Snapshot público do ator autenticado preservado na auditoria. */

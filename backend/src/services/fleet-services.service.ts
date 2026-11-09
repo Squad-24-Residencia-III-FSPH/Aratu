@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg'
 import type { AuditActorSnapshot, AuditLogger } from '../types/audit.types'
 import type { UserRole } from '../types/auth'
 import { VEHICLE_CATEGORIES } from '../types/vehicle.types'
-import type { VehicleCategory } from '../types/vehicle.types'
+import type { Vehicle, VehicleCategory } from '../types/vehicle.types'
 import {
   SERVICE_AUDIT_OPERATIONS,
   SERVICE_MANAGER_ROLES,
@@ -10,12 +10,14 @@ import {
 } from '../types/fleet-service.types'
 import type {
   ChangeFleetServiceStatusInput,
+  CompatibleVehiclesView,
   CreateFleetServiceInput,
   FleetService,
   FleetServiceActorSnapshot,
   FleetServiceAttributes,
   FleetServiceFilters,
   NormalizedFleetServiceAttributes,
+  ReplaceCompatibleVehiclesInput,
   UpdateFleetServiceInput,
 } from '../types/fleet-service.types'
 import type { ServicesRepositoryContract } from '../repositories/services.repository'
@@ -26,6 +28,10 @@ const REVISION_CONFLICT_MESSAGE = 'O tipo de serviço foi alterado por outra ope
 
 function isDatabaseError(error: unknown, code: string): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === code
+}
+
+function isPositiveId(value: string): boolean {
+  return /^[1-9]\d*$/.test(value)
 }
 
 function isCategory(value: unknown): value is VehicleCategory {
@@ -182,6 +188,130 @@ export class FleetServicesService {
     })
   }
 
+  /**
+   * Lista os veículos compatíveis com o tipo de serviço.
+   *
+   * @throws {FleetServiceError} 400 para id malformado e 404 quando o tipo de serviço não existe.
+   */
+  async listCompatibleVehicles(id: string): Promise<CompatibleVehiclesView> {
+    this.validateId(id)
+    const service = await this.repository.findById(id)
+    if (!service) throw new FleetServiceError(404, NOT_FOUND_MESSAGE)
+    return {
+      serviceId: service.id,
+      revision: service.revision,
+      vehicles: await this.repository.listCompatibleVehicles(id),
+    }
+  }
+
+  /**
+   * Substitui integralmente a lista de veículos compatíveis do tipo de serviço.
+   *
+   * A operação é atômica: valida a revisão esperada, aplica o diff de vínculos
+   * (ativando os desejados e desativando os ausentes), incrementa a revisão do
+   * serviço e grava a auditoria no mesmo cliente transacional. Veículos
+   * inexistentes ou com situação `INACTIVE` não podem ser vinculados.
+   *
+   * @throws {FleetServiceError} 400 payload ou veículo inválido, 404 serviço inexistente e 409 revisão divergente.
+   */
+  async replaceCompatibleVehicles(
+    id: string,
+    input: ReplaceCompatibleVehiclesInput,
+    actorId: string,
+  ): Promise<CompatibleVehiclesView> {
+    this.validateId(id)
+    this.validateRevision(input.expectedRevision)
+    const reason = this.validateReason(input.reason)
+    const vehicleIds = this.validateVehicleIds(input.vehicleIds)
+
+    return this.repository.withTransaction(async (client) => {
+      const before = await this.repository.findByIdForUpdate(id, client)
+      if (!before) throw new FleetServiceError(404, NOT_FOUND_MESSAGE)
+      if (before.revision !== input.expectedRevision) throw new FleetServiceError(409, REVISION_CONFLICT_MESSAGE)
+
+      this.ensureVehiclesCanBeLinked(vehicleIds, await this.repository.findVehiclesByIds(vehicleIds, client))
+
+      const currentIds = await this.repository.findActiveVehicleIdsForUpdate(id, client)
+      const desired = new Set(vehicleIds)
+      const current = new Set(currentIds)
+
+      for (const vehicleId of vehicleIds) {
+        if (current.has(vehicleId)) continue
+        const link = await this.repository.findVehicleLink(id, vehicleId, client)
+        if (link) {
+          await this.repository.setVehicleLinkActive(id, vehicleId, true, client)
+        } else {
+          await this.repository.createVehicleLink(id, vehicleId, client)
+        }
+      }
+      for (const vehicleId of currentIds) {
+        if (!desired.has(vehicleId)) await this.repository.setVehicleLinkActive(id, vehicleId, false, client)
+      }
+
+      const actor = await this.requireActor(actorId, client)
+      const result = await this.repository.saveRevision(id, input.expectedRevision, client)
+      if (result.kind === 'not-found') throw new FleetServiceError(404, NOT_FOUND_MESSAGE)
+      if (result.kind === 'revision-conflict') throw new FleetServiceError(409, REVISION_CONFLICT_MESSAGE)
+
+      await this.auditService.recordAudit({
+        userId: actor.id,
+        table: 'fleet.services',
+        recordId: result.service.id,
+        operation: SERVICE_AUDIT_OPERATIONS.compatibilityChange,
+        before: { vehicleIds: currentIds },
+        after: { vehicleIds },
+        actorSnapshot: auditActor(actor),
+        reason,
+      }, client)
+
+      return {
+        serviceId: result.service.id,
+        revision: result.service.revision,
+        vehicles: await this.repository.listCompatibleVehicles(id, client),
+      }
+    })
+  }
+
+  /**
+   * Informa se o veículo é compatível com o tipo de serviço, considerando apenas
+   * a existência de vínculo ativo. Identificadores malformados respondem `false`.
+   *
+   * A disponibilidade operacional (serviço ativo, veículo não inativo) é
+   * responsabilidade do agendamento que consome esta regra.
+   */
+  async isVehicleCompatible(serviceId: string, vehicleId: string): Promise<boolean> {
+    if (!isPositiveId(serviceId) || !isPositiveId(vehicleId)) return false
+    return this.repository.isVehicleLinked(serviceId, vehicleId)
+  }
+
+  private ensureVehiclesCanBeLinked(requestedIds: string[], vehicles: Vehicle[]): void {
+    const found = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]))
+    const missing = requestedIds.filter((id) => !found.has(id))
+    if (missing.length > 0) {
+      throw new FleetServiceError(400, `Veículo(s) não encontrado(s): ${missing.join(', ')}.`)
+    }
+    const inactive = vehicles.filter((vehicle) => vehicle.status === 'INACTIVE')
+    if (inactive.length > 0) {
+      const plates = inactive.map((vehicle) => vehicle.licensePlate).join(', ')
+      throw new FleetServiceError(400, `Veículo(s) inativo(s) não podem ser vinculados: ${plates}.`)
+    }
+  }
+
+  private validateVehicleIds(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      throw new FleetServiceError(400, 'vehicleIds deve ser uma lista de identificadores de veículo.')
+    }
+    const normalized = value.map((item) => {
+      const text = typeof item === 'number' ? String(item) : typeof item === 'string' ? item.trim() : ''
+      if (!isPositiveId(text)) throw new FleetServiceError(400, 'Identificador de veículo inválido na lista.')
+      return text
+    })
+    if (new Set(normalized).size !== normalized.length) {
+      throw new FleetServiceError(400, 'A lista de veículos contém identificadores repetidos.')
+    }
+    return normalized.sort((left, right) => left.length - right.length || left.localeCompare(right))
+  }
+
   private async recordAudit(
     operation: string,
     before: FleetService | null,
@@ -234,7 +364,7 @@ export class FleetServicesService {
   }
 
   private validateId(id: string): void {
-    if (!/^[1-9]\d*$/.test(id)) throw new FleetServiceError(400, 'Identificador de tipo de serviço inválido.')
+    if (!isPositiveId(id)) throw new FleetServiceError(400, 'Identificador de tipo de serviço inválido.')
   }
 
   private validateRevision(revision: number): void {
