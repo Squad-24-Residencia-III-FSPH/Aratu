@@ -40,6 +40,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
   assert.equal(navigation.topItems[4].behavior, 'link')
   assert.equal(navigation.topItems[5].behavior, 'link')
   assert.equal(navigation.topItems[6].behavior, 'static')
+  assert.equal(navigation.topItems[7].behavior, 'static')
   assert.equal(navigation.footerItems[0].behavior, 'static')
   assert.equal(navigation.showDividerAfterTop, false)
 })

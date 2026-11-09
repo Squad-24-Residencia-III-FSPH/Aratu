@@ -1,6 +1,5 @@
 import { useId } from 'react'
 import type { ReactNode } from 'react'
-import type { SxProps, Theme } from '@mui/material/styles'
 import {
   Button,
   Dialog,
@@ -31,6 +30,8 @@ export interface ConfirmDialogProps {
   actionsSx?: SxProps<Theme>
   cancelSx?: SxProps<Theme>
   confirmSx?: SxProps<Theme>
+  /** Permite que o domínio aplique seus tokens de contraste também ao diálogo portado. */
+  sx?: SxProps<Theme>
 }
 
 /** Diálogo de confirmação acessível, com foco preso e fechamento por `Esc`. */
@@ -54,6 +55,7 @@ export default function ConfirmDialog({
   actionsSx,
   cancelSx,
   confirmSx,
+  sx,
 }: ConfirmDialogProps) {
   const baseId = useId()
 
