@@ -31,14 +31,14 @@ function getUser(role: UserRole): RbacTestUser {
   return user
 }
 
-async function api(path: string, options: { method?: string; token?: string; body?: unknown } = {}): Promise<Response> {
-  return fetch(`${baseUrl}${path}`, {
-    method: options.method ?? 'GET',
+function decide(requestId: string, decision: 'approve' | 'reject', role: UserRole | null = 'GESTOR', body?: unknown): Promise<Response> {
+  return fetch(`${baseUrl}/requests/${requestId}/${decision}`, {
+    method: 'POST',
     headers: {
-      ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
-      ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(role ? { Authorization: `Bearer ${getUser(role).token}` } : {}),
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
     },
-    ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
 }
 
@@ -48,7 +48,7 @@ async function insertPendingRequest(): Promise<string> {
   )
   const request = await pool.query<{ id: string }>(
     `INSERT INTO trip.requests (requester_id, service_id, requested_date, requested_time, origin, destination, purpose)
-     VALUES ($1, $2, '2026-12-01', '08:00', 'Sede fictícia', 'Unidade fictícia', 'Reunião de teste')
+     VALUES ($1, $2, '2099-12-01', '08:00', 'Sede fictícia', 'Unidade fictícia', 'Reunião de teste')
      RETURNING id::text AS id`,
     [getUser('SOLICITANTE').id, service.rows[0]?.id],
   )
@@ -81,15 +81,18 @@ after(async () => {
   await closeTestPool()
 })
 
-test('IT-DECISIONS-01: aprovação registra responsável, data, evento e auditoria', async () => {
+test('IT-ANALYSIS-01: aprovação de pendente retorna 200 com APPROVED, responsável e data do servidor', async () => {
   const requestId = await insertPendingRequest()
   const gestor = getUser('GESTOR')
-  const response = await api(`/requests/${requestId}/approve`, { method: 'POST', token: gestor.token })
+  const requestedAt = Date.now()
+  const response = await decide(requestId, 'approve')
+  const answeredAt = Date.now()
   assert.equal(response.status, 200)
   const body = (await response.json()) as RequestDecisionResult
   assert.equal(body.status, 'APPROVED')
   assert.equal(body.decidedBy, gestor.id)
-  assert.ok(body.decidedAt)
+  const decidedAt = new Date(body.decidedAt).getTime()
+  assert.ok(decidedAt >= requestedAt - 1000 && decidedAt <= answeredAt + 1000, 'decidedAt deve ser o relógio do servidor no momento da decisão')
 
   const row = await pool.query('SELECT status, decided_by::text AS decided_by FROM trip.requests WHERE id = $1', [requestId])
   assert.deepEqual(row.rows[0], { status: 'APPROVED', decided_by: gestor.id })
@@ -99,43 +102,49 @@ test('IT-DECISIONS-01: aprovação registra responsável, data, evento e auditor
   assert.equal(audits.rowCount, 1)
 })
 
-test('IT-DECISIONS-02: rejeição exige justificativa e grava o motivo', async () => {
+test('IT-ANALYSIS-02: rejeição com justificativa retorna 200 com REJECTED e o motivo', async () => {
   const requestId = await insertPendingRequest()
-  const token = getUser('GESTOR').token
-  assert.equal((await api(`/requests/${requestId}/reject`, { method: 'POST', token, body: {} })).status, 400)
-
-  const response = await api(`/requests/${requestId}/reject`, { method: 'POST', token, body: { reason: 'Sem veículo disponível' } })
+  const response = await decide(requestId, 'reject', 'GESTOR', { reason: 'Sem veículo disponível' })
   assert.equal(response.status, 200)
   const body = (await response.json()) as RequestDecisionResult
   assert.equal(body.status, 'REJECTED')
   assert.equal(body.decisionReason, 'Sem veículo disponível')
+  const row = await pool.query('SELECT decision_reason FROM trip.requests WHERE id = $1', [requestId])
+  assert.equal(row.rows[0]?.decision_reason, 'Sem veículo disponível')
 })
 
-test('IT-DECISIONS-03: decisão repetida retorna 409 e inexistente 404', async () => {
+test('IT-ANALYSIS-03: rejeição sem justificativa retorna 400 e mantém a solicitação pendente', async () => {
   const requestId = await insertPendingRequest()
-  const token = getUser('GESTOR').token
-  assert.equal((await api(`/requests/${requestId}/approve`, { method: 'POST', token })).status, 200)
-  assert.equal((await api(`/requests/${requestId}/approve`, { method: 'POST', token })).status, 409)
-  assert.equal((await api(`/requests/${requestId}/reject`, { method: 'POST', token, body: { reason: 'x' } })).status, 409)
-  assert.equal((await api('/requests/999999/approve', { method: 'POST', token })).status, 404)
+  assert.equal((await decide(requestId, 'reject', 'GESTOR', {})).status, 400)
+  assert.equal((await decide(requestId, 'reject', 'GESTOR', { reason: '   ' })).status, 400)
+  const row = await pool.query('SELECT status FROM trip.requests WHERE id = $1', [requestId])
+  assert.equal(row.rows[0]?.status, 'PENDING')
 })
 
-test('IT-DECISIONS-04: duas decisões simultâneas resultam em uma 200 e uma 409', async () => {
+test('IT-ANALYSIS-04: analisar solicitação já decidida retorna 409; inexistente retorna 404', async () => {
   const requestId = await insertPendingRequest()
-  const token = getUser('GESTOR').token
+  assert.equal((await decide(requestId, 'approve')).status, 200)
+  assert.equal((await decide(requestId, 'approve')).status, 409)
+  assert.equal((await decide(requestId, 'reject', 'GESTOR', { reason: 'Tarde demais' })).status, 409)
+  assert.equal((await decide('999999', 'approve')).status, 404)
+})
+
+test('IT-ANALYSIS-05: duas decisões simultâneas sobre a mesma solicitação — só uma vence', async () => {
+  const requestId = await insertPendingRequest()
   const responses = await Promise.all([
-    api(`/requests/${requestId}/approve`, { method: 'POST', token }),
-    api(`/requests/${requestId}/reject`, { method: 'POST', token, body: { reason: 'Concorrente' } }),
+    decide(requestId, 'approve'),
+    decide(requestId, 'reject', 'GESTOR', { reason: 'Decisão concorrente' }),
   ])
   assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409])
   const events = await pool.query('SELECT count(*)::int AS total FROM trip.request_events WHERE request_id = $1', [requestId])
   assert.equal(events.rows[0]?.total, 1)
 })
 
-test('IT-DECISIONS-05: somente GESTOR decide', async () => {
+test('IT-ANALYSIS-06: perfil diferente de GESTOR recebe 403; sem token, 401', async () => {
   const requestId = await insertPendingRequest()
-  for (const role of ['SOLICITANTE', 'ADMINISTRADOR', 'MOTORISTA', 'ATENDENTE_SVO'] as const) {
-    assert.equal((await api(`/requests/${requestId}/approve`, { method: 'POST', token: getUser(role).token })).status, 403, role)
+  for (const role of ['SOLICITANTE', 'ADMINISTRADOR', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO'] as const) {
+    assert.equal((await decide(requestId, 'approve', role)).status, 403, role)
+    assert.equal((await decide(requestId, 'reject', role, { reason: 'x' })).status, 403, role)
   }
-  assert.equal((await api(`/requests/${requestId}/approve`, { method: 'POST' })).status, 401)
+  assert.equal((await decide(requestId, 'approve', null)).status, 401)
 })
