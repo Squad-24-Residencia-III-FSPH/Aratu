@@ -37,6 +37,9 @@ import { createVehicleDocumentsRouter } from './routes/vehicle-documents.routes'
 import { AvailabilityRepository } from './repositories/availability.repository'
 import { AvailabilityService } from './services/availability.service'
 import { createAvailabilityRouter } from './routes/availability.routes'
+import { TripsRepository } from './repositories/trips.repository'
+import { TripsService } from './services/trips.service'
+import { createTripsRouter } from './routes/trips.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -92,7 +95,9 @@ export function createApp({
     app.use('/profiles', createProfileRouter(new ProfileService(rolesRepository), jwtConfig.secret))
   }
   if (pool && auditService) {
-    app.use(createAvailabilityRouter(new AvailabilityService(new AvailabilityRepository(pool)), jwtConfig))
+    const availabilityService = new AvailabilityService(new AvailabilityRepository(pool))
+    app.use(createAvailabilityRouter(availabilityService, jwtConfig))
+    app.use('/trips', createTripsRouter(new TripsService(new TripsRepository(pool), availabilityService, auditService), jwtConfig))
     const vehiclesRepository = new VehiclesRepository(pool)
     const vehiclesService = new VehiclesService(vehiclesRepository, auditService)
     app.use('/vehicles', createVehiclesRouter(vehiclesService, jwtConfig))
