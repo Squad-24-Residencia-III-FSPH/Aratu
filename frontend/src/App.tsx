@@ -12,6 +12,7 @@ import type { Profile } from './auth/profiles'
 import { resolveRoute } from './routing/routeDecision'
 import UserManagementPage from './pages/UserManagementPage'
 import DriversPage from './pages/DriversPage'
+import FuelingsPage from './pages/FuelingsPage'
 
 function LoginRoute() {
   const { session } = useAuth()
@@ -53,6 +54,13 @@ function PrivateRoute() {
     return (
       <Layout>
         <DriversPage />
+      </Layout>
+    )
+  }
+  if (decision.kind === 'fuelings') {
+    return (
+      <Layout>
+        <FuelingsPage />
       </Layout>
     )
   }
