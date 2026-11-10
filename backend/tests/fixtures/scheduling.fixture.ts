@@ -1,7 +1,10 @@
 import type { Pool } from 'pg'
 
 /** CPFs sintéticos válidos apenas matematicamente (LGPD: nenhum pertence a pessoa real conhecida). */
-export const FICTITIOUS_CPFS = ['12345678909', '11144477735', '52998224725', '39053344705'] as const
+export const FICTITIOUS_CPFS = [
+  '12345678909', '11144477735', '52998224725', '39053344705',
+  '10000000108', '10000000280', '10000000361', '10000000442',
+] as const
 
 async function insertReturningId(pool: Pool, sql: string, values: unknown[]): Promise<string> {
   const result = await pool.query<{ id: string }>(sql, values)
