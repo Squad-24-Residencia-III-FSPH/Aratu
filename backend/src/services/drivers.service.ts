@@ -27,14 +27,19 @@ const ID_PATTERN = /^[1-9]\d*$/
 const REVISION_CONFLICT_MESSAGE = 'O motorista foi alterado por outra operação. Atualize os dados e tente novamente.'
 const EXPIRED_CNH_MESSAGE = 'CNH vencida: renove a validade antes de deixar o motorista ativo.'
 
-/** Data corrente (`YYYY-MM-DD`) no fuso de Aracaju/SE, onde opera a FSPH. */
-export function currentFsphDate(): string {
+/** Data (`YYYY-MM-DD`) de um instante no fuso de Aracaju/SE, onde opera a FSPH. */
+export function fsphDateOf(instant: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: FSPH_TIME_ZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date())
+  }).format(instant)
+}
+
+/** Data corrente (`YYYY-MM-DD`) no fuso de Aracaju/SE, onde opera a FSPH. */
+export function currentFsphDate(): string {
+  return fsphDateOf(new Date())
 }
 
 /** Valida os dois dígitos verificadores do CPF e rejeita sequências repetidas. */

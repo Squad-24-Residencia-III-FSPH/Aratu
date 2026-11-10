@@ -34,6 +34,9 @@ import { VehicleDocumentsRepository } from './repositories/vehicle-documents.rep
 import { VehicleDocumentsService } from './services/vehicle-documents.service'
 import { DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS } from './services/vehicle-document-config.service'
 import { createVehicleDocumentsRouter } from './routes/vehicle-documents.routes'
+import { AvailabilityRepository } from './repositories/availability.repository'
+import { AvailabilityService } from './services/availability.service'
+import { createAvailabilityRouter } from './routes/availability.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -89,6 +92,7 @@ export function createApp({
     app.use('/profiles', createProfileRouter(new ProfileService(rolesRepository), jwtConfig.secret))
   }
   if (pool && auditService) {
+    app.use(createAvailabilityRouter(new AvailabilityService(new AvailabilityRepository(pool)), jwtConfig))
     const vehiclesRepository = new VehiclesRepository(pool)
     const vehiclesService = new VehiclesService(vehiclesRepository, auditService)
     app.use('/vehicles', createVehiclesRouter(vehiclesService, jwtConfig))
