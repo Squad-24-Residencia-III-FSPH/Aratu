@@ -103,7 +103,8 @@ export function createApp({
   if (pool && auditService) {
     const availabilityService = new AvailabilityService(new AvailabilityRepository(pool))
     app.use(createAvailabilityRouter(availabilityService, jwtConfig))
-    app.use('/trips', createTripsRouter(new TripsService(new TripsRepository(pool), availabilityService, auditService), jwtConfig))
+    const tripsService = new TripsService(new TripsRepository(pool), availabilityService, auditService, new FuelingsRepository(pool))
+    app.use('/trips', createTripsRouter(tripsService, jwtConfig))
     const vehiclesRepository = new VehiclesRepository(pool)
     const vehiclesService = new VehiclesService(vehiclesRepository, auditService)
     app.use('/vehicles', createVehiclesRouter(vehiclesService, jwtConfig))

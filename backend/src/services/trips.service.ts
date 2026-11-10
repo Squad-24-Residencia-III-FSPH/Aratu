@@ -1,13 +1,33 @@
+import type { PoolClient } from 'pg'
 import type { AuditLogger } from '../types/audit.types'
 import { AVAILABILITY_REASONS, AvailabilityError } from '../types/availability.types'
 import type { AvailabilityReason, Period } from '../types/availability.types'
-import { DEFAULT_SCHEDULING_REASON, SCHEDULING_STATUSES, TripServiceError } from '../types/trip.types'
-import type { ScheduleTripInput, Trip } from '../types/trip.types'
+import {
+  DEFAULT_EXECUTION_REASONS,
+  DEFAULT_SCHEDULING_REASON,
+  SCHEDULING_STATUSES,
+  TripServiceError,
+} from '../types/trip.types'
+import type {
+  DriverTrip,
+  FinishTripInput,
+  ScheduleTripInput,
+  SchedulingEventMetadata,
+  StartTripInput,
+  Trip,
+  TripActor,
+} from '../types/trip.types'
+import type { FuelingsRepositoryContract } from '../repositories/fuelings.repository'
 import type { TripsRepositoryContract } from '../repositories/trips.repository'
 import { parsePeriod } from './availability.service'
 import type { AvailabilityService } from './availability.service'
 
 const ID_PATTERN = /^[1-9]\d*$/
+const MAX_ODOMETER_KM = 2_147_483_647
+const IN_PROGRESS_CONFLICT_MESSAGE = 'Já existe viagem em andamento com este veículo ou motorista.'
+
+/** Leitura da linha do tempo de hodômetro do veículo (mesma regra usada pelo abastecimento). */
+export type OdometerTimelineReader = Pick<FuelingsRepositoryContract, 'timeline'>
 
 const REASON_LABELS: Readonly<Record<AvailabilityReason, string>> = {
   CONFLICT: 'já tem viagem no período',
@@ -26,25 +46,38 @@ function requireId(value: unknown, field: string): string {
   return candidate
 }
 
-function optionalReason(value: unknown): string {
-  if (value === undefined || value === null) return DEFAULT_SCHEDULING_REASON
+function optionalReason(value: unknown, fallback: string): string {
+  if (value === undefined || value === null) return fallback
   if (typeof value !== 'string') throw new TripServiceError(400, 'reason deve ser um texto.')
-  return value.trim() || DEFAULT_SCHEDULING_REASON
+  return value.trim() || fallback
+}
+
+function requireKm(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > MAX_ODOMETER_KM) {
+    throw new TripServiceError(400, `${field} é obrigatório e deve ser uma quilometragem inteira não negativa.`)
+  }
+  return value
 }
 
 function describe(subject: string, reasons: AvailabilityReason[]): string {
   return `${subject} ${reasons.map((reason) => REASON_LABELS[reason]).join(' e ')}.`
 }
 
-/** Agendamento de viagens: transforma uma solicitação aprovada em viagem com veículo, motorista e período. */
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505'
+}
+
+/** Viagens: agendamento pelo Gestor e execução (início e término) pelo Motorista alocado. */
 export class TripsService {
   /**
+   * @param odometer - Linha do tempo de hodômetro do veículo, compartilhada com o abastecimento.
    * @param now - Relógio usado para recusar agendamentos no passado; injetável para testes.
    */
   constructor(
     private readonly repository: TripsRepositoryContract,
     private readonly availability: AvailabilityService,
     private readonly auditService: AuditLogger,
+    private readonly odometer: OdometerTimelineReader,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -64,7 +97,7 @@ export class TripsService {
     const vehicleId = requireId(input.vehicleId, 'vehicleId')
     const driverId = requireId(input.driverId, 'driverId')
     const period = this.validatePeriod(input.scheduledStart, input.scheduledEnd)
-    const reason = optionalReason(input.reason)
+    const reason = optionalReason(input.reason, DEFAULT_SCHEDULING_REASON)
 
     try {
       return await this.repository.withTransaction(async (client) => {
@@ -80,8 +113,7 @@ export class TripsService {
         if (!driver) throw new TripServiceError(404, 'Motorista não encontrado.')
         this.assertAvailable(vehicle.reasons, driver.reasons)
 
-        const actor = await this.repository.findActorSnapshot(managerId, client)
-        if (!actor) throw new TripServiceError(401, 'Usuário autenticado não está ativo ou não existe.')
+        const actor = await this.requireActor(managerId, client)
         const trip = await this.repository.createTrip({
           requestId,
           vehicleId,
@@ -95,7 +127,7 @@ export class TripsService {
         if (!scheduledRequest) throw new TripServiceError(409, 'Somente solicitações aprovadas podem ser agendadas.')
 
         const metadata = { reportedBy: actor.name, registeredBy: actor.id, actorSnapshot: actor, reason }
-        await this.repository.createTripEvent(trip, metadata, client)
+        await this.repository.createTripEvent('SCHEDULED', null, trip, metadata, client)
         await this.repository.createRequestEvent(request, scheduledRequest, metadata, client)
         await this.auditService.recordAudit({
           userId: actor.id,
@@ -110,11 +142,131 @@ export class TripsService {
         return trip
       })
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
-        throw new TripServiceError(409, 'Esta solicitação já possui viagem agendada.')
-      }
+      if (isUniqueViolation(error)) throw new TripServiceError(409, 'Esta solicitação já possui viagem agendada.')
       throw error
     }
+  }
+
+  /**
+   * Registra o início da viagem pelo motorista alocado.
+   *
+   * A quilometragem inicial não pode ser menor que a última conhecida do veículo, calculada pela mesma
+   * linha do tempo do abastecimento (leituras, abastecimentos e viagens). Grava a viagem, a leitura
+   * `START`, o evento e a auditoria na mesma transação, com a hora do servidor.
+   *
+   * @throws {TripServiceError} 400 km inválido, 403 não é o motorista da viagem, 404 inexistente,
+   *   409 viagem não agendada, histórico inconsistente ou outra viagem em andamento, 422 km abaixo do último.
+   */
+  async startTrip(tripId: string, input: StartTripInput, userId: string): Promise<Trip> {
+    this.validateTripId(tripId)
+    const startKm = requireKm(input.startKm, 'startKm')
+    const reason = optionalReason(input.reason, DEFAULT_EXECUTION_REASONS.start)
+    try {
+      return await this.repository.withTransaction(async (client) => {
+        const { trip, actor } = await this.lockOwnTrip(tripId, userId, client)
+        if (trip.status !== SCHEDULING_STATUSES.scheduled) {
+          throw new TripServiceError(409, 'Somente viagens agendadas podem ser iniciadas.')
+        }
+        await this.repository.lockVehicle(trip.vehicleId, client)
+        const lastKm = await this.lastKnownKm(trip.vehicleId, client)
+        if (lastKm !== null && startKm < lastKm) {
+          throw new TripServiceError(422, `A quilometragem inicial (${startKm} km) é menor que a última registrada para o veículo (${lastKm} km).`)
+        }
+        const started = await this.repository.saveStart(tripId, startKm, client)
+        if (!started) throw new TripServiceError(409, 'Somente viagens agendadas podem ser iniciadas.')
+        await this.recordExecution('STARTED', 'START', startKm, trip, started, actor, reason, client)
+        return started
+      })
+    } catch (error) {
+      if (isUniqueViolation(error)) throw new TripServiceError(409, IN_PROGRESS_CONFLICT_MESSAGE)
+      throw error
+    }
+  }
+
+  /**
+   * Registra o término da viagem pelo motorista alocado; a quilometragem final não pode ser menor que a inicial.
+   *
+   * @throws {TripServiceError} 400 km inválido, 403 não é o motorista da viagem, 404 inexistente,
+   *   409 viagem não está em andamento, 422 km final menor que o inicial.
+   */
+  async finishTrip(tripId: string, input: FinishTripInput, userId: string): Promise<Trip> {
+    this.validateTripId(tripId)
+    const endKm = requireKm(input.endKm, 'endKm')
+    const reason = optionalReason(input.reason, DEFAULT_EXECUTION_REASONS.finish)
+    return this.repository.withTransaction(async (client) => {
+      const { trip, actor } = await this.lockOwnTrip(tripId, userId, client)
+      if (trip.status !== SCHEDULING_STATUSES.inProgress) {
+        throw new TripServiceError(409, 'Somente viagens em andamento podem ser finalizadas.')
+      }
+      if (trip.startKm !== null && endKm < trip.startKm) {
+        throw new TripServiceError(422, `A quilometragem final (${endKm} km) não pode ser menor que a inicial (${trip.startKm} km).`)
+      }
+      const finished = await this.repository.saveFinish(tripId, endKm, client)
+      if (!finished) throw new TripServiceError(409, 'Somente viagens em andamento podem ser finalizadas.')
+      await this.recordExecution('FINISHED', 'END', endKm, trip, finished, actor, reason, client)
+      return finished
+    })
+  }
+
+  /** Lista as viagens agendadas e em andamento do motorista logado; sem cadastro de motorista, lista vazia. */
+  async listMyTrips(userId: string): Promise<DriverTrip[]> {
+    const driver = await this.repository.findDriverByUserId(userId)
+    return driver ? this.repository.listDriverTrips(driver.id) : []
+  }
+
+  private async lockOwnTrip(tripId: string, userId: string, client: PoolClient): Promise<{ trip: Trip; actor: TripActor }> {
+    const trip = await this.repository.findTripForUpdate(tripId, client)
+    if (!trip) throw new TripServiceError(404, 'Viagem não encontrada.')
+    const driver = await this.repository.findDriverByUserId(userId, client)
+    if (!driver || driver.id !== trip.driverId) {
+      throw new TripServiceError(403, 'Somente o motorista alocado pode registrar a execução desta viagem.')
+    }
+    const actor = await this.requireActor(userId, client)
+    return { trip, actor }
+  }
+
+  /** Maior quilometragem vigente do veículo; `null` quando ainda não há nenhuma leitura. */
+  private async lastKnownKm(vehicleId: string, client: PoolClient): Promise<number | null> {
+    const timeline = await this.odometer.timeline(vehicleId, [], client)
+    if (!timeline.valid) {
+      throw new TripServiceError(409, 'O histórico de quilometragem do veículo está inconsistente. Solicite a revisão das leituras antes de continuar.')
+    }
+    return timeline.facts.reduce<number | null>((max, fact) => (max === null || fact.odometerKm > max ? fact.odometerKm : max), null)
+  }
+
+  private async recordExecution(
+    eventType: 'STARTED' | 'FINISHED',
+    readingType: 'START' | 'END',
+    km: number,
+    before: Trip,
+    after: Trip,
+    actor: TripActor,
+    reason: string,
+    client: PoolClient,
+  ): Promise<void> {
+    const metadata: SchedulingEventMetadata = { reportedBy: actor.name, registeredBy: actor.id, actorSnapshot: actor, reason }
+    await this.repository.createOdometerReading({ vehicleId: after.vehicleId, tripId: after.id, readingType, odometerKm: km }, metadata, client)
+    await this.repository.createTripEvent(eventType, before, after, metadata, client)
+    await this.auditService.recordAudit({
+      userId: actor.id,
+      table: 'trip.trips',
+      recordId: after.id,
+      operation: 'STATUS_CHANGE',
+      before: { status: before.status, startKm: before.startKm, endKm: before.endKm, revision: before.revision },
+      after: { status: after.status, startKm: after.startKm, endKm: after.endKm, startedAt: after.startedAt, finishedAt: after.finishedAt, revision: after.revision },
+      actorSnapshot: { id: actor.id, name: actor.name, email: actor.email, role: actor.role },
+      reason,
+    }, client)
+  }
+
+  private async requireActor(userId: string, client: PoolClient): Promise<TripActor> {
+    const actor = await this.repository.findActorSnapshot(userId, client)
+    if (!actor) throw new TripServiceError(401, 'Usuário autenticado não está ativo ou não existe.')
+    return actor
+  }
+
+  private validateTripId(tripId: string): void {
+    if (!ID_PATTERN.test(tripId)) throw new TripServiceError(400, 'Identificador de viagem inválido.')
   }
 
   private validatePeriod(start: unknown, end: unknown): Period {

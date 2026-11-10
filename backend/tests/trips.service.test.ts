@@ -52,7 +52,8 @@ function setup(options: {
       created.push(data)
       return {
         id: '90', requestId: data.requestId, vehicleId: data.vehicleId, driverId: data.driverId,
-        scheduledStart: data.scheduledStart, scheduledEnd: data.scheduledEnd, status: 'SCHEDULED', revision: 1, createdAt: NOW,
+        scheduledStart: data.scheduledStart, scheduledEnd: data.scheduledEnd, status: 'SCHEDULED',
+        startKm: null, endKm: null, startedAt: null, finishedAt: null, revision: 1, createdAt: NOW,
       }
     },
     async markRequestScheduled(): Promise<SchedulableRequest | null> {
@@ -61,6 +62,13 @@ function setup(options: {
     async createTripEvent(): Promise<void> { events.push('event:trip') },
     async createRequestEvent(): Promise<void> { events.push('event:request') },
     async findActorSnapshot(): Promise<TripActor> { return manager },
+    async findTripForUpdate(): Promise<Trip | null> { return null },
+    async findDriverByUserId(): Promise<null> { return null },
+    async lockVehicle(): Promise<void> {},
+    async saveStart(): Promise<Trip | null> { return null },
+    async saveFinish(): Promise<Trip | null> { return null },
+    async createOdometerReading(): Promise<void> {},
+    async listDriverTrips(): Promise<[]> { return [] },
   }
   const auditService: AuditLogger = {
     async recordAudit(audit): Promise<AuditEntry> {
@@ -72,7 +80,8 @@ function setup(options: {
     },
   }
   const availability = new AvailabilityService(availabilityRepository, () => '2026-11-09')
-  return { service: new TripsService(repository, availability, auditService, () => NOW), created, events, audits }
+  const odometer = { async timeline() { return { facts: [], valid: true } } }
+  return { service: new TripsService(repository, availability, auditService, odometer, () => NOW), created, events, audits }
 }
 
 function domainError(statusCode: number, messagePart?: string) {

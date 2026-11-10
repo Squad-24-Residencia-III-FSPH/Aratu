@@ -33,12 +33,19 @@ export async function linkVehicleToService(pool: Pool, vehicleId: string, servic
   )
 }
 
-export function insertDriver(pool: Pool, name: string, cpf: string, cnhExpiresAt = '2099-12-31', status = 'ACTIVE'): Promise<string> {
+export function insertDriver(
+  pool: Pool,
+  name: string,
+  cpf: string,
+  cnhExpiresAt = '2099-12-31',
+  status = 'ACTIVE',
+  userId: string | null = null,
+): Promise<string> {
   return insertReturningId(
     pool,
-    `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at, status)
-     VALUES ($1, $2, $3, 'D', $4::date, $5) RETURNING id::text AS id`,
-    [name, cpf, `CNH-${cpf}`, cnhExpiresAt, status],
+    `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at, status, user_id)
+     VALUES ($1, $2, $3, 'D', $4::date, $5, $6) RETURNING id::text AS id`,
+    [name, cpf, `CNH-${cpf}`, cnhExpiresAt, status, userId],
   )
 }
 
