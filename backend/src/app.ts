@@ -30,6 +30,9 @@ import { createDriversRouter } from './routes/drivers.routes'
 import { ServicesRepository } from './repositories/services.repository'
 import { FleetServicesService } from './services/fleet-services.service'
 import { createServicesRouter } from './routes/services.routes'
+import { FinesRepository } from './repositories/fines.repository'
+import { FinesService } from './services/fines.service'
+import { createFinesRouter } from './routes/fines.routes'
 import { VehicleDocumentsRepository } from './repositories/vehicle-documents.repository'
 import { VehicleDocumentsService } from './services/vehicle-documents.service'
 import { DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS } from './services/vehicle-document-config.service'
@@ -102,6 +105,8 @@ export function createApp({
     app.use('/drivers', createDriversRouter(driversService, jwtConfig))
     const fleetServicesService = new FleetServicesService(new ServicesRepository(pool), auditService)
     app.use('/services', createServicesRouter(fleetServicesService, jwtConfig))
+    const finesService = new FinesService(new FinesRepository(pool), vehiclesRepository,
+      new DriversRepository(pool), auditService)
     const vehicleDocumentsService = new VehicleDocumentsService(
       new VehicleDocumentsRepository(pool),
       vehiclesRepository,
@@ -111,6 +116,7 @@ export function createApp({
     const currentUsersRepository = userRepository instanceof UsersRepository
       ? userRepository
       : new UsersRepository(pool)
+    app.use('/fines', createFinesRouter(finesService, jwtConfig, currentUsersRepository))
     app.use('/vehicle-documents', createVehicleDocumentsRouter(vehicleDocumentsService, jwtConfig, currentUsersRepository))
   }
   if (rolesRepository && auditService && userRepository instanceof UsersRepository) {
