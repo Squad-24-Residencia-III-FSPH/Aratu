@@ -16,6 +16,7 @@ const destinations = [
 const vehicleReaders = new Set(['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'])
 const VEHICLES_PATH = '/veiculos'
 const DRIVERS_PATH = '/motoristas'
+const FUELINGS_PATH = '/abastecimentos'
 
 for (const [profile, path] of destinations) {
   test(profile + ' vai para a própria tela e não pode abrir as demais', () => {
@@ -43,11 +44,17 @@ for (const [profile, path] of destinations) {
         ? { kind: 'drivers', profile }
         : { kind: 'redirect', to: path },
     )
+    assert.deepEqual(
+      resolveRoute(session, FUELINGS_PATH),
+      ['GESTOR', 'ADMINISTRADOR'].includes(profile)
+        ? { kind: 'fuelings', profile }
+        : { kind: 'redirect', to: path },
+    )
   })
 }
 
 test('sem login e após logout, todas as rotas internas voltam ao login', () => {
-  for (const [, path] of [...destinations, ['ADMINISTRADOR', PROFILE_PERMISSIONS_PATH], ['GESTOR', VEHICLES_PATH], ['ADMINISTRADOR', DRIVERS_PATH]]) {
+  for (const [, path] of [...destinations, ['ADMINISTRADOR', PROFILE_PERMISSIONS_PATH], ['GESTOR', VEHICLES_PATH], ['ADMINISTRADOR', DRIVERS_PATH], ['GESTOR', FUELINGS_PATH]]) {
     assert.deepEqual(resolveRoute(null, path), { kind: 'redirect', to: '/login' })
   }
   assert.deepEqual(resolveRoute(null, '/login'), { kind: 'login' })

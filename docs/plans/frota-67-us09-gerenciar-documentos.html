@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-67 — US09 - Gerenciar documentos (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-67: US09 - Gerenciar documentos</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-67</code> — US09 - Gerenciar documentos</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/us09-gerenciar-documentos</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>FROTA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <span class="badge-rbac">GESTOR</span>, <span class="badge-rbac">ADMINISTRADOR</span></p>
+  <p><strong>Data:</strong> 2026-11-07</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<h3>1.1 Objetivo</h3>
+<p>O <strong>Gestor de Frota</strong> da FSPH passa a <strong>cadastrar, corrigir, renovar e anular os documentos obrigatórios de cada veículo</strong> (CRLV, licenciamento, IPVA, seguro, contrato de locação e outros) e a <strong>ser avisado dos documentos vencidos ou que vencem dentro do prazo de alerta</strong> — uma das principais dores do Gestor, pois veículo com documento vencido não pode circular em transporte institucional nem em remoções do SVO.</p>
+<p>Exemplo de uso real: <em>"O gestor recebe o CRLV 2027 da van VAN-0A00 e registra a renovação; o CRLV 2026 deixa de aparecer no alerta, mas continua no histórico do veículo."</em></p>
+
+<h3>1.2 Escopo desta entrega (confirmado)</h3>
+<table>
+  <thead><tr><th>Entra</th><th>Fica fora (YAGNI / outra subtarefa)</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>
+        <ul>
+          <li><strong>BE (FROTA-69):</strong> API <code>/vehicle-documents</code> com listagem filtrada, consulta individual com linha do tempo, cadastro (inclui renovação), correção (<code>PUT</code>), anulação justificada e consulta de documentos a vencer.</li>
+          <li>Cálculo da situação no <code>Service</code> e prazo de alerta configurável (env + query param).</li>
+          <li>Eventos append-only em <code>fleet.vehicle_document_events</code> e trilha em <code>audit.logs</code>.</li>
+          <li><strong>QA (FROTA-167):</strong> testes unitários do service e integração HTTP + PostgreSQL.</li>
+        </ul>
+      </td>
+      <td>
+        <ul>
+          <li><strong>Tela React (FROTA-70)</strong> — com outro desenvolvedor; este plano entrega apenas o <em>contrato de handoff</em> (seção 6).</li>
+          <li>Upload/anexo de arquivo do documento (<code>attachment_url</code> permanece nulo).</li>
+          <li>Notificação ativa (e-mail/push) e consumo pelo dashboard (US21).</li>
+          <li>Paginação da listagem (paridade com <code>/maintenance-orders</code>).</li>
+          <li>Migrations: a estrutura já existe (<code>FROTA-68</code>).</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>1.3 Decisões confirmadas pela Regra da Dúvida (07/11/2026)</h3>
+<table>
+  <thead><tr><th>#</th><th>Tema</th><th>Decisão</th></tr></thead>
+  <tbody>
+    <tr><td>D1</td><td>Escopo</td><td>Plano único da US cobrindo <strong>BE + QA</strong>, branch <code>feat/us09-gerenciar-documentos</code>. FE fica com outro dev.</td></tr>
+    <tr><td>D2</td><td>Prazo de alerta</td><td>Env <code>VEHICLE_DOCUMENT_ALERT_DAYS</code> (padrão <strong>30</strong>) + query param opcional <code>?days=</code> (inteiro 1 a 365) em <code>/expiring</code>. Valor de 30 dias segue provisório até validação com o cliente — muda só a env, sem deploy de código.</td></tr>
+    <tr><td>D3</td><td>Renovação</td><td><code>POST</code> aceita <code>supersedesId</code> opcional → evento <code>RENEWED</code>; o anterior deixa de ser vigente e sai dos alertas, permanecendo no histórico.</td></tr>
+    <tr><td>D4</td><td>Correção (<code>PUT</code>)</td><td>Atualiza a linha com revisão otimista (<code>expectedRevision</code> → 409), evento <code>UPDATED</code> com <code>before/after</code> e <code>audit.logs</code> (padrão veículos/manutenções).</td></tr>
+    <tr><td>D5</td><td>Autoria</td><td><code>reportedBy</code> e <code>reason</code> obrigatórios em <code>POST</code>, <code>PUT</code> e anulação (padrão do projeto).</td></tr>
+    <tr><td>D6</td><td>Anulação</td><td>Incluída: <code>PATCH /vehicle-documents/:id/annul</code> com justificativa obrigatória (FE usará <code>ConfirmDialog</code>).</td></tr>
+    <tr><td>D7</td><td>Veículo <code>INACTIVE</code></td><td>Permite cadastro e consulta; <strong>excluído dos alertas</strong> (<code>/expiring</code>).</td></tr>
+    <tr><td>D8</td><td>Datas</td><td>Vencido = <code>expiresAt &lt; hoje</code> (no dia do vencimento ainda é válido); permite cadastrar documento já vencido; emissão no futuro → 400; vencimento &lt; emissão → 400. Fuso <code>America/Maceio</code>.</td></tr>
+    <tr><td>D9</td><td>Duplicidade</td><td>409 se já existir documento <strong>não anulado</strong> do mesmo veículo + tipo + vencimento, verificado sob <code>FOR UPDATE</code> do veículo (sem migration).</td></tr>
+    <tr><td>D10</td><td>Tipo <code>OTHER</code> e data FSPH</td><td><code>OTHER</code> exige <code>notes</code> (400). Reusar <code>currentFsphDate</code> importando de <code>drivers.service.ts</code>, sem refatorá-lo.</td></tr>
+    <tr><td>D11</td><td>Situação exposta</td><td>Campo único <code>status</code>: <code>VALID</code> | <code>EXPIRING</code> | <code>EXPIRED</code> (vigentes), <code>RENEWED</code> (superados), <code>ANNULLED</code>. Listagem retorna todos; filtro <code>?status=</code> aceita os 5.</td></tr>
+    <tr><td>D12</td><td>Superado</td><td>Superado = existe renovação <strong>não anulada</strong> apontando para ele. Se a renovação for anulada, o anterior volta a ser vigente e a alertar.</td></tr>
+    <tr><td>D13</td><td>Restrições</td><td>Renovação exige mesmo veículo e mesmo tipo; o anterior não pode estar anulado nem já superado por renovação ativa (409). No <code>PUT</code>, veículo e tipo são imutáveis (troca = anular + novo cadastro).</td></tr>
+    <tr><td>D14</td><td>Mutabilidade</td><td><code>PUT</code> e anulação só em documento não anulado (anulado → 409). Documento superado aceita <code>PUT</code>.</td></tr>
+    <tr><td>D15</td><td>Consulta individual</td><td>Incluída: <code>GET /vehicle-documents/:id</code> com documento + linha do tempo de eventos.</td></tr>
+    <tr><td>D16</td><td>Cadeia A ← R ← R3</td><td>É proibido anular documento já superado por renovação ativa (409: <em>anule primeiro a renovação mais recente</em>). <code>PUT</code> no superado continua liberado.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<h3>2.1 Situação do documento (calculada no <code>Service</code>, nunca persistida)</h3>
+<p>Referências: <code>hoje = currentFsphDate()</code> (fuso <code>America/Maceio</code>) e <code>limite = hoje + alertDays</code>. Intervalo inclusivo, idêntico à regra de CNH já usada em motoristas.</p>
+<table>
+  <thead><tr><th>Ordem de avaliação</th><th>Condição</th><th><code>status</code></th><th>Rótulo sugerido ao FE</th><th>Entra em <code>/expiring</code>?</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>isAnnulled = true</code></td><td><span class="badge-status">ANNULLED</span></td><td>Anulado</td><td>Não</td></tr>
+    <tr><td>2</td><td>Existe documento <strong>não anulado</strong> com <code>supersedes_id = id</code></td><td><span class="badge-status">RENEWED</span></td><td>Renovado</td><td>Não</td></tr>
+    <tr><td>3</td><td><code>expiresAt &lt; hoje</code></td><td><span class="badge-status">EXPIRED</span></td><td>Vencido</td><td>Sim (se veículo ≠ <code>INACTIVE</code>)</td></tr>
+    <tr><td>4</td><td><code>hoje ≤ expiresAt ≤ limite</code></td><td><span class="badge-status">EXPIRING</span></td><td>A vencer</td><td>Sim (se veículo ≠ <code>INACTIVE</code>)</td></tr>
+    <tr><td>5</td><td><code>expiresAt &gt; limite</code></td><td><span class="badge-status">VALID</span></td><td>Válido</td><td>Não</td></tr>
+  </tbody>
+</table>
+<p><code>daysUntilExpiration</code> = dias corridos entre <code>hoje</code> e <code>expiresAt</code> (negativo quando vencido), devolvido para o FE não reimplementar regra de data.</p>
+
+<h3>2.2 Ciclo de vida (eventos em <code>fleet.vehicle_document_events</code>)</h3>
+<pre><code>POST (sem supersedesId) ──► REGISTERED ──► [vigente] ──PUT──► UPDATED (n vezes)
+POST (supersedesId = A) ──► RENEWED (no novo doc) ──► A passa a status RENEWED
+PATCH /:id/annul        ──► ANNULLED (terminal: não aceita PUT, annul nem renovação)
+Anular a renovação R de A ──► A volta a ser vigente (D12)
+RECTIFIED: valor existente no CHECK, não utilizado nesta US (D4).</code></pre>
+
+<h3>2.3 Cenários (Dado / Quando / Então)</h3>
+<table>
+  <thead><tr><th>ID</th><th>Dado</th><th>Quando</th><th>Então</th></tr></thead>
+  <tbody>
+    <tr><td>C01</td><td>Gestor autenticado e veículo existente</td><td>Envia <code>POST</code> com veículo, tipo, vencimento, <code>reportedBy</code> e <code>reason</code></td><td><span class="badge-http">201</span> documento com <code>status</code> calculado, <code>revision = 1</code>, <code>vehicleSnapshot</code> congelado; evento <code>REGISTERED</code> e linha em <code>audit.logs</code> na mesma transação</td></tr>
+    <tr><td>C02</td><td>—</td><td><code>POST</code> sem veículo, tipo ou vencimento (ou sem <code>reportedBy</code>/<code>reason</code>)</td><td><span class="badge-http">400</span> <code>{ erro }</code> indicando o campo; nada gravado</td></tr>
+    <tr><td>C03</td><td>—</td><td><code>expiresAt</code> anterior a <code>issuedAt</code></td><td><span class="badge-http">400</span> "O vencimento não pode ser anterior à emissão."</td></tr>
+    <tr><td>C04</td><td>—</td><td><code>issuedAt</code> posterior a hoje (FSPH)</td><td><span class="badge-http">400</span> "A data de emissão não pode estar no futuro."</td></tr>
+    <tr><td>C05</td><td>—</td><td><code>documentType = OTHER</code> sem <code>notes</code></td><td><span class="badge-http">400</span> "Descreva o documento em observações quando o tipo for Outro."</td></tr>
+    <tr><td>C06</td><td>—</td><td>Cadastra documento com vencimento já passado</td><td><span class="badge-http">201</span> com <code>status = EXPIRED</code> (permitido, D8)</td></tr>
+    <tr><td>C07</td><td>Já existe documento não anulado do veículo V, tipo CRLV, vencimento 2027-03-31</td><td>Novo <code>POST</code> igual (reenvio / duplo clique)</td><td><span class="badge-http">409</span> "Já existe documento deste tipo com o mesmo vencimento para o veículo."; nenhum evento duplicado</td></tr>
+    <tr><td>C08</td><td>Documento A (CRLV, vigente) do veículo V</td><td><code>POST</code> com <code>supersedesId = A</code>, mesmo veículo e tipo</td><td><span class="badge-http">201</span> novo documento com evento <code>RENEWED</code>; A passa a <code>RENEWED</code> e sai do <code>/expiring</code></td></tr>
+    <tr><td>C09</td><td>A pertence a outro veículo ou é de outro tipo</td><td>Renovação apontando para A</td><td><span class="badge-http">409</span> "A renovação deve ser do mesmo veículo e do mesmo tipo de documento."</td></tr>
+    <tr><td>C10</td><td>A anulado ou já superado por renovação ativa</td><td>Renovação apontando para A</td><td><span class="badge-http">409</span> orientando consultar a renovação vigente</td></tr>
+    <tr><td>C11</td><td><code>supersedesId</code> inexistente</td><td><code>POST</code></td><td><span class="badge-http">404</span> "Documento a renovar não encontrado."</td></tr>
+    <tr><td>C12</td><td>Documento não anulado, <code>revision = 3</code></td><td><code>PUT</code> com <code>expectedRevision = 3</code></td><td><span class="badge-http">200</span> <code>revision = 4</code>; evento <code>UPDATED</code> com <code>before/after</code>; auditoria</td></tr>
+    <tr><td>C13</td><td>Outro usuário já salvou (<code>revision = 4</code>)</td><td><code>PUT</code> com <code>expectedRevision = 3</code></td><td><span class="badge-http">409</span> "O documento foi alterado por outra operação. Atualize os dados e tente novamente."</td></tr>
+    <tr><td>C14</td><td>—</td><td><code>PUT</code> tentando mudar <code>vehicleId</code>, <code>documentType</code> ou <code>supersedesId</code></td><td><span class="badge-http">400</span> "Veículo, tipo e renovação não podem ser alterados. Anule e cadastre novamente."</td></tr>
+    <tr><td>C15</td><td>Documento anulado</td><td><code>PUT</code> ou <code>PATCH /annul</code></td><td><span class="badge-http">409</span> "Documento anulado não pode ser alterado."</td></tr>
+    <tr><td>C16</td><td>Documento vigente</td><td><code>PATCH /:id/annul</code> com <code>reason</code>, <code>reportedBy</code>, <code>expectedRevision</code></td><td><span class="badge-http">200</span> <code>status = ANNULLED</code>, <code>annulmentReason = reason</code>; evento <code>ANNULLED</code>; auditoria</td></tr>
+    <tr><td>C17</td><td>R renovou A</td><td>Anula R</td><td><span class="badge-http">200</span>; A volta a ser vigente e reaparece no <code>/expiring</code> se estiver no prazo (D12)</td></tr>
+    <tr><td>C18</td><td>A ← R ← R3 (R superado por R3 ativo)</td><td>Anula R</td><td><span class="badge-http">409</span> "Este documento já foi renovado. Anule primeiro a renovação mais recente." (D16)</td></tr>
+    <tr><td>C19</td><td>Documentos vencido, a vencer (hoje+10), válido (hoje+90), renovado e anulado; <code>alertDays = 30</code></td><td><code>GET /vehicle-documents/expiring</code></td><td><span class="badge-http">200</span> só o vencido e o a vencer, ordenados por vencimento</td></tr>
+    <tr><td>C20</td><td>Mesmo cenário</td><td><code>GET /expiring?days=5</code></td><td>Só o vencido (o de hoje+10 está fora da janela)</td></tr>
+    <tr><td>C21</td><td>Documento vencido de veículo <code>INACTIVE</code></td><td><code>GET /expiring</code></td><td>Não aparece (D7); aparece em <code>GET /vehicle-documents</code></td></tr>
+    <tr><td>C22</td><td>—</td><td><code>?days=0</code>, <code>?days=366</code>, <code>?days=abc</code> ou parâmetro repetido</td><td><span class="badge-http">400</span> "Informe days como inteiro entre 1 e 365."</td></tr>
+    <tr><td>C23</td><td>Documento com vencimento = hoje</td><td>Consulta</td><td><code>status = EXPIRING</code>, <code>daysUntilExpiration = 0</code> (ainda válido no dia, D8)</td></tr>
+    <tr><td>C24</td><td>Perfil <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code> ou <code>EQUIPE_SVO</code></td><td>Qualquer endpoint</td><td><span class="badge-http">403</span>; sem token → <span class="badge-http">401</span></td></tr>
+    <tr><td>C25</td><td>Falha ao gravar auditoria</td><td>Qualquer mutação</td><td>Rollback completo: nem documento nem evento persistidos (<span class="badge-http">500</span>)</td></tr>
+    <tr><td>C26</td><td>Conta desativada após emissão do token</td><td>Qualquer endpoint de documentos</td><td><span class="badge-http">401</span> "Sua conta não está ativa..." (via <code>createCurrentUserMiddleware</code>; mutações também verificam <code>findActorSnapshot</code>)</td></tr>
+    <tr><td>C27</td><td>Conta alterada de GESTOR/ADMINISTRADOR para perfil não autorizado após emissão do token</td><td>Qualquer endpoint de documentos com token anterior</td><td><span class="badge-http">403</span>; autorização usa perfil atual e mutações o revalidam na transação</td></tr>
+  </tbody>
+</table>
+
+<h3>2.4 Requisitos não-funcionais</h3>
+<ul>
+  <li><strong>Atomicidade:</strong> toda mutação roda em <code>vehiclesRepository.withTransaction</code>, travando primeiro o veículo (<code>FOR UPDATE</code>) e depois o documento — mesma ordem global de locks de manutenções, evitando deadlock.</li>
+  <li><strong>Idempotência:</strong> reenvio do mesmo cadastro converge para 409 (D9) sob o lock do veículo; renovações concorrentes do mesmo A são serializadas pelo mesmo lock (a segunda recebe 409 C10).</li>
+  <li><strong>Performance:</strong> <code>/expiring</code> usa o índice parcial <code>fleet_vehicle_documents_by_expiration</code>; detecção de superado usa <code>fleet_vehicle_documents_by_supersedes</code>; filtros com predicados sargáveis (sem função sobre coluna).</li>
+  <li><strong>Mensagens:</strong> erros em português, no campo <code>erro</code>, dizendo o problema e o próximo passo (WCAG 3.3.1 / 3.3.3 — lidas pelo FE).</li>
+  <li><strong>Preservação histórica:</strong> nenhum <code>DELETE</code>; anulação é flag + evento; eventos são append-only (trigger existente).</li>
+</ul>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<h3>3.1 Arquivos novos</h3>
+<table>
+  <thead><tr><th>Arquivo</th><th>Responsabilidade</th></tr></thead>
+  <tbody>
+    <tr><td><code>backend/src/types/vehicle-document.types.ts</code></td><td>Constantes (<code>VEHICLE_DOCUMENT_TYPES</code>, <code>VEHICLE_DOCUMENT_STATUSES</code>, <code>VEHICLE_DOCUMENT_EVENT_TYPES</code>), DTOs de entrada/saída, contrato de filtros e <code>VehicleDocumentServiceError</code>.</td></tr>
+    <tr><td><code>backend/src/repositories/vehicle-documents.repository.ts</code></td><td><code>VehicleDocumentsRepositoryContract</code> + implementação com SQL parametrizado em <code>fleet.vehicle_documents</code> / <code>fleet.vehicle_document_events</code>.</td></tr>
+    <tr><td><code>backend/src/services/vehicle-documents.service.ts</code></td><td>Regras puras: validação, situação, renovação, duplicidade, revisão, anulação, eventos e auditoria.</td></tr>
+    <tr><td><code>backend/src/services/vehicle-document-config.service.ts</code></td><td><code>DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS = 30</code> e <code>loadVehicleDocumentAlertDays(env)</code> (espelha <code>jwt-config.service.ts</code>).</td></tr>
+    <tr><td><code>backend/src/controllers/vehicle-documents.controller.ts</code></td><td>Tradução HTTP ↔ service (padrão <code>createMaintenanceOrdersController</code>).</td></tr>
+    <tr><td><code>backend/src/routes/vehicle-documents.routes.ts</code></td><td><code>createVehicleDocumentsRouter</code> com JWT + <code>authorizeRoles(['GESTOR', 'ADMINISTRADOR'])</code>.</td></tr>
+    <tr><td><code>backend/tests/vehicle-documents.service.test.ts</code></td><td>Testes unitários com repositórios falsos e <code>today</code> injetado.</td></tr>
+    <tr><td><code>backend/tests/vehicle-documents.integration.test.ts</code></td><td>Integração HTTP + PostgreSQL (FROTA-167), datas relativas ao dia do teste.</td></tr>
+  </tbody>
+</table>
+
+<h3>3.2 Arquivos alterados</h3>
+<table>
+  <thead><tr><th>Arquivo</th><th>Alteração</th></tr></thead>
+  <tbody>
+    <tr><td><code>backend/src/app.ts</code></td><td><code>AppDependencies.vehicleDocumentAlertDays?: number</code>; instancia repositório/service e monta <code>app.use('/vehicle-documents', ...)</code> dentro do bloco <code>if (pool &amp;&amp; auditService)</code>, reutilizando o <code>vehiclesRepository</code> já criado.</td></tr>
+    <tr><td><code>backend/src/index.ts</code></td><td>Passa <code>vehicleDocumentAlertDays: loadVehicleDocumentAlertDays(process.env)</code> ao <code>createApp</code> (falha rápida no boot se inválido).</td></tr>
+    <tr><td><code>.env.example</code></td><td><code>VEHICLE_DOCUMENT_ALERT_DAYS=30</code> com comentário.</td></tr>
+    <tr><td><code>docker-compose.yml</code></td><td>Serviço <code>backend</code>: <code>VEHICLE_DOCUMENT_ALERT_DAYS: ${VEHICLE_DOCUMENT_ALERT_DAYS:-30}</code>.</td></tr>
+    <tr><td><code>docs/manuais/modulos.md</code> e <code>docs/modulos/FROTA.html</code></td><td>Documentação do módulo (seção 11).</td></tr>
+  </tbody>
+</table>
+
+<h3>3.3 Arquivos de referência (padrão a seguir)</h3>
+<ul>
+  <li><strong>Irmão mais próximo:</strong> <code>maintenance-orders.{routes,controller,service,repository}.ts</code> e <code>types/maintenance.types.ts</code> (transação via veículo, eventos, auditoria, <code>respond()</code>, revisão otimista).</li>
+  <li><strong>Data FSPH e validade inclusiva:</strong> <code>currentFsphDate</code> em <code>services/drivers.service.ts</code>; <code>cnhValidity</code> em <code>frontend/src/drivers/driverForm.ts</code> (mesma semântica).</li>
+  <li><strong>Configuração por env:</strong> <code>services/jwt-config.service.ts</code>.</li>
+  <li><strong>Testes:</strong> <code>tests/maintenance-orders.integration.test.ts</code>, <code>tests/maintenance-orders.service.test.ts</code>, <code>tests/fixtures/rbac-users.fixture.ts</code>, <code>tests/helpers/db-test.ts</code>.</li>
+  <li><strong>Padrões de Projeto:</strong> <code>docs/manuais/padroes-projeto.md</code> (Layered, Repository, Chain of Responsibility, Append-Only Log + Snapshot).</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<div class="notice-block"><strong>Não há migration nesta tarefa.</strong> As tabelas <span class="badge-tabela">fleet.vehicle_documents</span> e <span class="badge-tabela">fleet.vehicle_document_events</span> já existem (<code>202610280011_create_vehicle_documents.sql</code>, FROTA-68) e cobrem todas as decisões. Plano de rollback: reverter o merge (nenhum dado estrutural muda).</div>
+
+<h3>4.1 Mapeamento coluna → contrato</h3>
+<table>
+  <thead><tr><th>Coluna</th><th>Campo JSON</th><th>Uso nesta US</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code>, <code>vehicle_id</code></td><td><code>id</code>, <code>vehicleId</code> (texto)</td><td><code>::text</code> no SELECT (padrão do projeto para BIGINT).</td></tr>
+    <tr><td><code>document_type</code></td><td><code>documentType</code></td><td><code>CRLV | LICENSING | IPVA | INSURANCE | LEASE_CONTRACT | OTHER</code> (CHECK existente).</td></tr>
+    <tr><td><code>document_number</code>, <code>notes</code></td><td><code>documentNumber</code>, <code>notes</code></td><td>Opcionais; texto vazio vira <code>null</code> no service (CHECK proíbe string em branco). <code>notes</code> obrigatório se <code>OTHER</code>.</td></tr>
+    <tr><td><code>issued_at</code>, <code>expires_at</code></td><td><code>issuedAt</code>, <code>expiresAt</code> (<code>YYYY-MM-DD</code>)</td><td><code>::text</code> no SELECT para não deslocar o dia por fuso. CHECK <code>fleet_vehicle_documents_dates_valid</code> é a última barreira; o service valida antes (400).</td></tr>
+    <tr><td><code>supersedes_id</code></td><td><code>supersedesId</code></td><td>Renovação (D3). Imutável após o cadastro.</td></tr>
+    <tr><td><em>derivado</em></td><td><code>supersededById</code></td><td><code>LEFT JOIN LATERAL</code> do sucessor não anulado mais recente.</td></tr>
+    <tr><td><code>is_annulled</code>, <code>annulment_reason</code></td><td><code>isAnnulled</code>, <code>annulmentReason</code></td><td>Anulação (D6); CHECK exige motivo.</td></tr>
+    <tr><td><code>created_by</code>, <code>vehicle_snapshot</code></td><td><code>createdBy</code>, <code>vehicleSnapshot</code></td><td>Autor do cadastro; snapshot do veículo travado no momento do cadastro (padrão manutenções).</td></tr>
+    <tr><td><code>revision</code>, <code>created_at</code>, <code>updated_at</code></td><td>idem em camelCase</td><td>Revisão otimista; <code>updated_at = clock_timestamp()</code> em toda mutação.</td></tr>
+  </tbody>
+</table>
+
+<h3>4.2 Eventos (<code>fleet.vehicle_document_events</code>)</h3>
+<p><code>event_type</code> ∈ <code>REGISTERED | RENEWED | UPDATED | ANNULLED</code>; <code>occurred_at = registered_at = clock_timestamp()</code>; <code>reported_by = reportedBy</code>; <code>registered_by</code> + <code>actor_snapshot</code> do ator travado na transação; <code>reason</code>; <code>before_state</code> (nulo no cadastro) e <code>after_state</code> com o documento completo. <code>evidence_description</code>/<code>attachment_url</code> ficam nulos (anexo fora do escopo).</p>
+
+<h3>4.3 Consultas-chave (esboço — o implementador mantém projeções explícitas)</h3>
+<pre><code>-- Projeção base reutilizada por findById / list / listExpiring (sem SELECT *)
+SELECT d.id::text AS id, d.vehicle_id::text AS "vehicleId",
+       v.license_plate AS "licensePlate", v.model, v.status AS "vehicleStatus",
+       d.document_type AS "documentType", d.document_number AS "documentNumber",
+       d.issued_at::text AS "issuedAt", d.expires_at::text AS "expiresAt", d.notes,
+       d.supersedes_id::text AS "supersedesId", s.id::text AS "supersededById",
+       d.is_annulled AS "isAnnulled", d.annulment_reason AS "annulmentReason",
+       d.vehicle_snapshot AS "vehicleSnapshot", d.created_by::text AS "createdBy",
+       d.revision, d.created_at AS "createdAt", d.updated_at AS "updatedAt"
+  FROM fleet.vehicle_documents d
+  JOIN fleet.vehicles v ON v.id = d.vehicle_id
+  LEFT JOIN LATERAL (
+        SELECT n.id FROM fleet.vehicle_documents n
+         WHERE n.supersedes_id = d.id AND n.is_annulled = false
+         ORDER BY n.id DESC LIMIT 1) s ON true
+
+-- list(criteria): filtros traduzidos pelo service (regra de situação mora no service)
+ WHERE ($1::bigint IS NULL OR d.vehicle_id = $1)
+   AND ($2::text   IS NULL OR d.document_type = $2)
+   AND ($3::boolean IS NULL OR d.is_annulled = $3)
+   AND ($4::boolean IS NULL OR (s.id IS NOT NULL) = $4)      -- superado?
+   AND ($5::date   IS NULL OR d.expires_at &gt;= $5)
+   AND ($6::date   IS NULL OR d.expires_at &lt;= $6)
+ ORDER BY d.expires_at ASC, d.id ASC
+
+-- listExpiring(limitDate): vigentes de veículos ativos com vencimento &lt;= limite
+ WHERE d.is_annulled = false AND s.id IS NULL
+   AND v.status &lt;&gt; 'INACTIVE' AND d.expires_at &lt;= $1
+ ORDER BY d.expires_at ASC, d.id ASC
+
+-- Duplicidade (D9), executada após travar o veículo
+SELECT EXISTS (SELECT 1 FROM fleet.vehicle_documents
+                WHERE vehicle_id = $1 AND document_type = $2 AND expires_at = $3
+                  AND is_annulled = false AND ($4::bigint IS NULL OR id &lt;&gt; $4)) AS found
+
+-- Trava do documento (após a do veículo)
+SELECT id FROM fleet.vehicle_documents WHERE id = $1 FOR UPDATE</code></pre>
+
+<h3>4.4 Tradução de <code>?status=</code> em critérios (no service)</h3>
+<table>
+  <thead><tr><th><code>status</code></th><th><code>isAnnulled</code></th><th><code>superseded</code></th><th><code>expiresFrom</code></th><th><code>expiresTo</code></th></tr></thead>
+  <tbody>
+    <tr><td>ANNULLED</td><td>true</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td>RENEWED</td><td>false</td><td>true</td><td>—</td><td>—</td></tr>
+    <tr><td>EXPIRED</td><td>false</td><td>false</td><td>—</td><td>hoje − 1 dia</td></tr>
+    <tr><td>EXPIRING</td><td>false</td><td>false</td><td>hoje</td><td>hoje + alertDays</td></tr>
+    <tr><td>VALID</td><td>false</td><td>false</td><td>hoje + alertDays + 1 dia</td><td>—</td></tr>
+  </tbody>
+</table>
+<p>Índices existentes atendem: <code>fleet_vehicle_documents_by_expiration</code> (parcial, <code>is_annulled = false</code>), <code>fleet_vehicle_documents_by_vehicle</code> e <code>fleet_vehicle_documents_by_supersedes</code>. Nenhum índice novo.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<h3>5.1 Endpoints (<code>/vehicle-documents</code>, todos com JWT + <span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span>)</h3>
+<table>
+  <thead><tr><th>Método</th><th>Rota</th><th>Entrada</th><th>Sucesso</th><th>Erros</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge-http">GET</span></td><td><code>/</code></td><td>Query opcional: <code>vehicleId</code>, <code>documentType</code>, <code>status</code> (cada um no máximo uma vez, texto)</td><td>200 <code>VehicleDocumentList</code></td><td>400, 401, 403</td></tr>
+    <tr><td><span class="badge-http">GET</span></td><td><code>/expiring</code></td><td>Query opcional: <code>days</code> (1–365; padrão = env)</td><td>200 <code>VehicleDocumentList</code></td><td>400, 401, 403</td></tr>
+    <tr><td><span class="badge-http">GET</span></td><td><code>/:id</code></td><td>—</td><td>200 <code>VehicleDocumentDetail</code></td><td>400, 401, 403, 404</td></tr>
+    <tr><td><span class="badge-http">POST</span></td><td><code>/</code></td><td><code>CreateVehicleDocumentInput</code></td><td>201 <code>VehicleDocument</code></td><td>400, 401, 403, 404, 409</td></tr>
+    <tr><td><span class="badge-http">PUT</span></td><td><code>/:id</code></td><td><code>UpdateVehicleDocumentInput</code></td><td>200 <code>VehicleDocument</code></td><td>400, 401, 403, 404, 409</td></tr>
+    <tr><td><span class="badge-http">PATCH</span></td><td><code>/:id/annul</code></td><td><code>AnnulVehicleDocumentInput</code></td><td>200 <code>VehicleDocument</code></td><td>400, 401, 403, 404, 409</td></tr>
+  </tbody>
+</table>
+<p>Erros sempre no formato <code>{ "erro": "mensagem orientadora" }</code>. <code>/expiring</code> é registrado <strong>antes</strong> de <code>/:id</code>.</p>
+
+<h3>5.2 Exemplos de payload</h3>
+<pre><code>// POST /vehicle-documents  (renovação: incluir "supersedesId": "12")
+{
+  "vehicleId": "7",
+  "documentType": "CRLV",
+  "documentNumber": "000000000-FICT",
+  "issuedAt": "2026-11-01",
+  "expiresAt": "2027-10-31",
+  "notes": null,
+  "reportedBy": "Setor de Patrimônio Fictício por e-mail",
+  "reason": "CRLV 2027 emitido"
+}
+
+// PUT /vehicle-documents/15  (campos omitidos permanecem; vehicleId/documentType/supersedesId proibidos)
+{ "expectedRevision": 1, "expiresAt": "2027-11-30",
+  "reportedBy": "Gestor Fictício", "reason": "Data de vencimento digitada errada" }
+
+// PATCH /vehicle-documents/15/annul
+{ "expectedRevision": 2, "reportedBy": "Gestor Fictício",
+  "reason": "Documento cadastrado no veículo errado" }
+
+// Resposta VehicleDocument
+{
+  "id": "15", "vehicleId": "7",
+  "vehicle": { "licensePlate": "VAN0A00", "model": "Van Fictícia", "status": "AVAILABLE" },
+  "documentType": "CRLV", "documentNumber": "000000000-FICT",
+  "issuedAt": "2026-11-01", "expiresAt": "2027-10-31", "notes": null,
+  "status": "VALID", "daysUntilExpiration": 358,
+  "supersedesId": null, "supersededById": null,
+  "isAnnulled": false, "annulmentReason": null,
+  "vehicleSnapshot": { "...": "veículo no momento do cadastro" },
+  "createdBy": "3", "revision": 1,
+  "createdAt": "2026-11-07T16:20:00.000Z", "updatedAt": "2026-11-07T16:20:00.000Z"
+}
+
+// VehicleDocumentList (GET / e GET /expiring)
+{ "referenceDate": "2026-11-07", "alertDays": 30, "items": [ /* VehicleDocument */ ] }
+
+// VehicleDocumentDetail (GET /:id) = VehicleDocument + linha do tempo (mais recente primeiro)
+{ "...": "...", "events": [ { "id": "40", "eventType": "UPDATED",
+    "occurredAt": "...", "registeredAt": "...", "reportedBy": "...", "reason": "...",
+    "actor": { "id": "3", "name": "Gestor Fictício", "role": "GESTOR" },
+    "before": { }, "after": { } } ] }</code></pre>
+<p><em>LGPD:</em> o <code>actor</code> exposto na linha do tempo omite e-mail (apenas <code>id</code>, <code>name</code>, <code>role</code>); o e-mail continua no <code>actor_snapshot</code> do banco.</p>
+
+<h3>5.3 <code>types/vehicle-document.types.ts</code></h3>
+<ul>
+  <li><code>VEHICLE_DOCUMENT_TYPES = ['CRLV','LICENSING','IPVA','INSURANCE','LEASE_CONTRACT','OTHER'] as const</code> e <code>VehicleDocumentType</code>.</li>
+  <li><code>VEHICLE_DOCUMENT_STATUSES = ['VALID','EXPIRING','EXPIRED','RENEWED','ANNULLED'] as const</code> e <code>VehicleDocumentStatus</code>.</li>
+  <li><code>VehicleDocumentEventType = 'REGISTERED' | 'RENEWED' | 'UPDATED' | 'ANNULLED'</code>.</li>
+  <li><code>VehicleDocumentMetadata { reportedBy; reason }</code>; <code>VehicleDocumentAttributes { documentNumber; issuedAt; expiresAt; notes }</code> (normalizados, <code>string | null</code>).</li>
+  <li><code>CreateVehicleDocumentInput</code> (metadata + <code>vehicleId</code>, <code>documentType</code>, <code>expiresAt</code>, opcionais <code>documentNumber</code>, <code>issuedAt</code>, <code>notes</code>, <code>supersedesId</code>); <code>UpdateVehicleDocumentInput</code> (metadata + <code>expectedRevision</code> + <code>Partial&lt;VehicleDocumentAttributes&gt;</code>); <code>AnnulVehicleDocumentInput</code> (metadata + <code>expectedRevision</code>).</li>
+  <li><code>VehicleDocumentRecord</code> (linha do repositório, sem <code>status</code>) e <code>VehicleDocument</code> (record + <code>status</code> + <code>daysUntilExpiration</code> + <code>vehicle</code>).</li>
+  <li><code>VehicleDocumentFilters</code> (query crua) e <code>VehicleDocumentCriteria</code> (tabela 4.4).</li>
+  <li><code>VehicleDocumentEvent</code>, <code>VehicleDocumentTimelineEntry</code>, <code>VehicleDocumentList</code>, <code>VehicleDocumentDetail</code>.</li>
+  <li><code>class VehicleDocumentServiceError extends Error { constructor(readonly statusCode: number, message: string) }</code> — mesmo formato de <code>MaintenanceServiceError</code>.</li>
+</ul>
+
+<h3>5.4 <code>repositories/vehicle-documents.repository.ts</code></h3>
+<pre><code>export interface VehicleDocumentsRepositoryContract {
+  findById(id: string, client?: PoolClient): Promise&lt;VehicleDocumentRecord | null&gt;
+  lockById(id: string, client: PoolClient): Promise&lt;VehicleDocumentRecord | null&gt;   // FOR UPDATE + findById
+  list(criteria: VehicleDocumentCriteria): Promise&lt;VehicleDocumentRecord[]&gt;
+  listExpiring(limitDate: string): Promise&lt;VehicleDocumentRecord[]&gt;
+  existsDuplicate(vehicleId: string, type: VehicleDocumentType, expiresAt: string,
+                  client: PoolClient, excludingId?: string): Promise&lt;boolean&gt;
+  create(input: NewVehicleDocumentRow, client: PoolClient): Promise&lt;VehicleDocumentRecord&gt;
+  saveAttributes(id: string, attributes: VehicleDocumentAttributes, client: PoolClient): Promise&lt;VehicleDocumentRecord&gt;
+  annul(id: string, reason: string, client: PoolClient): Promise&lt;VehicleDocumentRecord&gt;
+  createEvent(event: VehicleDocumentEvent, client: PoolClient): Promise&lt;void&gt;
+  listEvents(documentId: string): Promise&lt;VehicleDocumentTimelineEntry[]&gt;
+}</code></pre>
+<ul>
+  <li>SQL apenas com <code>$1, $2...</code>, projeção explícita da seção 4.3, <code>client ?? this.pool</code> como em manutenções.</li>
+  <li><code>create</code> grava <code>vehicle_snapshot = JSON.stringify(vehicle)</code> (veículo travado) e <code>created_by = actorId</code>.</li>
+  <li><code>saveAttributes</code>/<code>annul</code>: <code>revision = revision + 1, updated_at = clock_timestamp()</code>.</li>
+  <li><code>listEvents</code>: <code>ORDER BY occurred_at DESC, id DESC</code> (índice <code>fleet_vehicle_document_events_by_document</code>), projetando <code>actor_snapshot-&gt;&gt;'name'</code> e <code>-&gt;&gt;'role'</code>.</li>
+</ul>
+
+<h3>5.5 <code>services/vehicle-documents.service.ts</code></h3>
+<pre><code>export class VehicleDocumentsService {
+  constructor(
+    private readonly repository: VehicleDocumentsRepositoryContract,
+    private readonly vehiclesRepository: Pick&lt;VehiclesRepositoryContract,
+      'withTransaction' | 'findByIdForUpdate' | 'findActorSnapshot'&gt;,
+    private readonly audit: AuditLogger,
+    private readonly alertDays: number,
+    private readonly today: () =&gt; string = currentFsphDate,   // injetável em testes
+  ) {}
+  list(filters: VehicleDocumentFilters): Promise&lt;VehicleDocumentList&gt;
+  listExpiring(days?: string): Promise&lt;VehicleDocumentList&gt;
+  getById(id: string): Promise&lt;VehicleDocumentDetail&gt;
+  create(input: CreateVehicleDocumentInput, actorId: string): Promise&lt;VehicleDocument&gt;
+  updateDocument(id: string, input: UpdateVehicleDocumentInput, actorId: string): Promise&lt;VehicleDocument&gt;
+  annul(id: string, input: AnnulVehicleDocumentInput, actorId: string): Promise&lt;VehicleDocument&gt;
+}
+export function resolveVehicleDocumentStatus(record, today, limitDate): VehicleDocumentStatus  // tabela 2.1</code></pre>
+<ol>
+  <li><strong>Validações (400, antes de abrir transação):</strong> <code>validateId</code> (texto numérico positivo ≤ BIGINT), tipo ∈ <code>VEHICLE_DOCUMENT_TYPES</code>, datas via <code>isValidIsoDate</code>, <code>issuedAt ≤ hoje</code>, <code>expiresAt ≥ issuedAt</code>, <code>notes</code> obrigatório em <code>OTHER</code>, <code>reportedBy</code>/<code>reason</code> não vazios, <code>expectedRevision</code> inteiro positivo, <code>days</code> inteiro 1–365, filtros válidos. Corpo não-objeto → 400 (no controller).</li>
+  <li><strong><code>create</code>:</strong> <code>withTransaction</code> → <code>findByIdForUpdate(vehicleId)</code> (404) → se <code>supersedesId</code>: <code>lockById</code> (404), mesmo veículo/tipo (409 C09), não anulado e sem <code>supersededById</code> (409 C10) → <code>existsDuplicate</code> (409 C07) → <code>findActorSnapshot</code> (401) → <code>repository.create</code> → evento <code>REGISTERED</code> ou <code>RENEWED</code> → <code>audit.recordAudit</code> com <code>operation = eventType</code>, <code>table = 'fleet.vehicle_documents'</code>.</li>
+  <li><strong><code>updateDocument</code>:</strong> rejeita <code>vehicleId</code>/<code>documentType</code>/<code>supersedesId</code> no corpo (400 C14) → lê o documento (404) → transação: trava veículo, depois documento → anulado (409 C15) → revisão diferente (409 C13) → mescla <code>{ ...before, ...input }</code> e revalida → se <code>expiresAt</code> mudou, <code>existsDuplicate</code> excluindo o próprio id → <code>saveAttributes</code> → evento <code>UPDATED</code> (<code>before/after</code>) → auditoria.</li>
+  <li><strong><code>annul</code>:</strong> mesma abertura de <code>update</code> → anulado (409) → revisão (409) → <code>supersededById</code> presente (409 C18) → <code>repository.annul(id, reason)</code> → evento <code>ANNULLED</code> → auditoria. Nenhuma alteração no documento anterior: ele volta a vigente por derivação (D12).</li>
+  <li><strong>Leitura:</strong> <code>list</code> traduz <code>status</code> em critérios (4.4); <code>listExpiring</code> usa <code>limitDate = hoje + (days ?? alertDays)</code>; ambos devolvem <code>{ referenceDate, alertDays, items }</code> com <code>status</code> e <code>daysUntilExpiration</code> calculados por <code>resolveVehicleDocumentStatus</code>. Em <code>/expiring</code>, <code>alertDays</code> reflete o <code>days</code> efetivamente usado.</li>
+  <li>Erros de domínio sempre <code>VehicleDocumentServiceError</code>; CHECK violado inesperadamente (<code>23514</code>) não é mascarado (vai ao handler global → 500), pois indica falha de validação no service.</li>
+</ol>
+
+<h3>5.6 <code>controllers/vehicle-documents.controller.ts</code> e <code>routes/vehicle-documents.routes.ts</code></h3>
+<pre><code>export function createVehicleDocumentsRouter(
+  service: VehicleDocumentsService,
+  jwtConfig: JwtConfig,
+  users: Pick&lt;UsersRepositoryContract, 'findById'&gt;,
+): Router {
+  const router = Router()
+  const controller = createVehicleDocumentsController(service)
+  router.use(
+    createAuthMiddleware(jwtConfig.secret),
+    createCurrentUserMiddleware(users),
+    authorizeRoles(VEHICLE_DOCUMENT_MANAGER_ROLES),
+  )
+  router.get('/', controller.list)
+  router.get('/expiring', controller.listExpiring)
+  router.get('/:id', controller.getById)
+  router.post('/', controller.create)
+  router.put('/:id', controller.update)
+  router.patch('/:id/annul', controller.annul)
+  return router
+}</code></pre>
+<ul>
+  <li>Controller replica <code>bodyRecord</code> e <code>respond</code> de manutenções (traduz <code>VehicleDocumentServiceError</code> → <code>{ erro }</code>; demais erros → <code>next</code>), exige query string única por parâmetro e usa <code>req.usuario?.id</code> como ator — nunca autoria vinda do corpo.</li>
+  <li><strong>Correção B1 da revisão:</strong> o middleware de conta atual reutiliza <code>UsersRepository.findById</code> antes do RBAC nos seis endpoints de documentos. Conta inativa → 401; perfil atual fora de <code>VEHICLE_DOCUMENT_MANAGER_ROLES</code> → 403. O service confere novamente o perfil no snapshot de autoria antes de gravar. A composição das demais rotas permanece como está; o middleware compartilhado foi ampliado com uma nova função reutilizável.</li>
+  <li><code>app.ts</code>: <code>new VehicleDocumentsService(new VehicleDocumentsRepository(pool), vehiclesRepository, auditService, vehicleDocumentAlertDays ?? DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS)</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<div class="notice-block"><strong>Implementação de Front-end fora desta branch (D1):</strong> A tela React (<code>FROTA-70</code>) será implementada por outro desenvolvedor. Abaixo consta o <strong>contrato de handoff</strong> alinhado às decisões confirmadas nesta US para evitar retrabalho entre BE e FE.</div>
+
+<h3>6.1 Contrato de Handoff para a <code>FROTA-70</code></h3>
+<ul>
+  <li><strong>Rota e Navegação:</strong> ativar o item existente <code>Documentos</code> em <code>frontend/src/components/sidebarNavigation.ts</code> (seção <code>CONTROLE</code>) apontando para <code>/vehicle-documents</code> (ou constante <code>VEHICLE_DOCUMENTS_PATH</code>), restrito aos perfis <code>GESTOR</code> e <code>ADMINISTRADOR</code>.</li>
+  <li><strong>Bloco de Destaque no Topo (Alertas de Vencimento):</strong> consome <code>GET /vehicle-documents/expiring</code> e exibe contagem e lista rápida de documentos <code>EXPIRED</code> ("Vencido") e <code>EXPIRING</code> ("A vencer" em até <code>alertDays</code> dias, usando <code>daysUntilExpiration</code> retornado pela API). Veículos <code>INACTIVE</code> já vêm excluídos pelo backend (D7).</li>
+  <li><strong>Listagem Principal e Filtros:</strong> <code>FilterBar</code> com seletores de <em>Veículo</em> (<code>vehicleId</code>), <em>Tipo</em> (<code>documentType</code>: CRLV, Licenciamento, IPVA, Seguro, Contrato de Locação, Outro) e <em>Situação</em> (<code>status</code>: <code>VALID</code>, <code>EXPIRING</code>, <code>EXPIRED</code>, <code>RENEWED</code>, <code>ANNULLED</code>) + <code>DataTable</code> exibindo <code>StatusChip</code> com ícone e texto explícito (nunca apenas cor).</li>
+  <li><strong>Formulário (Cadastro, Renovação e Edição):</strong> usa <code>FormField</code> / <code>FormSelect</code> com <code>useId()</code>. Campos: <code>vehicleId</code>, <code>documentType</code>, <code>documentNumber</code>, <code>issuedAt</code>, <code>expiresAt</code>, <code>notes</code> (obrigatório quando <code>documentType = OTHER</code>, D10), <code>reportedBy</code> ("Origem da informação") e <code>reason</code> ("Justificativa") — obrigatórios tanto no <code>POST</code> quanto no <code>PUT</code> (D5).
+    <ul>
+      <li>Na <strong>Renovação</strong> a partir de um documento vigente, o formulário pré-preenche <code>vehicleId</code>, <code>documentType</code> e envia <code>supersedesId</code> no <code>POST</code> (WCAG 3.3.7 Entrada Redundante).</li>
+      <li>Na <strong>Edição (<code>PUT</code>)</strong>, <code>vehicleId</code> e <code>documentType</code> ficam somente leitura (D13) e o payload envia <code>expectedRevision</code> do registro carregado.</li>
+    </ul>
+  </li>
+  <li><strong>Anulação (D6) e Linha do Tempo (D15):</strong> ação "Anular documento" habilitada apenas quando <code>!isAnnulled &amp;&amp; !supersededById</code> (D16), abrindo <code>ConfirmDialog</code> que exige <code>reportedBy</code> e <code>reason</code> e dispara <code>PATCH /vehicle-documents/:id/annul</code> com <code>expectedRevision</code>. O diálogo de detalhes consome <code>GET /vehicle-documents/:id</code> para exibir a linha do tempo (<code>events</code>) e o link entre documento substituído (<code>supersedesId</code>) e substituto (<code>supersededById</code>).</li>
+</ul>
+
+<h3>6.2 Os 5 Estados Visuais Obrigatórios (via <code>StateFeedback</code>)</h3>
+<table>
+  <thead><tr><th>Estado</th><th>Comportamento esperado na <code>FROTA-70</code></th></tr></thead>
+  <tbody>
+    <tr><td><strong>1. Ideal</strong></td><td>Bloco de alertas no topo + <code>DataTable</code> populada com <code>StatusChip</code> semântico (<code>VALID</code> → <code>success</code>, <code>EXPIRING</code> → <code>warning</code>, <code>EXPIRED</code> → <code>error</code>, <code>RENEWED</code>/<code>ANNULLED</code> → <code>neutral</code>).</td></tr>
+    <tr><td><strong>2. Carregando</strong></td><td><code>StateFeedback kind="loading"</code> com <code>aria-busy="true"</code> durante busca inicial ou atualização de filtros.</td></tr>
+    <tr><td><strong>3. Vazio</strong></td><td><code>StateFeedback kind="empty"</code> ("Nenhum documento encontrado com os filtros selecionados.") e, no bloco de alertas, mensagem positiva indicando zero documentos vencidos ou a vencer.</td></tr>
+    <tr><td><strong>4. Erro</strong></td><td><code>StateFeedback kind="error"</code> exibindo a mensagem do campo <code>erro</code> retornada pela API e botão "Tentar novamente".</td></tr>
+    <tr><td><strong>5. Parcial</strong></td><td><code>StateFeedback kind="partial"</code> se a lista principal carregar mas a consulta de veículos do filtro ou o bloco <code>/expiring</code> falhar (ou vice-versa), preservando os dados já obtidos.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>Mesmo sendo uma entrega de Backend + QA nesta branch, o backend responde diretamente pelos critérios de <strong>identificação e sugestão de correção de erros (WCAG 3.3.1 e 3.3.3)</strong>, pois suas mensagens no campo <code>erro</code> são lidas pelos usuários em regiões <code>role="alert"</code>:</p>
+<ul class="check">
+  <li><input type="checkbox" checked> <strong>Mensagens de Erro Orientadoras no Backend (3.3.1, 3.3.3):</strong> Todas as respostas <code>400</code>, <code>401</code>, <code>403</code>, <code>404</code> e <code>409</code> retornam JSON <code>{ "erro": "..." }</code> em português claro, sem jargão SQL/stacktrace, identificando o campo ou regra violada e como corrigir (ex.: <em>"Este documento já foi renovado. Anule primeiro a renovação mais recente."</em>).</li>
+  <li><input type="checkbox" checked> <strong>Semântica Não-Dependente de Cor nos Dados (1.4.1):</strong> A API entrega códigos discretos (<code>status</code>: <code>VALID | EXPIRING | EXPIRED | RENEWED | ANNULLED</code>) e <code>daysUntilExpiration</code> numérico para que a UI exiba rótulo textual explícito e contagem de dias além da cor do <code>StatusChip</code>.</li>
+  <li><input type="checkbox"> <strong>Rótulos e Erros no FE — Handoff FROTA-70 (1.3.1, 3.3.1, 3.3.2):</strong> Todos os campos usam <code>FormField</code>/<code>FormSelect</code> com <code>useId()</code> conectando <code>&lt;label htmlFor&gt;</code> ao <code>&lt;input id&gt;</code>, <code>aria-invalid</code> e mensagem de erro com <code>role="alert"</code>.</li>
+  <li><input type="checkbox"> <strong>Teclado, Foco Visível e Tamanho do Alvo — Handoff FROTA-70 (2.1.1, 2.4.7, 2.4.11, 2.5.8):</strong> Operável integralmente via teclado, <code>:focus-visible</code> nítido, alvos mínimos de <strong>44×44px</strong> (definidos em <code>theme.ts</code>) e anúncios dinâmicos via <code>role="status"</code> (4.1.3).</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+
+<h3>8.1 Matriz de Acesso por Perfil (RBAC)</h3>
+<table>
+  <thead><tr><th>Perfil (<code>auth.roles.name</code>)</th><th><code>GET /vehicle-documents</code>, <code>/expiring</code>, <code>/:id</code></th><th><code>POST /</code>, <code>PUT /:id</code>, <code>PATCH /:id/annul</code></th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge-rbac">ADMINISTRADOR</span></td><td>Permitido (200)</td><td>Permitido (201 / 200)</td></tr>
+    <tr><td><span class="badge-rbac">GESTOR</span></td><td>Permitido (200)</td><td>Permitido (201 / 200)</td></tr>
+    <tr><td><span class="badge-rbac">SOLICITANTE</span></td><td>Negado (403)</td><td>Negado (403)</td></tr>
+    <tr><td><span class="badge-rbac">MOTORISTA</span></td><td>Negado (403)</td><td>Negado (403)</td></tr>
+    <tr><td><span class="badge-rbac">ATENDENTE_SVO</span></td><td>Negado (403)</td><td>Negado (403)</td></tr>
+    <tr><td><span class="badge-rbac">EQUIPE_SVO</span></td><td>Negado (403)</td><td>Negado (403)</td></tr>
+    <tr><td>Sem token / token inválido ou conta inativa</td><td>Negado (401)</td><td>Negado (401)</td></tr>
+  </tbody>
+</table>
+
+<h3>8.2 Parametrização e Variáveis de Ambiente</h3>
+<ul>
+  <li><strong><code>VEHICLE_DOCUMENT_ALERT_DAYS</code></strong> (em <code>.env.example</code> e <code>docker-compose.yml</code>): inteiro entre <code>1</code> e <code>365</code>, padrão <code>30</code>. Carregado por <code>loadVehicleDocumentAlertDays(process.env)</code> em <code>backend/src/services/vehicle-document-config.service.ts</code>.</li>
+  <li>Se a variável estiver ausente ou vazia, assume <code>DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS = 30</code>. Se estiver preenchida com valor fora de <code>1..365</code> ou não-inteiro, lança erro explícito na inicialização da API (mesmo padrão fail-fast de <code>loadJwtConfig</code>).</li>
+  <li>Na rota <code>GET /vehicle-documents/expiring?days=N</code>, o query param opcional <code>days</code> sobrescreve o padrão apenas para aquela consulta, validado no mesmo intervalo <code>1..365</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<h3>9.1 Testes Unitários — <code>backend/tests/vehicle-documents.service.test.ts</code></h3>
+<p>Executados com repositórios em memória e relógio fixo injetado (<code>today = () =&gt; '2026-11-07'</code>):</p>
+<ol>
+  <li><strong>Cálculo de situação (<code>resolveVehicleDocumentStatus</code>):</strong> documento com <code>expiresAt = '2026-11-06'</code> → <code>EXPIRED</code> (<code>daysUntilExpiration = -1</code>); <code>'2026-11-07'</code> (hoje) → <code>EXPIRING</code> (<code>0</code>); <code>'2026-12-07'</code> (hoje+30) → <code>EXPIRING</code> (<code>30</code>); <code>'2026-12-08'</code> (hoje+31) → <code>VALID</code> (<code>31</code>); com <code>supersededById</code> preenchido → <code>RENEWED</code>; com <code>isAnnulled = true</code> → <code>ANNULLED</code> (precedência sobre todos).</li>
+  <li><strong>Validações de entrada (400):</strong> ausência de <code>vehicleId</code>, <code>documentType</code>, <code>expiresAt</code>, <code>reportedBy</code> ou <code>reason</code>; <code>expiresAt &lt; issuedAt</code>; <code>issuedAt &gt; hoje</code>; <code>documentType = 'OTHER'</code> sem <code>notes</code>; <code>days</code> inválido em <code>listExpiring</code> (<code>0</code>, <code>366</code>, <code>-5</code>, <code>'abc'</code>); tentativa de alterar <code>vehicleId</code>, <code>documentType</code> ou <code>supersedesId</code> no <code>update</code>.</li>
+  <li><strong>Configuração (<code>loadVehicleDocumentAlertDays</code>):</strong> ausente → <code>30</code>; <code>'45'</code> → <code>45</code>; <code>'0'</code>, <code>'400'</code> ou <code>'trinta'</code> → lança erro.</li>
+  <li><strong>Regras de renovação e anulação:</strong> bloqueio de renovação de documento de outro veículo/tipo (409), já superado (409) ou anulado (409); bloqueio de anulação de documento já superado por renovação ativa (409, D16).</li>
+</ol>
+
+<h3>9.2 Testes de Integração HTTP + PostgreSQL 18 — <code>backend/tests/vehicle-documents.integration.test.ts</code> (FROTA-167)</h3>
+<p>Usa datas relativas a <code>currentFsphDate()</code> (helper <code>addDays(today, offset)</code>) para que a suíte nunca quebre com a passagem do tempo, e dados 100% fictícios (LGPD):</p>
+<ol>
+  <li><strong>Cadastro válido (201) + persistência completa:</strong> cria CRLV com vencimento em <code>hoje + 60</code>; verifica resposta <code>status = 'VALID'</code>, gravação em <code>fleet.vehicle_documents</code> com <code>vehicle_snapshot</code>, evento <code>REGISTERED</code> em <code>fleet.vehicle_document_events</code> e registro em <code>audit.logs</code>.</li>
+  <li><strong>Campos obrigatórios e regras de data (400):</strong> sem veículo/tipo/vencimento/reportedBy/reason → 400; <code>expiresAt &lt; issuedAt</code> → 400; <code>issuedAt = hoje + 1</code> → 400; <code>OTHER</code> sem <code>notes</code> → 400; documento já vencido (<code>expiresAt = hoje - 10</code>) → 201 com <code>status = 'EXPIRED'</code>.</li>
+  <li><strong>Duplicidade bloqueada (409, D9):</strong> segundo <code>POST</code> com mesmo veículo + tipo + vencimento retorna 409; se o primeiro for anulado, novo <code>POST</code> idêntico passa a ser aceito (201).</li>
+  <li><strong>Cálculo das 5 situações e filtros em <code>GET /vehicle-documents</code>:</strong> filtra por <code>vehicleId</code>, <code>documentType</code> e cada valor de <code>status</code> (<code>VALID</code>, <code>EXPIRING</code>, <code>EXPIRED</code>, <code>RENEWED</code>, <code>ANNULLED</code>).</li>
+  <li><strong>Alerta de vencimento (<code>GET /vehicle-documents/expiring</code>):</strong> retorna apenas documentos vigentes <code>EXPIRED</code> e <code>EXPIRING</code> (dentro de 30 dias e com <code>?days=10</code>), excluindo documentos <code>VALID</code>, <code>RENEWED</code>, <code>ANNULLED</code> e documentos de veículos com <code>status = 'INACTIVE'</code> (D7).</li>
+  <li><strong>Fluxo de Renovação (D3, D12, D13, D16):</strong> cadastra documento A (vencido) → renova com documento R (<code>supersedesId = A.id</code>) → A vira <code>RENEWED</code> e sai de <code>/expiring</code>; tentar renovar A de novo → 409; renovar R com R3 → tentar anular R (intermediário) → 409 (D16); anular R3 → R volta a vigente; anular R → A volta a <code>EXPIRED</code> e reaparece em <code>/expiring</code> (D12).</li>
+  <li><strong>Edição com revisão otimista (<code>PUT /:id</code>) e consulta individual (<code>GET /:id</code>):</strong> atualiza número/vencimento/observações com <code>expectedRevision = 1</code> → 200 (<code>revision = 2</code>); segundo <code>PUT</code> com <code>expectedRevision = 1</code> → 409; <code>GET /:id</code> retorna a linha do tempo com eventos <code>UPDATED</code> e <code>REGISTERED</code> em ordem decrescente e sem expor e-mail do ator.</li>
+  <li><strong>Atomicidade (Rollback em falha de auditoria):</strong> quando o <code>AuditService</code> lança erro simulado, nem o documento nem o evento em <code>fleet.vehicle_document_events</code> permanecem no banco (500).</li>
+  <li><strong>RBAC completo:</strong> <code>GESTOR</code> e <code>ADMINISTRADOR</code> → 200/201; <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code> → 403 em todas as rotas; requisição sem token → 401.</li>
+  <li><strong>Regressões da revisão:</strong> tokens anteriores à desativação e à retirada do perfil autorizado são recusados nos seis endpoints para GESTOR e ADMINISTRADOR; criação, edição e anulação revalidam a autoria na transação. Falha de auditoria em POST/PUT/PATCH preserva documento, eventos e auditoria; cadastros e renovações concorrentes retornam 201/409 sem duplicação.</li>
+</ol>
+
+<h3>9.3 Comandos de Verificação</h3>
+<pre><code># 1. Checagem de tipos e testes automatizados do backend
+cd backend &amp;&amp; npx tsc --noEmit &amp;&amp; npm test
+
+# 2. Auditoria estática de conformidade Aratu
+node docs/scripts/aratu-check.mjs</code></pre>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+<p><strong>Justificativa de tamanho para o PR:</strong> a entrega reúne a API completa de documentos e vencimentos (FROTA-69), a bateria de regressões HTTP/PostgreSQL (FROTA-167), o SDD e a documentação funcional. Os arquivos são separados por camada para permitir revisão em blocos. Inclui ainda os reparos mínimos de compilação de <code>ConfirmDialog</code> e do teste de navegação apontados na revisão; sem nova tela ou refatoração visual.</p>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-67)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivo de referência:</strong> <code>docs/modulos/FROTA.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do módulo <code>FROTA</code>. Antes de abrir o Pull Request, atualizar <code>docs/manuais/modulos.md</code> (incluindo <code>fleet.vehicle_documents</code>, <code>fleet.vehicle_document_events</code> e a rota <code>/vehicle-documents</code> na linha do módulo <code>FROTA</code>) e criar/atualizar <code>docs/modulos/FROTA.html</code> documentando os endpoints, cálculo de situação, renovação encadeada e anulação justificada.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>
