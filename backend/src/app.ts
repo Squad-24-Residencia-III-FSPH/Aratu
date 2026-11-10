@@ -34,6 +34,9 @@ import { VehicleDocumentsRepository } from './repositories/vehicle-documents.rep
 import { VehicleDocumentsService } from './services/vehicle-documents.service'
 import { DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS } from './services/vehicle-document-config.service'
 import { createVehicleDocumentsRouter } from './routes/vehicle-documents.routes'
+import { RequestDecisionsRepository } from './repositories/request-decisions.repository'
+import { RequestDecisionsService } from './services/request-decisions.service'
+import { createRequestDecisionsRouter } from './routes/request-decisions.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -112,6 +115,8 @@ export function createApp({
       ? userRepository
       : new UsersRepository(pool)
     app.use('/vehicle-documents', createVehicleDocumentsRouter(vehicleDocumentsService, jwtConfig, currentUsersRepository))
+    const requestDecisionsService = new RequestDecisionsService(new RequestDecisionsRepository(pool), auditService)
+    app.use('/requests', createRequestDecisionsRouter(requestDecisionsService, jwtConfig))
   }
   if (rolesRepository && auditService && userRepository instanceof UsersRepository) {
     const usersService = new UsersService(userRepository, rolesRepository, auditService)
