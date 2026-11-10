@@ -28,8 +28,8 @@ A documentação técnica e funcional aprofundada de cada módulo é mantida em 
 Atualmente, o repositório dispõe de um **documento genérico de referência e template** que deve ser utilizado como base sempre que um módulo do Aratu for documentado:
 
 - 📄 **[`docs/modulos/EXEMPLO_MODULO.html`](../modulos/EXEMPLO_MODULO.html)** — Template padrão de documentação de módulo do Sistema Aratu.
+- 📄 **[`docs/modulos/FROTA.html`](../modulos/FROTA.html)** — Veículos, documentos (FROTA-67), abastecimentos (FROTA-64/FROTA-65) e multas (FROTA-73/FROTA-75): contratos, RBAC, histórico, idempotência, concorrência e resultados de testes. A tela de multas pertence à FROTA-74.
 
-- 📄 **[`docs/modulos/FROTA.html`](../modulos/FROTA.html)** — Veículos e API de abastecimentos: contratos, precisão decimal, histórico, idempotência, concorrência e rollback seguro.
 
 ### O que a documentação HTML de cada módulo deve cobrir
 

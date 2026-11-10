@@ -68,7 +68,8 @@ export function createAuthMiddleware(secret: string) {
  */
 export function createCurrentUserMiddleware(users: Pick<UsersRepositoryContract, 'findById'>) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    if (!req.usuario) {
+    if (!req.usuario || !/^[1-9]\d*$/.test(req.usuario.id)
+      || BigInt(req.usuario.id) > 9223372036854775807n) {
       res.status(401).json({ erro: 'Autenticação necessária.' })
       return
     }
