@@ -7,8 +7,11 @@ import type {
   Trip,
   TripActor,
   TripDriverAccount,
+  TripConfirmation,
   TripEventType,
+  TripListFilters,
   TripOdometerReading,
+  TripSummary,
 } from '../types/trip.types'
 
 /** Contrato de persistência do agendamento e da execução, usado pelo service e por testes isolados. */
@@ -27,6 +30,8 @@ export interface TripsRepositoryContract {
   saveFinish(tripId: string, endKm: number, client: PoolClient): Promise<Trip | null>
   createOdometerReading(reading: TripOdometerReading, metadata: SchedulingEventMetadata, client: PoolClient): Promise<void>
   listDriverTrips(driverId: string): Promise<DriverTrip[]>
+  saveConfirmation(tripId: string, confirmerId: string, client: PoolClient): Promise<TripConfirmation | null>
+  listTrips(filters: TripListFilters): Promise<TripSummary[]>
 }
 
 /** Acesso parametrizado a `trip.trips`, `trip.requests`, leituras de hodômetro e seus históricos. */
@@ -261,6 +266,45 @@ export class TripsRepository implements TripsRepositoryContract {
           AND t.status IN ('SCHEDULED', 'IN_PROGRESS')
         ORDER BY t.scheduled_start ASC, t.id ASC`,
       [driverId],
+    )
+    return result.rows
+  }
+
+  /** Confirma somente se a viagem ainda estiver finalizada; responsável e hora vêm do token e do servidor. */
+  async saveConfirmation(tripId: string, confirmerId: string, client: PoolClient): Promise<TripConfirmation | null> {
+    const result = await client.query<TripConfirmation>(
+      `UPDATE trip.trips
+          SET status = 'CONFIRMED',
+              confirmed_by = $2,
+              confirmed_at = clock_timestamp(),
+              revision = revision + 1,
+              updated_at = clock_timestamp()
+        WHERE id = $1 AND status = 'FINISHED'
+        RETURNING id::text AS id, status, confirmed_by::text AS "confirmedBy", confirmed_at AS "confirmedAt", revision`,
+      [tripId, confirmerId],
+    )
+    return result.rows[0] ?? null
+  }
+
+  /** Lista viagens para conferência; `from`/`to` são datas de Aracaju sobre o início agendado (`to` inclusivo). */
+  async listTrips(filters: TripListFilters): Promise<TripSummary[]> {
+    const result = await this.pool.query<TripSummary>(
+      `SELECT t.id::text AS id, t.request_id::text AS "requestId", t.status,
+              t.scheduled_start AS "scheduledStart", t.scheduled_end AS "scheduledEnd",
+              t.started_at AS "startedAt", t.finished_at AS "finishedAt",
+              t.start_km AS "startKm", t.end_km AS "endKm",
+              v.license_plate AS "vehicleLicensePlate", d.name AS "driverName",
+              r.origin, r.destination,
+              t.confirmed_by::text AS "confirmedBy", t.confirmed_at AS "confirmedAt"
+         FROM trip.trips t
+         JOIN trip.requests r ON r.id = t.request_id
+         JOIN fleet.vehicles v ON v.id = t.vehicle_id
+         JOIN fleet.drivers d ON d.id = t.driver_id
+        WHERE ($1::text IS NULL OR t.status = $1)
+          AND ($2::date IS NULL OR t.scheduled_start >= ($2::date::timestamp AT TIME ZONE 'America/Maceio'))
+          AND ($3::date IS NULL OR t.scheduled_start < (($3::date + 1)::timestamp AT TIME ZONE 'America/Maceio'))
+        ORDER BY t.scheduled_start DESC, t.id DESC`,
+      [filters.status, filters.from, filters.to],
     )
     return result.rows
   }

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import { TripServiceError } from '../types/trip.types'
-import type { FinishTripInput, ScheduleTripInput, StartTripInput } from '../types/trip.types'
+import type { ConfirmTripInput, FinishTripInput, ScheduleTripInput, StartTripInput } from '../types/trip.types'
 import type { TripsService } from '../services/trips.service'
 
 function bodyRecord(body: unknown): Record<string, unknown> {
@@ -45,6 +45,16 @@ export function createTripsController(service: TripsService) {
 
     listMine(req: Request, res: Response, next: NextFunction): Promise<void> {
       return respondWithDomainErrors(res, next, () => service.listMyTrips(req.usuario?.id ?? ''))
+    },
+
+    confirm(req: Request, res: Response, next: NextFunction): Promise<void> {
+      const input = bodyRecord(req.body) as ConfirmTripInput
+      return respondWithDomainErrors(res, next, () => service.confirmTrip(String(req.params.id), input, req.usuario?.id ?? ''))
+    },
+
+    list(req: Request, res: Response, next: NextFunction): Promise<void> {
+      const { status, from, to } = req.query
+      return respondWithDomainErrors(res, next, () => service.listTrips({ status, from, to }))
     },
   }
 }

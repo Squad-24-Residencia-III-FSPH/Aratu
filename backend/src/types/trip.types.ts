@@ -6,7 +6,62 @@ export const SCHEDULING_STATUSES = {
   scheduled: 'SCHEDULED',
   inProgress: 'IN_PROGRESS',
   finished: 'FINISHED',
+  confirmed: 'CONFIRMED',
 } as const
+
+/** Situações possíveis de uma viagem (espelha o CHECK de `trip.trips.status`). */
+export const TRIP_STATUSES = ['SCHEDULED', 'IN_PROGRESS', 'FINISHED', 'CONFIRMED', 'CANCELED'] as const
+export type TripStatus = typeof TRIP_STATUSES[number]
+
+/** Motivo gravado no histórico quando o Gestor confirma sem justificar. */
+export const DEFAULT_CONFIRMATION_REASON = 'Viagem confirmada'
+
+/** Filtros brutos de `GET /trips` (datas `YYYY-MM-DD` sobre o início agendado). */
+export interface TripListQuery {
+  status?: unknown
+  from?: unknown
+  to?: unknown
+}
+
+/** Filtros validados da listagem de conferência. */
+export interface TripListFilters {
+  status: TripStatus | null
+  from: string | null
+  to: string | null
+}
+
+/** Item da listagem de conferência do Gestor. */
+export interface TripSummary {
+  id: string
+  requestId: string
+  status: string
+  scheduledStart: Date
+  scheduledEnd: Date
+  startedAt: Date | null
+  finishedAt: Date | null
+  startKm: number | null
+  endKm: number | null
+  vehicleLicensePlate: string
+  driverName: string
+  origin: string
+  destination: string
+  confirmedBy: string | null
+  confirmedAt: Date | null
+}
+
+/** Corpo bruto de `POST /trips/:id/confirm`. */
+export interface ConfirmTripInput {
+  reason?: unknown
+}
+
+/** Resposta da confirmação da viagem. */
+export interface TripConfirmation {
+  id: string
+  status: string
+  confirmedBy: string
+  confirmedAt: Date
+  revision: number
+}
 
 /** Motivo gravado no histórico quando o Gestor agenda sem justificar. */
 export const DEFAULT_SCHEDULING_REASON = 'Viagem agendada'
@@ -113,7 +168,7 @@ export interface SchedulingEventMetadata {
 }
 
 /** Tipos de evento de viagem gravados por esta API (subconjunto do CHECK de `trip.trip_events`). */
-export type TripEventType = 'SCHEDULED' | 'STARTED' | 'FINISHED'
+export type TripEventType = 'SCHEDULED' | 'STARTED' | 'FINISHED' | 'CONFIRMED'
 
 /** Leitura append-only de hodômetro gerada pela execução da viagem. */
 export interface TripOdometerReading {

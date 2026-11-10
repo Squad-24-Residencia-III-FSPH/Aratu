@@ -3,13 +3,21 @@ import type { AuditLogger } from '../types/audit.types'
 import { AVAILABILITY_REASONS, AvailabilityError } from '../types/availability.types'
 import type { AvailabilityReason, Period } from '../types/availability.types'
 import {
+  DEFAULT_CONFIRMATION_REASON,
   DEFAULT_EXECUTION_REASONS,
   DEFAULT_SCHEDULING_REASON,
   SCHEDULING_STATUSES,
+  TRIP_STATUSES,
   TripServiceError,
 } from '../types/trip.types'
 import type {
+  ConfirmTripInput,
   DriverTrip,
+  TripConfirmation,
+  TripListFilters,
+  TripListQuery,
+  TripStatus,
+  TripSummary,
   FinishTripInput,
   ScheduleTripInput,
   SchedulingEventMetadata,
@@ -23,7 +31,9 @@ import { parsePeriod } from './availability.service'
 import type { AvailabilityService } from './availability.service'
 
 const ID_PATTERN = /^[1-9]\d*$/
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const MAX_ODOMETER_KM = 2_147_483_647
+const MISSING_EVIDENCE_MESSAGE = 'Viagem sem evidências do odômetro não pode ser confirmada'
 const IN_PROGRESS_CONFLICT_MESSAGE = 'Já existe viagem em andamento com este veículo ou motorista.'
 
 /** Leitura da linha do tempo de hodômetro do veículo (mesma regra usada pelo abastecimento). */
@@ -56,6 +66,17 @@ function requireKm(value: unknown, field: string): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > MAX_ODOMETER_KM) {
     throw new TripServiceError(400, `${field} é obrigatório e deve ser uma quilometragem inteira não negativa.`)
   }
+  return value
+}
+
+function optionalDate(value: unknown, field: string): string | null {
+  if (value === undefined) return null
+  if (typeof value !== 'string' || !ISO_DATE_PATTERN.test(value)) {
+    throw new TripServiceError(400, `${field} deve estar no formato AAAA-MM-DD.`)
+  }
+  const [year, month, day] = value.split('-').map(Number) as [number, number, number]
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) throw new TripServiceError(400, `${field} não é uma data válida.`)
   return value
 }
 
@@ -208,6 +229,63 @@ export class TripsService {
     })
   }
 
+  /**
+   * Confirma uma viagem finalizada, encerrando o processo após a conferência do Gestor.
+   *
+   * Exige as evidências do odômetro (km inicial e final); o responsável é o usuário do token e a data
+   * vem do servidor. Viagem, evento `CONFIRMED` e auditoria são gravados na mesma transação.
+   *
+   * @throws {TripServiceError} 400 id inválido, 404 inexistente, 409 viagem não finalizada ou já confirmada,
+   *   422 sem evidências do odômetro.
+   */
+  async confirmTrip(tripId: string, input: ConfirmTripInput, managerId: string): Promise<TripConfirmation> {
+    this.validateTripId(tripId)
+    const reason = optionalReason(input.reason, DEFAULT_CONFIRMATION_REASON)
+    return this.repository.withTransaction(async (client) => {
+      const trip = await this.repository.findTripForUpdate(tripId, client)
+      if (!trip) throw new TripServiceError(404, 'Viagem não encontrada.')
+      if (trip.status !== SCHEDULING_STATUSES.finished) {
+        throw new TripServiceError(409, trip.status === SCHEDULING_STATUSES.confirmed
+          ? 'Esta viagem já foi confirmada.'
+          : 'Somente viagens finalizadas podem ser confirmadas.')
+      }
+      if (trip.startKm === null || trip.endKm === null) throw new TripServiceError(422, MISSING_EVIDENCE_MESSAGE)
+      const actor = await this.requireActor(managerId, client)
+      const confirmation = await this.repository.saveConfirmation(tripId, actor.id, client)
+      if (!confirmation) throw new TripServiceError(409, 'Esta viagem já foi confirmada.')
+      const metadata: SchedulingEventMetadata = { reportedBy: actor.name, registeredBy: actor.id, actorSnapshot: actor, reason }
+      await this.repository.createTripEvent('CONFIRMED', trip, { ...trip, status: confirmation.status, revision: confirmation.revision }, metadata, client)
+      await this.auditService.recordAudit({
+        userId: actor.id,
+        table: 'trip.trips',
+        recordId: tripId,
+        operation: 'STATUS_CHANGE',
+        before: { status: trip.status, revision: trip.revision },
+        after: { status: confirmation.status, confirmedBy: confirmation.confirmedBy, confirmedAt: confirmation.confirmedAt, revision: confirmation.revision },
+        actorSnapshot: { id: actor.id, name: actor.name, email: actor.email, role: actor.role },
+        reason,
+      }, client)
+      return confirmation
+    })
+  }
+
+  /**
+   * Lista viagens para a conferência do Gestor, filtrando por situação e período agendado (datas de Aracaju).
+   *
+   * @throws {TripServiceError} 400 situação ou datas inválidas, ou `from` posterior a `to`.
+   */
+  async listTrips(query: TripListQuery): Promise<TripSummary[]> {
+    const filters: TripListFilters = {
+      status: this.validateStatusFilter(query.status),
+      from: optionalDate(query.from, 'from'),
+      to: optionalDate(query.to, 'to'),
+    }
+    if (filters.from && filters.to && filters.from > filters.to) {
+      throw new TripServiceError(400, 'from não pode ser posterior a to.')
+    }
+    return this.repository.listTrips(filters)
+  }
+
   /** Lista as viagens agendadas e em andamento do motorista logado; sem cadastro de motorista, lista vazia. */
   async listMyTrips(userId: string): Promise<DriverTrip[]> {
     const driver = await this.repository.findDriverByUserId(userId)
@@ -263,6 +341,13 @@ export class TripsService {
     const actor = await this.repository.findActorSnapshot(userId, client)
     if (!actor) throw new TripServiceError(401, 'Usuário autenticado não está ativo ou não existe.')
     return actor
+  }
+
+  private validateStatusFilter(value: unknown): TripStatus | null {
+    if (value === undefined) return null
+    const status = TRIP_STATUSES.find((candidate) => candidate === value)
+    if (!status) throw new TripServiceError(400, `status inválido. Use: ${TRIP_STATUSES.join(', ')}.`)
+    return status
   }
 
   private validateTripId(tripId: string): void {

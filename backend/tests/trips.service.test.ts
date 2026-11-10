@@ -69,6 +69,8 @@ function setup(options: {
     async saveFinish(): Promise<Trip | null> { return null },
     async createOdometerReading(): Promise<void> {},
     async listDriverTrips(): Promise<[]> { return [] },
+    async saveConfirmation(): Promise<null> { return null },
+    async listTrips(): Promise<[]> { return [] },
   }
   const auditService: AuditLogger = {
     async recordAudit(audit): Promise<AuditEntry> {
