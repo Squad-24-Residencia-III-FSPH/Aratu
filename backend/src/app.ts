@@ -16,6 +16,9 @@ import { ProfileService } from './services/profile.service'
 import { VehiclesRepository } from './repositories/vehicles.repository'
 import { VehiclesService } from './services/vehicles.service'
 import { createVehiclesRouter } from './routes/vehicles.routes'
+import { FuelingsRepository } from './repositories/fuelings.repository'
+import { FuelingsService } from './services/fuelings.service'
+import { createFuelingsRouter } from './routes/fuelings.routes'
 import { MaintenanceOrdersRepository } from './repositories/maintenance-orders.repository'
 import { MaintenanceOrdersService } from './services/maintenance-orders.service'
 import { createMaintenanceOrdersRouter } from './routes/maintenance-orders.routes'
@@ -30,6 +33,10 @@ import { createServicesRouter } from './routes/services.routes'
 import { FinesRepository } from './repositories/fines.repository'
 import { FinesService } from './services/fines.service'
 import { createFinesRouter } from './routes/fines.routes'
+import { VehicleDocumentsRepository } from './repositories/vehicle-documents.repository'
+import { VehicleDocumentsService } from './services/vehicle-documents.service'
+import { DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS } from './services/vehicle-document-config.service'
+import { createVehicleDocumentsRouter } from './routes/vehicle-documents.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -45,6 +52,8 @@ export interface AppDependencies {
   audits?: AuditRepositoryContract
   /** Pool de conexões com o PostgreSQL 18 para instanciação dos repositórios padrão. */
   pool?: Pool
+  /** Prazo padrão de alerta de vencimento de documentos em dias corridos (padrão: 30). */
+  vehicleDocumentAlertDays?: number
 }
 
 /**
@@ -57,7 +66,14 @@ export interface AppDependencies {
  * @returns Instância configurada do aplicativo Express.
  * @throws {Error} Se nem o repositório de usuários nem o pool PostgreSQL forem informados.
  */
-export function createApp({ jwtConfig, users, roles, audits, pool }: AppDependencies) {
+export function createApp({
+  jwtConfig,
+  users,
+  roles,
+  audits,
+  pool,
+  vehicleDocumentAlertDays,
+}: AppDependencies) {
   const userRepository = users ?? (pool ? new UsersRepository(pool) : null)
   if (!userRepository) throw new Error('O repository de usuários ou o pool PostgreSQL é obrigatório.')
 
@@ -79,6 +95,8 @@ export function createApp({ jwtConfig, users, roles, audits, pool }: AppDependen
     const vehiclesRepository = new VehiclesRepository(pool)
     const vehiclesService = new VehiclesService(vehiclesRepository, auditService)
     app.use('/vehicles', createVehiclesRouter(vehiclesService, jwtConfig))
+    const fuelingsService = new FuelingsService(new FuelingsRepository(pool), vehiclesRepository, auditService)
+    app.use('/fuelings', createFuelingsRouter(fuelingsService, jwtConfig))
     const maintenanceService = new MaintenanceOrdersService(
       new MaintenanceOrdersRepository(pool), vehiclesRepository, vehiclesService, auditService,
     )
@@ -89,8 +107,17 @@ export function createApp({ jwtConfig, users, roles, audits, pool }: AppDependen
     app.use('/services', createServicesRouter(fleetServicesService, jwtConfig))
     const finesService = new FinesService(new FinesRepository(pool), vehiclesRepository,
       new DriversRepository(pool), auditService)
-    const currentUsers = userRepository instanceof UsersRepository ? userRepository : new UsersRepository(pool)
-    app.use('/fines', createFinesRouter(finesService, jwtConfig, currentUsers))
+    const vehicleDocumentsService = new VehicleDocumentsService(
+      new VehicleDocumentsRepository(pool),
+      vehiclesRepository,
+      auditService,
+      vehicleDocumentAlertDays ?? DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS,
+    )
+    const currentUsersRepository = userRepository instanceof UsersRepository
+      ? userRepository
+      : new UsersRepository(pool)
+    app.use('/fines', createFinesRouter(finesService, jwtConfig, currentUsersRepository))
+    app.use('/vehicle-documents', createVehicleDocumentsRouter(vehicleDocumentsService, jwtConfig, currentUsersRepository))
   }
   if (rolesRepository && auditService && userRepository instanceof UsersRepository) {
     const usersService = new UsersService(userRepository, rolesRepository, auditService)

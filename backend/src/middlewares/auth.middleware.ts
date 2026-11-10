@@ -57,9 +57,14 @@ export function createAuthMiddleware(secret: string) {
 }
 
 /**
- * Revalida a conta antes do RBAC para revogar tokens de contas inativas ou com perfil alterado.
- * @param users - Consulta ao cadastro atual, sem confiar no perfil histórico do token.
- * @returns Middleware a encadear após o JWT; falhas de persistência seguem ao Express 5.
+ * Revalida a conta após a assinatura do JWT, usando o cadastro atual para a autorização.
+ *
+ * Impede que tokens anteriores à desativação ou à troca de perfil conservem acesso.
+ * Deve ser encadeado depois da autenticação JWT e antes de `authorizeRoles`.
+ *
+ * @param users - Consulta cadastral sem acesso a credenciais.
+ * @returns Middleware que atualiza `req.usuario.perfil` ou responde 401 para conta indisponível.
+ * @remarks Falhas de persistência seguem para o tratamento global do Express 5.
  */
 export function createCurrentUserMiddleware(users: Pick<UsersRepositoryContract, 'findById'>) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -70,7 +75,9 @@ export function createCurrentUserMiddleware(users: Pick<UsersRepositoryContract,
     }
     const user = await users.findById(req.usuario.id)
     if (!user?.active) {
-      res.status(401).json({ erro: 'Sua conta não está ativa. Entre novamente ou procure a administração.' })
+      res.status(401).json({
+        erro: 'Sua conta não está ativa. Entre novamente ou procure a administração.',
+      })
       return
     }
     req.usuario = { id: user.id, perfil: user.role }

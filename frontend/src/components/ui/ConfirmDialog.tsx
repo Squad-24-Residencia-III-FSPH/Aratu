@@ -1,6 +1,5 @@
 import { useId } from 'react'
 import type { ReactNode } from 'react'
-import type { SxProps, Theme } from '@mui/material/styles'
 import {
   Button,
   Dialog,
@@ -26,10 +25,13 @@ export interface ConfirmDialogProps {
   loadingLabel?: string
   confirmColor?: ButtonProps['color']
   autoFocusCancel?: boolean
+  /** Estilos do diálogo, incluindo ajustes de controles dos fluxos que o reutilizam. */
   paperSx?: SxProps<Theme>
   actionsSx?: SxProps<Theme>
   cancelSx?: SxProps<Theme>
   confirmSx?: SxProps<Theme>
+  /** Permite que o domínio aplique seus tokens de contraste também ao diálogo portado. */
+  sx?: SxProps<Theme>
 }
 
 /** Diálogo de confirmação acessível, com foco preso e fechamento por `Esc`. */
@@ -48,6 +50,7 @@ export default function ConfirmDialog({
   loadingLabel = 'Processando...',
   confirmColor,
   autoFocusCancel = false,
+  sx,
   paperSx,
   actionsSx,
   cancelSx,

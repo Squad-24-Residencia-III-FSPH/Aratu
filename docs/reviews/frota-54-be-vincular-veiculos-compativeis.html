@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-54 — [BE] Vincular veículos compatíveis ao tipo de serviço (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-54: [BE] Vincular veículos compatíveis ao tipo de serviço</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-54</code> — [BE] Vincular veículos compatíveis ao tipo de serviço</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/be-vincular-veiculos-compativeis</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-54-be-vincular-veiculos-compativeis.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>FROTA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-11-09</p>
+</div>
+
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA
+</div>
+
+<div class="meta-block">
+  <p><strong>Observação de escopo:</strong> a revisão foi feita sobre a <em>working tree</em> (nenhum commit criado ainda), pois <code>git diff develop...HEAD</code> está vazio. A migration foi aplicada e validada no PostgreSQL 18 de desenvolvimento e de testes; a API foi exercitada em <code>http://localhost:3000</code> com 24 verificações aprovadas.</p>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">2</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">11</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">4</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/database/migrations/202611090001_add_vehicle_services_active_revision.sql</code></td>
+      <td>Banco de dados</td>
+      <td>Novo</td>
+      <td>Adiciona <code>is_active</code> e <code>revision</code> a <code>fleet.vehicle_services</code> e cria o índice parcial <code>fleet_vehicle_services_by_active_service</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/database/migrations/202611090001_add_vehicle_services_active_revision.down.sql</code></td>
+      <td>Banco de dados</td>
+      <td>Novo</td>
+      <td>Rollback transacional das colunas e do índice.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/types/fleet-service.types.ts</code></td>
+      <td>Contratos</td>
+      <td>Modificado</td>
+      <td><code>CompatibleVehiclesView</code>, <code>ReplaceCompatibleVehiclesInput</code> e <code>SERVICE_AUDIT_OPERATIONS.compatibilityChange</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/services.repository.ts</code></td>
+      <td>Persistência</td>
+      <td>Modificado</td>
+      <td><code>VEHICLE_PROJECTION</code>, consulta de compatíveis com <code>JOIN</code>, trava de vínculos, ativação/desativação, incremento de revisão e <code>EXISTS</code> de vínculo ativo.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/fleet-services.service.ts</code></td>
+      <td>Regra de negócio</td>
+      <td>Modificado</td>
+      <td><code>listCompatibleVehicles</code>, <code>replaceCompatibleVehicles</code>, <code>isVehicleCompatible</code> e validadores do vínculo.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/services.controller.ts</code></td>
+      <td>Borda HTTP</td>
+      <td>Modificado</td>
+      <td><code>listVehicles</code> e <code>replaceVehicles</code> reutilizando <code>respondWithDomainErrors</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/routes/services.routes.ts</code></td>
+      <td>Borda HTTP</td>
+      <td>Modificado</td>
+      <td><code>GET</code> e <code>PUT /services/:id/vehicles</code> sob <code>SERVICE_MANAGER_ROLES</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/fleet-services.service.test.ts</code></td>
+      <td>Testes</td>
+      <td>Modificado</td>
+      <td>Repositório fake alinhado ao contrato e 5 testes de compatibilidade (12 no arquivo).</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/database.integration.test.ts</code></td>
+      <td>Testes</td>
+      <td>Modificado</td>
+      <td>IT16 passa a executar o <code>.down.sql</code> novo antes do drop de <code>fleet.vehicle_services</code>.</td>
+    </tr>
+    <tr>
+      <td><code>docs/plans/frota-54-be-vincular-veiculos-compativeis.html</code></td>
+      <td>Documentação</td>
+      <td>Novo</td>
+      <td>SDD da tarefa com as 12 seções preenchidas.</td>
+    </tr>
+    <tr>
+      <td><code>docs/modulos/FROTA.html</code></td>
+      <td>Documentação</td>
+      <td>Modificado</td>
+      <td>Versão, endpoints de compatibilidade, nota de RBAC, colunas e índice parcial.</td>
+    </tr>
+    <tr>
+      <td><code>docs/reviews/frota-54-be-vincular-veiculos-compativeis.html</code></td>
+      <td>Documentação</td>
+      <td>Novo</td>
+      <td>Este relatório.</td>
+    </tr>
+    <tr>
+      <td><code>backend/package-lock.json</code> e <code>frontend/src/components/ui/ConfirmDialog.tsx</code></td>
+      <td>Fora do escopo</td>
+      <td>Modificado (acidental)</td>
+      <td>Ruído de <code>npm</code>/<code>sudo</code> e edição local em andamento. <strong>Não devem entrar no commit da FROTA-54.</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>470 linhas em 7 arquivos de código + 3 novos (2 migrations e o SDD). Acima do limite de 400, justificado por ser a feature completa (DDL + repositório + service + borda + testes + documentação). Sem refatoração estrutural alheia ao requisito.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Branch <code>feat/be-vincular-veiculos-compativeis</code> criada de <code>develop</code> atualizado. Ainda sem commits: o commit sugerido é <code>feat(frota): vincular veiculos compativeis (FROTA-54)</code>.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-ok">🟢 OK</span></td><td>RF01–RF07 do SDD atendidos e verificados na API real. Sem tela, sem uso no agendamento (FROTA-96) e sem histórico por par — todos explicitamente fora de escopo.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Rotas apenas encadeiam middlewares; controller só traduz HTTP; toda a regra (diff de vínculos, revisão, auditoria) está em <code>fleet-services.service.ts</code>; 100% do SQL está em <code>services.repository.ts</code>. Service não importa Express.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Subtarefa <em>backend</em>: nenhum arquivo em <code>frontend/src/</code> faz parte do diff.</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Dependências apontam apenas para <code>types/</code> e <code>repositories/</code>; nenhuma flag ou variável de ambiente nova.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Todas as queries usam placeholders posicionais, inclusive <code>id = ANY($1::bigint[])</code>. O único template literal é <code>VEHICLE_PROJECTION</code>, constante estática de colunas (não recebe entrada).</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td><td><span class="badge-ok">🟢 OK</span></td><td><code>VEHICLE_PROJECTION</code> lista colunas com aliases <code>camelCase</code>; <code>WHERE vs.service_id = $1 AND vs.is_active = true</code> usa o índice parcial novo; <code>ORDER BY v.license_plate</code>; uma query com <code>JOIN</code>, sem N+1 na listagem.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-ok">🟢 OK</span></td><td><code>withTransaction</code> faz <code>BEGIN/COMMIT/ROLLBACK</code> com <code>release()</code> no <code>finally</code>. O serviço é travado com <code>findByIdForUpdate</code>, os vínculos com <code>FOR UPDATE</code> e os veículos com <code>FOR SHARE</code>. Teste real de concorrência: 200 + 409.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (Schemas Nativos <code>auth</code>, <code>fleet</code>, etc., tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Migration aditiva em <code>fleet.vehicle_services</code> (já no padrão), colunas <code>snake_case</code>, <code>CHECK (revision &gt; 0)</code>, índice <code>fleet_vehicle_services_by_active_service</code> e DDL transacional com rollback testado (IT16).</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-ok">🟢 OK</span></td><td><code>authorizeRoles(SERVICE_MANAGER_ROLES)</code> nos dois verbos. Verificado na API: <code>401</code> sem token, <code>403</code> para SOLICITANTE e ATENDENTE_SVO, <code>200</code> para ADMINISTRADOR e GESTOR.</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>Testes, SDD e bateria manual usam apenas placas e ids fictícios (<code>SVO1A01</code>, <code>ABC1D23</code>, contas <code>@example.test</code>). Auditoria não expõe dados pessoais.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td><code>npx tsc --noEmit</code> sem erros. Contrato do repositório tipado com <code>Vehicle</code>, <code>FleetServiceMutationResult</code> e <code>PoolClient</code>.</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Métodos <code>listCompatibleVehicles</code>, <code>replaceCompatibleVehicles</code>, <code>isVehicleCompatible</code>; TSDoc em português com <code>@throws</code> mapeado; mensagens ao usuário em português claro.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem tela nesta subtarefa.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-na">⚪ N/A</span></td><td>Sem formulário nesta subtarefa. Por analogia, as mensagens de erro da API são textuais, específicas e sem detalhe interno (WCAG 3.3.1/3.3.3).</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem interface nesta subtarefa; o contrato JSON é estável para a futura UI.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado no diff da FROTA-54.</em></p>
+<p><strong>Fora do escopo (herdado da base/ambiente, não bloqueia esta tarefa):</strong></p>
+<ul>
+  <li><code>frontend/src/components/ui/ConfirmDialog.tsx</code> já está quebrado em <code>develop</code>: usa <code>SxProps</code>/<code>Theme</code> sem importá-los e declara <code>sx</code> duas vezes na desestruturação. O <code>tsc</code> do frontend falha por isso, não pela FROTA-54. Correção pertence a uma branch <code>fix/</code> própria.</li>
+  <li><code>frontend/node_modules</code> está com dono <code>root</code> (execuções com <code>sudo npm</code>), o que gera <code>EACCES</code> em <code>node_modules/.vite</code> e <code>node_modules/.tmp</code> e derruba as 6 suítes de teste do frontend por erro de ambiente, não por asserção.</li>
+</ul>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<ol>
+  <li>
+    <strong>Tamanho do diff (C1):</strong> 470 linhas alteradas. É uma feature completa (migration, repositório, service, borda, testes e documentação), sem refatoração alheia; justificativa aceitável, mas convém registrar no PR.
+  </li>
+  <li>
+    <strong>Ruído na working tree (C2):</strong> <code>backend/package-lock.json</code> (perdeu <code>"peer": true</code> do <code>pg</code> por efeito do <code>npm</code> com <code>sudo</code>) e <code>frontend/src/components/ui/ConfirmDialog.tsx</code> (edição local inacabada). <strong>Não devem ser incluídos no commit</strong>: <code>git checkout -- backend/package-lock.json</code> e deixar o frontend para a branch de correção.
+  </li>
+</ol>
+
+<h3>3.3 Observações Arquiteturais (sem impacto no merge)</h3>
+<ol>
+  <li>
+    <strong><code>isVehicleCompatible</code> sem cliente transacional:</strong> hoje consulta o <code>pool</code> fora de transação. Quando a FROTA-96 usar a regra para decidir uma alocação, a checagem pode correr em paralelo com um <code>PUT</code> que desative o vínculo. Recomendação para a FROTA-96: aceitar <code>client?: PoolClient</code> e travar o serviço na mesma transação do agendamento — não implementar agora (YAGNI).
+  </li>
+  <li>
+    <strong><code>GET</code> sem snapshot único:</strong> a revisão e a lista de veículos vêm de duas consultas independentes; um <code>PUT</code> concorrente pode devolver revisão N com lista de N+1. Impacto baixo (leitura gerencial), mas pode ser unificado em uma única query ou transação se a UI exigir consistência estrita.
+  </li>
+  <li>
+    <strong><code>fleet.vehicle_services.revision</code> não é exposta:</strong> a coluna é incrementada e preserva a história do par, mas não aparece no contrato. Se a UI precisar de concorrência por vínculo, será preciso devolvê-la — hoje é apenas rastreabilidade.
+  </li>
+</ol>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática e Regras Aratu</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-warn">🟡 1 achado</span> — backend sem violações; o único 🔴 é a suíte do frontend (arquivo <code>ConfirmDialog.tsx</code> quebrado na base + <code>EACCES</code> em <code>node_modules</code>), fora do diff da FROTA-54.</td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript — Backend</td>
+      <td><code>npx tsc --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Passou</span> — zero erros.</td>
+    </tr>
+    <tr>
+      <td>Testes automatizados — Backend</td>
+      <td><code>npm test</code></td>
+      <td><span class="badge-ok">🟢 Passou</span> — 221 testes, 0 falhas (inclui os 5 novos de compatibilidade e o IT16 com o rollback da migration nova).</td>
+    </tr>
+    <tr>
+      <td>Migration no PostgreSQL 18</td>
+      <td><code>npm run db:migrate</code></td>
+      <td><span class="badge-ok">🟢 Passou</span> — <code>202611090001</code> aplicada; colunas <code>is_active</code>/<code>revision</code> e índice parcial confirmados por consulta a <code>information_schema</code> e <code>pg_indexes</code>.</td>
+    </tr>
+    <tr>
+      <td>Bateria de API (RBAC, domínio, concorrência)</td>
+      <td><code>GET/PUT /services/:id/vehicles</code> em <code>localhost:3000</code></td>
+      <td><span class="badge-ok">🟢 Passou</span> — 24 verificações: 200/400/401/403/404/409 conforme contrato, revinculo sem duplicata e concorrência 200+409.</td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript — Frontend</td>
+      <td><code>npx tsc -b --noEmit</code></td>
+      <td><span class="badge-warn">🟡 Herdado</span> — falha em <code>ConfirmDialog.tsx</code> (arquivo não pertence à tarefa) e <code>EACCES</code> em <code>node_modules/.tmp</code>.</td>
+    </tr>
+    <tr>
+      <td>Testes automatizados — Frontend</td>
+      <td><code>node --test tests/*.test.mjs</code></td>
+      <td><span class="badge-warn">🟡 Ambiente</span> — 82 passam, 6 falham ao criar o servidor Vite por <code>EACCES</code> em <code>node_modules/.vite</code> (dono <code>root</code>). Nenhuma asserção falhou.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul class="check">
+  <li><input type="checkbox"> Decidir o comportamento com veículo que ficou <code>INACTIVE</code> <strong>depois</strong> de vinculado: hoje um <code>PUT</code> que o mantenha na lista retorna <code>400</code>. Confirmar se a regra estrita é a desejada pela FSPH/SVO.</li>
+  <li><input type="checkbox"> Reverter o ruído da working tree antes do commit (<code>backend/package-lock.json</code>) e <strong>não</strong> incluir <code>frontend/src/components/ui/ConfirmDialog.tsx</code>, que pertence a uma correção separada.</li>
+  <li><input type="checkbox"> Aplicar <code>npm run db:migrate</code> no ambiente de cada desenvolvedor e no CI antes de exercitar os endpoints — sem a migration, <code>GET/PUT /services/:id/vehicles</code> retorna <code>500</code> (coluna <code>is_active</code> ausente).</li>
+  <li><input type="checkbox"> Validar a interface quando a tela de compatibilidade existir (outra subtarefa da US06): 5 estados visuais, teclado, <code>:focus-visible</code>, alvos de 44×44px e responsividade em 1024×768, 1280×800, 375×667 e 320×568.</li>
+  <li><input type="checkbox"> Conferir a regra no agendamento (FROTA-96) usando <code>isVehicleCompatible</code> e, se houver decisão de alocação, avaliar a versão transacional sugerida na seção 3.3.</li>
+</ul>
+
+</body>
+</html>

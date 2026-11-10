@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FROTA — Gestão da frota e multas (Sistema Aratu)</title>
+  <title>FROTA — Documentos, abastecimentos e multas (Sistema Aratu)</title>
   <style>
     :root {
       --brand-strong: #075985;
@@ -62,20 +62,429 @@
       pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
       thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
     }
+      body { overflow-wrap: anywhere; }
+    .tableScroll { overflow-x: auto; }
+    .tableScroll:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+    section { margin-top: 2rem; }
   </style>
 </head>
 <body>
-<h1>FROTA — Gestão da frota e multas</h1>
+<h1>FROTA — Documentos, abastecimentos e multas</h1>
+<div class="meta-block"><p><strong>Integração:</strong> 09/11/2026 · develop fbaa22c + FROTA-73/FROTA-75.</p><p>Documentação dos módulos integrada sem excluir os contratos ou as evidências anteriores. Resultados históricos abaixo se referem às datas e versões indicadas em cada seção.</p></div>
+<nav aria-label="Áreas do módulo"><ul><li><a href="#documents">Veículos e documentos</a></li><li><a href="#fuelings">Abastecimentos</a></li><li><a href="#fines">Multas e infrações</a></li></ul></nav>
+<p id="integration-validation"><strong>Validação da integração em 09/11/2026:</strong> develop fbaa22c integrada à US10 com <strong>248/248 testes backend e 110 testes frontend aprovados</strong>, sem falhas ou skips; builds, typechecks e pré-auditoria passaram. A regressão backend conclusiva usou a base nova aratu_us10_merge_20261109_test, pois a aratu_test reutilizada tinha controle de migrations incompatível com suas colunas de abastecimentos. Nenhuma migration ou escrita operacional foi feita. As correções recebidas da develop resolveram as falhas de frontend registradas historicamente em 08/11. O código de domínio e os testes de multas foram preservados. <a href="../tests/frota-73-75-integracao-develop-20261109.md">Relatório da integração, evidências e limitações</a>.</p>
+<main>
+<section id="documents">
+<h2>FROTA — Documentação Técnica e Funcional</h2>
+
+<div class="meta-block">
+  <p><strong>Módulo (chave):</strong> <code>FROTA</code></p>
+  <p><strong>Índice de referência:</strong> <code>docs/manuais/modulos.md</code></p>
+  <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/</code>, <code>backend/src/controllers/</code>, <code>backend/src/services/</code>, <code>backend/src/repositories/</code></p>
+  <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/</code>, <code>frontend/src/components/</code>, <code>frontend/src/services/</code></p>
+  <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (schema nativo <code>fleet</code>)</p>
+  <p><strong>Versão da documentação:</strong> 2026-11-09 (inclui <code>FROTA-43</code>, <code>FROTA-45</code>, <code>FROTA-53</code>, <code>FROTA-54</code> e <code>FROTA-67</code>)</p>
+</div>
+
+<hr>
+
+<h3>1. Visão Geral</h3>
+<p>O módulo <strong>FROTA</strong> concentra o cadastro, a disponibilidade operacional e o controle de regularidade documental dos veículos e tipos de serviço da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e do <strong>Serviço de Verificação de Óbito (SVO)</strong>. Abrange três subdomínios principais:</p>
+<ol>
+  <li><strong>Veículos (<code>/vehicles</code>):</strong> cadastro de viaturas administrativas e do SVO, capacidades (assentos, corpos, carga), regime de propriedade e máquina de estados de situação (<code>AVAILABLE</code>, <code>IN_MAINTENANCE</code>, <code>INACTIVE</code>).</li>
+  <li><strong>Catálogo de Tipos de Serviço (<code>/services</code>):</strong> configuração de serviços de transporte institucional e remoção cadavérica, exigências de triagem, peso e identificação. A compatibilidade veículo × serviço é mantida por <code>GET</code> e <code>PUT /services/:id/vehicles</code> (FROTA-54): o <code>PUT</code> substitui integralmente a lista, exige <code>expectedRevision</code> e <code>reason</code>, recusa veículo inexistente ou <code>INACTIVE</code> (<code>400</code>) e grava auditoria; o vínculo usa desativação lógica (<code>is_active</code>) sem exclusão física.</li>
+  <li><strong>Documentos de Veículos (<code>/vehicle-documents</code> — FROTA-67 / US09):</strong> gestão de documentos obrigatórios e contratuais (CRLV, licenciamento, IPVA, seguro, contrato de locação e outros), alerta preventivo de vencimentos, encadeamento de renovações (<code>supersedesId</code>) e anulação justificada sem exclusão física.</li>
+</ol>
+
+<hr>
+
+<h3>2. Regras de Negócio e Transições de Estado</h3>
+<ul>
+  <li><strong>Máquina de estados do veículo (<code>VehiclesService::changeVehicleStatusInTransaction</code>):</strong> <code>AVAILABLE ↔ IN_MAINTENANCE</code>, <code>AVAILABLE ↔ INACTIVE</code> e <code>IN_MAINTENANCE → INACTIVE</code>. A liberação manual para <code>AVAILABLE</code> é recusada (<code>422</code>) enquanto houver ordem de manutenção impeditiva ativa.</li>
+  <li><strong>Situação calculada de documentos (<code>VehicleDocumentsService</code> / <code>resolveVehicleDocumentStatus</code>):</strong> nunca é persistida como coluna estática; é derivada na camada de serviço no fuso da FSPH (<code>America/Maceio</code>) com a seguinte ordem de precedência:
+    <ol>
+      <li><span class="badge-status">ANNULLED</span> — documento anulado justificadamente (<code>isAnnulled = true</code>);</li>
+      <li><span class="badge-status">RENEWED</span> — documento substituído por renovação ativa não anulada (<code>supersededById !== null</code>);</li>
+      <li><span class="badge-status">EXPIRED</span> — vigente com <code>expiresAt &lt; hoje</code> (no dia do vencimento o documento ainda é válido);</li>
+      <li><span class="badge-status">EXPIRING</span> — vigente com <code>hoje ≤ expiresAt ≤ hoje + alertDays</code> (intervalo inclusivo);</li>
+      <li><span class="badge-status">VALID</span> — vigente com <code>expiresAt &gt; hoje + alertDays</code>.</li>
+    </ol>
+  </li>
+  <li><strong>Prazo de alerta configurável (<code>loadVehicleDocumentAlertDays</code>):</strong> definido pela variável de ambiente <code>VEHICLE_DOCUMENT_ALERT_DAYS</code> (padrão <code>30</code> dias, inteiro <code>1..365</code>) e sobrescritível por consulta via query param <code>GET /vehicle-documents/expiring?days=N</code>.</li>
+  <li><strong>Renovação encadeada e reversão automática (<code>VehicleDocumentsService::create</code> e <code>annul</code>):</strong> informar <code>supersedesId</code> no <code>POST /vehicle-documents</code> exige mesmo veículo e mesmo tipo de documento, não anulado e ainda não superado (<code>409</code>). O documento anterior passa a <code>RENEWED</code> e sai dos alertas sem ser apagado. Caso uma renovação seja anulada por erro de lançamento, o documento anterior volta automaticamente a ser vigente; em cadeia <code>A ← R ← R3</code>, é proibido anular o intermediário <code>R</code> enquanto <code>R3</code> estiver ativo (<code>409</code>).</li>
+  <li><strong>Prevenção de duplicidade e concorrência:</strong> toda mutação trava primeiro o veículo (<code>SELECT ... FOR UPDATE</code> em <code>fleet.vehicles</code>) e depois o documento, impedindo duplicidade de documento não anulado com mesmo <code>(vehicle_id, document_type, expires_at)</code> (<code>409</code>) e exigindo revisão otimista (<code>expectedRevision</code>) em edições e anulações.</li>
+</ul>
+
+<hr>
+
+<h3>3. Escopo de Impacto e Matriz de Acesso (RBAC)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Perfil RBAC</th>
+      <th scope="col"><code>/vehicles</code></th>
+      <th scope="col"><code>/services</code></th>
+      <th scope="col"><code>/vehicle-documents</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Leitura e escrita completas</td>
+      <td>Leitura (ativos/inativos) e escrita</td>
+      <td>Leitura, alerta, cadastro, renovação, edição e anulação</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">GESTOR</span></td>
+      <td>Leitura e escrita completas</td>
+      <td>Leitura (ativos/inativos) e escrita</td>
+      <td>Leitura, alerta, cadastro, renovação, edição e anulação</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td>Somente leitura (<code>GET</code>)</td>
+      <td>Somente leitura de ativos (<code>GET</code>)</td>
+      <td>Negado (<code>403</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td>Negado (<code>403</code>)</td>
+      <td>Somente leitura de ativos (<code>GET</code>)</td>
+      <td>Negado (<code>403</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">MOTORISTA</span> / <span class="badge-rbac">EQUIPE_SVO</span></td>
+      <td>Negado (<code>403</code>)</td>
+      <td>Negado (<code>403</code>)</td>
+      <td>Negado (<code>403</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<blockquote>A compatibilidade veículo × serviço (<code>GET</code> e <code>PUT /services/:id/vehicles</code>, FROTA-54) é restrita a <span class="badge-rbac">ADMINISTRADOR</span> e <span class="badge-rbac">GESTOR</span>. Os demais perfis recebem <code>403</code>, inclusive <code>SOLICITANTE</code> e <code>ATENDENTE_SVO</code>, que continuam podendo consultar apenas o catálogo ativo em <code>GET /services</code>. A regra de compatibilidade é consumida internamente pelo agendamento (FROTA-96).</blockquote>
+
+<hr>
+
+<h3>4. Tabelas do Banco de Dados (PostgreSQL 18 — Schema <code>fleet</code>)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Tabela</th>
+      <th scope="col">Descrição Funcional</th>
+      <th scope="col">Colunas-Chave</th>
+      <th scope="col">Constraints e Índices</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-tabela">fleet.vehicles</span> / <span class="badge-tabela">fleet.vehicle_events</span></td>
+      <td>Cadastro vigente da viatura e trilha imutável de eventos de criação, edição e mudança de situação</td>
+      <td><code>id</code>, <code>license_plate</code>, <code>ownership</code>, <code>categories</code>, <code>seats</code>, <code>body_limit</code>, <code>operation_type</code>, <code>status</code>, <code>revision</code></td>
+      <td>Índice único <code>fleet_vehicles_license_plate_upper_unique</code>; trigger append-only em <code>fleet.vehicle_events</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.services</span> / <span class="badge-tabela">fleet.vehicle_services</span></td>
+      <td>Catálogo de tipos de serviço da FSPH/SVO e vínculo com viaturas, com desativação lógica da compatibilidade</td>
+      <td><code>fleet.services</code>: <code>id</code>, <code>name</code>, <code>categories</code>, <code>requires_triage</code>, <code>requires_weight</code>, <code>requires_identification</code>, <code>active</code>, <code>revision</code> · <code>fleet.vehicle_services</code>: <code>id</code>, <code>vehicle_id</code>, <code>service_id</code>, <code>is_active</code>, <code>revision</code>, <code>created_at</code></td>
+      <td>Índice único <code>fleet_services_name_lower_unique</code>; par único <code>fleet_vehicle_services_pair_unique (vehicle_id, service_id)</code>; índice parcial <code>fleet_vehicle_services_by_active_service</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.vehicle_documents</span></td>
+      <td>Documentos obrigatórios e contratuais por veículo, com encadeamento de renovação e anulação lógica</td>
+      <td><code>id</code>, <code>vehicle_id</code>, <code>document_type</code>, <code>document_number</code>, <code>issued_at</code>, <code>expires_at</code>, <code>notes</code>, <code>supersedes_id</code>, <code>is_annulled</code>, <code>annulment_reason</code>, <code>vehicle_snapshot</code>, <code>created_by</code>, <code>revision</code></td>
+      <td>CHECK <code>fleet_vehicle_documents_dates_valid</code> (<code>expires_at &gt;= issued_at</code>); índices <code>fleet_vehicle_documents_by_expiration</code>, <code>fleet_vehicle_documents_by_vehicle</code> e <code>fleet_vehicle_documents_by_supersedes</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">fleet.vehicle_document_events</span></td>
+      <td>Livro append-only de eventos de documentos (<code>REGISTERED</code>, <code>RENEWED</code>, <code>UPDATED</code>, <code>ANNULLED</code>)</td>
+      <td><code>id</code>, <code>vehicle_document_id</code>, <code>event_type</code>, <code>occurred_at</code>, <code>registered_at</code>, <code>reported_by</code>, <code>registered_by</code>, <code>actor_snapshot</code>, <code>reason</code>, <code>before_state</code>, <code>after_state</code></td>
+      <td>Trigger <code>fleet_vehicle_document_events_append_only</code> bloqueando <code>UPDATE</code> e <code>DELETE</code>; índice <code>fleet_vehicle_document_events_by_document</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h3>5. Contratos de API REST — Documentos de Veículos (<code>/vehicle-documents</code>)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Método</th>
+      <th scope="col">Endpoint</th>
+      <th scope="col">Controller / Service</th>
+      <th scope="col">Resumo do Contrato</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/vehicle-documents</code></td>
+      <td><code>list</code> → <code>VehicleDocumentsService::list</code></td>
+      <td>Filtros opcionais <code>vehicleId</code>, <code>documentType</code>, <code>status</code> (<code>VALID | EXPIRING | EXPIRED | RENEWED | ANNULLED</code>) → <code>200 OK</code> <code>{ referenceDate, alertDays, items }</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/vehicle-documents/expiring</code></td>
+      <td><code>listExpiring</code> → <code>VehicleDocumentsService::listExpiring</code></td>
+      <td>Query opcional <code>?days=1..365</code> → <code>200 OK</code> com documentos vigentes <code>EXPIRED</code> e <code>EXPIRING</code> de veículos ativos (exclui veículos <code>INACTIVE</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/vehicle-documents/:id</code></td>
+      <td><code>getById</code> → <code>VehicleDocumentsService::getById</code></td>
+      <td>Retorna <code>200 OK</code> com o documento e sua linha do tempo <code>events</code> (omitindo e-mail do ator por LGPD) ou <code>404</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/vehicle-documents</code></td>
+      <td><code>create</code> → <code>VehicleDocumentsService::create</code></td>
+      <td>Cria documento ou renovação (quando <code>supersedesId</code> é informado) → <code>201 Created</code> ou <code>400/404/409</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">PUT</span></td>
+      <td><code>/vehicle-documents/:id</code></td>
+      <td><code>update</code> → <code>VehicleDocumentsService::updateDocument</code></td>
+      <td>Corrige número, emissão, vencimento e observações com <code>expectedRevision</code>, <code>reportedBy</code> e <code>reason</code> → <code>200 OK</code> ou <code>400/404/409</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">PATCH</span></td>
+      <td><code>/vehicle-documents/:id/annul</code></td>
+      <td><code>annul</code> → <code>VehicleDocumentsService::annul</code></td>
+      <td>Anula documento não superado com <code>expectedRevision</code>, <code>reportedBy</code> e <code>reason</code> → <code>200 OK</code> ou <code>409</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h3>6. Arquivos Principais de Documentos de Veículos (FROTA-67)</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Caminho do Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Responsabilidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/types/vehicle-document.types.ts</code></td>
+      <td>Types / DTOs</td>
+      <td>Constantes de tipos e situações, contratos de entrada/saída, linha do tempo e <code>VehicleDocumentServiceError</code></td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/vehicle-document-config.service.ts</code></td>
+      <td>Service (Config)</td>
+      <td>Validação fail-fast de <code>VEHICLE_DOCUMENT_ALERT_DAYS</code> (padrão 30 dias, intervalo 1..365)</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/vehicle-documents.service.ts</code></td>
+      <td>Service</td>
+      <td>Cálculo de situação, regras de renovação, duplicidade, revisão otimista, anulação e auditoria transacional</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/vehicle-documents.repository.ts</code></td>
+      <td>Repository</td>
+      <td>Consultas SQL parametrizadas em <code>fleet.vehicle_documents</code> e <code>fleet.vehicle_document_events</code></td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/vehicle-documents.controller.ts</code></td>
+      <td>Controller</td>
+      <td>Tradução HTTP Request/Response e formatação de erros em <code>{ erro }</code></td>
+    </tr>
+    <tr>
+      <td><code>backend/src/routes/vehicle-documents.routes.ts</code></td>
+      <td>Routes</td>
+      <td>Proteção JWT, consulta da conta atual e RBAC (<code>GESTOR</code>, <code>ADMINISTRADOR</code>); conta inativa recebe 401 e perfil atual não autorizado recebe 403 mesmo com token anterior</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/vehicle-documents.service.test.ts</code></td>
+      <td>Testes Unitários</td>
+      <td>Testes isolados de cálculo de situação, configuração, validações e cadeia de renovação/anulação</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/vehicle-documents.integration.test.ts</code></td>
+      <td>Testes de Integração</td>
+      <td>Suíte HTTP + PostgreSQL 18 (<code>IT-DOC-01</code> a <code>IT-DOC-11</code>, <code>FROTA-167</code>), incluindo revogação de acesso, rollback de POST/PUT/PATCH e concorrência de cadastros/renovações</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+<section id="fuelings">
+<h2>FROTA — Veículos e abastecimentos</h2>
+<div class="meta-block"><p><strong>Contexto:</strong> Squad 24 · FSPH / SVO</p>
+<p><strong>Atualização:</strong> 05/11/2026 · FROTA-64 e FROTA-65</p>
+<p><strong>Backend:</strong> Express 5 / TypeScript / pg. <strong>Banco:</strong> PostgreSQL 18, schemas fleet, trip e audit.</p>
+<p><strong>Frontend existente:</strong> VehiclesPage. Interface de abastecimentos: FROTA-66, fora desta entrega.</p>
+<p><strong>Referências:</strong> <a href="../manuais/modulos.md">Índice de módulos</a> · <a href="../plans/frota-64-api-abastecimentos-testes.html">SDD de abastecimentos</a></p>
+</div>
+<nav aria-label="Sumário"><ol><li><a href="#s1">Visão geral</a></li>
+<li><a href="#s2">Regras de negócio</a></li>
+<li><a href="#s3">Acesso</a></li>
+<li><a href="#s4">Banco de dados</a></li>
+<li><a href="#s5">Contratos REST</a></li>
+<li><a href="#s6">Camadas</a></li>
+<li><a href="#s7">Interface e acessibilidade</a></li>
+<li><a href="#s8">Arquivos</a></li>
+<li><a href="#s9">Integrações e proteção de dados</a></li>
+</ol>
+</nav>
+<hr><h3 id="s1">1. Visão geral</h3>
+<p>O módulo mantém o cadastro e a situação dos veículos e permite ao Gestor e ao Administrador registrar gastos com combustível, consultar totais e retificar informações preservando todo o histórico. Serviços e vínculos de veículos têm estrutura de banco; esta entrega não implementa sua API.</p>
+<hr><h3 id="s2">2. Regras de negócio e preservação histórica</h3>
+<ol><li>Veículos: placa única, capacidades e operação validadas em VehiclesService. Cadastro, alteração e situação gravam evento e auditoria na mesma transação. Transições: AVAILABLE → IN_MAINTENANCE/INACTIVE; IN_MAINTENANCE → AVAILABLE/INACTIVE; INACTIVE → AVAILABLE.</li>
+<li>FuelingsService::create exige veículo, instante com fuso, combustível, litros, valor e km. Valida a existência do veículo e motorista sem condicionar lançamentos históricos à sua situação atual.</li>
+<li>Litros e reais usam strings decimais positivas, até 7 dígitos inteiros/3 casas e 10 dígitos inteiros/2 casas, respectivamente. Excesso de escala, números JSON, vírgula e notação científica são recusados; não há arredondamento silencioso. O banco soma NUMERIC, sem ponto flutuante.</li>
+<li>Quilometragem é inteiro entre zero e 2.147.483.647. Leituras anteriores fornecem o maior limite inferior; posteriores, o menor limite superior. No mesmo instante, km deve coincidir. Data futura e fronteira violada retornam 422.</li>
+<li>Refinamento confirmado no SDD: registro retroativo de 51.200 km entre 51.000 e 52.000 é válido, mesmo com a leitura posterior já lançada. Isso detalha a frase antiga do Jira sobre a última leitura.</li>
+<li>FuelingsService::rectify insere nova versão com supersedesId e revision incrementada. Veículo permanece o mesmo; campos editáveis omitidos são preservados e null limpa somente opcionais. Mesmo a correção apenas do posto cria versão e leitura retificadora.</li>
+<li>Cada ato exige reportedBy, reason e evidenceDescription ou attachmentUrl HTTP(S). Autor vem da sessão e do cadastro autenticado; snapshots antigos não são reconstruídos. Ao trocar motorista, a nova versão captura somente id e nome funcional do novo vínculo.</li>
+<li>GET detalhe mantém exatamente o ID solicitado e retorna toda a cadeia e os eventos. Listagem/totais contam apenas pontas não anuladas; um sucessor anulado nunca ressuscita o predecessor.</li>
+<li>Mutações usam VehiclesRepository::withTransaction e a ordem de travas veículo → versão. Fato, leitura, evento e AuditService::recordAudit usam o mesmo cliente. Qualquer falha provoca rollback completo.</li>
+<li>Idempotency-Key UUID é obrigatória no POST e PUT. Mesma chave, autor, operação, alvo e entrada normalizada devolvem a versão original, inclusive após correções posteriores. Outra entrada com a chave retorna 409. O PUT distingue campos omitidos de null.</li>
+<li>Legado: leituras vigentes são prioritárias. Abastecimentos sem leitura e km de viagens sem trilha START/END contribuem usando somente fueled_at, started_at e finished_at. Instante real ausente, ciclos ou vínculos incompatíveis geram 409 na mutação afetada, sem correção destrutiva.</li>
+<li>Consulta de coleção, paginação e totais usam uma instrução SQL e a mesma fotografia do banco. A ordem é fueledAt decrescente e id numérico decrescente.</li>
+</ol>
+<hr><h3 id="s3">3. Escopo de impacto e acesso (RBAC)</h3>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Perfil</th><th scope="col">Veículos</th><th scope="col">Abastecimentos: quatro endpoints</th></tr>
+</thead>
+<tbody><tr><td>ADMINISTRADOR / GESTOR</td><td>Consulta e escrita</td><td>Consulta, cadastro e retificação</td></tr>
+<tr><td>ATENDENTE_SVO</td><td>Consulta</td><td>403</td></tr>
+<tr><td>MOTORISTA / SOLICITANTE / EQUIPE_SVO</td><td>Sem acesso à API de veículos</td><td>403</td></tr>
+<tr><td>Sem token ou token inválido</td><td>401</td><td>401</td></tr>
+</tbody>
+</table>
+</div>
+<p>Autenticação precede autorização e consulta de existência. driverId registra um vínculo funcional e não concede acesso. Não há flag ou novo perfil.</p>
+<hr><h3 id="s4">4. Banco de dados (PostgreSQL 18)</h3>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Tabela</th><th scope="col">Grão e colunas relevantes</th><th scope="col">Integridade e índices</th></tr>
+</thead>
+<tbody><tr><td>fleet.vehicles / fleet.vehicle_events</td><td>Cadastro vigente e eventos imutáveis com autoria, motivo e before/after.</td><td>PK BIGINT IDENTITY; placa única; revisão e FK com RESTRICT.</td></tr>
+<tr><td>fleet.fuelings</td><td>Uma versão imutável do fato. vehicle_id, driver_id, fueled_at, liters NUMERIC(10,3), total_value NUMERIC(12,2), odometer_km, snapshots, metadados, supersedes_id e revision.</td><td>FKs ON DELETE RESTRICT; combustível por CHECK; valores positivos; índices por veículo/data, motorista/data e predecessor.</td></tr>
+<tr><td>fleet.fueling_events</td><td>Uma mudança: RECORDED ou RECTIFIED pela API; legado também admite UPDATED/ANNULLED. occurred_at, registered_at, informante, autor, justificativa, evidência e before_state/after_state.</td><td>Trigger append-only; índice por abastecimento e instante.</td></tr>
+<tr><td>trip.odometer_readings</td><td>Uma leitura operacional ou sua retificação. reading_type=FUELING, fueling_id, supersedes_id, veículo, km e instantes.</td><td>Trigger append-only; índices por veículo/data e abastecimento/data.</td></tr>
+<tr><td>audit.logs</td><td>Uma auditoria CREATE/UPDATE da operação de negócio, com o ID da nova versão, snapshots e motivo.</td><td>Mesma transação das demais trilhas.</td></tr>
+<tr><td>fleet.drivers / trip.trips</td><td>Fontes de vínculo funcional e cronologia legada.</td><td>Somente leitura no fluxo de abastecimentos.</td></tr>
+</tbody>
+</table>
+</div>
+<h4>Migração complementar 202611050001_extend_fuelings</h4>
+<p>Adiciona request_key UUID e request_payload JSONB, nulos no legado, com CHECK de preenchimento conjunto. Cria índices únicos fleet_fuelings_request_key (created_by, request_key) e fleet_fuelings_one_successor (supersedes_id) e trigger que impede UPDATE/DELETE no fato. Ramificações antigas bloqueiam a migração sem perda de dados. O runner registra a versão e reexecuta sem duplicar.</p>
+<p><strong>Rollback:</strong> a down remove somente esta extensão antes do uso operacional. Após qualquer registro com request_key/request_payload, recusa a reversão; reverta somente a aplicação e preserve schema e histórico. Não executar a down original da tabela. Não há backfill de autoria, evidência ou horários.</p>
+<hr><h3 id="s5">5. Contratos REST</h3>
+<p>Rotas na raiz, sem prefixo /api. Bearer token obrigatório. IDs BIGINT são strings, instantes são ISO 8601, valores decimais são strings. Erros seguem <code>{"erro":"mensagem orientadora"}</code>.</p>
+<p><strong>Precisão temporal:</strong> <code>fueledAt</code>, <code>from</code> e <code>to</code> aceitam até seis casas fracionárias com fuso. A normalização para UTC preserva os microssegundos do PostgreSQL e mantém três casas quando a fração adicional é zero. PUT sem <code>fueledAt</code> preserva o instante exato, inclusive em legado; cronologia, filtros, ordenação e idempotência usam essa mesma precisão. A data futura é comparada ao relógio do serviço sem arredondamento.</p>
+<p><strong>Versão vigente:</strong> <code>currentId</code> identifica a única ponta sem sucessora na cadeia de <code>supersedesId</code>, independentemente da ordem numérica de <code>revision</code> no legado. A revisão continua protegendo a versão alvo da retificação. Lista e detalhe concordam sobre a ponta vigente.</p>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Método e rota</th><th scope="col">Entrada</th><th scope="col">Resposta</th></tr>
+</thead>
+<tbody><tr><td>GET /vehicles</td><td>status?, category?, operationType?</td><td>200 Vehicle[]</td></tr>
+<tr><td>GET /vehicles/:id</td><td>ID</td><td>200 Vehicle</td></tr>
+<tr><td>POST /vehicles</td><td>CreateVehicleInput e metadados</td><td>201 Vehicle</td></tr>
+<tr><td>PUT /vehicles/:id</td><td>UpdateVehicleInput e expectedRevision</td><td>200 Vehicle</td></tr>
+<tr><td>PATCH /vehicles/:id/status</td><td>status, expectedRevision e metadados</td><td>200 Vehicle</td></tr>
+<tr><td>GET /fuelings</td><td>vehicleId?, driverId?, from?, to?, page?=1, pageSize?=20 (máximo 100). Intervalo [from,to); from &lt; to. Filtros combinados por AND.</td><td>200 {items,total,page,pageSize,totalPages,totalLiters,totalValue}. Totais do filtro inteiro, mesmo fora da página. Vazio: [], total=0, totalPages=0, "0.000" e "0.00".</td></tr>
+<tr><td>GET /fuelings/:id</td><td>ID de qualquer versão</td><td>200 {fueling,currentId,versions,events}; fueling é o ID solicitado, não a versão mais recente.</td></tr>
+<tr><td>POST /fuelings</td><td>Idempotency-Key UUID e CreateFuelingInput</td><td>201 FuelingVersion; replay mantém versão e status originais.</td></tr>
+<tr><td>PUT /fuelings/:id</td><td>Idempotency-Key UUID, expectedRevision, metadados novos e campos editáveis opcionais</td><td>200 FuelingVersion com NOVO id, supersedesId=alvo e revisão incrementada. Usar o novo ID nas próximas correções.</td></tr>
+</tbody>
+</table>
+</div>
+<h4>DTOs de abastecimentos</h4>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Campo</th><th scope="col">Contrato</th></tr>
+</thead>
+<tbody><tr><td>vehicleId</td><td>String positiva obrigatória na criação; proibida no PUT.</td></tr>
+<tr><td>driverId</td><td>String positiva opcional/nula; deve existir quando informada.</td></tr>
+<tr><td>fueledAt</td><td>Obrigatório na criação; data real com Z/offset; até milissegundos; editável.</td></tr>
+<tr><td>fuelType</td><td>GASOLINE, ETHANOL, DIESEL, DIESEL_S10, GNV, FLEX ou OTHER.</td></tr>
+<tr><td>liters / totalValue</td><td>Obrigatórios na criação, strings positivas; resposta com escalas 3 e 2.</td></tr>
+<tr><td>odometerKm</td><td>Número inteiro obrigatório na criação, não negativo.</td></tr>
+<tr><td>station / notes</td><td>Opcionais/nulos; trim, sem conteúdo vazio.</td></tr>
+<tr><td>reportedBy / reason</td><td>Textos obrigatórios em toda mutação; não herdar na retificação.</td></tr>
+<tr><td>evidenceDescription / attachmentUrl</td><td>Ao menos um em toda mutação; URL HTTP(S) é armazenada, sem download ou upload pelo backend.</td></tr>
+<tr><td>expectedRevision</td><td>Inteiro positivo obrigatório somente no PUT.</td></tr>
+<tr><td>Campos do servidor</td><td>id, createdBy, snapshots, timestamps, revision, supersedesId, isAnnulled. Proibido enviá-los para controlar o histórico.</td></tr>
+<tr><td>FuelingVersion</td><td>Dados do fato, metadados, instantes, autoria, snapshots, revision, supersedesId e anulação. request_key/request_payload não são públicos. Campos legados desconhecidos permanecem null.</td></tr>
+<tr><td>FuelingHistoryEvent</td><td>id, fuelingId, eventType, occurredAt, registeredAt, reportedBy, registeredBy, actorSnapshot, reason, evidência, beforeState, afterState, supersedesId e isAnnulled.</td></tr>
+</tbody>
+</table>
+</div>
+<h4>Erros de abastecimentos</h4>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">HTTP</th><th scope="col">Significado</th></tr>
+</thead>
+<tbody><tr><td>400</td><td>Formato/campo inválido, valor não positivo, chave ausente, filtro repetido ou campo de controle.</td></tr>
+<tr><td>401 / 403</td><td>Autenticação / autorização.</td></tr>
+<tr><td>404</td><td>Abastecimento, veículo ou motorista inexistente.</td></tr>
+<tr><td>409</td><td>Revisão obsoleta, alvo substituído/anulado, chave divergente ou histórico inconsistente/incompleto.</td></tr>
+<tr><td>422</td><td>Data futura ou km incompatível com a sequência cronológica.</td></tr>
+<tr><td>500</td><td>Falha inesperada, com rollback e sem detalhes internos na resposta.</td></tr>
+</tbody>
+</table>
+</div>
+<pre><code>POST /fuelings
+Idempotency-Key: 4a804230-53ea-49c4-b942-2b2bc7cdb662
+{ "vehicleId": "101", "fueledAt": "2026-11-04T10:00:00-03:00",
+  "fuelType": "DIESEL_S10", "liters": "40.500", "totalValue": "250.00",
+  "odometerKm": 51200, "station": "Posto Fictício QA",
+  "reportedBy": "Equipe Fictícia QA", "reason": "Registro fictício de teste",
+  "evidenceDescription": "Comprovante fictício QA-001" }</code></pre>
+<hr><h3 id="s6">6. Camadas de negócio e persistência</h3>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Elemento</th><th scope="col">Responsabilidade</th></tr>
+</thead>
+<tbody><tr><td>createFuelingsRouter / createFuelingsController</td><td>Cadeia autenticação → RBAC → service. Traduz códigos de domínio para HTTP.</td></tr>
+<tr><td>FuelingsService</td><td>list, getById, create e rectify: validação, relógio injetável, cronologia e transação. Não depende de Express nem SQL.</td></tr>
+<tr><td>FuelingsRepository</td><td>Filtros, NUMERIC, versões, eventos, fontes cronológicas, replay e CTEs recursivos protegidos contra ciclos.</td></tr>
+<tr><td>VehiclesRepository / AuditService</td><td>Reuso de transação, trava por veículo, snapshot autenticado e auditoria.</td></tr>
+<tr><td>fueling.types.ts</td><td>DTOs e erros com códigos semânticos.</td></tr>
+<tr><td>VehiclesService / VehiclesRepository</td><td>Cadastro e situação de veículos, preservados por esta entrega.</td></tr>
+</tbody>
+</table>
+</div>
+<hr><h3 id="s7">7. Interface e acessibilidade</h3>
+<p>A página de veículos existente usa VehiclesPage, VehicleFormDialog e VehicleStatusDialog e o cliente vehiclesService. Nenhum arquivo frontend foi modificado por FROTA-64/FROTA-65. A interface de abastecimentos pertence à FROTA-66: foco, teclado, alvos de toque, cinco estados visuais e anúncios precisam ser validados nessa tarefa.</p>
+<p>A API oferece vazio explícito, mensagens orientadoras em português e reenvio idempotente para recuperação após perda de resposta. Exemplo: “Este abastecimento já foi corrigido, anulado ou alterado. Consulte a versão atual antes de continuar.” Não foram realizados testes visuais da futura interface.</p>
+<hr><h3 id="s8">8. Arquivos principais</h3>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tabela; use as setas para rolar em telas estreitas"><table><thead><tr><th scope="col">Camada</th><th scope="col">Arquivos</th></tr>
+</thead>
+<tbody><tr><td>Rotas e borda HTTP</td><td>backend/src/routes/fuelings.routes.ts; backend/src/controllers/fuelings.controller.ts; backend/src/app.ts</td></tr>
+<tr><td>Domínio e contratos</td><td>backend/src/services/fuelings.service.ts; backend/src/types/fueling.types.ts</td></tr>
+<tr><td>Persistência</td><td>backend/src/repositories/fuelings.repository.ts; backend/src/database/migrations/202611050001_extend_fuelings.sql e .down.sql</td></tr>
+<tr><td>Validação</td><td>backend/tests/fuelings.service.test.ts; backend/tests/fuelings.integration.test.ts; backend/tests/fueling-migrations.integration.test.ts; backend/tests/database.integration.test.ts (compatibilidade das reversões)</td></tr>
+</tbody>
+</table>
+</div>
+<hr><h3 id="s9">9. Dependências, integrações e proteção de dados</h3>
+<p>Integração com veículos, motoristas, viagens e auditoria. Escritores futuros de hodômetro/viagens precisam adquirir a mesma trava de fleet.vehicles antes de ler limites e gravar leituras. A API de viagens ainda não existe nesta base; a garantia de concorrência não cobre escritores externos que ignorem esse protocolo.</p>
+<p>Reutiliza DATABASE_URL, DATABASE_URL_TEST e JWT existentes, sem dependências ou serviços novos. Snapshots do motorista contêm somente id e nome; autoria e evidências ficam restritas ao Gestor e Administrador. Nunca incluir dados reais em testes ou exemplos. URLs de comprovantes não são acessadas pelo servidor.</p>
+<h4>Validação FROTA-65</h4>
+<p>Suíte com banco PostgreSQL 18 dedicado: cadastro, valores, filtros/totais, RBAC, retificação, preservação byte a byte, idempotência, concorrência sob lock, legado e falhas transacionais. Migrações usam um segundo banco exclusivo de teste para aplicação, repetição, ramificação e rollback seguro. Dados integralmente fictícios.</p>
+<h4>Correções e validação em 06/11/2026</h4><p>R1–R3 corrigidos e cobertos por três regressões de integração e dois casos adicionais de domínio. A suíte completa passou com <strong>133 testes backend e 80 testes frontend</strong>, zero falhas; pré-auditoria, TypeScript e build backend aprovados. A validação independente foi solicitada em novo chat. As evidências anteriores abaixo foram preservadas como histórico.</p><h4>Evidências iniciais em 05/11/2026</h4>
+<p>Suíte completa: <strong>128 testes backend e 80 testes frontend passaram, sem falhas</strong>. TypeScript backend/frontend, lint, builds de produção e pré-auditoria estática aprovados (zero bloqueantes e zero alertas). A migração e os fluxos de erro foram exercitados somente em bancos dedicados de teste. Nenhuma alteração frontend compõe esta entrega.</p>
+<p>Foi necessário atualizar os testes existentes de rollback para desfazer a extensão de abastecimentos antes de remover a tabela original e para verificar sua nova imutabilidade. As demais regras de negócio foram preservadas.</p>
+<h4>Medição de consultas</h4>
+<p>PostgreSQL 18.6 local em Docker, EXPLAIN (ANALYZE, BUFFERS), 100 veículos, 20.004 versões de abastecimento e 10.000 leituras fictícias. Cache aquecido por uma execução anterior; valores observados, sem garantia de tempo em produção.</p>
+<div class="tableScroll" tabindex="0" role="region" aria-label="Tempos medidos das consultas"><table><thead><tr><th scope="col">Consulta</th><th scope="col">Execução</th><th scope="col">Blocos em cache</th></tr>
+</thead>
+<tbody><tr><td>Coleção filtrada por veículo e período, página de 20</td><td>2.366 ms</td><td>206</td></tr>
+<tr><td>Coleção global e totais NUMERIC, página de 20</td><td>111.809 ms</td><td>422</td></tr>
+<tr><td>Histórico com cinco versões</td><td>0.941 ms</td><td>30</td></tr>
+<tr><td>Cronologia por veículo com fontes legadas e leituras</td><td>31.943 ms</td><td>31857</td></tr>
+</tbody>
+</table>
+</div>
+<p>A consulta filtrada usou fleet_fuelings_by_vehicle e fleet_fuelings_one_successor. Histórico e cronologia reutilizaram os índices existentes de veículo, vínculo, predecessor e PK. Não foi adicionado índice de performance sem demanda medida; os dois novos índices são restrições de unicidade. A consulta global soma todo o filtro; seu custo cresce com o volume.</p>
+</section>
+<section id="fines">
+<h2>FROTA — Gestão da frota e multas</h2>
 <div class="meta-block">
 <p><strong>Atualizado:</strong> 08/11/2026 · FSPH / SVO · FROTA-73 e FROTA-75</p>
 <p><strong>Base:</strong> develop / c9899b8 · branch feat/us10-gerenciar-multas · alterações locais ainda sem commit.</p>
 <p><strong>Backend:</strong> Express 5, TypeScript e PostgreSQL 18; rotas, controllers, services e repositories em backend/src.</p>
 <p><strong>Escopo desta atualização:</strong> API de multas e testes automatizados. Tela de multas: FROTA-74, entregue separadamente.</p>
 </div>
-<h2>1. Visão Geral</h2>
+<h3>1. Visão Geral</h3>
 <p>O módulo reúne veículos, serviços e registro de infrações da frota. A API de multas permite registrar notificações, identificar ou retirar o motorista, consultar viagens candidatas e acompanhar recurso, pagamento, cancelamento e reabertura com rastreabilidade. A associação de um motorista depende de confirmação do gestor e não é uma conclusão automática de culpabilidade.</p>
 <p>Veículos e serviços permanecem nas APIs /vehicles e /services. A documentação de <a href="MANUTENCOES.html">manutenção</a> preserva os contratos de /maintenance-orders e sua interface existente. Esta entrega não depende dos arquivos da FROTA-67.</p>
-<h2>2. Regras de Negócio e Transições de Estado</h2>
+<h3>2. Regras de Negócio e Transições de Estado</h3>
 <ul>
 <li><strong>FinesService::create:</strong> exige veículo, instante da infração com fuso, código, descrição, valor, reportedBy, reason e evidenceDescription. Motorista, viagem, local, vencimento e observações são opcionais. Valores desconhecidos permanecem null.</li>
 <li><strong>Moeda:</strong> string decimal com exatamente duas casas, de "0.00" a "9999999999.99". Validação em centavos inteiros; não aceitar número JSON, vírgula, sinal ou arredondamento implícito.</li>
@@ -94,7 +503,7 @@
 <tr><td>Mesmo estado</td><td>Sem transição</td><td>Revisão vigente: no-op; revisão antiga: 409.</td></tr>
 </tbody></table>
 <p>Toda transição exige origem, justificativa e evidência. PAID exige paidAt, usado como instante do evento; occurredAt opcional deve representar o mesmo instante. Outros destinos exigem occurredAt e não aceitam paidAt. CANCELED usa reason como motivo do cancelamento. Não há rota DELETE.</p>
-<h2>3. Escopo de Impacto e Matriz de Acesso (RBAC)</h2>
+<h3>3. Escopo de Impacto e Matriz de Acesso (RBAC)</h3>
 <table><thead><tr><th scope="col">Perfil/condição</th><th scope="col">Multas</th><th scope="col">Demais capacidades da frota</th></tr></thead><tbody>
 <tr><td>GESTOR e ADMINISTRADOR ativos</td><td>Todas as seis rotas.</td><td>Gestão de veículos, serviços e manutenção.</td></tr>
 <tr><td>SOLICITANTE e ATENDENTE_SVO</td><td>403 em todas as rotas.</td><td>Leitura de serviços ativos; ATENDENTE_SVO também consulta veículos.</td></tr>
@@ -103,7 +512,7 @@
 <tr><td>Perfil alterado após emitir JWT</td><td>Autorizar pelo perfil atual.</td><td>Revalidação nova é encadeada somente em /fines.</td></tr>
 </tbody></table>
 <p>Pipeline das multas: JWT → createCurrentUserMiddleware → RBAC → controller → service. Erro na consulta de conta interrompe a operação com 500 genérico; não há fallback para o perfil do token.</p>
-<h2>4. Tabelas do Banco de Dados (PostgreSQL 18)</h2>
+<h3>4. Tabelas do Banco de Dados (PostgreSQL 18)</h3>
 <table><thead><tr><th scope="col">Tabela</th><th scope="col">Grão e colunas</th><th scope="col">Integridade</th></tr></thead><tbody>
 <tr><td>fleet.fines</td><td>Estado vigente de uma multa. id BIGINT identity; vehicle_id obrigatório; driver_id/trip_id opcionais; amount NUMERIC(12,2); due_at DATE; instantes TIMESTAMPTZ; revision; snapshots JSONB; creation_key UUID nullable.</td><td>FKs RESTRICT; valor não negativo; status controlado; cancelamento exige motivo. Índices por veículo/data, motorista/data, viagem, status/vencimento. Índice único parcial (created_by, creation_key).</td></tr>
 <tr><td>fleet.fine_events</td><td>Um acontecimento confirmado. fine_id, event_type, occurred_at, registered_at, reported_by, registered_by, actor_snapshot, reason, evidence_description, attachment_url, supersedes_id, before_state e after_state.</td><td>Trigger recusa UPDATE/DELETE. FKs RESTRICT; índice por multa/instante e supersedes_id.</td></tr>
@@ -111,7 +520,7 @@
 <tr><td>fleet.vehicles, fleet.drivers, trip.trips, auth.users/roles</td><td>Referências cadastrais, viagens institucionais e conta/perfil atuais.</td><td>A API de multas não muda disponibilidade nem dados de viagens.</td></tr>
 </tbody></table>
 <p>A FROTA-72 permanece intacta. A extensão 202611080001 adiciona somente creation_key e índice. Registros antigos mantêm chave/snapshots nulos, sem preenchimento retroativo. O down funciona antes do uso e recusa remover a chave após cadastro/evento que a utilize. Após uso, reverter somente a aplicação e corrigir adiante.</p>
-<h2>5. Contratos de API REST (Backend Express 5)</h2>
+<h3>5. Contratos de API REST (Backend Express 5)</h3>
 <table><thead><tr><th scope="col">Método/rota</th><th scope="col">Entrada</th><th scope="col">Resposta</th></tr></thead><tbody>
 <tr><td>GET /fines</td><td>vehicleId?, driverId?, status?, from?, to?</td><td>200 { items: Fine[] }; filtros AND e intervalo [from,to); ordenação infractionAt DESC, id DESC.</td></tr>
 <tr><td>GET /fines/driver-suggestions</td><td>vehicleId e infractionAt</td><td>200 { items: FineDriverSuggestion[] }; nenhuma escolha automática.</td></tr>
@@ -137,12 +546,12 @@ Idempotency-Key: 11111111-1111-4111-8111-111111111173
   "evidenceDescription": "Documento fictício de teste"
 }</code></pre>
 <p>Autenticação Bearer obrigatória. Contratos tipados completos: <a href="../../backend/src/types/fine.types.ts">fine.types.ts</a>. Veículos: /vehicles (GET, GET /:id, POST, PUT /:id, PATCH /:id/status). Serviços: /services (GET, GET /:id, POST, PUT /:id, PATCH /:id/activate e /:id/deactivate). Manutenção permanece documentada <a href="MANUTENCOES.html">no módulo próprio</a>.</p>
-<h2>6. Camadas de Negócio e Persistência (Backend)</h2>
+<h3>6. Camadas de Negócio e Persistência (Backend)</h3>
 <p>FinesController valida estrutura HTTP/query e traduz códigos de domínio; FinesService concentra validações, FSM, snapshots, replay e coordenação atômica. FinesRepository reúne SQL parametrizado e projeções públicas. VehiclesRepository fornece transação e locks; DriversRepository fornece cadastro; AuditService grava a trilha no mesmo PoolClient. Sem ORM, pacote novo, feature flag ou dependência de documentos.</p>
-<h2>7. Interface e Acessibilidade (Frontend React 19 + WCAG 2.2 AA)</h2>
+<h3>7. Interface e Acessibilidade (Frontend React 19 + WCAG 2.2 AA)</h3>
 <p>A FROTA-74 entregará a tela. Esta entrega oferece mensagens textuais orientadoras e contratos para estados ideal, carregando, vazio, erro e parcial na sugestão. Nenhuma conformidade visual, teclado, contraste ou leitor de tela é certificada por testes de backend. A interface deve preservar formulário em erro, confirmar candidatos e tratar conflitos 409 sem sobrescrever dados.</p>
 <p>O frontend já existente possui falhas anteriores à US10 no ConfirmDialog: imports duplicados e referência sx sem declaração. A checagem global também aponta três suítes de frontend com falha. Esses arquivos são idênticos ao HEAD c9899b8 e não foram modificados nesta entrega.</p>
-<h2>8. Arquivos Principais (Referência Rápida)</h2>
+<h3>8. Arquivos Principais (Referência Rápida)</h3>
 <ul>
 <li><a href="../../backend/src/types/fine.types.ts">backend/src/types/fine.types.ts</a> — contratos e FSM.</li>
 <li><a href="../../backend/src/repositories/fines.repository.ts">backend/src/repositories/fines.repository.ts</a> — persistência e timeline pública.</li>
@@ -152,9 +561,9 @@ Idempotency-Key: 11111111-1111-4111-8111-111111111173
 <li><a href="../../backend/src/database/migrations/202611080001_add_fine_creation_key.sql">202611080001_add_fine_creation_key.sql</a> e .down.sql — extensão compatível.</li>
 <li><a href="../../backend/tests/fines.service.test.ts">fines.service.test.ts</a>, <a href="../../backend/tests/fines.integration.test.ts">fines.integration.test.ts</a> e <a href="../../backend/tests/auth.test.ts">auth.test.ts</a> — testes FROTA-75.</li>
 </ul>
-<h2>9. Dependências, Integrações e Proteção de Dados (LGPD)</h2>
+<h3>9. Dependências, Integrações e Proteção de Dados (LGPD)</h3>
 <p>Requer infraestrutura FROTA-72 e PostgreSQL real. Consulta somente viagens institucionais; ordens SVO não são candidatas e não recebem novos vínculos pela API. Snapshots privados de autoria preservam id/nome/e-mail/perfil internamente; respostas projetam somente id/nome/perfil. CPF, CNH, e-mail do autor, passageiros e dados SVO não fazem parte da projeção pública, inclusive no before/after de eventos legados. Os exemplos e testes são integralmente fictícios.</p>
-<h2>10. Testes automatizados — FROTA-75</h2>
+<h3>10. Testes automatizados — FROTA-75</h3>
 <p>node:test, assert/strict, tsx, fetch e PostgreSQL 18. Banco exclusivo de testes confirmado pelo nome, diferente do banco operacional antes de qualquer limpeza. Fixtures RBAC renovadas por cenário, sem credenciais nos relatórios. Servidores locais em portas efêmeras e pools fechados ao final.</p>
 <p>Os casos IT-FINE-01 a 19 estão mapeados nos nomes das suítes de integração e complementados pelos unitários: moeda/calendário/contrato, registro opcional, sugestões e confirmação, retificação, matriz de situação, filtros, conta atual/RBAC, replay, concorrência com locks reais, rollback de auditoria/eventos, privacidade, imutabilidade, legado e down protegido. Testes de autenticação preservam os mocks de login que implementam apenas findByEmail.</p>
 <pre><code>cd backend
@@ -171,4 +580,7 @@ node docs/scripts/aratu-check.mjs</code></pre>
 <p><strong>Limitação global:</strong> aratu-check continua com exit 1 por falhas preexistentes do frontend, idêntico ao HEAD: build/typecheck do ConfirmDialog e uso de sx pelo MaintenanceDetailDialog; três suítes falham (driversPage, sidebarNavigation, userManagementPage), enquanto 91 testes frontend passam. Não houve violação estática nova apontada nos caminhos efetivamente lidos; o auditor omite app.ts por recortar seu caminho incorretamente, e esse arquivo foi conferido diretamente. Backend validado não significa pipeline global aprovado. A interface de multas, responsividade e WCAG visual não foram certificadas; pertencem à FROTA-74.</p>
 <p><a href="../tests/frota-73-75-validacao-multas.md">Relatório independente das duas tarefas</a>, com matriz IT-FINE-01 a 19, comandos, limites e evidências. Logs locais desta etapa: .tmp/frota-73-75-qa-backend-tests.log, .tmp/frota-73-75-qa-p3-tests.log, .tmp/frota-73-75-qa-http.log e .tmp/frota-73-75-qa-audit.log. Os relatórios originais de revisão foram preservados, com hashes SHA-256 iguais antes/depois. Sem commit ou push.</p>
 <p>Código → padrões do projeto, compatibilidade, atomicidade, DRY e YAGNI · dúvidas: nenhuma pendente.</p>
-</body></html>
+</section>
+</main>
+</body>
+</html>

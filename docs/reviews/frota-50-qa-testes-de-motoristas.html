@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Revisão de Código — FROTA-50 — [QA] Testes de motoristas (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .verdict-approved { background: #dcfce7; border: 2px solid #86efac; border-left: 6px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1.05rem; font-weight: 700; color: #166534; }
+    .verdict-blocked { background: #fee2e2; border: 2px solid #fca5a5; border-left: 6px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1.05rem; font-weight: 700; color: #991b1b; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 20px 0 26px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px; text-align: center; }
+    .summary-card .count { font-size: 1.8rem; font-weight: 700; display: block; line-height: 1.2; font-family: var(--font-mono); }
+    .summary-card .label { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-50: [QA] Testes de motoristas</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-50</code> — [QA] Testes de motoristas</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/qa-testes-de-motoristas</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <a href="../plans/frota-50-qa-testes-de-motoristas.html"><code>docs/plans/frota-50-qa-testes-de-motoristas.html</code></a></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>MOTORISTAS</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR, MOTORISTA</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-11-07</p>
+</div>
+
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA (Com 2 Recomendações de Atenção)
+</div>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">2</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">12</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">3</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/tests/drivers.integration.test.ts</code></td>
+      <td>Testes / QA Backend</td>
+      <td>Modificado (+509 / -82)</td>
+      <td>Consolidação e expansão da suíte de testes de integração da API de motoristas: elevação de 7 para 14 cenários aprofundados cobrindo cadastro rastreável com auditoria, validação algorítmica de CPF, unicidade, bloqueio de CNH vencida (422), filtros com escape de curingas SQL, consulta de detalhes (400/404), edição com concorrência otimista (<code>expectedRevision</code> e 409), transição de situação idempotente, vínculo/desvinculação de conta de usuário, disponibilidade cadastral (<code>isAvailableForAllocation</code>), matriz RBAC completa dos 6 perfis, corridas paralelas via <code>Promise.all</code> (locks <code>FOR UPDATE</code>), atomicidade com rollback em falha de ator e ausência de exclusão física (404 no DELETE).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/ui/ConfirmDialog.tsx</code></td>
+      <td>Componentes UI (React 19)</td>
+      <td>Modificado (+3 / -1)</td>
+      <td>Inclusão explícita da propriedade <code>sx?: SxProps&lt;Theme&gt;</code> na interface <code>ConfirmDialogProps</code> e destruturação no componente, sanando inconsistência de tipagem onde <code>sx={sx}</code> já era repassado ao componente <code>Dialog</code> do Material UI sem declaração prévia na interface TypeScript.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/tests/sidebarNavigation.test.mjs</code></td>
+      <td>Testes / Frontend</td>
+      <td>Modificado (+6 / -4)</td>
+      <td>Correção cirúrgica de bloco de assertivas duplicadas decorrente de resolução prévia incorreta de conflito de merge em <code>develop</code>, restabelecendo a execução com 100% de sucesso da suíte de navegação lateral.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>C1</code></td>
+      <td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td>
+      <td><span class="badge-warn">🟡 Atenção</span></td>
+      <td>O diff em <code>backend/tests/drivers.integration.test.ts</code> possui 591 linhas modificadas. Como se trata da expansão de uma suíte completa de testes de integração cobrindo 14 cenários ponta a ponta com banco real, o volume é plenamente justificado. Contudo, há inclusão de 2 arquivos de frontend (<code>ConfirmDialog.tsx</code> e <code>sidebarNavigation.test.mjs</code>) que, embora corrijam erros herdados de <code>develop</code>, estão fora do escopo estrito de QA de motoristas da <code>FROTA-50</code>.</td>
+    </tr>
+    <tr>
+      <td><code>C2</code></td>
+      <td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td>
+      <td><span class="badge-warn">🟡 Atenção</span></td>
+      <td>A branch <code>feat/qa-testes-de-motoristas</code> foi criada a partir de <code>develop</code> e segue a convenção Gitflow. No entanto, as alterações auditadas ainda residem na <em>working tree</em> (sem commits registrados em relação à <code>develop</code>). É mandatória a criação do commit seguindo o padrão Conventional Commits (ex: <code>test(motoristas): expandir suite de testes de integracao (FROTA-50)</code>) antes do PR.</td>
+    </tr>
+    <tr>
+      <td><code>C3</code></td>
+      <td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Todos os 14 cenários funcionais e de concorrência especificados em <code>docs/plans/frota-50-qa-testes-de-motoristas.html</code> foram integralmente implementados sem acréscimo de escopo especulativo.</td>
+    </tr>
+    <tr>
+      <td><code>C4</code></td>
+      <td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Nenhum arquivo de produção foi alterado. Os testes exercitam a API Express 5 preservando o isolamento de camadas: rotas autenticadas, controllers delegando para services e repositories concentrando o acesso ao PostgreSQL 18.</td>
+    </tr>
+    <tr>
+      <td><code>C5</code></td>
+      <td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>O componente base <code>ConfirmDialog.tsx</code> teve apenas sua tipagem alinhada com as props aceitas, preservando os design tokens de <code>src/theme.ts</code> e sem introduzir estilizações globais ou desvios de padrão.</td>
+    </tr>
+    <tr>
+      <td><code>C6</code></td>
+      <td>Ausência de ciclos de importação e feature flags não autorizadas</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Zero ciclos de importação detectados. Nenhuma feature flag ou variável de ambiente não autorizada foi criada.</td>
+    </tr>
+    <tr>
+      <td><code>C7</code></td>
+      <td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>100% das consultas SQL executadas nos testes diretos contra o banco utilizam parâmetros posicionais (<code>$1, $2</code>), sem nenhuma interpolação de strings em cláusulas de consulta.</td>
+    </tr>
+    <tr>
+      <td><code>C8</code></td>
+      <td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Todas as queries de asserção projetam colunas específicas (<code>event_type, reported_by, reason</code>, <code>operation</code>, <code>revision</code>, <code>count(*)::int AS total</code>), sem uso de <code>SELECT *</code>.</td>
+    </tr>
+    <tr>
+      <td><code>C9</code></td>
+      <td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Cenários IT-DRV-12 e IT-DRV-13 validam explicitamente a concorrência via optimistic locking e <code>SELECT ... FOR UPDATE</code> sob requisições paralelas (<code>Promise.all</code> convergindo para 200 e 409), além de rollback limpo sem órfãos na falha de ator inativo.</td>
+    </tr>
+    <tr>
+      <td><code>C10</code></td>
+      <td>Padrão SQL PostgreSQL 18 (Schemas Nativos <code>auth</code>, <code>fleet</code>, etc., tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td>
+      <td><span class="badge-na">⚪ N/A</span></td>
+      <td>Critério não aplicável diretamente a esta tarefa, pois trata-se de entrega focada em testes automatizados de integração, sem criação de novas migrações DDL.</td>
+    </tr>
+    <tr>
+      <td><code>C11</code></td>
+      <td>Autorização RBAC validada no middleware do Backend</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>O cenário IT-DRV-11 valida a matriz de acesso completa com JWT para os 6 perfis RBAC do Aratu: acesso concedido para <code>GESTOR</code> e <code>ADMINISTRADOR</code>, recusa com 403 para <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code> e <code>EQUIPE_SVO</code>, e 401 para chamadas não autenticadas.</td>
+    </tr>
+    <tr>
+      <td><code>C12</code></td>
+      <td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Conformidade rigorosa com a LGPD e o sigilo da FSPH/SVO: todos os dados utilizados na suíte (CPFs, nomes, CNHs, telefones e justificativas) são 100% fictícios.</td>
+    </tr>
+    <tr>
+      <td><code>C13</code></td>
+      <td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Zero uso de <code>any</code> ou supressões de compilador. Compilação estrita aprovada com zero erros tanto no backend (<code>npx tsc --noEmit</code>) quanto no frontend (<code>npx tsc -b --noEmit</code>).</td>
+    </tr>
+    <tr>
+      <td><code>C14</code></td>
+      <td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>Nomenclatura integralmente em inglês para helpers, funções utilitárias e asserções; mensagens de erro de domínio e descrições dos testes semânticas em português.</td>
+    </tr>
+    <tr>
+      <td><code>C15</code></td>
+      <td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td>
+      <td><span class="badge-na">⚪ N/A</span></td>
+      <td>Entrega estritamente voltada para QA da API e regras de negócio do backend; interface de motoristas pertence à tarefa FROTA-51.</td>
+    </tr>
+    <tr>
+      <td><code>C16</code></td>
+      <td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td>
+      <td><span class="badge-ok">🟢 OK</span></td>
+      <td>O componente <code>ConfirmDialog.tsx</code> preserva o vínculo de acessibilidade WAI-ARIA com <code>useId()</code> gerando <code>titleId</code> e <code>descriptionId</code>, e fechamento com tecla <code>Esc</code>.</td>
+    </tr>
+    <tr>
+      <td><code>C17</code></td>
+      <td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td>
+      <td><span class="badge-na">⚪ N/A</span></td>
+      <td>Critério não aplicável à suíte de testes de integração de backend.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado. O código está funcional, estável e com 100% dos testes e verificações estáticas aprovados.</em></p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<ul>
+  <li>
+    <strong>Achado 1 — Arquivos fora do escopo estrito da tarefa no diff (Critério C1):</strong>
+    <br><code>frontend/src/components/ui/ConfirmDialog.tsx</code> e <code>frontend/tests/sidebarNavigation.test.mjs</code> foram modificados no mesmo pacote de alterações. Embora corrijam um defeito pré-existente de compilação TypeScript no wrapper do diálogo e um erro de sintaxe herdado de conflito de merge em <code>develop</code>, a história <code>FROTA-50</code> é designada exclusivamente como <em>[QA] Testes de motoristas</em> (backend).
+    <br><em>Impacto:</em> Risco baixo, pois ambas as correções são benéficas e necessárias para o frontend compilar e passar nos testes, mas convém manter nota explícita no PR ou submetê-las em commit apartado (ex: <code>fix(frontend): ajustar tipagem do ConfirmDialog e restaurar teste do menu lateral</code>).
+  </li>
+  <li>
+    <strong>Achado 2 — Alterações ainda pendentes de commit na branch (Critério C2):</strong>
+    <br>O diff auditado encontra-se na <em>working tree</em> da branch <code>feat/qa-testes-de-motoristas</code>.
+    <br><em>Como sanar:</em> Antes de abrir o Pull Request para <code>develop</code>, registrar os commits seguindo Conventional Commits:
+    <pre><code>git add backend/tests/drivers.integration.test.ts docs/plans/frota-50-qa-testes-de-motoristas.html
+git commit -m "test(motoristas): expandir suite de testes de integracao da api de motoristas (FROTA-50)"
+
+git add frontend/src/components/ui/ConfirmDialog.tsx frontend/tests/sidebarNavigation.test.mjs
+git commit -m "fix(frontend): corrigir tipagem sx de ConfirmDialog e fixture de navegacao lateral"</code></pre>
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática de Camadas, SQL e Padrões Aratu</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 bloqueantes, 0 violações estáticas)</span></td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript Estrita (Backend)</td>
+      <td><code>npx tsc --noEmit</code> (no diretório <code>backend/</code>)</td>
+      <td><span class="badge-ok">🟢 Passou (Zero erros de compilação)</span></td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript Estrita (Frontend)</td>
+      <td><code>npx tsc -b --noEmit</code> (no diretório <code>frontend/</code>)</td>
+      <td><span class="badge-ok">🟢 Passou (Zero erros de compilação)</span></td>
+    </tr>
+    <tr>
+      <td>Linter ESLint (Frontend)</td>
+      <td><code>docker compose exec frontend npm run lint</code></td>
+      <td><span class="badge-ok">🟢 Passou (Zero avisos ou erros)</span></td>
+    </tr>
+    <tr>
+      <td>Build de Produção Vite (Frontend)</td>
+      <td><code>docker compose exec frontend npm run build</code></td>
+      <td><span class="badge-ok">🟢 Passou (Build concluído com sucesso em 1.27s)</span></td>
+    </tr>
+    <tr>
+      <td>Suíte de Testes Automatizados (Backend — PostgreSQL 18)</td>
+      <td><code>docker compose exec backend npm test</code></td>
+      <td><span class="badge-ok">🟢 Passou (157 testes aprovados, 0 falhas)</span></td>
+    </tr>
+    <tr>
+      <td>Suíte de Testes Automatizados (Frontend)</td>
+      <td><code>node --test tests/*.test.mjs</code> (no diretório <code>frontend/</code>)</td>
+      <td><span class="badge-ok">🟢 Passou (110 testes aprovados, 0 falhas)</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul class="check">
+  <li><input type="checkbox"> Confirmar a divisão dos commits recomendada (separando a expansão de testes de motoristas da correção cosmética no frontend).</li>
+  <li><input type="checkbox"> Validar se a suíte de 14 testes de integração de motoristas atende a todos os critérios de aceitação para o desbloqueio seguro das histórias de Viagens (US14 / FROTA-96) e App do Motorista (US15 / FROTA-98).</li>
+  <li><input type="checkbox"> Confirmar que a branch base de destino do Pull Request é estritamente a <code>develop</code>.</li>
+</ul>
+
+</body>
+</html>

@@ -509,7 +509,9 @@ test('IT15: seed inicial da frota (seedInitialFleet) é idempotente', async () =
 test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restauram o estado e permitem reaplicar', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611090001_add_vehicle_services_active_revision.down.sql',
     '202611080001_add_fine_creation_key.down.sql',
+    '202611050001_extend_fuelings.down.sql',
     '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
@@ -1027,6 +1029,7 @@ test('IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e r
   const pool = getTestPool()
   const downFiles = [
     '202611080001_add_fine_creation_key.down.sql',
+    '202611050001_extend_fuelings.down.sql',
     '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
@@ -1484,6 +1487,7 @@ test('IT26: rollbacks (.down.sql) das migrations 202610280008, 202610280007 e 20
   const pool = getTestPool()
   const downFiles = [
     '202611080001_add_fine_creation_key.down.sql',
+    '202611050001_extend_fuelings.down.sql',
     '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
@@ -1752,10 +1756,16 @@ test('IT28: criação de fleet.fuelings, validação de litros/valor/km, retific
   )
   assert.equal(fueling2.rows[0]?.supersedesId, fueling1Id)
 
-  // Anular lançamento sem annulment_reason deve falhar com 23514
+  // Novos fatos continuam exigindo motivo de anulação; versões persistidas são imutáveis.
+  await assert.rejects(
+    pool.query(`INSERT INTO fleet.fuelings
+      (vehicle_id, fuel_type, liters, total_value, odometer_km, created_by, is_annulled)
+      VALUES ($1, 'DIESEL', 10, 50, 100, $2, true)`, [vehicleId, manager.id]),
+    (error: unknown) => (error as { code?: string }).code === '23514',
+  )
   await assert.rejects(
     pool.query(`UPDATE fleet.fuelings SET is_annulled = true WHERE id = $1`, [fueling1Id]),
-    (error: unknown) => (error as { code?: string }).code === '23514',
+    /imutáveis/,
   )
 
   // Integração com trip.odometer_readings usando reading_type = 'FUELING' e fueling_id
@@ -2009,6 +2019,7 @@ test('IT31: rollbacks (.down.sql) das migrations 202610280012, 202610280011, 202
   const pool = getTestPool()
   const downFiles = [
     '202611080001_add_fine_creation_key.down.sql',
+    '202611050001_extend_fuelings.down.sql',
     '202611030002_extend_maintenance_orders.down.sql',
     '202610280012_create_fines.down.sql',
     '202610280011_create_vehicle_documents.down.sql',
