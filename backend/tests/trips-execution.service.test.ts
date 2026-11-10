@@ -58,6 +58,8 @@ function setup(initial: Trip | null = trip(), facts: OdometerFact[] = [], timeli
         origin: 'Sede', destination: 'Unidade', purpose: 'Teste', vehicleLicensePlate: 'ABC1234',
       }] : []
     },
+    async saveConfirmation(): Promise<null> { return null },
+    async listTrips(): Promise<[]> { return [] },
   }
   const availabilityRepository = {} as AvailabilityRepositoryContract
   const auditService: AuditLogger = {
