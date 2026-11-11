@@ -263,6 +263,13 @@
   </thead>
   <tbody>
     <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/requests</code></td>
+      <td><code>RequestsController::create</code></td>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td>Body <code>{ requestedDate, requestedTime, origin, destination, purpose, serviceId }</code> → <code>201 { id, status: "PENDING" }</code>; campos/tipo de serviço inválidos <code>400</code>, token ausente <code>401</code>, perfil distinto <code>403</code> e data/hora passada em <code>America/Maceio</code> <code>422</code>. Solicitação, evento <code>CREATED</code> e auditoria <code>CREATE</code> são gravados atomicamente.</td>
+    </tr>
+    <tr>
       <td><span class="badge-http">GET</span></td>
       <td><code>/vehicles/available</code></td>
       <td><code>AvailabilityController::listVehicles</code></td>
@@ -448,6 +455,11 @@
       <td>Persistência SQL parametrizada em <code>trip.trips</code>, <code>trip.requests</code>, <code>trip.odometer_readings</code> e <code>trip.trip_events</code></td>
     </tr>
     <tr>
+      <td><code>backend/tests/requests.integration.test.ts</code></td>
+      <td>Testes de integração (Backend)</td>
+      <td>Valida a API <code>POST /requests</code>, persistência, RBAC, autoria, evento <code>CREATED</code> e auditoria <code>CREATE</code> no banco de testes</td>
+    </tr>
+    <tr>
       <td><code>frontend/src/pages/MyTripsPage.tsx</code></td>
       <td>Page (Frontend)</td>
       <td>Tela inicial do motorista (<code>/viagens/minhas</code>) com 5 estados visuais, filtro operacional e cartões <code>EntityCard</code></td>
@@ -498,6 +510,18 @@
     </ul>
   </li>
 </ul>
+
+<h2 id="s10">10. Testes automatizados — FROTA-80</h2>
+<p>A suíte <a href="../../backend/tests/requests.integration.test.ts">requests.integration.test.ts</a> usa servidor HTTP em porta efêmera, banco dedicado <code>aratu_test</code>, usuários RBAC fictícios e fixtures renovadas entre cenários. A matriz de aceite está no <a href="../plans/frota-80-qa-testes-de-solicitacao.html#s9">SDD da FROTA-80</a>.</p>
+<table>
+  <thead><tr><th scope="col">Caso</th><th scope="col">Verificação</th></tr></thead>
+  <tbody>
+    <tr><td>IT-REQUEST-01</td><td>Criação <code>201/PENDING</code>, ignora autoria/status forjados e comprova solicitação, evento e auditoria no PostgreSQL.</td></tr>
+    <tr><td>IT-REQUEST-02 e 03</td><td>Campos ausentes/malformados, datas passadas e serviço inexistente/inativo; nenhum efeito colateral no banco.</td></tr>
+    <tr><td>IT-REQUEST-04 e 05</td><td>Sem token <code>401</code>, perfis não autorizados <code>403</code> e role revogada após emissão do JWT.</td></tr>
+  </tbody>
+</table>
+<p>Os cenários usam somente nomes, unidades e finalidades fictícios. Executar com <code>npx tsx --test --test-concurrency=1 tests/requests.integration.test.ts</code> ou incluir no <code>npm test</code>.</p>
 
 </body>
 </html>
