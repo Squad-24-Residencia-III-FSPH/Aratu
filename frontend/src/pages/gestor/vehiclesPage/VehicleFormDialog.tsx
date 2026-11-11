@@ -10,17 +10,17 @@ import {
   DialogTitle,
   Stack,
 } from '@mui/material'
-import type { ApiRequest } from '../../api/client'
-import { FormField, FormSelect } from '../../components/ui/FormField'
-import { createVehicle, updateVehicle, VehicleRequestError } from '../../services/vehiclesService'
+import type { ApiRequest } from '../../../api/client'
+import { FormField, FormSelect } from '../../../components/ui/FormField'
+import { createVehicle, updateVehicle, VehicleRequestError } from '../../../services/vehiclesService'
 import {
   EMPTY_VEHICLE_FORM,
   normalizeLicensePlate,
   toVehicleAttributes,
   validateVehicleForm,
   vehicleToFormValues,
-} from '../../vehicles/vehicleForm'
-import type { VehicleFormErrors, VehicleFormValues } from '../../vehicles/vehicleForm'
+} from '../../../vehicles/vehicleForm'
+import type { VehicleFormErrors, VehicleFormValues } from '../../../vehicles/vehicleForm'
 import {
   VEHICLE_CATEGORIES,
   VEHICLE_CATEGORY_LABELS,
@@ -28,8 +28,8 @@ import {
   VEHICLE_OPERATION_TYPES,
   VEHICLE_OWNERSHIP_LABELS,
   VEHICLE_OWNERSHIP_TYPES,
-} from '../../vehicles/vehicleTypes'
-import type { Vehicle } from '../../vehicles/vehicleTypes'
+} from '../../../vehicles/vehicleTypes'
+import type { Vehicle } from '../../../vehicles/vehicleTypes'
 
 const OPERATION_OPTIONS = VEHICLE_OPERATION_TYPES.map((value) => ({
   value,
