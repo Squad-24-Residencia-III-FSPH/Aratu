@@ -14,6 +14,7 @@ import { resolveRoute } from './routing/routeDecision';
 import UserManagementPage from './pages/UserManagementPage';
 import DriversPage from './pages/DriversPage';
 import FuelingsPage from './pages/FuelingsPage';
+import MyTripsPage from './pages/MyTripsPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -27,6 +28,7 @@ function LoginRoute() {
 function ProfileHome({ profile }: { profile: Profile }) {
   if (profile === 'GESTOR') return <GestorPage />;
   if (profile === 'ADMINISTRADOR') return <UserManagementPage />;
+  if (profile === 'MOTORISTA') return <MyTripsPage />;
   if (profile === 'SOLICITANTE') return <SolicitacaoPage />;
   return <PlaceholderPage title={PROFILE_HOMES[profile].title} />;
 }

@@ -25,6 +25,8 @@ export interface ConfirmDialogProps {
   loadingLabel?: string
   confirmColor?: ButtonProps['color']
   autoFocusCancel?: boolean
+  /** Executado após a animação de abertura, quando o campo do domínio já pode receber foco. */
+  onEntered?: () => void
   /** Estilos do diálogo, incluindo ajustes de controles dos fluxos que o reutilizam. */
   paperSx?: SxProps<Theme>
   actionsSx?: SxProps<Theme>
@@ -50,6 +52,7 @@ export default function ConfirmDialog({
   loadingLabel = 'Processando...',
   confirmColor,
   autoFocusCancel = false,
+  onEntered,
   sx,
   paperSx,
   actionsSx,
@@ -67,7 +70,10 @@ export default function ConfirmDialog({
       fullWidth
       maxWidth="xs"
       sx={sx}
-      slotProps={paperSx ? { paper: { sx: paperSx } } : undefined}
+      slotProps={{
+        ...(paperSx ? { paper: { sx: paperSx } } : {}),
+        transition: { onEntered },
+      }}
     >
       <DialogTitle id={`${baseId}-title`}>{title}</DialogTitle>
       <DialogContent>

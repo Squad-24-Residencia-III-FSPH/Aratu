@@ -113,3 +113,17 @@ test('somente GESTOR e ADMINISTRADOR recebem o atalho de abastecimentos', () => 
     assert.equal(getLabels(getSidebarNavigation(profile)).includes('Abastecimentos'), true)
   }
 })
+
+test('somente MOTORISTA recebe o atalho Minhas viagens apontando para a própria home', () => {
+  const driverNav = getSidebarNavigation('MOTORISTA')
+  const myTrips = driverNav.sections
+    .flatMap((section) => section.items)
+    .find((item) => item.label === 'Minhas viagens')
+  assert.deepEqual(
+    { behavior: myTrips?.behavior, path: myTrips?.path },
+    { behavior: 'link', path: '/viagens/minhas' },
+  )
+  for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Minhas viagens'), false)
+  }
+})
