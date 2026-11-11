@@ -30,6 +30,10 @@ export interface TripExecutionDialogProps {
   trip: DriverTrip | null
   /** Motivo pelo qual a ação deixou de ser compatível com a situação atual (vazio quando válida). */
   issue: string
+  /** Condição centralizada que impede confirmação até a reconciliação da situação. */
+  confirmDisabled?: boolean
+  /** Indica que a última atualização da lista falhou e os dados locais podem estar desatualizados. */
+  stale?: boolean
   submitting: boolean
   /** Uma consulta está em andamento. */
   refreshing: boolean
@@ -47,15 +51,27 @@ export interface TripExecutionDialogProps {
  * `Enter` no campo confirma, como o botão principal.
  */
 export default function TripExecutionDialog({
-  draft, trip, issue, submitting, refreshing, onKmChange, onConfirm, onCancel, onRefresh,
+  draft,
+  trip,
+  issue,
+  confirmDisabled,
+  stale = false,
+  submitting,
+  refreshing,
+  onKmChange,
+  onConfirm,
+  onCancel,
+  onRefresh,
 }: TripExecutionDialogProps) {
   const kmRef = useRef<HTMLInputElement>(null)
+  const confirmBlocked = confirmDisabled ?? (Boolean(issue) || draft.denied || draft.reconciling || stale)
 
   useEffect(() => {
     if (draft.fieldError) kmRef.current?.focus()
   }, [draft.fieldError])
 
   function confirmExecution() {
+    if (confirmBlocked || submitting) return
     // Há um único campo: também o mantém focado quando a mesma entrada inválida é reenviada.
     kmRef.current?.focus()
     onConfirm()
@@ -78,7 +94,7 @@ export default function TripExecutionDialog({
       cancelLabel="Voltar"
       loadingLabel="Registrando..."
       loading={submitting}
-      confirmDisabled={Boolean(issue) || draft.denied}
+      confirmDisabled={confirmBlocked}
       onEntered={() => kmRef.current?.focus()}
       onConfirm={confirmExecution}
       onCancel={onCancel}
@@ -99,7 +115,7 @@ export default function TripExecutionDialog({
       </Box>
       {issue && <Alert severity="warning" role="alert" sx={{ mt: 1 }}>{issue}</Alert>}
       {draft.submitError && <Alert severity="error" role="alert" sx={{ mt: 1 }}>{draft.submitError}</Alert>}
-      {(draft.uncertain || issue) && (
+      {(draft.uncertain || draft.reconciling || stale || Boolean(issue)) && (
         <Button color="inherit" onClick={onRefresh} disabled={refreshing || submitting} sx={{ mt: 1, minHeight: 44 }}>
           {refreshing ? 'Atualizando...' : 'Atualizar situação'}
         </Button>

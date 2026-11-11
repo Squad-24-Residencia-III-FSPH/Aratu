@@ -238,6 +238,61 @@ test('409 preserva a digitação, consulta a lista e bloqueia ação incompatív
   assert.equal(calls.filter(({ path }) => path === '/trips/mine').length >= 2, true)
 })
 
+test('409 bloqueia novo envio por clique e Enter enquanto a consulta de reconciliação está pendente', async () => {
+  const pending = deferred()
+  const state = { list: [makeDriverTrip(5, { scheduledStart: NOW_ISO })] }
+  state.onPost = () => {
+    state.onList = () => pending.promise
+    return jsonResponse({ erro: 'Conflito fictício. Atualize a situação.' }, 409)
+  }
+  const { api, posts } = makeApi(state)
+  renderPage(api)
+  const user = userEvent.setup()
+  const { dialog, field } = await openAndType(user, 'Iniciar viagem #5 para Unidade fictícia 5', /Quilometragem inicial/, '1500')
+  await user.click(within(dialog).getByRole('button', { name: 'Confirmar início' }))
+  assert.ok(await within(dialog).findByText('Conflito fictício. Atualize a situação.'))
+  const confirm = within(dialog).getByRole('button', { name: 'Confirmar início' })
+  assert.equal(confirm.disabled, true)
+  assert.equal(field.value, '1500')
+  fireEvent.click(confirm)
+  await user.click(field)
+  await user.keyboard('{Enter}')
+  assert.equal(posts().length, 1, 'não deve repetir POST antes de concluir a reconciliação')
+  pending.resolve(jsonResponse(state.list))
+  await waitFor(() => assert.equal(within(dialog).getByRole('button', { name: 'Confirmar início' }).disabled, false))
+})
+
+test('409 com falha na consulta mantém confirmação bloqueada no clique e no Enter e permite reconciliar pelo diálogo', async () => {
+  const state = { list: [makeDriverTrip(5, { scheduledStart: NOW_ISO })] }
+  state.onPost = () => {
+    state.onList = async () => { throw new Error('Falha fictícia de rede') }
+    return jsonResponse({ erro: 'Conflito fictício. Atualize a situação.' }, 409)
+  }
+  const { api, posts } = makeApi(state)
+  renderPage(api)
+  const user = userEvent.setup()
+  const { dialog, field } = await openAndType(user, 'Iniciar viagem #5 para Unidade fictícia 5', /Quilometragem inicial/, '1500')
+  await user.click(within(dialog).getByRole('button', { name: 'Confirmar início' }))
+  assert.ok(await within(dialog).findByText('Conflito fictício. Atualize a situação.'))
+  await waitFor(() => assert.ok(screen.getByText('A lista pode estar desatualizada.')))
+  const confirm = within(dialog).getByRole('button', { name: 'Confirmar início' })
+  assert.equal(confirm.disabled, true)
+  assert.equal(field.value, '1500')
+  fireEvent.click(confirm)
+  await user.click(field)
+  await user.keyboard('{Enter}')
+  assert.equal(posts().length, 1, 'lista desatualizada após 409 deve bloquear POST também pelo teclado')
+  const refreshDialogButton = within(dialog).getByRole('button', { name: 'Atualizar situação' })
+  assert.equal(refreshDialogButton.disabled, false)
+  state.onList = undefined
+  state.list = [makeDriverTrip(5, { scheduledStart: NOW_ISO, status: 'IN_PROGRESS', startKm: 1490, startedAt: NOW_ISO })]
+  await user.click(refreshDialogButton)
+  assert.ok(await within(dialog).findByText(/A situação desta viagem mudou/))
+  assert.equal(field.value, '1500')
+  assert.equal(within(dialog).getByRole('button', { name: 'Confirmar início' }).disabled, true)
+  assert.equal(posts().length, 1)
+})
+
 test('403 bloqueia a confirmação, explica acesso negado e atualiza a lista', async () => {
   const state = { list: [makeDriverTrip(5, { scheduledStart: NOW_ISO })] }
   state.onPost = () => jsonResponse({ erro: 'Somente o motorista alocado pode registrar a execução desta viagem.' }, 403)

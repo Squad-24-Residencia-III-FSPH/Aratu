@@ -110,6 +110,8 @@ function MyTripsContent() {
           draft={trips.execution}
           trip={trips.activeTrip}
           issue={trips.executionIssue}
+          confirmDisabled={trips.confirmBlocked}
+          stale={trips.stale}
           submitting={trips.submitting}
           refreshing={trips.loading}
           onKmChange={trips.changeKm}
