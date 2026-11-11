@@ -31,7 +31,7 @@ export interface SidebarMenuItem {
   behavior: 'static' | 'button' | 'link'
   path?: string
   selected?: boolean
-  /** Restringe o item a estes perfis; ausente significa visível a todos. */
+  badgeCount?: number
   profiles?: readonly Profile[]
 }
 
@@ -127,11 +127,31 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
   showDividerAfterTop: true,
 }
 
-/** Escolhe o conteúdo lateral sem alterar o shell ou os destinos existentes. */
+const SOLICITANTE_NAVIGATION: SidebarNavigation = {
+  topItems: [
+    { label: 'Início', icon: 'home', behavior: 'link', path: '/inicio' },
+    { label: 'Nova Solicitação', icon: 'requests', behavior: 'button' },
+    { label: 'Minhas Solicitações', icon: 'confirmTrips', behavior: 'link', path: '/minhas-solicitacoes', badgeCount: 2 },
+  ],
+  sections: [],
+  footerItems: [{ label: 'Ajuda', icon: 'help', behavior: 'static' }],
+  showDividerAfterTop: true,
+}
+
 export function getSidebarNavigation(profile: Profile | null): SidebarNavigation {
-  const navigation = profile === 'ADMINISTRADOR' ? ADMINISTRATOR_NAVIGATION : OPERATIONAL_NAVIGATION
-  const allowed = (item: SidebarMenuItem) => item.profiles === undefined
-    || (profile !== null && item.profiles.includes(profile))
+  let navigation: SidebarNavigation;
+
+  if (profile === 'ADMINISTRADOR') {
+    navigation = ADMINISTRATOR_NAVIGATION;
+  } else if (profile === 'SOLICITANTE') {
+    navigation = SOLICITANTE_NAVIGATION;
+  } else {
+    navigation = OPERATIONAL_NAVIGATION;
+  }
+
+  const allowed = (item: SidebarMenuItem) =>
+    item.profiles === undefined || (profile !== null && item.profiles.includes(profile));
+
   return {
     ...navigation,
     topItems: navigation.topItems.filter(allowed),
@@ -139,5 +159,5 @@ export function getSidebarNavigation(profile: Profile | null): SidebarNavigation
       .map((section) => ({ ...section, items: section.items.filter(allowed) }))
       .filter((section) => section.items.length > 0),
     footerItems: navigation.footerItems.filter(allowed),
-  }
+  };
 }

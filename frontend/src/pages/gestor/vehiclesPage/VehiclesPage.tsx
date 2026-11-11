@@ -3,18 +3,18 @@ import { Alert, Box, Button, Stack } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
 import EditIcon from '@mui/icons-material/Edit'
-import { useAuth } from '../../auth/useAuth'
-import { resolveProfile } from '../../auth/profiles'
-import DataTable from '../../components/ui/DataTable'
-import type { DataTableColumn } from '../../components/ui/DataTable'
-import FilterBar from '../../components/ui/FilterBar'
-import { FormField, FormSelect } from '../../components/ui/FormField'
-import PageHeader from '../../components/ui/PageHeader'
-import StateFeedback from '../../components/ui/StateFeedback'
-import StatusChip from '../../components/ui/StatusChip'
-import type { StatusTone } from '../../components/ui/StatusChip'
-import { listVehicles, VehicleRequestError } from '../../services/vehiclesService'
-import { canReadVehicles, canWriteVehicles } from '../../vehicles/vehicleAccess'
+import { useAuth } from '../../../auth/useAuth'
+import { resolveProfile } from '../../../auth/profiles'
+import DataTable from '../../../components/ui/DataTable'
+import type { DataTableColumn } from '../../../components/ui/DataTable'
+import FilterBar from '../../../components/ui/FilterBar'
+import { FormField, FormSelect } from '../../../components/ui/FormField'
+import PageHeader from '../../../components/ui/PageHeader'
+import StateFeedback from '../../../components/ui/StateFeedback'
+import StatusChip from '../../../components/ui/StatusChip'
+import type { StatusTone } from '../../../components/ui/StatusChip'
+import { listVehicles, VehicleRequestError } from '../../../services/vehiclesService'
+import { canReadVehicles, canWriteVehicles } from '../../../vehicles/vehicleAccess'
 import {
   VEHICLE_CATEGORIES,
   VEHICLE_CATEGORY_LABELS,
@@ -23,14 +23,14 @@ import {
   VEHICLE_OWNERSHIP_LABELS,
   VEHICLE_STATUSES,
   VEHICLE_STATUS_LABELS,
-} from '../../vehicles/vehicleTypes'
+} from '../../../vehicles/vehicleTypes'
 import type {
   Vehicle,
   VehicleCategory,
   VehicleFilters,
   VehicleOperationType,
   VehicleStatus,
-} from '../../vehicles/vehicleTypes'
+} from '../../../vehicles/vehicleTypes'
 import VehicleFormDialog from './VehicleFormDialog'
 import VehicleStatusDialog from './VehicleStatusDialog'
 
