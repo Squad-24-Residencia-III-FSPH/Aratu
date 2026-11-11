@@ -1,4 +1,3 @@
-import { useId, useState } from 'react'
 import { Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { FormField } from '../../../components/ui/FormField'
 import type { MaintenanceItem, PricedItem } from '../../../maintenance/maintenanceTypes'

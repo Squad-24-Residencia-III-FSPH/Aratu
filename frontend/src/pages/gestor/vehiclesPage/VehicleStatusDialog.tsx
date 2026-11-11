@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { Alert } from '@mui/material'
-import type { ApiRequest } from '../../api/client'
-import ConfirmDialog from '../../components/ui/ConfirmDialog'
-import { FormField, FormSelect } from '../../components/ui/FormField'
-import { changeVehicleStatus, VehicleRequestError } from '../../services/vehiclesService'
+import type { ApiRequest } from '../../../api/client'
+import ConfirmDialog from '../../../components/ui/ConfirmDialog'
+import { FormField, FormSelect } from '../../../components/ui/FormField'
+import { changeVehicleStatus, VehicleRequestError } from '../../../services/vehiclesService'
 import {
   VEHICLE_STATUS_LABELS,
   VEHICLE_STATUS_TRANSITIONS,
   statusActionLabel,
-} from '../../vehicles/vehicleTypes'
-import type { Vehicle, VehicleStatus } from '../../vehicles/vehicleTypes'
+} from '../../../vehicles/vehicleTypes'
+import type { Vehicle, VehicleStatus } from '../../../vehicles/vehicleTypes'
 
 interface VehicleStatusDialogProps {
   api: ApiRequest

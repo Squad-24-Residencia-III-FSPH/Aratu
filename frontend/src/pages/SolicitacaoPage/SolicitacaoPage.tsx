@@ -4,7 +4,6 @@ import {
   Button,
   Paper,
   TextField,
-  InputAdornment,
   MenuItem,
   Select,
   FormControl,
@@ -22,11 +21,31 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import SendIcon from '@mui/icons-material/Send';
 import RefreshIcon from '@mui/icons-material/Refresh';
+
+interface AndamentoStep {
+  titulo: string;
+  data: string;
+  concluido: boolean;
+}
+
+interface Solicitacao {
+  id: string;
+  destino: string;
+  dataHora: string;
+  dataIso: string;
+  finalidade: string;
+  status: string;
+  veiculo: string;
+  origem: string;
+  passageiros: string;
+  necessidadeEspecial: string;
+  motivoRecusa: string;
+  andamento: AndamentoStep[];
+}
 
 function StatusChip({ status }: { status: string }) {
   let bgcolor = '#e5e7eb';
@@ -70,7 +89,7 @@ function StatusChip({ status }: { status: string }) {
   );
 }
 
-const mockRequests = [
+const mockRequests: Solicitacao[] = [
   { 
     id: 'SOL-241', 
     destino: 'Hospital Santa Casa de Misericórdia', 
@@ -111,13 +130,13 @@ const mockRequests = [
 
 export default function SolicitacaoPage() {
   const [loading, setLoading] = useState(false);
-  const [requests, setRequests] = useState(mockRequests);
+  const [requests, setRequests] = useState<Solicitacao[]>(mockRequests);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [dateFilter, setDateFilter] = useState('');
   const [page, setPage] = useState(1);
 
-  const [selectedSolicitacao, setSelectedSolicitacao] = useState<any | null>(null);
+  const [selectedSolicitacao, setSelectedSolicitacao] = useState<Solicitacao | null>(null);
   const [openModal, setOpenModal] = useState(false);
   const [openNewModal, setOpenNewModal] = useState(false);
  
@@ -133,7 +152,7 @@ export default function SolicitacaoPage() {
   const [novaNecessidade, setNovaNecessidade] = useState('Nenhuma');
   const [novasObservacoes, setNovasObservacoes] = useState('');
 
-  const handleOpenDetails = (solicitacao: any) => {
+  const handleOpenDetails = (solicitacao: Solicitacao) => {
     setSelectedSolicitacao(solicitacao);
     setOpenModal(true);
   };
@@ -145,7 +164,7 @@ export default function SolicitacaoPage() {
 
   const handleCreateRequest = (e: React.FormEvent) => {
     e.preventDefault();
-    const novaReq = {
+    const novaReq: Solicitacao = {
       id: `SOL-${Math.floor(100 + Math.random() * 900)}`,
       destino: novoDestino || 'Destino Padrão',
       dataHora: `${novaData ? novaData.split('-').reverse().join('/') : '21/09/2026'} — ${novoHorario || '12:00'}`,
@@ -205,7 +224,8 @@ export default function SolicitacaoPage() {
     async function loadData() {
       setLoading(true);
       try {
-      } catch (error) {
+        // Chamada de dados simulada
+      } catch (error: unknown) {
         console.error('Erro ao carregar solicitações', error);
       } finally {
         setLoading(false);
@@ -513,7 +533,7 @@ export default function SolicitacaoPage() {
                   Andamento
                 </Box>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pl: 1, position: 'relative' }}>
-                  {selectedSolicitacao.andamento.map((step: any, index: number) => (
+                  {selectedSolicitacao.andamento.map((step: AndamentoStep, index: number) => (
                     <Box key={index} sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                       <Box 
                         sx={{ 
