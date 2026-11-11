@@ -158,7 +158,7 @@
   <tbody>
     <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>O conteúdo está focado em FROTA-79 após separar FROTA-82/83 e FROTA-80. O diff do produto soma 706 linhas; com o relatório de revisão (228 linhas), a branch totaliza 934. Os commits são separados por tipo, mas o diff agregado continua acima do limite.</td></tr>
     <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>A branch FROTA-79 foi reposicionada em <code>develop</code>; os SDDs FROTA-82/83 permanecem na branch própria e o SDD FROTA-80 foi commitado em branch separada. Os commits da FROTA-79 usam Conventional Commits com escopo.</td></tr>
-    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>A API cobre o contrato aprovado; TypeScript e 12 testes direcionados passaram. A suíte total não pôde validar integração: 199 casos falharam ao preparar PostgreSQL por <code>ECONNREFUSED</code>, e o Docker não ficou acessível.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>A API cobre o contrato aprovado; TypeScript e os 3 testes da FROTA-79 passaram. A suíte completa conectou ao PostgreSQL e passou 280/315; 35 falhas em suítes de outros módulos ainda precisam de comparação com <code>develop</code>.</td></tr>
     <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>HTTP fica na rota/controller, validação e coordenação no service, e SQL no repository.</td></tr>
     <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>FROTA-79 é API backend; não há alteração de frontend.</td></tr>
     <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>O novo caminho segue dependências unidirecionais e não adiciona feature flag.</td></tr>
@@ -185,7 +185,7 @@
 <h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
 <ol>
   <li><strong>O diff agregado supera 400 linhas (C1).</strong> O produto FROTA-79 soma 706 linhas novas de código, teste, SDD e documentação; a inclusão do relatório eleva a branch a 934 linhas. Os commits estão separados por tipo, mas isso não reduz o tamanho agregado do PR. O revisor humano deve confirmar se esse escopo é aceitável para uma entrega.</li>
-  <li><strong>O PostgreSQL de integração não estava acessível (C3).</strong> Na última execução de <code>npm test</code>, os testes unitários passaram, mas 199 testes que dependem de banco falharam no setup com <code>ECONNREFUSED</code>. O socket Docker também negou acesso; repita a suíte quando o serviço estiver disponível.</li>
+  <li><strong>Há 35 falhas fora da cobertura da FROTA-79 (C3).</strong> A suíte completa conectou ao PostgreSQL, passou 280/315 e falhou em casos de seed/RBAC, deadlocks e fixtures de motoristas, multas e hodômetro. Os testes da FROTA-79 passaram; compare com <code>develop</code> para confirmar o baseline das falhas existentes.</li>
   <li><strong>Rollback não é exercitado pelo teste unitário (C9).</strong> <code>backend/tests/requests.service.test.ts:87-89</code> confirma que a falha da auditoria propaga, mas o fake de <code>withTransaction</code> na linha 28 não simula <code>ROLLBACK</code>. A implementação real do repository contém rollback; cubra a atomicidade em integração.</li>
 </ol>
 
@@ -205,7 +205,7 @@
     <tr><td>TypeScript backend</td><td><code>cd backend &amp;&amp; npx tsc --noEmit</code></td><td><span class="badge-ok">🟢 Passou</span></td></tr>
     <tr><td>Testes unitários novos</td><td><code>cd backend &amp;&amp; node --import tsx --test tests/requests.service.test.ts</code></td><td><span class="badge-ok">🟢 3/3 passaram</span></td></tr>
     <tr><td>Middleware/auth + service de solicitações</td><td><code>npx tsx --test tests/auth.test.ts tests/requests.service.test.ts</code></td><td><span class="badge-ok">🟢 12/12 passaram, incluindo perfil atual revogado e regras da solicitação.</span></td></tr>
-    <tr><td>Suíte backend completa</td><td><code>cd backend &amp;&amp; npm test</code></td><td><span class="badge-warn">🟡 116/315 passaram; 199 testes falharam no setup de integração porque PostgreSQL recusou conexão (<code>ECONNREFUSED</code>). Docker inacessível no ambiente.</span></td></tr>
+    <tr><td>Suíte backend completa</td><td><code>cd backend &amp;&amp; npm test</code></td><td><span class="badge-warn">🟡 280/315 passaram; 35 falharam em suítes de seed/RBAC, deadlocks e fixtures de outros módulos. PostgreSQL acessível; baseline não comparado.</span></td></tr>
     <tr><td>Frontend TypeScript e testes</td><td><code>npx tsc --noEmit</code> / suíte frontend</td><td><span class="badge-warn">🟡 Não concluíram: <code>EACCES</code> ao criar <code>node_modules/.tmp</code> e dependência <code>jsdom</code> ausente.</span></td></tr>
     <tr><td>Frontend lint/build</td><td><code>npm run lint</code> / <code>npm run build</code></td><td><span class="badge-na">⚪ Não executados; frontend fora do escopo e dependências locais com falhas de acesso.</span></td></tr>
     <tr><td>Higiene do diff</td><td><code>git diff --check</code></td><td><span class="badge-ok">🟢 Passou</span></td></tr>
@@ -220,7 +220,7 @@
   <li><input type="checkbox"> Confirmar que o PR contém somente FROTA-79; os planos FROTA-80 e FROTA-82/83 estão em branches separadas.</li>
   <li><input type="checkbox"> Validar que uma troca de perfil após emitir JWT remove a permissão de criar solicitações no mesmo token.</li>
   <li><input type="checkbox"> Cobrir rollback real quando evento ou auditoria falhar e verificar ausência de efeitos parciais no banco.</li>
-  <li><input type="checkbox"> Reexecutar a suíte backend quando o PostgreSQL estiver disponível; os 199 erros atuais ocorreram no setup com <code>ECONNREFUSED</code>. Repetir checks frontend após corrigir dependências/permissões.</li>
+  <li><input type="checkbox"> Comparar com <code>develop</code> as 35 falhas restantes da suíte backend. Repetir checks frontend após corrigir dependências/permissões.</li>
   <li><input type="checkbox"> Confirmar que os registros usados no QA permanecem exclusivamente no banco de testes e são fictícios.</li>
 </ul>
 
