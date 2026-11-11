@@ -202,7 +202,7 @@
     </tr>
   </thead>
   <tbody>
-    <tr><td>Pré-auditoria e Gitflow</td><td><code>node docs/scripts/aratu-check.mjs</code></td><td><span class="badge-warn">🟡 Branch e commits válidos; comando encerrou com 1 erro nos testes globais do frontend, que não foi alterado nesta branch.</span></td></tr>
+    <tr><td>Pré-auditoria e Gitflow</td><td><code>node docs/scripts/aratu-check.mjs</code></td><td><span class="badge-warn">🟡 Branch e commits válidos; a execução global sinalizou o TypeScript e os testes do frontend por permissões/dependência ausente. Não há arquivos frontend nesta branch.</span></td></tr>
     <tr><td>TypeScript backend</td><td><code>cd backend &amp;&amp; npx tsc --noEmit</code></td><td><span class="badge-ok">🟢 Passou</span></td></tr>
     <tr><td>Testes de integração FROTA-80</td><td><code>cd backend &amp;&amp; npx tsx --test --test-concurrency=1 tests/requests.integration.test.ts</code></td><td><span class="badge-ok">🟢 5/5 passaram com PostgreSQL acessível.</span></td></tr>
     <tr><td>Middleware/auth + service de solicitações</td><td><code>npx tsx --test tests/auth.test.ts tests/requests.service.test.ts</code></td><td><span class="badge-ok">🟢 12/12 passaram, incluindo perfil atual revogado e regras da solicitação.</span></td></tr>
@@ -218,10 +218,9 @@
 
 <h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
 <ul class="check">
-  <li><input type="checkbox"> Confirmar que o PR consolidado contém FROTA-79 e FROTA-80; FROTA-82/83 permanece fora desta branch.</li>
+  <li><input type="checkbox"> Confirmar que o PR consolidado contém FROTA-79 e FROTA-80, revisar o tamanho agregado e manter FROTA-82/83 fora desta branch.</li>
   <li><input type="checkbox"> Validar que uma troca de perfil após emitir JWT remove a permissão de criar solicitações no mesmo token.</li>
   <li><input type="checkbox"> Cobrir rollback real quando evento ou auditoria falhar e verificar ausência de efeitos parciais no banco.</li>
-  <li><input type="checkbox"> Revisar o tamanho agregado do PR e confirmar o escopo FROTA-79/FROTA-80; FROTA-82/83 deve continuar fora desta branch.</li>
   <li><input type="checkbox"> Repetir os checks globais do frontend após restaurar <code>jsdom</code> e a escrita nos diretórios temporários; a branch não altera arquivos frontend.</li>
   <li><input type="checkbox"> Confirmar que os registros usados no QA permanecem exclusivamente no banco de testes e são fictícios.</li>
 </ul>
