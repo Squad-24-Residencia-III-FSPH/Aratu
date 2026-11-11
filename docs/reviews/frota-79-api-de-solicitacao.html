@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Code Review — FROTA-79 — [BE] API de solicitação de viagem (Sistema Aratu)</title>
+  <title>Code Review — FROTA-79/80 — API e testes de solicitação de viagem (Sistema Aratu)</title>
   <style>
     :root {
       --brand-strong: #3730a3;
@@ -76,12 +76,12 @@
 </head>
 <body>
 
-<h1>Relatório de Revisão de Código (Code Review) — FROTA-79: [BE] API de solicitação de viagem</h1>
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-79/80: API e testes de solicitação de viagem</h1>
 
 <div class="meta-block">
-  <p><strong>Tarefa / História:</strong> <code>FROTA-79</code> — [BE] API de solicitação de viagem</p>
-  <p><strong>Branch Revisada:</strong> <code>feat/frota-79-ApiSolicitacaoViagem</code> (comparada contra <code>develop</code>)</p>
-  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-79-be-api-de-solicitacao.html</code></p>
+  <p><strong>Tarefa / História:</strong> <code>FROTA-79</code> — API de solicitação de viagem; <code>FROTA-80</code> — testes da API</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/frota-79-80-solicitacao</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Planos SDD de Referência:</strong> <code>docs/plans/frota-79-be-api-de-solicitacao.html</code> e <code>docs/plans/frota-80-qa-testes-de-solicitacao.html</code></p>
   <p><strong>Módulo(s) Afetado(s):</strong> <code>VIAGENS</code></p>
   <p><strong>Perfis RBAC Impactados:</strong> <code>SOLICITANTE</code></p>
   <p><strong>Data da Revisão:</strong> 2026-11-11</p>
@@ -97,7 +97,7 @@
     <span class="label">🔴 Bloqueantes</span>
   </div>
   <div class="summary-card">
-    <span class="count" style="color: #d97706;">3</span>
+    <span class="count" style="color: #d97706;">2</span>
     <span class="label">🟡 Atenção</span>
   </div>
   <div class="summary-card">
@@ -131,15 +131,17 @@
     </tr>
   </thead>
   <tbody>
-    <tr><td><code>backend/src/app.ts</code></td><td>Composição da API</td><td>Modificado (working tree)</td><td>Instancia e monta o router de criação no prefixo <code>/requests</code>.</td></tr>
-    <tr><td><code>backend/src/types/request.types.ts</code></td><td>Tipos</td><td>Novo (working tree)</td><td>DTOs, snapshots, estado inicial e erro de domínio da solicitação.</td></tr>
-    <tr><td><code>backend/src/routes/requests.routes.ts</code></td><td>Routes</td><td>Novo (working tree)</td><td>Rota <code>POST /</code> com autenticação, revalidação de usuário atual e autorização SOLICITANTE.</td></tr>
-    <tr><td><code>backend/src/controllers/requests.controller.ts</code></td><td>Controller</td><td>Novo (working tree)</td><td>Filtra o corpo para o contrato e traduz sucesso/erros para HTTP.</td></tr>
-    <tr><td><code>backend/src/services/requests.service.ts</code></td><td>Service</td><td>Novo (working tree)</td><td>Valida entrada, serviço ativo e data/hora; coordena solicitação, evento e auditoria.</td></tr>
-    <tr><td><code>backend/src/repositories/requests.repository.ts</code></td><td>Repository</td><td>Novo (working tree)</td><td>Queries parametrizadas e transação para snapshot, solicitação e evento.</td></tr>
-    <tr><td><code>backend/tests/requests.service.test.ts</code></td><td>Testes backend</td><td>Novo (working tree)</td><td>Cobre sucesso, validações, serviço indisponível e propagação de falha de auditoria.</td></tr>
-    <tr><td><code>docs/modulos/VIAGENS.html</code></td><td>Documentação</td><td>Modificado (working tree)</td><td>Documenta o contrato de criação da solicitação.</td></tr>
-    <tr><td><code>docs/plans/frota-79-be-api-de-solicitacao.html</code></td><td>SDD</td><td>Novo (working tree)</td><td>Plano de referência da API revisada.</td></tr>
+    <tr><td><code>backend/src/app.ts</code></td><td>Composição da API</td><td>Modificado</td><td>Instancia e monta o router de criação no prefixo <code>/requests</code>.</td></tr>
+    <tr><td><code>backend/src/types/request.types.ts</code></td><td>Tipos</td><td>Novo</td><td>DTOs, snapshots, estado inicial e erro de domínio da solicitação.</td></tr>
+    <tr><td><code>backend/src/routes/requests.routes.ts</code></td><td>Routes</td><td>Novo</td><td>Rota <code>POST /</code> com autenticação, revalidação de usuário atual e autorização SOLICITANTE.</td></tr>
+    <tr><td><code>backend/src/controllers/requests.controller.ts</code></td><td>Controller</td><td>Novo</td><td>Filtra o corpo para o contrato e traduz sucesso/erros para HTTP.</td></tr>
+    <tr><td><code>backend/src/services/requests.service.ts</code></td><td>Service</td><td>Novo</td><td>Valida entrada, serviço ativo e data/hora; coordena solicitação, evento e auditoria.</td></tr>
+    <tr><td><code>backend/src/repositories/requests.repository.ts</code></td><td>Repository</td><td>Novo</td><td>Queries parametrizadas e transação para snapshot, solicitação e evento.</td></tr>
+    <tr><td><code>backend/tests/requests.service.test.ts</code></td><td>Testes backend</td><td>Novo</td><td>Cobre sucesso, validações, serviço indisponível e propagação de falha de auditoria.</td></tr>
+    <tr><td><code>backend/tests/requests.integration.test.ts</code></td><td>Testes backend</td><td>Novo</td><td>Valida a API HTTP, persistência, auditoria, eventos, validação de entrada e RBAC com PostgreSQL.</td></tr>
+    <tr><td><code>docs/modulos/VIAGENS.html</code></td><td>Documentação</td><td>Modificado</td><td>Documenta o contrato da API e a suíte de integração FROTA-80.</td></tr>
+    <tr><td><code>docs/plans/frota-79-be-api-de-solicitacao.html</code></td><td>SDD</td><td>Novo</td><td>Plano de referência da API revisada.</td></tr>
+    <tr><td><code>docs/plans/frota-80-qa-testes-de-solicitacao.html</code></td><td>SDD</td><td>Novo</td><td>Plano de cobertura de testes da API consolidado nesta branch.</td></tr>
   </tbody>
 </table>
 
@@ -156,11 +158,11 @@
     </tr>
   </thead>
   <tbody>
-    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>O conteúdo está focado em FROTA-79 após separar FROTA-82/83 e FROTA-80. O diff do produto soma 706 linhas; com o relatório de revisão (228 linhas), a branch totaliza 934. Os commits são separados por tipo, mas o diff agregado continua acima do limite.</td></tr>
-    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>A branch FROTA-79 foi reposicionada em <code>develop</code>; os SDDs FROTA-82/83 permanecem na branch própria e o SDD FROTA-80 foi commitado em branch separada. Os commits da FROTA-79 usam Conventional Commits com escopo.</td></tr>
-    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>A API cobre o contrato aprovado; TypeScript e os 3 testes da FROTA-79 passaram. A suíte completa conectou ao PostgreSQL e passou 280/315; 35 falhas em suítes de outros módulos ainda precisam de comparação com <code>develop</code>.</td></tr>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>O PR consolidado inclui a API FROTA-79, os testes de integração FROTA-80, os dois SDDs, documentação e este relatório; o diff agregado supera 400 linhas. Os commits permanecem separados por tipo de alteração.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>A branch <code>feat/frota-79-80-solicitacao</code> reúne FROTA-79 e FROTA-80 sobre a base de desenvolvimento. Os commits usam Conventional Commits; FROTA-82/83 permanece fora desta branch.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento dos SDDs e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-ok">🟢 OK</span></td><td>API e testes seguem os contratos aprovados. TypeScript passou, os testes direcionados passaram e a suíte backend completa passou 320/320, incluindo os cinco testes HTTP/PostgreSQL da FROTA-80.</td></tr>
     <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>HTTP fica na rota/controller, validação e coordenação no service, e SQL no repository.</td></tr>
-    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>FROTA-79 é API backend; não há alteração de frontend.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>FROTA-79 e FROTA-80 alteram somente API, testes e documentação backend; não há mudança de frontend.</td></tr>
     <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>O novo caminho segue dependências unidirecionais e não adiciona feature flag.</td></tr>
     <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Todos os valores variáveis nas queries do novo repository são parâmetros posicionais.</td></tr>
     <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td><td><span class="badge-ok">🟢 OK</span></td><td>Projeções e <code>RETURNING</code> explicitam as colunas; filtros usam igualdade direta em IDs.</td></tr>
@@ -184,8 +186,7 @@
 
 <h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
 <ol>
-  <li><strong>O diff agregado supera 400 linhas (C1).</strong> O produto FROTA-79 soma 706 linhas novas de código, teste, SDD e documentação; a inclusão do relatório eleva a branch a 934 linhas. Os commits estão separados por tipo, mas isso não reduz o tamanho agregado do PR. O revisor humano deve confirmar se esse escopo é aceitável para uma entrega.</li>
-  <li><strong>Há 35 falhas fora da cobertura da FROTA-79 (C3).</strong> A suíte completa conectou ao PostgreSQL, passou 280/315 e falhou em casos de seed/RBAC, deadlocks e fixtures de motoristas, multas e hodômetro. Os testes da FROTA-79 passaram; compare com <code>develop</code> para confirmar o baseline das falhas existentes.</li>
+  <li><strong>O diff agregado supera 400 linhas (C1).</strong> O PR une a API da FROTA-79, os testes da FROTA-80, dois SDDs, documentação e relatório. A separação por tipo facilita a leitura dos commits, mas o escopo total deve ser revisto pelo time antes do merge.</li>
   <li><strong>Rollback não é exercitado pelo teste unitário (C9).</strong> <code>backend/tests/requests.service.test.ts:87-89</code> confirma que a falha da auditoria propaga, mas o fake de <code>withTransaction</code> na linha 28 não simula <code>ROLLBACK</code>. A implementação real do repository contém rollback; cubra a atomicidade em integração.</li>
 </ol>
 
@@ -201,15 +202,15 @@
     </tr>
   </thead>
   <tbody>
-    <tr><td>Pré-auditoria e Gitflow</td><td><code>node docs/scripts/aratu-check.mjs</code></td><td><span class="badge-warn">🟡 Branch/base e commits atuais estão corretos; checks de frontend não concluíram no ambiente.</span></td></tr>
+    <tr><td>Pré-auditoria e Gitflow</td><td><code>node docs/scripts/aratu-check.mjs</code></td><td><span class="badge-warn">🟡 Branch e commits válidos; comando encerrou com 1 erro nos testes globais do frontend, que não foi alterado nesta branch.</span></td></tr>
     <tr><td>TypeScript backend</td><td><code>cd backend &amp;&amp; npx tsc --noEmit</code></td><td><span class="badge-ok">🟢 Passou</span></td></tr>
-    <tr><td>Testes unitários novos</td><td><code>cd backend &amp;&amp; node --import tsx --test tests/requests.service.test.ts</code></td><td><span class="badge-ok">🟢 3/3 passaram</span></td></tr>
+    <tr><td>Testes de integração FROTA-80</td><td><code>cd backend &amp;&amp; npx tsx --test --test-concurrency=1 tests/requests.integration.test.ts</code></td><td><span class="badge-ok">🟢 5/5 passaram com PostgreSQL acessível.</span></td></tr>
     <tr><td>Middleware/auth + service de solicitações</td><td><code>npx tsx --test tests/auth.test.ts tests/requests.service.test.ts</code></td><td><span class="badge-ok">🟢 12/12 passaram, incluindo perfil atual revogado e regras da solicitação.</span></td></tr>
-    <tr><td>Suíte backend completa</td><td><code>cd backend &amp;&amp; npm test</code></td><td><span class="badge-warn">🟡 280/315 passaram; 35 falharam em suítes de seed/RBAC, deadlocks e fixtures de outros módulos. PostgreSQL acessível; baseline não comparado.</span></td></tr>
-    <tr><td>Frontend TypeScript e testes</td><td><code>npx tsc --noEmit</code> / suíte frontend</td><td><span class="badge-warn">🟡 Não concluíram: <code>EACCES</code> ao criar <code>node_modules/.tmp</code> e dependência <code>jsdom</code> ausente.</span></td></tr>
-    <tr><td>Frontend lint/build</td><td><code>npm run lint</code> / <code>npm run build</code></td><td><span class="badge-na">⚪ Não executados; frontend fora do escopo e dependências locais com falhas de acesso.</span></td></tr>
+    <tr><td>Suíte backend completa</td><td><code>cd backend &amp;&amp; npm test</code></td><td><span class="badge-ok">🟢 320/320 passaram, sem falhas.</span></td></tr>
+    <tr><td>TypeScript frontend</td><td><code>cd frontend &amp;&amp; npx tsc -b --noEmit</code></td><td><span class="badge-warn">🟡 Não gravou os arquivos temporários em <code>node_modules/.tmp</code> (<code>EACCES</code>).</span></td></tr>
+    <tr><td>Testes frontend</td><td><code>cd frontend &amp;&amp; node --test tests/*.test.mjs</code></td><td><span class="badge-warn">🟡 102/109 passaram; 7 falharam por <code>jsdom</code> ausente e <code>EACCES</code> ao limpar <code>node_modules/.vite/deps</code>. Nenhum arquivo frontend foi alterado.</span></td></tr>
     <tr><td>Higiene do diff</td><td><code>git diff --check</code></td><td><span class="badge-ok">🟢 Passou</span></td></tr>
-    <tr><td>Verificação visual no navegador</td><td><code>http://localhost:5173</code></td><td><span class="badge-na">⚪ Somente a tela de login foi acessível; fluxo autenticado não foi validado. Não há UI nesta subtarefa.</span></td></tr>
+    <tr><td>Verificação visual no navegador</td><td>Não aplicável</td><td><span class="badge-na">⚪ Branch sem alterações de interface.</span></td></tr>
   </tbody>
 </table>
 
@@ -217,10 +218,11 @@
 
 <h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
 <ul class="check">
-  <li><input type="checkbox"> Confirmar que o PR contém somente FROTA-79; os planos FROTA-80 e FROTA-82/83 estão em branches separadas.</li>
+  <li><input type="checkbox"> Confirmar que o PR consolidado contém FROTA-79 e FROTA-80; FROTA-82/83 permanece fora desta branch.</li>
   <li><input type="checkbox"> Validar que uma troca de perfil após emitir JWT remove a permissão de criar solicitações no mesmo token.</li>
   <li><input type="checkbox"> Cobrir rollback real quando evento ou auditoria falhar e verificar ausência de efeitos parciais no banco.</li>
-  <li><input type="checkbox"> Comparar com <code>develop</code> as 35 falhas restantes da suíte backend. Repetir checks frontend após corrigir dependências/permissões.</li>
+  <li><input type="checkbox"> Revisar o tamanho agregado do PR e confirmar o escopo FROTA-79/FROTA-80; FROTA-82/83 deve continuar fora desta branch.</li>
+  <li><input type="checkbox"> Repetir os checks globais do frontend após restaurar <code>jsdom</code> e a escrita nos diretórios temporários; a branch não altera arquivos frontend.</li>
   <li><input type="checkbox"> Confirmar que os registros usados no QA permanecem exclusivamente no banco de testes e são fictícios.</li>
 </ul>
 
