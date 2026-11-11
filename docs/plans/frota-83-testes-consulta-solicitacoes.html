@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-83 — [QA] Testes de consulta de solicitações (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-83: [QA] Testes de consulta de solicitações</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-83</code> — [QA] Testes de consulta de solicitações</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/frota-83-testes-consulta-solicitacoes</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>VIAGENS</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>SOLICITANTE, GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data:</strong> 2026-11-11</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p>Comprovar por testes automatizados que a API de consulta da US12 (FROTA-82) limita a visibilidade de solicitações por perfil e responde corretamente a filtros, paginação e detalhes de viagem. Esta subtarefa modifica apenas a suíte de testes e, quando necessário, fixtures fictícias de teste. Não altera API de produção, banco ou frontend.</p>
+<p><strong>Pré-condição:</strong> integrar FROTA-82 e executar a suíte sobre seus endpoints. FROTA-79 ainda não está na <code>develop</code> observada; os testes podem criar registros diretamente no banco de teste para manter isolamento da API de criação. Decisões de contrato confirmadas: status e campos em inglês, período por <code>requested_date</code> inclusivo, paginação no padrão de <code>/users</code> e dados agendados vindos de snapshots com fallback.</p>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<table><thead><tr><th>Caso</th><th>Dado / Quando / Então</th></tr></thead><tbody>
+<tr><td>Dois solicitantes</td><td>Dadas solicitações de A e B, quando A lista, então vê só as próprias; <code>total</code> e páginas não contam registros de B.</td></tr>
+<tr><td>Detalhe alheio</td><td>Quando A pede o ID de B, então recebe 404 com a mesma mensagem de um ID inexistente. B consulta o próprio ID e recebe 200.</td></tr>
+<tr><td>Gestão</td><td>Quando GESTOR ou ADMINISTRADOR lista, então vê A e B; quando consulta cada detalhe, recebe 200.</td></tr>
+<tr><td>Filtros</td><td>Dadas solicitações com status e datas diferentes, quando consulta status, <code>from</code>, <code>to</code> isolados ou combinados, então recebe somente as correspondentes, incluindo datas dos limites.</td></tr>
+<tr><td>Entrada inválida</td><td>Status desconhecido, data inexistente, período invertido, página não inteira, tamanho zero ou acima de 100 → 400, sem SQL executado com filtros inválidos.</td></tr>
+<tr><td>Agendada</td><td>Dada solicitação com viagem e snapshots históricos, quando pede detalhe, então recebe veículo, motorista e horários do agendamento. Sem snapshot, recebe fallback cadastral; sem viagem, <code>trip: null</code>.</td></tr>
+<tr><td>Autorização</td><td>Sem token → 401; perfis fora de SOLICITANTE/GESTOR/ADMINISTRADOR → 403; conta inativa ou perfil alterado deve seguir a revalidação da sessão.</td></tr>
+</tbody></table>
+<p>Os testes são de leitura: não esperam mutação de <code>trip.requests</code>, <code>trip.trips</code>, eventos ou auditoria causada pelos GETs.</p>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<ul>
+<li><strong>Novo:</strong> <code>backend/tests/requests.integration.test.ts</code>, com servidores HTTP locais, seed dos perfis, dados de A/B e assertions de API e banco.</li>
+<li><strong>Reusar:</strong> <code>backend/tests/helpers/db-test.ts</code>, <code>fixtures/rbac-users.fixture.ts</code> e <code>fixtures/scheduling.fixture.ts</code>. Criar o segundo usuário SOLICITANTE de forma local ao teste com <code>generateRbacUserToken</code>; só ampliar fixture compartilhada se houver consumidor adicional real.</li>
+<li><strong>Produção:</strong> nenhum arquivo de <code>backend/src/</code> ou <code>frontend/src/</code> deve mudar nesta subtarefa; defeitos constatados serão reportados/corrigidos na FROTA-82, preservando a separação de escopo.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p>Sem migração. O teste usa as tabelas existentes <code>auth.users</code>, <code>fleet.services</code>, <code>fleet.vehicles</code>, <code>fleet.drivers</code>, <code>trip.requests</code> e <code>trip.trips</code>. <code>setupTestDatabase()</code> aplica as migrações no banco de testes e <code>truncateTestDatabase()</code> isola cada caso; não tocar no banco de desenvolvimento ou produção. Todos os dados são fictícios, incluindo nomes, e-mails, placas e documentos.</p>
+<p><strong>Rollback:</strong> remover o arquivo de testes adicionado. Nenhuma alteração de schema ou dado persistente entra no produto.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<p>Esta subtarefa não define endpoints novos. Ela verifica o contrato de FROTA-82:</p>
+<table><thead><tr><th>Endpoint</th><th>Asserções principais</th></tr></thead><tbody>
+<tr><td><code>GET /requests?status=&amp;from=&amp;to=&amp;page=&amp;pageSize=</code></td><td>200 <code>{ requests, total, page, pageSize, totalPages }</code>; status em inglês; ordem estável; filtros e contagem limitados ao perfil; 400/401/403.</td></tr>
+<tr><td><code>GET /requests/:id</code></td><td>200 com os campos da solicitação e <code>trip</code> nula ou detalhada; 404 para item alheio e inexistente; 400 para ID inválido; 401/403.</td></tr>
+</tbody></table>
+<p>Não criar teste que dependa de detalhes privados do <code>Repository</code> quando a propriedade pode ser comprovada pela API e por consulta pontual ao banco de teste. O teste da dupla A/B deve provar a autorização por ID autenticado, sem parâmetro de usuário fornecido pelo cliente.</p>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p>Sem alteração ou teste visual de React 19 nesta tarefa. A futura FROTA-84 usará <code>DataTable</code>/<code>EntityCard</code>, <code>FilterBar</code>, <code>StatusChip</code> e <code>StateFeedback</code>. Seus cinco estados visuais ficam como contrato de integração: <strong>Ideal</strong>, <strong>Carregando</strong>, <strong>Vazio</strong>, <strong>Erro</strong> e <strong>Parcial</strong>. A validação visual e de responsividade pertence à FROTA-84.</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>Verificar que erros 400 identificam o filtro inválido em texto compreensível para posterior apresentação acessível pela interface. A resposta 404 para solicitação alheia não pode expor existência ou proprietário. A API devolve status tipados em inglês para FROTA-84 mapear a rótulos textuais; a suíte desta tarefa não substitui testes de teclado, foco, contraste, zoom e anúncios dinâmicos da tela.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<table><thead><tr><th>Perfil de teste</th><th>Resultado esperado</th></tr></thead><tbody>
+<tr><td><code>SOLICITANTE A/B</code></td><td>Somente os próprios registros, com 404 para detalhe alheio e contagem isolada.</td></tr>
+<tr><td><code>GESTOR</code>, <code>ADMINISTRADOR</code></td><td>Todos os registros que correspondem aos filtros.</td></tr>
+<tr><td><code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code></td><td>403 nos dois GETs.</td></tr>
+<tr><td>Sem token, token inválido ou conta inativa</td><td>401; revalidação de perfil usa o cadastro atual.</td></tr>
+</tbody></table>
+<p>Não há configuração nova. As credenciais e tokens de teste permanecem fictícios e locais à suíte; nenhum dado pessoal real integra fixtures ou mensagens de erro.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<ol>
+<li><strong>Preparação:</strong> <code>before</code> monta banco de teste migrado e servidor <code>createApp</code> em porta efêmera; <code>beforeEach</code> limpa tabelas, semeia papéis e usuários fictícios; <code>after</code> fecha servidor e pool. Seguir o padrão de <code>requests-analysis.integration.test.ts</code>.</li>
+<li><strong>IT-REQUESTS-01:</strong> A e B têm dois pedidos cada. A lista e pagina; IDs e <code>total</code> contêm somente A. B também vê apenas B.</li>
+<li><strong>IT-REQUESTS-02:</strong> A pede detalhe de B e ID inexistente; ambos 404 e mesmo corpo. A consulta o próprio, 200.</li>
+<li><strong>IT-REQUESTS-03:</strong> GESTOR e ADMINISTRADOR recebem o conjunto A+B e consultam ambos os detalhes.</li>
+<li><strong>IT-REQUESTS-04:</strong> status <code>PENDING</code>/<code>APPROVED</code> e datas antes/no/depois dos limites; testar <code>status</code>, <code>from</code>, <code>to</code> e combinação, inclusive limite inclusivo.</li>
+<li><strong>IT-REQUESTS-05:</strong> status desconhecido, data malformada ou inexistente, <code>from &gt; to</code>, <code>page=0</code>, <code>pageSize=101</code> e parâmetros repetidos retornam 400.</li>
+<li><strong>IT-REQUESTS-06:</strong> solicitação agendada com viagem e snapshots diferentes dos cadastros atuais prova uso histórico de placa/nome; outra viagem sem snapshots prova fallback; pedido sem viagem retorna <code>trip: null</code>.</li>
+<li><strong>IT-REQUESTS-07:</strong> sem token 401, perfis excluídos 403, conta inativa 401 e troca de perfil respeitada quando houver middleware de revalidação.</li>
+<li><strong>IT-REQUESTS-08:</strong> verificar ordenação e metadados em duas páginas, página além do fim vazia e ausência de mutações em <code>trip.request_events</code>/<code>audit.logs</code> após GETs.</li>
+<li><strong>Execução:</strong> <code>cd backend &amp;&amp; npm test</code> deve passar integralmente; <code>npx tsc --noEmit</code> sem erros. Inspecionar respostas e SQL contra banco de teste, sem usar dados reais.</li>
+</ol>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-83)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+<p><strong>Atualizar a seção de verificação de <code>docs/modulos/VIAGENS.html</code></strong> com a matriz de testes e o resultado obtido após executar <code>npm test</code>. O contrato funcional da consulta pertence à documentação prevista na FROTA-82; esta subtarefa documenta sua comprovação, sem duplicar especificações.</p>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

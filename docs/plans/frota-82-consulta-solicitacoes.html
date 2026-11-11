@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-82 — [BE] API de consulta de solicitações (por usuário, status e período) (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-82: [BE] API de consulta de solicitações (por usuário, status e período)</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-82</code> — [BE] API de consulta de solicitações (por usuário, status e período)</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/frota-82-consulta-solicitacoes</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>VIAGENS</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>SOLICITANTE, GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data:</strong> 2026-11-11</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p>Permitir que o Solicitante da FSPH acompanhe as próprias solicitações de transporte e que Gestor e Administrador consultem a fila completa, com filtros e detalhe da viagem vinculada. A tarefa FROTA-82 acrescenta apenas leitura em <code>GET /requests</code> e <code>GET /requests/:id</code>; criação (FROTA-79), decisão (FROTA-88), agendamento (FROTA-97) e tela (FROTA-84) mantêm seus escopos.</p>
+<p><strong>Dependências:</strong> tabelas de FROTA-77 já estão em <code>develop</code>; o endpoint de criação de FROTA-79 ainda não está nessa branch. Integrar os arquivos de FROTA-79 quando estiverem disponíveis, sem duplicar a rota <code>/requests</code>. O contrato de leitura usa os status em inglês já gravados no banco; o contrato divergente em português de FROTA-79 deverá ser alinhado com o time antes da integração.</p>
+<p><strong>Decisões confirmadas pelo desenvolvedor:</strong> <code>from</code>/<code>to</code> filtram <code>requested_date</code> com limites inclusivos; paginação usa o padrão de <code>/users</code>; dados de veículo e motorista vêm dos snapshots do agendamento, com fallback ao cadastro atual quando faltarem; campos e status da resposta usam inglês.</p>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<table><thead><tr><th>Cenário</th><th>Dado / Quando / Então</th></tr></thead><tbody>
+<tr><td>Isolamento por solicitante</td><td>Dadas solicitações de A e B, quando A lista ou filtra, então recebe somente as de A; <code>total</code> reflete somente as de A. Quando A pede o detalhe de B, então recebe 404 idêntico ao de ID inexistente.</td></tr>
+<tr><td>Visão gerencial</td><td>Dadas solicitações de usuários distintos, quando GESTOR ou ADMINISTRADOR consulta, então recebe todas as correspondentes aos filtros.</td></tr>
+<tr><td>Filtros</td><td>Dados status válido e intervalo <code>YYYY-MM-DD</code>, quando filtra, então aplica ambos no SQL a <code>trip.requests.status</code> e <code>requested_date</code>, com <code>from &lt;= requested_date &lt;= to</code>. Cada limite pode ser usado isoladamente.</td></tr>
+<tr><td>Entrada inválida</td><td>Dados status fora de <code>PENDING</code>, <code>APPROVED</code>, <code>REJECTED</code>, <code>SCHEDULED</code>, <code>CANCELED</code>, data inexistente, período invertido ou paginação inválida, quando consulta, então recebe 400 e mensagem em português que identifica o filtro.</td></tr>
+<tr><td>Paginação</td><td>Dados <code>page=1</code> e <code>pageSize=20</code> por padrão, quando pagina, então recebe ordem determinística por <code>requested_date DESC, requested_time DESC, id DESC</code>, no máximo 100 itens por página e metadados do conjunto autorizado.</td></tr>
+<tr><td>Detalhe agendado</td><td>Dada solicitação com viagem, quando consulta o detalhe, então recebe <code>trip</code> com situação, horário agendado, veículo e motorista do snapshot histórico; para snapshot ausente, usa o cadastro atual. Sem viagem, <code>trip: null</code>.</td></tr>
+</tbody></table>
+<p>Esta API é somente leitura: não altera status nem cria eventos. IDs <code>BIGINT</code> são serializados como texto, e dados de senha, CPF, CNH, e-mail e snapshots brutos não integram a resposta.</p>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<ul>
+<li><strong>Após integrar FROTA-79, estender:</strong> <code>backend/src/routes/requests.routes.ts</code>, <code>controllers/requests.controller.ts</code>, <code>services/requests.service.ts</code>, <code>repositories/requests.repository.ts</code> e <code>types/request.types.ts</code>. Esses arquivos ainda não existem na <code>develop</code> observada; se a implementação começar antes da integração, criá-los com separação por camadas e combinar a montagem com FROTA-79, sem duplicar classes ou rotas.</li>
+<li><strong>Alterar:</strong> <code>backend/src/app.ts</code> para montar o roteador de consulta em <code>/requests</code> junto ao roteador de decisões já existente, preservando <code>POST /requests/:id/approve</code> e <code>/reject</code>.</li>
+<li><strong>Testes de base da API:</strong> <code>backend/tests/requests.service.test.ts</code> para validação, identidade e erros. A matriz de integração completa está na FROTA-83.</li>
+<li><strong>Frontend:</strong> nenhum arquivo nesta tarefa; FROTA-84 consumirá o contrato.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p>Sem DDL novo previsto. <code>trip.requests</code> já contém <code>requester_id</code>, <code>status</code>, <code>requested_date</code>, <code>requested_time</code>, campos da solicitação e da decisão; <code>trip.trips</code> liga viagem à solicitação por <code>request_id UNIQUE</code> e guarda <code>vehicle_snapshot</code>/<code>driver_snapshot</code>. Consultar os registros existentes sem reescrevê-los.</p>
+<p>Usar consultas parametrizadas com projeções explícitas. Aplicar o filtro do solicitante no <code>WHERE</code> tanto na consulta de página quanto na contagem e no detalhe; não buscar tudo para filtrar em memória. Usar <code>LEFT JOIN</code> para a viagem opcional e fallback pontual aos cadastros de veículo/motorista. Evitar N+1. Índices existentes: <code>trip_requests_by_requester</code>, <code>trip_requests_by_status_date</code> e unicidade de <code>trip.trips.request_id</code>. Medir <code>EXPLAIN (ANALYZE, BUFFERS)</code> com volume representativo antes de propor índice adicional.</p>
+<p><strong>Rollback:</strong> reverter somente as rotas e os arquivos de leitura introduzidos nesta entrega; nenhum dado existente é removido ou convertido. Se a medição justificar índice em migração separada, definir antes seu DDL transacional <code>BEGIN ... COMMIT</code> e o respectivo <code>DROP INDEX</code> de rollback.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<table><thead><tr><th>Endpoint</th><th>Entrada</th><th>Resposta</th><th>Erros</th></tr></thead><tbody>
+<tr><td><code>GET /requests</code></td><td><code>status?</code>, <code>from?</code>, <code>to?</code>, <code>page?</code>, <code>pageSize?</code></td><td>200 <code>{ requests, total, page, pageSize, totalPages }</code>. Cada item: <code>{ id, serviceId, requestedDate, requestedTime, origin, destination, purpose, passengers, status, createdAt }</code>.</td><td>400 filtro/paginação inválidos; 401 sessão inválida; 403 perfil sem acesso.</td></tr>
+<tr><td><code>GET /requests/:id</code></td><td>ID decimal positivo no intervalo BIGINT</td><td>200 com os campos da solicitação, <code>requesterId</code>, <code>decidedBy</code>, <code>decidedAt</code>, <code>decisionReason</code>, <code>revision</code>, <code>updatedAt</code> e <code>trip</code> nula ou <code>{ id, status, scheduledStart, scheduledEnd, vehicle: { id, licensePlate }, driver: { id, name } }</code>.</td><td>400 ID malformado; 401/403; 404 inexistente ou de outro solicitante.</td></tr>
+</tbody></table>
+<ul>
+<li><strong>Route:</strong> autenticar, revalidar o usuário ativo com <code>createCurrentUserMiddleware</code>, autorizar <code>['SOLICITANTE', 'GESTOR', 'ADMINISTRADOR']</code> e chamar o controller. Manter as rotas de decisão com seu middleware próprio; nenhum <code>router.use</code> global de leitura deve bloquear os POSTs existentes.</li>
+<li><strong>Controller:</strong> extrair apenas parâmetros aceitos, exigir valores simples, traduzir exceções de domínio para <code>{ erro: "..." }</code> e deixar falhas inesperadas ao handler global. Não receber <code>requesterId</code> do query string.</li>
+<li><strong>Service:</strong> validar status com a enumeração do CHECK de <code>trip.requests</code>, datas ISO reais e ordem do período, <code>page</code>/<code>pageSize</code> inteiros positivos (padrão 1/20; máximo 100), e ID BIGINT válido. Passar <code>actorId</code> e <code>role</code> à persistência; para SOLICITANTE, impor <code>requesterId = actorId</code>. Converter ausência e ausência de posse no mesmo 404.</li>
+<li><strong>Repository:</strong> contagem e listagem com mesmo predicado de autorização e filtros; <code>LIMIT/OFFSET</code> parametrizados e ordenação estável; detalhe com <code>WHERE r.id = $1 AND ($2::bigint IS NULL OR r.requester_id = $2)</code>. Projetar aliases <code>camelCase</code> e ler snapshots históricos para placa/nome, usando cadastro atual apenas como fallback. Consultas sem <code>SELECT *</code> e sem dados sensíveis.</li>
+<li><strong>Types:</strong> <code>RequestStatus</code>, <code>RequestListQuery</code>, <code>RequestListFilters</code>, <code>RequestSummary</code>, <code>RequestDetail</code>, <code>PaginatedRequests</code> e erro de domínio tipado. Reaproveitar as definições da FROTA-79 quando estiverem no mesmo arquivo; não duplicar enums.</li>
+</ul>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p>Não há alteração de React 19 nesta subtarefa. O contrato alimenta a futura tela FROTA-84. Essa tela tratará explicitamente: <strong>Ideal</strong> (lista e detalhe), <strong>Carregando</strong> (feedback de busca), <strong>Vazio</strong> (nenhuma solicitação para os filtros), <strong>Erro</strong> (falha recuperável) e <strong>Parcial</strong> (lista carregada, detalhe indisponível). Reutilizará <code>DataTable</code>/<code>EntityCard</code>, <code>FilterBar</code>, <code>StatusChip</code> e <code>StateFeedback</code>, sem implementação nesta branch.</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>Nesta tarefa, os requisitos de WCAG 2.2 AA recaem sobre o contrato e as mensagens da API que FROTA-84 exibirá. Erros 400 devem nomear o filtro problemático e orientar correção; 404 de item alheio deve usar a mesma mensagem do inexistente, sem vazamento de existência. Status têm valores tipados para a interface apresentar rótulo textual, nunca apenas cor. A implementação visual, incluindo rótulos, teclado, foco, alvos e anúncio dos cinco estados, será verificada em FROTA-84.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<table><thead><tr><th>Perfil</th><th>Listagem</th><th>Detalhe</th></tr></thead><tbody>
+<tr><td><code>SOLICITANTE</code></td><td>Apenas <code>requester_id = req.usuario.id</code>, inclusive na contagem.</td><td>Próprio: 200; de terceiro: 404.</td></tr>
+<tr><td><code>GESTOR</code>, <code>ADMINISTRADOR</code></td><td>Todas as solicitações correspondentes aos filtros.</td><td>Qualquer solicitação existente: 200.</td></tr>
+<tr><td><code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code></td><td>403.</td><td>403.</td></tr>
+<tr><td>Sem sessão válida</td><td>401.</td><td>401.</td></tr>
+</tbody></table>
+<p>Usar RBAC existente e identidade revalidada no backend. Nenhuma variável de ambiente ou feature flag nova. A API não expõe dados de operações SVO nem documentos pessoais de motoristas.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<ol>
+<li><strong>Service unitário:</strong> status aceitos/rejeitados, datas de calendário, período invertido, página e tamanho inválidos, ID fora do intervalo e escopo por perfil; 404 indistinguível para item inexistente e alheio.</li>
+<li><strong>Integração mínima nesta entrega:</strong> GET sem token → 401; perfil excluído → 403; Solicitante só vê o próprio conjunto e total; Gestor/Admin veem todas; filtros combinados e limites inclusivos; página vazia com total correto; detalhe sem viagem <code>trip: null</code>.</li>
+<li><strong>FROTA-83:</strong> ampliar a cobertura em <code>backend/tests/requests.integration.test.ts</code>, incluindo dois solicitantes independentes, detalhes de terceiro e viagem agendada com snapshots e fallback.</li>
+<li><strong>Verificação SQL:</strong> comparar respostas às linhas de <code>trip.requests</code>/<code>trip.trips</code> em base de teste; executar <code>EXPLAIN (ANALYZE, BUFFERS)</code> para consultas representativas de Solicitante e Gestor. Usar apenas dados fictícios.</li>
+<li><strong>Comandos:</strong> <code>cd backend &amp;&amp; npx tsc --noEmit</code> e <code>cd backend &amp;&amp; npm test</code>; executar a verificação estática do repositório antes do PR.</li>
+</ol>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-82)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+<p><strong>Atualizar <code>docs/modulos/VIAGENS.html</code>:</strong> registrar os dois GETs, o contrato de página e detalhe, filtros por <code>requested_date</code>, matriz RBAC, 404 para item de terceiro, uso de snapshots e fallback. Registrar a dependência com a tela FROTA-84 e a cobertura de testes FROTA-83.</p>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>
