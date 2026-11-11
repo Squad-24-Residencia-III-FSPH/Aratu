@@ -76,3 +76,17 @@ test('nomes de perfis informados por Lucas são reconhecidos sem ampliar acesso'
   assert.equal(resolveProfile('Gestor de Frota'), 'GESTOR')
   assert.equal(resolveProfile('desconhecido'), null)
 })
+
+test('somente MOTORISTA abre /viagens/minhas; demais perfis voltam à própria home', () => {
+  assert.deepEqual(resolveRoute(sessionFor('MOTORISTA'), '/viagens/minhas'), {
+    kind: 'home',
+    profile: 'MOTORISTA',
+  })
+  for (const [profile, home] of destinations) {
+    if (profile === 'MOTORISTA') continue
+    assert.deepEqual(resolveRoute(sessionFor(profile), '/viagens/minhas'), {
+      kind: 'redirect',
+      to: home,
+    })
+  }
+})

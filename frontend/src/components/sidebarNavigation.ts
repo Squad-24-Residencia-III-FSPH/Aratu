@@ -83,6 +83,13 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
       label: 'OPERAÇÃO',
       spaced: false,
       items: [
+        {
+          label: PROFILE_HOMES.MOTORISTA.title,
+          icon: 'trips',
+          behavior: 'link',
+          path: PROFILE_HOMES.MOTORISTA.path,
+          profiles: ['MOTORISTA'],
+        },
         { label: 'Solicitações', icon: 'requests', behavior: 'button' },
         { label: 'Viagens', icon: 'trips', behavior: 'button' },
         { label: 'Confirmar viagens', icon: 'confirmTrips', behavior: 'button' },

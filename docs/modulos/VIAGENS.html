@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VIAGENS — Documentação Técnica e Funcional (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #075985;
+      --brand: #0369a1;
+      --brand-surface: #f0f9ff;
+      --brand-border: #bae6fd;
+      --brand-hover: #e0f2fe;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; overflow-wrap: anywhere; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>VIAGENS — Documentação Técnica e Funcional (Sistema Aratu)</h1>
+
+<div class="meta-block">
+  <p><strong>Módulo (chave):</strong> <code>VIAGENS</code></p>
+  <p><strong>Índice de referência:</strong> <code>docs/manuais/modulos.md</code></p>
+  <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/trips.routes.ts</code>, <code>backend/src/routes/availability.routes.ts</code>, <code>backend/src/controllers/trips.controller.ts</code>, <code>backend/src/controllers/availability.controller.ts</code>, <code>backend/src/services/trips.service.ts</code>, <code>backend/src/services/availability.service.ts</code>, <code>backend/src/repositories/trips.repository.ts</code>, <code>backend/src/repositories/availability.repository.ts</code></p>
+  <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/MyTripsPage.tsx</code>, <code>frontend/src/pages/myTripsPage/TripExecutionDialog.tsx</code>, <code>frontend/src/components/ui/EntityCard.tsx</code>, <code>frontend/src/hooks/useMyTrips.ts</code>, <code>frontend/src/services/tripsService.ts</code>, <code>frontend/src/trips/tripTypes.ts</code>, <code>frontend/src/trips/tripPresentation.ts</code></p>
+  <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (schema nativo <code>trip</code>, integrado a <code>fleet</code>, <code>auth</code> e <code>audit</code>)</p>
+  <p><strong>Versão da documentação:</strong> 2026-11-10 (inclui <code>FROTA-96</code>, <code>FROTA-97</code>, <code>FROTA-99</code>, <code>FROTA-100</code>, <code>FROTA-101</code>, <code>FROTA-106</code> e <code>FROTA-107</code>; <code>FROTA-102</code> foi absorvida e entregue pela <code>FROTA-99</code>)</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Visão Geral</a></li>
+  <li><a href="#s2">Regras de Negócio e Transições de Estado</a></li>
+  <li><a href="#s3">Escopo de Impacto e Matriz de Acesso (RBAC)</a></li>
+  <li><a href="#s4">Tabelas do Banco de Dados (PostgreSQL 18 — Schema <code>trip</code>)</a></li>
+  <li><a href="#s5">Contratos de API REST (Backend Express 5)</a></li>
+  <li><a href="#s6">Camadas de Negócio e Persistência (Backend)</a></li>
+  <li><a href="#s7">Interface e Acessibilidade (Frontend React 19 + WCAG 2.2 AA)</a></li>
+  <li><a href="#s8">Arquivos Principais (Referência Rápida)</a></li>
+  <li><a href="#s9">Dependências, Integrações e Proteção de Dados (LGPD)</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Visão Geral</h2>
+<p>O módulo <strong>VIAGENS</strong> coordena o ciclo operacional de transporte institucional da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e do <strong>Serviço de Verificação de Óbito (SVO)</strong>, desde a avaliação de disponibilidade de viaturas e motoristas até o agendamento, a execução em campo pelo motorista com registro de hodômetro e a conferência/confirmação final pela gestão de frota:</p>
+<ol>
+  <li><strong>Avaliação de Disponibilidade (<code>FROTA-96</code>):</strong> consulta unificada de veículos (<code>GET /vehicles/available</code>) e motoristas (<code>GET /drivers/available</code>) para um período ISO 8601 com fuso horário, expondo impedimentos explícitos (<code>MAINTENANCE</code>, <code>INCOMPATIBLE</code>, <code>CONFLICT</code>, <code>INACTIVE</code>, <code>AWAY</code>, <code>CNH_EXPIRED</code>).</li>
+  <li><strong>Agendamento de Viagem (<code>FROTA-97</code>):</strong> transformação transacional de uma solicitação aprovada (<span class="badge-status">APPROVED</span>) em viagem agendada (<span class="badge-status">SCHEDULED</span>) com travas pessimistas (<code>SELECT ... FOR UPDATE</code>) sobre solicitação, veículo e motorista e captura de snapshots históricos (<code>vehicle_snapshot</code> e <code>driver_snapshot</code>).</li>
+  <li><strong>Execução da Viagem pelo Motorista — Backend e Tela Mobile-First (<code>FROTA-99</code>, <code>FROTA-100</code> e <code>FROTA-101</code>):</strong> listagem das viagens pendentes do condutor logado (<code>GET /trips/mine</code>) e registro de início (<code>POST /trips/:id/start</code> com <code>startKm</code>) e término (<code>POST /trips/:id/finish</code> com <code>endKm</code>). Na interface React 19, a rota inicial do perfil <span class="badge-rbac">MOTORISTA</span> (<code>/viagens/minhas</code>) apresenta o recorte operacional <em>Hoje e em andamento</em> (no fuso <code>America/Maceio</code>) com alternância imediata para <em>Todas as pendentes</em>, cartões compostos <code>EntityCard</code> e diálogo único <code>TripExecutionDialog</code>.
+    <blockquote><strong>Nota sobre a <code>FROTA-102</code>:</strong> o escopo originalmente previsto na <code>FROTA-102</code> (regras e endpoints de início e término de viagem com hodômetro e histórico cumulativo) foi integralmente absorvido e entregue na <code>FROTA-99</code>, consumido sem alterações de backend pela <code>FROTA-100</code>.</blockquote>
+  </li>
+  <li><strong>Conferência e Confirmação pelo Gestor (<code>FROTA-106</code> e <code>FROTA-107</code>):</strong> consulta filtrada por situação e período agendado em Aracaju (<code>GET /trips?status=&amp;from=&amp;to=</code>) e confirmação administrativa (<code>POST /trips/:id/confirm</code>) que transiciona <span class="badge-status">FINISHED</span> → <span class="badge-status">CONFIRMED</span> mediante existência das evidências de hodômetro inicial e final.</li>
+</ol>
+
+<hr>
+
+<h2 id="s2">2. Regras de Negócio e Transições de Estado</h2>
+<p>As regras de domínio residem em <code>AvailabilityService</code> (<code>backend/src/services/availability.service.ts</code>) e <code>TripsService</code> (<code>backend/src/services/trips.service.ts</code>):</p>
+<ul>
+  <li><strong>Disponibilidade compartilhada entre consulta e agendamento (<code>AvailabilityService::listVehicles</code>, <code>AvailabilityService::listDrivers</code>, <code>AvailabilityService::assessVehicle</code>, <code>AvailabilityService::assessDriver</code>):</strong>
+    <ul>
+      <li>Período obrigatório em ISO 8601 com offset de fuso horário (<code>parsePeriod</code>), exigindo <code>end &gt; start</code> (<code>400</code>).</li>
+      <li>Conflito de agenda (<code>CONFLICT</code>) ocorre por sobreposição estrita (<code>scheduled_start &lt; end AND scheduled_end &gt; start</code>) com viagens em <span class="badge-status">SCHEDULED</span> ou <span class="badge-status">IN_PROGRESS</span>.</li>
+      <li>A CNH do motorista deve estar válida tanto na data corrente de Aracaju (<code>currentFsphDate</code>) quanto na data final da viagem (<code>fsphDateOf(period.end)</code>); caso contrário, retorna <code>CNH_EXPIRED</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Agendamento atômico com trava em ordem fixa (<code>TripsService::scheduleTrip</code>):</strong>
+    <ul>
+      <li>Valida que <code>scheduledStart</code> não está no passado em relação ao relógio do servidor (<code>422</code>).</li>
+      <li>Dentro de <code>TripsRepository::withTransaction</code>, trava na ordem fixa: 1º solicitação (<code>findRequestForUpdate</code>), 2º veículo (<code>assessVehicle</code> com <code>FOR UPDATE</code>), 3º motorista (<code>assessDriver</code> com <code>FOR UPDATE</code>), prevenindo deadlocks e dupla alocação concorrente.</li>
+      <li>Exige solicitação em estado <span class="badge-status">APPROVED</span> (<code>409</code> para outros estados). Impedimentos cadastrais do veículo ou motorista retornam <code>422</code>; conflito de agenda retorna <code>409</code>.</li>
+      <li>Persiste <code>vehicle_snapshot</code> e <code>driver_snapshot</code> no momento da decisão, atualiza a solicitação para <span class="badge-status">SCHEDULED</span> e grava <code>trip.trip_events</code> (<span class="badge-status">SCHEDULED</span>), <code>trip.request_events</code> (<span class="badge-status">SCHEDULED</span>) e <code>audit.logs</code> (<code>CREATE</code>).</li>
+    </ul>
+  </li>
+  <li><strong>Listagem das viagens do próprio motorista (<code>TripsService::listMyTrips</code>):</strong>
+    <ul>
+      <li>Resolve o cadastro de motorista vinculado ao <code>userId</code> do token JWT (<code>TripsRepository::findDriverByUserId</code>). Se o usuário <span class="badge-rbac">MOTORISTA</span> não possuir vínculo em <code>fleet.drivers</code>, retorna lista vazia <code>[]</code> com <code>200 OK</code>.</li>
+      <li>Retorna apenas viagens daquele motorista em <span class="badge-status">SCHEDULED</span> ou <span class="badge-status">IN_PROGRESS</span>, ordenadas com <span class="badge-status">IN_PROGRESS</span> primeiro e depois por <code>scheduled_start ASC, id ASC</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Início de viagem pelo motorista alocado (<code>TripsService::startTrip</code>):</strong>
+    <ul>
+      <li>Trava a viagem (<code>TripsRepository::findTripForUpdate</code>) e verifica se o usuário autenticado corresponde ao <code>driver_id</code> da viagem; caso contrário, recusa com <code>403 Forbidden</code> (<code>Somente o motorista alocado pode registrar a execução desta viagem.</code>).</li>
+      <li>Permite apenas a transição <span class="badge-status">SCHEDULED</span> → <span class="badge-status">IN_PROGRESS</span>; qualquer outro estado retorna <code>409 Conflict</code>.</li>
+      <li>Trava o veículo (<code>TripsRepository::lockVehicle</code>) e consulta a linha do tempo unificada de hodômetro (<code>FuelingsRepository::timeline</code>, compartilhada com abastecimentos). Se a linha do tempo estiver inconsistente, retorna <code>409</code>; se <code>startKm</code> for menor que a última quilometragem conhecida do veículo, retorna <code>422 Unprocessable Entity</code>.</li>
+      <li>Índices parciais únicos no PostgreSQL (<code>trip_trips_vehicle_in_progress_unique</code> e <code>trip_trips_driver_in_progress_unique</code>) impedem que o mesmo veículo ou motorista fique com duas viagens <span class="badge-status">IN_PROGRESS</span> simultaneamente (<code>23505</code> traduzido para <code>409</code>).</li>
+      <li>Grava na mesma transação: atualização de <code>trip.trips</code> (<code>status = 'IN_PROGRESS'</code>, <code>start_km</code>, <code>started_at = clock_timestamp()</code>, <code>revision + 1</code>), leitura <code>START</code> em <code>trip.odometer_readings</code>, evento <code>STARTED</code> em <code>trip.trip_events</code> e registro <code>STATUS_CHANGE</code> em <code>audit.logs</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Término de viagem pelo motorista alocado (<code>TripsService::finishTrip</code>):</strong>
+    <ul>
+      <li>Trava a viagem (<code>findTripForUpdate</code>) e valida a titularidade do motorista alocado (<code>403</code> para outro motorista).</li>
+      <li>Permite apenas a transição <span class="badge-status">IN_PROGRESS</span> → <span class="badge-status">FINISHED</span> (<code>409</code> fora disso).</li>
+      <li>Exige <code>endKm &gt;= startKm</code> (inteiro não negativo até <code>2_147_483_647</code>); se <code>endKm &lt; startKm</code>, recusa com <code>422</code>.</li>
+      <li>Grava na mesma transação: atualização de <code>trip.trips</code> (<code>status = 'FINISHED'</code>, <code>end_km</code>, <code>finished_at = clock_timestamp()</code>, <code>revision + 1</code>), preservando intactos <code>start_km</code>, <code>started_at</code>, <code>vehicle_snapshot</code> e <code>driver_snapshot</code>, além de acrescentar leitura <code>END</code> em <code>trip.odometer_readings</code>, evento <code>FINISHED</code> em <code>trip.trip_events</code> e registro <code>STATUS_CHANGE</code> em <code>audit.logs</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Conferência e confirmação pelo Gestor (<code>TripsService::listTrips</code> e <code>TripsService::confirmTrip</code>):</strong>
+    <ul>
+      <li><code>listTrips</code> valida <code>status</code> opcional e intervalo de datas <code>from</code>/<code>to</code> (<code>YYYY-MM-DD</code> no fuso <code>America/Maceio</code>, recusando <code>from &gt; to</code> com <code>400</code>).</li>
+      <li><code>confirmTrip</code> trava a viagem (<code>findTripForUpdate</code>), exige estado <span class="badge-status">FINISHED</span> (<code>409</code> se já confirmada ou em outro estado) e presença de <code>startKm</code> e <code>endKm</code> (<code>422 Viagem sem evidências do odômetro não pode ser confirmada</code>). Avança para <span class="badge-status">CONFIRMED</span> gravando <code>confirmed_by</code>, <code>confirmed_at</code>, evento <code>CONFIRMED</code> e auditoria.</li>
+    </ul>
+  </li>
+  <li><strong>Preservação Histórica Cumulativa (Imutabilidade e Append-Only):</strong>
+    <ul>
+      <li>Nenhum evento de execução sobrescreve leituras ou eventos anteriores: uma viagem que percorre <span class="badge-status">SCHEDULED</span> → <span class="badge-status">IN_PROGRESS</span> → <span class="badge-status">FINISHED</span> acumula as duas leituras em <code>trip.odometer_readings</code> (<code>START</code> e <code>END</code>) e todos os eventos em <code>trip.trip_events</code> (<code>SCHEDULED</code>, <code>STARTED</code>, <code>FINISHED</code>), protegidos por triggers <code>BEFORE UPDATE OR DELETE</code> no banco.</li>
+      <li>Qualquer falha em leitura de hodômetro, evento ou auditoria desfaz toda a transação (<code>ROLLBACK</code>), mantendo estado, revisão e contagens anteriores inalterados.</li>
+    </ul>
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="s3">3. Escopo de Impacto e Matriz de Acesso (RBAC)</h2>
+<p>O controle de acesso utiliza os códigos de perfil reais emitidos no token JWT e validados por <code>authorizeRoles</code> no backend e pela configuração de rotas/menu no frontend:</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Perfil RBAC</th>
+      <th scope="col">Ações Permitidas no Módulo</th>
+      <th scope="col">Restrições de Escopo / Visibilidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-rbac">MOTORISTA</span></td>
+      <td>Acessar a tela inicial <strong>Minhas viagens</strong> (<code>/viagens/minhas</code>), listar suas viagens pendentes (<code>GET /trips/mine</code>), iniciar viagem agendada (<code>POST /trips/:id/start</code>) e finalizar viagem em andamento (<code>POST /trips/:id/finish</code>)</td>
+      <td>Vê e executa exclusivamente viagens em que <code>trip.driver_id</code> pertence ao seu cadastro em <code>fleet.drivers</code>; recebe <code>403 Forbidden</code> ao tentar iniciar/finalizar viagem de outro motorista ou acessar endpoints de agendamento/confirmação do Gestor</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">GESTOR</span></td>
+      <td>Consultar disponibilidade (<code>GET /vehicles/available</code>, <code>GET /drivers/available</code>), agendar viagens (<code>POST /trips</code>), listar viagens para conferência (<code>GET /trips</code>) e confirmar viagens finalizadas (<code>POST /trips/:id/confirm</code>)</td>
+      <td>Não executa início/término em nome do motorista (recebe <code>403</code> em <code>/trips/mine</code>, <code>/trips/:id/start</code> e <code>/trips/:id/finish</code>); não vê o item <em>Minhas viagens</em> no menu lateral</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Consultar disponibilidade de veículos e motoristas (<code>GET /vehicles/available</code>, <code>GET /drivers/available</code>)</td>
+      <td>Sem acesso às rotas exclusivas de execução do motorista (<code>/trips/mine</code>, <code>/:id/start</code>, <code>/:id/finish</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">SOLICITANTE</span> / <span class="badge-rbac">ATENDENTE_SVO</span> / <span class="badge-rbac">EQUIPE_SVO</span></td>
+      <td>Sem acesso direto aos endpoints de execução ou confirmação de <code>/trips</code></td>
+      <td>Qualquer chamada direta a <code>/trips/*</code> retorna <code>403 Forbidden</code>; a navegação de cada perfil permanece na sua própria home operacional</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s4">4. Tabelas do Banco de Dados (PostgreSQL 18 — Schema <code>trip</code>)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Tabela</th>
+      <th scope="col">Descrição Funcional (Grão da Linha)</th>
+      <th scope="col">Colunas-Chave e Tipos</th>
+      <th scope="col">Constraints e Índices</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-tabela">trip.requests</span></td>
+      <td>Solicitação de transporte institucional que dá origem a uma viagem quando aprovada</td>
+      <td><code>id</code> (BIGINT IDENTITY PK), <code>requester_id</code> (BIGINT FK), <code>service_id</code> (BIGINT FK), <code>requested_date</code> (DATE), <code>requested_time</code> (TIME), <code>origin</code> (TEXT), <code>destination</code> (TEXT), <code>purpose</code> (TEXT), <code>passengers</code> (INTEGER), <code>status</code> (TEXT), <code>requester_snapshot</code> (JSONB), <code>service_snapshot</code> (JSONB), <code>revision</code> (INTEGER)</td>
+      <td><code>status IN ('PENDING', 'APPROVED', 'REJECTED', 'SCHEDULED', 'CANCELED')</code>; FKs com <code>ON DELETE RESTRICT</code>; índices <code>trip_requests_by_requester</code>, <code>trip_requests_by_status_date</code>, <code>trip_requests_by_service</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">trip.request_events</span></td>
+      <td>Trilha histórica append-only das mudanças de estado da solicitação</td>
+      <td><code>id</code> (BIGINT IDENTITY PK), <code>request_id</code> (BIGINT FK), <code>event_type</code> (TEXT), <code>occurred_at</code> (TIMESTAMPTZ), <code>reported_by</code> (TEXT), <code>registered_by</code> (BIGINT FK), <code>actor_snapshot</code> (JSONB), <code>reason</code> (TEXT), <code>before_state</code> (JSONB), <code>after_state</code> (JSONB), <code>supersedes_id</code> (BIGINT FK), <code>is_annulled</code> (BOOLEAN)</td>
+      <td>Trigger <code>trip_request_events_append_only</code> bloqueia <code>UPDATE</code> e <code>DELETE</code>; índice <code>trip_request_events_by_request</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">trip.trips</span></td>
+      <td>Viagem agendada, em andamento, finalizada, confirmada ou cancelada, vinculada 1:1 a uma solicitação aprovada</td>
+      <td><code>id</code> (BIGINT IDENTITY PK), <code>request_id</code> (BIGINT UNIQUE FK), <code>vehicle_id</code> (BIGINT FK), <code>driver_id</code> (BIGINT FK), <code>scheduled_start</code> (TIMESTAMPTZ), <code>scheduled_end</code> (TIMESTAMPTZ), <code>status</code> (TEXT), <code>started_at</code> (TIMESTAMPTZ), <code>finished_at</code> (TIMESTAMPTZ), <code>start_km</code> (INTEGER), <code>end_km</code> (INTEGER), <code>start_km_photo_url</code> (TEXT), <code>end_km_photo_url</code> (TEXT), <code>confirmed_by</code> (BIGINT FK), <code>confirmed_at</code> (TIMESTAMPTZ), <code>vehicle_snapshot</code> (JSONB), <code>driver_snapshot</code> (JSONB), <code>revision</code> (INTEGER)</td>
+      <td><code>CHECK (scheduled_end &gt; scheduled_start)</code>, <code>CHECK (end_km &gt;= start_km)</code>; índices parciais únicos <code>trip_trips_vehicle_in_progress_unique</code> e <code>trip_trips_driver_in_progress_unique</code>; índices de período <code>trip_trips_vehicle_period</code> e <code>trip_trips_driver_period</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">trip.odometer_readings</span></td>
+      <td>Leitura imutável de hodômetro (<code>START</code>, <code>END</code>, <code>CHECK</code>) vinculada ao veículo e à viagem</td>
+      <td><code>id</code> (BIGINT IDENTITY PK), <code>vehicle_id</code> (BIGINT FK), <code>trip_id</code> (BIGINT FK), <code>reading_type</code> (TEXT), <code>odometer_km</code> (INTEGER), <code>occurred_at</code> (TIMESTAMPTZ), <code>reported_by</code> (TEXT), <code>registered_by</code> (BIGINT FK), <code>actor_snapshot</code> (JSONB), <code>reason</code> (TEXT), <code>supersedes_id</code> (BIGINT FK), <code>is_annulled</code> (BOOLEAN)</td>
+      <td>Trigger <code>trip_odometer_readings_append_only</code> bloqueia <code>UPDATE</code> e <code>DELETE</code>; índices <code>trip_odometer_readings_by_vehicle</code> e <code>trip_odometer_readings_by_trip</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">trip.trip_events</span></td>
+      <td>Trilha histórica imutável de todos os eventos da viagem (<code>SCHEDULED</code>, <code>STARTED</code>, <code>FINISHED</code>, <code>CONFIRMED</code>, etc.)</td>
+      <td><code>id</code> (BIGINT IDENTITY PK), <code>trip_id</code> (BIGINT FK), <code>event_type</code> (TEXT), <code>occurred_at</code> (TIMESTAMPTZ), <code>reported_by</code> (TEXT), <code>registered_by</code> (BIGINT FK), <code>actor_snapshot</code> (JSONB), <code>reason</code> (TEXT), <code>before_state</code> (JSONB), <code>after_state</code> (JSONB), <code>supersedes_id</code> (BIGINT FK), <code>is_annulled</code> (BOOLEAN)</td>
+      <td>Trigger <code>trip_trip_events_append_only</code> bloqueia <code>UPDATE</code> e <code>DELETE</code>; índice <code>trip_trip_events_by_trip</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-tabela">trip.trip_stops</span></td>
+      <td>Paradas planejadas ou executadas de uma viagem (coleta, entrega, destino, ponto intermediário)</td>
+      <td><code>id</code> (BIGINT IDENTITY PK), <code>trip_id</code> (BIGINT FK), <code>sequence_order</code> (INTEGER), <code>stop_type</code> (TEXT), <code>location</code> (TEXT), <code>status</code> (TEXT), <code>cancelled_by</code> (BIGINT FK), <code>cancellation_reason</code> (TEXT), <code>revision</code> (INTEGER)</td>
+      <td>Trigger <code>trip_trip_stops_no_delete</code> proíbe <code>DELETE</code> físico (cancelamento marca <code>status = 'CANCELED'</code> com motivo obrigatório)</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s5">5. Contratos de API REST (Backend Express 5)</h2>
+<p>Rotas montadas em <code>/trips</code>, <code>/vehicles/available</code> e <code>/drivers/available</code> (e respectivos aliases em <code>/api/*</code>), todas em inglês e protegidas por autenticação JWT e autorização RBAC:</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Método</th>
+      <th scope="col">Endpoint</th>
+      <th scope="col">Controller / Método</th>
+      <th scope="col">Perfis Autorizados</th>
+      <th scope="col">Resumo do Contrato (Entrada → Saída)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/vehicles/available</code></td>
+      <td><code>AvailabilityController::listVehicles</code></td>
+      <td><span class="badge-rbac">GESTOR</span>, <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Query <code>?start=&amp;end=&amp;serviceId=</code> (ISO 8601 com fuso) → <code>200 OK</code> com <code>VehicleAvailability[]</code> (<code>available</code> e <code>reasons</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/drivers/available</code></td>
+      <td><code>AvailabilityController::listDrivers</code></td>
+      <td><span class="badge-rbac">GESTOR</span>, <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Query <code>?start=&amp;end=</code> (ISO 8601 com fuso) → <code>200 OK</code> com <code>DriverAvailability[]</code> (<code>available</code> e <code>reasons</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/trips</code></td>
+      <td><code>TripsController::schedule</code></td>
+      <td><span class="badge-rbac">GESTOR</span></td>
+      <td>Body <code>{ requestId, vehicleId, driverId, scheduledStart, scheduledEnd, reason? }</code> → <code>201 Created</code> com <code>Trip</code> (<span class="badge-status">SCHEDULED</span>) ou <code>400/404/409/422</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/trips</code></td>
+      <td><code>TripsController::list</code></td>
+      <td><span class="badge-rbac">GESTOR</span></td>
+      <td>Query opcional <code>?status=&amp;from=&amp;to=</code> (datas <code>YYYY-MM-DD</code> em Aracaju) → <code>200 OK</code> com <code>TripSummary[]</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/trips/:id/confirm</code></td>
+      <td><code>TripsController::confirm</code></td>
+      <td><span class="badge-rbac">GESTOR</span></td>
+      <td>Body opcional <code>{ reason? }</code> → <code>200 OK</code> com <code>TripConfirmation</code> (<span class="badge-status">CONFIRMED</span>) ou <code>400/404/409/422</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/trips/mine</code></td>
+      <td><code>TripsController::listMine</code></td>
+      <td><span class="badge-rbac">MOTORISTA</span></td>
+      <td>Sem parâmetros (usa <code>userId</code> do token) → <code>200 OK</code> com <code>DriverTrip[]</code> contendo apenas viagens <span class="badge-status">SCHEDULED</span> e <span class="badge-status">IN_PROGRESS</span> do condutor logado</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/trips/:id/start</code></td>
+      <td><code>TripsController::start</code></td>
+      <td><span class="badge-rbac">MOTORISTA</span></td>
+      <td>Body <code>{ startKm, reason? }</code> → <code>200 OK</code> com <code>Trip</code> em <span class="badge-status">IN_PROGRESS</span>; <code>400</code> km inválido, <code>403</code> motorista não alocado, <code>404</code> inexistente, <code>409</code> estado inválido/conflito/histórico inconsistente, <code>422</code> <code>startKm</code> abaixo do último km do veículo</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/trips/:id/finish</code></td>
+      <td><code>TripsController::finish</code></td>
+      <td><span class="badge-rbac">MOTORISTA</span></td>
+      <td>Body <code>{ endKm, reason? }</code> → <code>200 OK</code> com <code>Trip</code> em <span class="badge-status">FINISHED</span>; <code>400</code> km inválido, <code>403</code> motorista não alocado, <code>404</code> inexistente, <code>409</code> viagem fora de <span class="badge-status">IN_PROGRESS</span>, <code>422</code> <code>endKm &lt; startKm</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s6">6. Camadas de Negócio e Persistência (Backend)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Classe / Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Responsabilidade Principal</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>TripsService</code> (<code>backend/src/services/trips.service.ts</code>)</td>
+      <td>Service</td>
+      <td>Orquestra agendamento (<code>scheduleTrip</code>), início (<code>startTrip</code>), término (<code>finishTrip</code>), confirmação (<code>confirmTrip</code>), listagem gerencial (<code>listTrips</code>) e listagem do motorista (<code>listMyTrips</code>) com validação de hodômetro e auditoria transacional</td>
+    </tr>
+    <tr>
+      <td><code>AvailabilityService</code> (<code>backend/src/services/availability.service.ts</code>)</td>
+      <td>Service</td>
+      <td>Avalia disponibilidade de veículos e motoristas em consultas abertas e sob trava <code>FOR UPDATE</code> dentro do agendamento</td>
+    </tr>
+    <tr>
+      <td><code>TripsRepository</code> (<code>backend/src/repositories/trips.repository.ts</code>)</td>
+      <td>Repository</td>
+      <td>Queries SQL parametrizadas (<code>$1, $2</code>) sem <code>SELECT *</code> sobre <code>trip.trips</code>, <code>trip.requests</code>, <code>trip.odometer_readings</code> e <code>trip.trip_events</code>, com controle explícito de transação (<code>BEGIN/COMMIT/ROLLBACK</code> e <code>client.release()</code> no <code>finally</code>)</td>
+    </tr>
+    <tr>
+      <td><code>AvailabilityRepository</code> (<code>backend/src/repositories/availability.repository.ts</code>)</td>
+      <td>Repository</td>
+      <td>Projeção de fatos de veículos e motoristas, verificação de compatibilidade de serviço e detecção de sobreposição de agenda</td>
+    </tr>
+    <tr>
+      <td><code>trip.types.ts</code> / <code>availability.types.ts</code></td>
+      <td>Types / DTOs</td>
+      <td>Contratos estritos em inglês (<code>Trip</code>, <code>DriverTrip</code>, <code>TripConfirmation</code>, <code>TripSummary</code>, <code>TripStatus</code>) e erros tipados (<code>TripServiceError</code>, <code>AvailabilityError</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s7">7. Interface e Acessibilidade (Frontend React 19 + WCAG 2.2 AA)</h2>
+<ul>
+  <li><strong>Tela Inicial do Motorista — <code>MyTripsPage</code> (<code>/viagens/minhas</code>, <code>FROTA-100</code>):</strong>
+    <ul>
+      <li>Renderizada automaticamente para o perfil <span class="badge-rbac">MOTORISTA</span> em <code>ProfileHome</code> (<code>frontend/src/App.tsx</code>) e acessível pelo item <strong>Minhas viagens</strong> na seção <code>OPERAÇÃO</code> do menu lateral (<code>frontend/src/components/sidebarNavigation.ts</code>). Os demais perfis mantêm suas telas e itens de menu inalterados.</li>
+      <li><strong>Recorte Operacional Padrão e Alternância:</strong> inicia no filtro <em>Hoje e em andamento</em> (<code>TODAY_AND_IN_PROGRESS</code>), exibindo todas as viagens <span class="badge-status">IN_PROGRESS</span> (mesmo agendadas em outros dias) mais as viagens <span class="badge-status">SCHEDULED</span> cuja data de início agendada em <code>America/Maceio</code> coincide com o dia operacional corrente. Oferece alternância imediata para <em>Todas as pendentes</em> (<code>ALL_PENDING</code>), exibindo todas as viagens retornadas por <code>GET /trips/mine</code>. Quando há viagens pendentes apenas fora de hoje, o estado vazio de <em>Hoje e em andamento</em> informa sua existência e oferece o botão direto <code>Ver todas as pendentes</code>.</li>
+      <li><strong>Virada de Dia Operacional:</strong> o hook <code>useMyTrips</code> recalcula o dia operacional em <code>America/Maceio</code> ao recuperar foco/visibilidade da aba e periodicamente a cada 60 segundos.</li>
+    </ul>
+  </li>
+  <li><strong>5 Estados Visuais Obrigatórios na <code>MyTripsPage</code>:</strong>
+    <ul>
+      <li><em>Carregando (<code>loading</code>):</em> <code>StateFeedback</code> com <code>aria-busy="true"</code> (<code>Carregando suas viagens...</code>).</li>
+      <li><em>Vazio (<code>empty</code>):</em> mensagens distintas para ausência total de viagens pendentes ou ausência apenas no recorte de hoje (com atalho para exibir as demais pendentes e botão <code>Atualizar</code>).</li>
+      <li><em>Erro (<code>error</code>):</em> falha no carregamento inicial com mensagem em português e botão <code>Tentar novamente</code>.</li>
+      <li><em>Parcial (<code>stale</code>):</em> quando uma atualização posterior falha mas já existem cartões carregados, mantém a lista visível, bloqueia novas ações nos cartões e exibe <code>Alert</code> de aviso com botão <code>Atualizar situação</code>.</li>
+      <li><em>Ideal:</em> lista responsiva de cartões <code>EntityCard</code> em uma coluna, exibindo código da viagem, situação via <code>StatusChip</code>, placa do veículo, origem, destino, horários agendados, quilometragem inicial quando registrada e um único botão primário por cartão (<code>Iniciar viagem</code> para <span class="badge-status">SCHEDULED</span> ou <code>Finalizar viagem</code> para <span class="badge-status">IN_PROGRESS</span>).</li>
+    </ul>
+  </li>
+  <li><strong>Diálogo de Execução, Erros e Resultado Incerto (<code>TripExecutionDialog</code> + <code>useMyTrips</code>):</strong>
+    <ul>
+      <li>Reutiliza <code>ConfirmDialog</code> e <code>FormField</code> (com <code>useId()</code>, <code>inputMode="numeric"</code>, validação de inteiro não negativo e rótulo visível).</li>
+      <li>No término da viagem, exibe a quilometragem inicial registrada como referência. A validação local exige inteiro seguro não negativo; as comparações com a quilometragem inicial e com a linha do tempo do veículo ficam na API, que responde <code>422</code> quando o valor está abaixo do permitido.</li>
+      <li>Bloqueia duplo toque de forma síncrona via <code>submittingRef</code> e desabilita o fechamento por clique no backdrop durante o envio.</li>
+      <li><strong>Preservação de Rascunho e Recuperação de Falhas:</strong> em erros <code>400</code>, <code>403</code>, <code>404</code>, <code>409</code>, <code>422</code>, <code>5xx</code> ou falha de rede, o diálogo permanece aberto com um rascunho <code>execution</code> em memória. Fechar o diálogo ou trocar a sessão descarta esse rascunho. Em <code>403</code>, <code>404</code> ou <code>409</code>, refaz a consulta; acesso negado ou situação incompatível bloqueiam a confirmação. Resultado incerto ou incompatibilidade exibida oferece <code>Atualizar situação</code>.</li>
+      <li><strong>Resultado Incerto (<code>isOutcomeUncertain</code>):</strong> quando ocorre falha de rede/timeout, HTTP <code>5xx</code> ou resposta <code>200</code> com JSON inválido durante <code>POST /trips/:id/start</code> ou <code>POST /trips/:id/finish</code>, a interface não assume sucesso nem falha definitiva: exibe aviso orientando o motorista a clicar em <code>Atualizar situação</code> (<code>GET /trips/mine</code>) para conferir se o servidor processou o registro antes de reenviar.</li>
+    </ul>
+  </li>
+  <li><strong>Componentes Reutilizados e Acessibilidade (WCAG 2.2 Nível AA):</strong>
+    <ul>
+      <li><code>EntityCard</code> (<code>frontend/src/components/ui/EntityCard.tsx</code>): Compound Component (<code>EntityCard</code>, <code>EntityCard.Header</code>, <code>EntityCard.Status</code>, <code>EntityCard.Body</code>, <code>EntityCard.Actions</code>) com geração automática de IDs via <code>useId()</code> conectando <code>aria-labelledby</code> ao título e <code>aria-describedby</code> ao status.</li>
+      <li>Botões e caixas externas dos controles com altura mínima de <code>44px</code>. O diálogo foca o campo após a animação usando <code>ConfirmDialog.onEntered</code> e <code>FormField.inputRef</code>, inclusive em erros. O aviso pós-ação usa <code>role="status"</code> / <code>aria-live="polite"</code>; após finalizar, o foco é agendado para esse aviso depois do fechamento do diálogo. Botões de atualização herdam a cor de texto do tema para contraste sobre o fundo claro.</li>
+    </ul>
+  </li>
+  <li><strong>Limitações Atuais Conhecidas do Escopo:</strong>
+    <ul>
+      <li><strong>Sem upload de foto do hodômetro na <code>FROTA-100</code>:</strong> embora a tabela <code>trip.trips</code> possua as colunas opcionais <code>start_km_photo_url</code> e <code>end_km_photo_url</code>, os endpoints <code>POST /trips/:id/start</code> e <code>POST /trips/:id/finish</code> recebem apenas quilometragem numérica e motivo opcional; não há captura nem upload de imagem nesta entrega.</li>
+      <li><strong>Sem fila offline:</strong> a execução exige conectividade com a API REST no momento do registro, contando com o fluxo de resultado incerto e ressincronização via <code>GET /trips/mine</code> em conexões móveis instáveis.</li>
+      <li><strong>Validação de acessibilidade ainda parcial:</strong> foco inicial/erro e contraste corrigidos foram conferidos no navegador; o foco após finalizar passou no teste automatizado, mas ainda requer reconferência no navegador. Zoom real de 200% e leitor de tela permanecem pendentes. A matriz visual de dez tamanhos foi concluída. O registro consolidado está na seção 9 do <a href="../plans/frota-100-tela-motorista-execucao-viagem.html#execution-record">plano da FROTA-100</a>.</li>
+    </ul>
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Arquivos Principais (Referência Rápida)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Caminho do Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Responsabilidade (Resumo)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/routes/trips.routes.ts</code></td>
+      <td>Route (Backend)</td>
+      <td>Endpoints REST <code>/trips</code>, <code>/trips/mine</code>, <code>/trips/:id/start</code>, <code>/trips/:id/finish</code> e <code>/trips/:id/confirm</code> com middlewares RBAC</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/routes/availability.routes.ts</code></td>
+      <td>Route (Backend)</td>
+      <td>Endpoints <code>/vehicles/available</code> e <code>/drivers/available</code></td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/trips.controller.ts</code></td>
+      <td>Controller (Backend)</td>
+      <td>Adaptação HTTP Request/Response e tradução de <code>TripServiceError</code> / <code>AvailabilityError</code></td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/trips.service.ts</code></td>
+      <td>Service (Backend)</td>
+      <td>Regras de negócio de agendamento, execução (início/término) e confirmação de viagens</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/availability.service.ts</code></td>
+      <td>Service (Backend)</td>
+      <td>Avaliação de disponibilidade de veículos e motoristas</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/trips.repository.ts</code></td>
+      <td>Repository (Backend)</td>
+      <td>Persistência SQL parametrizada em <code>trip.trips</code>, <code>trip.requests</code>, <code>trip.odometer_readings</code> e <code>trip.trip_events</code></td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/MyTripsPage.tsx</code></td>
+      <td>Page (Frontend)</td>
+      <td>Tela inicial do motorista (<code>/viagens/minhas</code>) com 5 estados visuais, filtro operacional e cartões <code>EntityCard</code></td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/myTripsPage/TripExecutionDialog.tsx</code></td>
+      <td>Component (Frontend)</td>
+      <td>Diálogo único de confirmação de início e término de viagem com quilometragem</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/ui/EntityCard.tsx</code></td>
+      <td>UI Component (Frontend)</td>
+      <td>Compound Component acessível para exibição de entidades em cartões responsivos</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/hooks/useMyTrips.ts</code></td>
+      <td>Hook (Frontend)</td>
+      <td>Estado da tela do motorista, proteção contra respostas fora de ordem, guarda de duplo envio e tratamento de resultado incerto</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/services/tripsService.ts</code></td>
+      <td>API Client (Frontend)</td>
+      <td>Cliente HTTP tipado para <code>GET /trips/mine</code>, <code>POST /trips/:id/start</code> e <code>POST /trips/:id/finish</code></td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/trips/tripPresentation.ts</code></td>
+      <td>Domain Helper (Frontend)</td>
+      <td>Formatação em <code>America/Maceio</code>, cálculo do dia operacional, seleção/ordenação de viagens e validação de entrada de hodômetro</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s9">9. Dependências, Integrações e Proteção de Dados (LGPD)</h2>
+<ul>
+  <li><strong>Integrações Internas:</strong>
+    <ul>
+      <li><code>FROTA</code> (<code>fleet.vehicles</code>, <code>fleet.services</code>, <code>fleet.vehicle_services</code>, <code>fleet.fuelings</code>): verificação de situação do veículo, compatibilidade com o tipo de serviço da solicitação e linha do tempo compartilhada de quilometragem (<code>FuelingsRepository::timeline</code>).</li>
+      <li><code>MOTORISTAS</code> (<code>fleet.drivers</code>): resolução do motorista pelo <code>user_id</code> autenticado, verificação de situação cadastral (<code>ACTIVE</code>, <code>AWAY</code>, <code>INACTIVE</code>) e validade da CNH.</li>
+      <li><code>AUTENTICACAO_RBAC</code> &amp; <code>AUDIT</code> (<code>auth.users</code>, <code>audit.logs</code>): autenticação JWT, autorização por perfil e gravação de trilha de auditoria com <code>actor_snapshot</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Proteção de Dados (LGPD e Sigilo Operacional):</strong>
+    <ul>
+      <li>O endpoint <code>GET /trips/mine</code> projeta apenas os dados operacionais necessários para a condução da viagem (identificador, situação, período agendado, placa/modelo da viatura, origem, destino e quilometragem inicial), sem expor CPF, CNH, e-mail de outros servidores ou dados sensíveis de óbito do SVO.</li>
+      <li>Todos os testes automatizados (unitários, componentes e integração) utilizam dados 100% fictícios (ex.: placas <code>EXE1A00</code>, <code>VGM2B10</code>, unidades fictícias).</li>
+    </ul>
+  </li>
+</ul>
+
+</body>
+</html>
