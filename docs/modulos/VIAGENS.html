@@ -263,6 +263,13 @@
   </thead>
   <tbody>
     <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/requests</code></td>
+      <td><code>RequestsController::create</code></td>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td>Body <code>{ requestedDate, requestedTime, origin, destination, purpose, serviceId }</code> → <code>201 { id, status: "PENDING" }</code>; campos/tipo de serviço inválidos <code>400</code>, token ausente <code>401</code>, perfil distinto <code>403</code> e data/hora passada em <code>America/Maceio</code> <code>422</code>. Solicitação, evento <code>CREATED</code> e auditoria <code>CREATE</code> são gravados atomicamente.</td>
+    </tr>
+    <tr>
       <td><span class="badge-http">GET</span></td>
       <td><code>/vehicles/available</code></td>
       <td><code>AvailabilityController::listVehicles</code></td>
