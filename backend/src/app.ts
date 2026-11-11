@@ -46,6 +46,9 @@ import { createTripsRouter } from './routes/trips.routes'
 import { RequestDecisionsRepository } from './repositories/request-decisions.repository'
 import { RequestDecisionsService } from './services/request-decisions.service'
 import { createRequestDecisionsRouter } from './routes/request-decisions.routes'
+import { RequestsRepository } from './repositories/requests.repository'
+import { RequestsService } from './services/requests.service'
+import { createRequestsRouter } from './routes/requests.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -133,6 +136,8 @@ export function createApp({
     app.use('/vehicle-documents', createVehicleDocumentsRouter(vehicleDocumentsService, jwtConfig, currentUsersRepository))
     const requestDecisionsService = new RequestDecisionsService(new RequestDecisionsRepository(pool), auditService)
     app.use('/requests', createRequestDecisionsRouter(requestDecisionsService, jwtConfig))
+    const requestsService = new RequestsService(new RequestsRepository(pool), auditService)
+    app.use('/requests', createRequestsRouter(requestsService, jwtConfig, currentUsersRepository))
   }
   if (rolesRepository && auditService && userRepository instanceof UsersRepository) {
     const usersService = new UsersService(userRepository, rolesRepository, auditService)
