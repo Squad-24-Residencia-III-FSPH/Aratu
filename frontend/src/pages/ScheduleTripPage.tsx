@@ -14,7 +14,7 @@ import {
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { FormField } from '../components/ui/FormField'
-import { StateFeedback } from '../components/ui/StateFeedback'
+import StateFeedback from '../components/ui/StateFeedback'
 import type {
   TripRequest,
   VehicleOption,
@@ -221,17 +221,28 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
       </Box>
 
       {/* Tratamento dos 5 Estados Visuais de Carregamento e Erro Inicial */}
-      <StateFeedback
-        isLoading={isLoading}
-        error={loadError}
-        isEmpty={!isLoading && !loadError && !request}
-        emptyMessage={`A solicitação #${requestId} não foi localizada no sistema.`}
-        emptyActionLabel="Consultar Solicitações"
-        onEmptyAction={() => navigate('/frota/solicitacoes')}
-        onRetry={() => { void reloadData() }}
-      >
-        {request && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {isLoading && (
+        <StateFeedback kind="loading" title="Carregando dados da solicitação..." />
+      )}
+      {loadError && (
+        <StateFeedback
+          kind="error"
+          title="Não foi possível carregar a solicitação"
+          description={loadError}
+          actionLabel="Tentar novamente"
+          onAction={() => { void reloadData() }}
+        />
+      )}
+      {!isLoading && !loadError && !request && (
+        <StateFeedback
+          kind="empty"
+          title={`A solicitação #${requestId} não foi localizada no sistema.`}
+          actionLabel="Consultar Solicitações"
+          onAction={() => navigate('/frota/solicitacoes')}
+        />
+      )}
+      {!isLoading && !loadError && request && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Feedback de Erro ou Concorrência no Topo (PE-CA-014) */}
             {submitError && (
               <Box
@@ -547,20 +558,18 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                       label="Início Previsto da Viagem *"
                       type="datetime-local"
                       value={startDateTime}
-                      onChange={(e) => setStartDateTime(e.target.value)}
+                      onChange={setStartDateTime}
                       required
                       helperText="Saída prevista da unidade"
-                      inputProps={{ 'aria-label': 'Início Previsto da Viagem' }}
                     />
 
                     <FormField
                       label="Fim Previsto da Viagem *"
                       type="datetime-local"
                       value={endDateTime}
-                      onChange={(e) => setEndDateTime(e.target.value)}
+                      onChange={setEndDateTime}
                       required
                       helperText="Retorno previsto ao pátio"
-                      inputProps={{ 'aria-label': 'Fim Previsto da Viagem' }}
                     />
                   </Box>
 
@@ -692,9 +701,9 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
                     label="Observações Operacionais para o Motorista"
                     placeholder="Ex: Acessar portaria 2 da Santa Casa; apresentar guia de remessa sorológica."
                     value={operationalNotes}
-                    onChange={(e) => setOperationalNotes(e.target.value)}
+                    onChange={setOperationalNotes}
                     multiline
-                    rows={2}
+                    minRows={2}
                     helperText="Instruções repassadas na ordem de serviço do condutor"
                   />
 
@@ -957,7 +966,6 @@ export default function ScheduleTripPage({ requestId = '123' }: ScheduleTripPage
             </Box>
           </Box>
         )}
-      </StateFeedback>
     </Box>
   )
 }

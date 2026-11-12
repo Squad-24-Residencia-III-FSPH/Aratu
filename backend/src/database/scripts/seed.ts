@@ -241,78 +241,6 @@ export async function seedInitialAdmin(pool: Pool, config: InitialAdminConfig): 
 }
 
 /**
- * Cria o Gestor de Frota inicial (Persona: Vitor Guilherme) para ambiente de desenvolvimento e testes.
- *
- * @param pool - Pool PostgreSQL conectado ao banco.
- */
-export async function seedInitialGestor(pool: Pool): Promise<boolean> {
-  const email = 'gestor@aratu.fsph.se.gov.br'
-  const name = 'Vitor Guilherme'
-  const password = process.env.INITIAL_GESTOR_PASSWORD || 'AratuGestor2026!'
-
-  const userRepository = new UsersRepository(pool)
-  const rolesRepository = new RolesRepository(pool)
-  const auditRepository = new AuditRepository(pool)
-
-  const gestorRole = await rolesRepository.findByName('GESTOR')
-  if (!gestorRole) return false
-
-  const existingUser = await userRepository.findByEmail(email)
-  if (existingUser) return false
-
-  const client = await pool.connect()
-  try {
-    await client.query('BEGIN')
-
-    const passwordHash = await hashPassword(password)
-    const newUser = await userRepository.create(
-      {
-        name,
-        email,
-        passwordHash,
-        roleId: gestorRole.id,
-        active: true,
-      },
-      client,
-    )
-
-    await auditRepository.create(
-      {
-        userId: newUser.id,
-        table: 'auth.users',
-        recordId: newUser.id,
-        operation: 'INSERT',
-        before: null,
-        after: {
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-          roleId: newUser.roleId,
-          role: newUser.role,
-          active: newUser.active,
-        },
-        actorSnapshot: {
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-          role: 'GESTOR',
-        },
-        reason: 'BOOTSTRAP_INITIAL_GESTOR',
-      },
-      client,
-    )
-
-    await client.query('COMMIT')
-    return true
-  } catch (error: unknown) {
-    await client.query('ROLLBACK')
-    throw error
-  } finally {
-    client.release()
-  }
-}
-
-/**
  * Provisiona de forma idempotente as viaturas iniciais do SVO, o catálogo básico de
  * tipos de serviço e a matriz de compatibilidade veículo × serviço.
  *
@@ -547,18 +475,12 @@ async function runSeed(): Promise<void> {
 
   try {
     await seedRolesAndPermissions(pool)
-    const createdAdmin = await seedInitialAdmin(pool, adminConfig)
+    const created = await seedInitialAdmin(pool, adminConfig)
     await seedInitialFleet(pool, adminConfig.email)
     await seedInitialSvoTeam(pool, adminConfig.email)
-    const createdGestor = await seedInitialGestor(pool)
-
-    const adminStatus = createdAdmin ? 'criado e auditado com sucesso' : 'já existe na base'
-    process.stdout.write(`Seed: matriz RBAC, frota e equipe SVO conferidas; Administrador "${adminConfig.email}" ${adminStatus}.\n`)
-
-    const gestorStatus = createdGestor ? 'criado e auditado com sucesso' : 'já existe na base'
-    process.stdout.write(`Seed: Gestor de Frota "gestor@aratu.fsph.se.gov.br" (Vitor Guilherme) ${gestorStatus}.\n`)
-
-    if (createdAdmin && process.env.NODE_ENV === 'production') {
+    const status = created ? 'criado e auditado com sucesso' : 'já existe na base'
+    process.stdout.write(`Seed: matriz RBAC, frota e equipe SVO iniciais conferidas; Administrador "${adminConfig.email}" ${status}.\n`)
+    if (created && process.env.NODE_ENV === 'production') {
       process.stdout.write('Aviso de Segurança: Altere a senha do Administrador no primeiro acesso ao sistema.\n')
     }
   } finally {
