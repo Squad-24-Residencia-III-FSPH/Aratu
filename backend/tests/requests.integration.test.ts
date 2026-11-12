@@ -257,7 +257,11 @@ test('IT-REQUEST-06: Gestor filtra, pagina e consulta o detalhe com os dados da 
     'GESTOR',
   )
   assert.equal(listResponse.status, 200)
-  const page = await listResponse.json() as { requests: Array<{ id: string; requestedDate: string }>; total: number; totalPages: number }
+  const page = await listResponse.json() as {
+    requests: Array<{ id: string; requestedDate: string; createdAt: string; updatedAt: string }>
+    total: number
+    totalPages: number
+  }
   assert.deepEqual(page, {
     requests: [{
       id: earlyId,

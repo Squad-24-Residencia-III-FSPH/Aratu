@@ -38,7 +38,7 @@ function setup(options: { serviceAvailable?: boolean; failAudit?: boolean } = {}
       saved.filters = filters
       return { requests: [], total: 0, page: filters.page ?? 1, pageSize: filters.pageSize ?? 20, totalPages: 0 }
     },
-    async findById(id, requesterId) { saved.lookup = { id, requesterId }; return null },
+    async findById(id, requesterId) { saved.lookup = { id, ...(requesterId ? { requesterId } : {}) }; return null },
     async findActorSnapshot(): Promise<RequestActorSnapshot> { return actor },
     async findActiveServiceForUpdate(): Promise<RequestServiceSnapshot | null> {
       return options.serviceAvailable === false ? null : serviceSnapshot
