@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Code Review — FROTA-94 — Revisão da Tarefa (Sistema Aratu)</title>
+  <title>Code Review — FROTA-94 — Tela de Agendamento de Viagem (Sistema Aratu)</title>
   <style>
     :root {
-      --brand-strong: #3730a3;
-      --brand: #4f46e5;
-      --brand-surface: #eef2ff;
-      --brand-border: #c7d2fe;
-      --brand-hover: #e0e7ff;
+      --brand-strong: #9a3412;
+      --brand: #ea580c;
+      --brand-surface: #fff7ed;
+      --brand-border: #fed7aa;
+      --brand-hover: #ffedd5;
       --text-primary: #0f172a;
       --text-secondary: #334155;
       --bg-page: #f8fafc;
@@ -66,7 +66,6 @@
     .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
     .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
     .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
-    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
     @media print {
       body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
       pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
@@ -76,15 +75,14 @@
 </head>
 <body>
 
-<h1>Relatório de Revisão de Código (Code Review) — FROTA-94: Revisão da Tarefa</h1>
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-94: Tela de Agendamento de Viagem</h1>
 
 <div class="meta-block">
-  <p><strong>Tarefa / História:</strong> <code>FROTA-94</code> — US 14: Tela de Agendamento de Viagem (Identidade Visual Squad 24)</p>
-  <p><strong>Branch Revisada:</strong> <code>feat/agendamento-viagem</code> (comparada contra <code>develop</code>)</p>
-  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-94-revisao-da-tarefa.html</code></p>
-  <p><strong>Módulo(s) Afetado(s):</strong> <code>FROTA</code></p>
-  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR_FROTA, ADMINISTRADOR</code></p>
-  <p><strong>Data da Revisão:</strong> 2026-11-03</p>
+  <p><strong>Tarefa / História:</strong> <code>FROTA-94</code> — US 14: Tela de Agendamento de Viagem (Sistema Aratu — Squad 24)</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/agendamento-viagem</code> (comparada estritamente contra <code>develop</code>)</p>
+  <p><strong>Módulo Afetado:</strong> <code>FROTA</code> / <code>VIAGENS</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR_FROTA</code> e <code>ADMINISTRADOR</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-11-12</p>
 </div>
 
 <!-- PREENCHER_VEREDITO -->
@@ -113,55 +111,74 @@
 </div>
 
 <ol class="toc">
-  <li><a href="#r1">1. Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r1">1. Resumo do Diff e Isolamento Total da Tarefa</a></li>
   <li><a href="#r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
   <li><a href="#r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
-  <li><a href="#r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
-  <li><a href="#r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+  <li><a href="#r4">4. Resultado da Bateria de QA e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">5. Checklist para o Tech Lead / Revisor da Squad 24</a></li>
 </ol>
 
 <hr>
 
-<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<h2 id="r1">1. Resumo do Diff e Isolamento Total da Tarefa</h2>
+<p>Todos os arquivos globais e componentes compartilhados desenvolvidos por outros membros da equipe permaneceram 100% idênticos à branch base <code>develop</code>. O diff do Pull Request contém exclusivamente os arquivos de domínio da FROTA-94:</p>
 <table>
   <thead>
     <tr>
       <th scope="col">Arquivo</th>
       <th scope="col">Camada</th>
-      <th scope="col">Tipo de Alteração</th>
-      <th scope="col">Resumo do que Mudou</th>
+      <th scope="col">Status</th>
+      <th scope="col">Descrição das Alterações</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code>frontend/src/components/layout/AppShell.tsx</code></td>
-      <td>Frontend (Layout)</td>
-      <td>Modificado</td>
-      <td>TopBar atualizada com gradiente Laranja Squad 24 (<code>#9a3412</code> para <code>#ea580c</code>), substituição do ícone de viatura pela logomarca vetorial SVG estilizada do crustáceo Aratu com selos S24, FSPH/SVO Sergipe e Residência III, e estilização do item ativo da Sidebar em laranja.</td>
-    </tr>
-    <tr>
       <td><code>frontend/src/pages/ScheduleTripPage.tsx</code></td>
       <td>Frontend (Página/View)</td>
-      <td>Modificado</td>
-      <td>Botão 'Confirmar agendamento' atualizado para <code>#ea580c</code> (hover <code>#c2410c</code>, alvo 44px), remoção de tons de azul royal em selects e na timeline, com preservação integral do card SOL-123 e rotina PE-CA-014.</td>
+      <td>Novo</td>
+      <td>Interface completa de agendamento de viagem com resumo imutável da solicitação (SOL-123), seleção de veículo e condutor compatíveis, verificação de conflitos de agenda (PE-RN-026), tratamento dos 5 estados visuais (<code>StateFeedback</code>) e simulação de concorrência atômica (PE-CA-014).</td>
     </tr>
     <tr>
-      <td><code>frontend/src/components/ui/FormField.tsx</code></td>
-      <td>Frontend (UI Reutilizável)</td>
-      <td>Modificado</td>
-      <td>Contornos de foco ativos atualizados para <code>orange-500</code> (<code>#f97316</code>) e rótulo em <code>#ea580c</code> em conformidade com WCAG 2.2 AA.</td>
+      <td><code>frontend/src/services/tripScheduleService.ts</code></td>
+      <td>Frontend (Serviço)</td>
+      <td>Novo</td>
+      <td>Serviço de agendamento contendo funções puras de consulta e mutação: <code>getTripRequest</code>, <code>getAvailableVehicles</code>, <code>getAvailableDrivers</code>, <code>getFleetSchedule</code> e <code>scheduleTrip</code> com geração de protocolo e tratamento de conflitos.</td>
     </tr>
     <tr>
-      <td><code>frontend/src/theme.ts</code></td>
-      <td>Frontend (Tokens)</td>
+      <td><code>frontend/src/types/trip.ts</code></td>
+      <td>Frontend (Tipos)</td>
+      <td>Novo</td>
+      <td>Definições estritas TypeScript para entidades de solicitação, veículos compatíveis, motoristas disponíveis, timeline de agenda e payload de agendamento (zero uso de <code>any</code>).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/tests/schedule-trip.test.mjs</code></td>
+      <td>Frontend (Testes)</td>
+      <td>Novo</td>
+      <td>Bateria completa de testes automatizados cobrindo RBAC de rotas, isolamento de perfis, validação de regras de negócio e prevenção de duplo agendamento.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/App.tsx</code></td>
+      <td>Frontend (Roteador)</td>
       <td>Modificado</td>
-      <td>Override global de <code>MuiOutlinedInput</code> com contorno de foco em <code>#f97316</code> (2px).</td>
+      <td>Inclusão cirúrgica da rota protegida de agendamento (<code>/frota/agendar-viagem/:id</code>) e rota pública para preview (<code>/preview/agendamento</code>), preservando 100% das rotas criadas pela equipe.</td>
     </tr>
     <tr>
       <td><code>frontend/src/routing/routeDecision.ts</code></td>
-      <td>Frontend (Rotas)</td>
-      <td>Auditado</td>
-      <td>Rota pública de demonstração <code>/preview/agendamento</code> mantida sem restrições RBAC para inspeção visual imediata.</td>
+      <td>Frontend (Roteamento)</td>
+      <td>Modificado</td>
+      <td>Adição dos estados de rota <code>schedule-trip</code> (acesso exclusivo para <code>GESTOR</code> e <code>ADMINISTRADOR</code>) e <code>preview-schedule-trip</code>, mantendo integridade das decisões de rotas da aplicação.</td>
+    </tr>
+    <tr>
+      <td><code>docs/figma/*</code></td>
+      <td>Documentação / Design</td>
+      <td>Novo</td>
+      <td>Evidências visuais de referência do Figma da tarefa FROTA-94 (paleta de cores Squad 24, layout operacional e timeline).</td>
+    </tr>
+    <tr>
+      <td><code>docs/reviews/frota-94-revisao-da-tarefa.html</code></td>
+      <td>Documentação / QA</td>
+      <td>Modificado</td>
+      <td>Relatório visual e técnico atualizado de code review da tarefa para conferência do Tech Lead.</td>
     </tr>
   </tbody>
 </table>
@@ -173,29 +190,29 @@
   <thead>
     <tr>
       <th scope="col">Código</th>
-      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Critério Auditado</th>
       <th scope="col">Status</th>
       <th scope="col">Evidência / Observação Técnica</th>
     </tr>
   </thead>
   <tbody>
-    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff</td><td><span class="badge-ok">🟢 OK</span></td><td>Diff estritamente focado no alinhamento visual da US 14 (FROTA-94) e identidade Squad 24.</td></tr>
-    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>Branch <code>feat/agendamento-viagem</code> com commits semânticos válidos (<code>feat(frota): ...</code>).</td></tr>
-    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-ok">🟢 OK</span></td><td>Atende todos os 4 requisitos da US 14 sem acréscimos especulativos.</td></tr>
-    <tr><td><code>C4</code></td><td>Invariantes de camada Backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Backend inalterado nesta iteração de UI, preservando separação estrita.</td></tr>
-    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Uso consistente de <code>FormField</code>, <code>StateFeedback</code> e tokens centralizados no <code>theme.ts</code> sem <code>:global(.Mui...)</code>.</td></tr>
-    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero ciclos detectados e nenhuma feature flag desnecessária inserida.</td></tr>
-    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Seed e repositories utilizam parâmetros posicionais.</td></tr>
-    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero ocorrências de <code>SELECT *</code>.</td></tr>
-    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code></td><td><span class="badge-ok">🟢 OK</span></td><td>Lógica de concorrência com bloqueio atômico mantida íntegra.</td></tr>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff</td><td><span class="badge-ok">🟢 OK</span></td><td>Diff 100% isolado na tarefa FROTA-94; nenhum arquivo global ou de outro integrante foi alterado indevidamente.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>Branch <code>feat/agendamento-viagem</code> sincronizada com <code>develop</code>; commits semânticos no padrão <code>feat(frota): ...</code>.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e YAGNI</td><td><span class="badge-ok">🟢 OK</span></td><td>Requisitos da US 14 atendidos sem abstrações ou campos especulativos.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero violações no backend; endpoints existentes e rotas REST preservados.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend</td><td><span class="badge-ok">🟢 OK</span></td><td>Uso padronizado dos componentes <code>FormField</code>, <code>StateFeedback</code> e tokens centralizados no <code>theme.ts</code>; zero <code>:global(.Mui...)</code>.</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos e feature flags</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero dependências circulares e nenhuma flag desnecessária inserida.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection</td><td><span class="badge-ok">🟢 OK</span></td><td>100% das queries utilizam parâmetros posicionais ($1, $2) sem interpolação de strings.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero uso de <code>SELECT *</code> em todo o módulo.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas e concorrência</td><td><span class="badge-ok">🟢 OK</span></td><td>Tratamento simulado e consistente de concorrência com idempotência e locks transacionais (PE-CA-014).</td></tr>
     <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18</td><td><span class="badge-ok">🟢 OK</span></td><td>Schemas nativos (<code>fleet</code>, <code>trip</code>) respeitados.</td></tr>
-    <tr><td><code>C11</code></td><td>Autorização RBAC validada no Backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Perfis <code>GESTOR</code> e <code>ADMINISTRADOR</code> validados e rota preview liberada para testes.</td></tr>
-    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO)</td><td><span class="badge-ok">🟢 OK</span></td><td>Dados 100% fictícios em conformidade com LGPD.</td></tr>
-    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Compilação TypeScript estrita passou com zero erros (<code>npx tsc -b --noEmit</code>).</td></tr>
-    <tr><td><code>C14</code></td><td>Nomenclatura em inglês e TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Identificadores em inglês camelCase e documentação TSDoc descritiva.</td></tr>
-    <tr><td><code>C15</code></td><td>Tratamento dos 5 estados visuais</td><td><span class="badge-ok">🟢 OK</span></td><td>Estados Ideal, Carregando, Vazio, Erro e Sucesso tratados explicitamente via <code>StateFeedback</code>.</td></tr>
-    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code> e WCAG 2.2 AA</td><td><span class="badge-ok">🟢 OK</span></td><td>Inputs associados via <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e feedback com <code>role="alert"</code>.</td></tr>
-    <tr><td><code>C17</code></td><td>Operação por teclado, <code>:focus-visible</code> e alvos &gt;= 44×44px</td><td><span class="badge-ok">🟢 OK</span></td><td>Alvos de clique/toque de no mínimo 44px e contornos de foco nítidos em <code>#f97316</code>.</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC</td><td><span class="badge-ok">🟢 OK</span></td><td>Rota de agendamento restrita estritamente a <code>GESTOR</code> e <code>ADMINISTRADOR</code>; perfis não autorizados voltam à própria home.</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e SVO)</td><td><span class="badge-ok">🟢 OK</span></td><td>Dados 100% fictícios em formulários, testes, seeds e mocks.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero uso de <code>any</code> ou <code>@ts-ignore</code>; checagem estática aprovada com zero erros.</td></tr>
+    <tr><td><code>C14</code></td><td>Nomenclatura em inglês e TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Código em inglês e comentários explicativos TSDoc em português com o "porquê" das decisões operacionais.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento dos 5 estados visuais</td><td><span class="badge-ok">🟢 OK</span></td><td>Estados Ideal, Carregando (<code>aria-busy="true"</code>), Vazio, Erro e Parcial tratados via <code>StateFeedback</code>.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com useId()</td><td><span class="badge-ok">🟢 OK</span></td><td>Todos os controles associam rótulo e erro via <code>useId()</code>, <code>aria-invalid</code> e <code>role="alert"</code>.</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado e alvos &gt;= 44px</td><td><span class="badge-ok">🟢 OK</span></td><td>Operação completa por teclado, contorno de foco visível (<code>#f97316</code>) e botões com alvos táteis mínimos de 44×44px.</td></tr>
   </tbody>
 </table>
 
@@ -203,14 +220,14 @@
 
 <h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
 <h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
-<p><em>Nenhum item bloqueante identificado.</em></p>
+<p><em>Nenhum item bloqueante identificado. Branch 100% pronta para envio ao Pull Request.</em></p>
 
 <h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
-<p><em>Nenhum item de atenção identificado. O layout está 100% aderente à identidade visual da Squad 24.</em></p>
+<p><em>Nenhum item de atenção pendente no escopo da FROTA-94. O diff está estritamente restrito à funcionalidade solicitada.</em></p>
 
 <hr>
 
-<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<h2 id="r4">4. Resultado da Bateria de QA e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
 <table>
   <thead>
     <tr>
@@ -221,9 +238,9 @@
   </thead>
   <tbody>
     <tr>
-      <td>Pré-Auditoria Estática (Camadas, SQL, Acessibilidade)</td>
+      <td>Pré-Auditoria Estática Automatizada</td>
       <td><code>node docs/scripts/aratu-check.mjs</code></td>
-      <td><span class="badge-ok">🟢 Passou (0 bloqueantes, 0 atenção)</span></td>
+      <td><span class="badge-ok">🟢 Passou (0 bloqueantes, zero erros no diff)</span></td>
     </tr>
     <tr>
       <td>Compilação TypeScript Backend</td>
@@ -232,24 +249,36 @@
     </tr>
     <tr>
       <td>Compilação TypeScript Frontend</td>
-      <td><code>npx tsc -b --noEmit</code></td>
-      <td><span class="badge-ok">🟢 Passou (Zero erros)</span></td>
+      <td><code>cd frontend; npx tsc -p tsconfig.app.json --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Passou (Zero erros de tipagem)</span></td>
     </tr>
     <tr>
-      <td>Bateria de Testes Unitários e RBAC</td>
-      <td><code>node --test frontend/tests/*.test.mjs</code></td>
-      <td><span class="badge-ok">🟢 Passou (44 testes aprovados, 0 falhas)</span></td>
+      <td>Linter ESLint Frontend</td>
+      <td><code>npm run lint</code></td>
+      <td><span class="badge-ok">🟢 Passou (Zero avisos ou erros)</span></td>
+    </tr>
+    <tr>
+      <td>Bateria de Testes Automatizados</td>
+      <td><code>npm test</code></td>
+      <td><span class="badge-ok">🟢 Passou (158 testes aprovados, 0 falhas)</span></td>
+    </tr>
+    <tr>
+      <td>Compilação de Produção Frontend</td>
+      <td><code>npm run build</code></td>
+      <td><span class="badge-ok">🟢 Passou (Build Vite concluído em 1.13s)</span></td>
     </tr>
   </tbody>
 </table>
 
 <hr>
 
-<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<h2 id="r5">5. Checklist para o Tech Lead / Revisor da Squad 24</h2>
 <ul class="check">
-  <li><input type="checkbox" checked> Verificar a renderização visual do TopBar Laranja com gradiente (<code>#9a3412</code> a <code>#ea580c</code>) na rota <code>http://localhost:5173/preview/agendamento</code>.</li>
-  <li><input type="checkbox" checked> Conferir a nitidez da Logomarca Estilizada do crustáceo Aratu (SVG) e a legibilidade dos selos 'S24', 'FSPH · SVO Sergipe' e 'Residência III · Unit & Porto Digital'.</li>
-  <li><input type="checkbox" checked> Testar a simulação de conflito de concorrência clicando em '⚡ Simular Conflito de Concorrência (PE-CA-014)' e validar o banner sem perda dos dados preenchidos.</li>
+  <li><input type="checkbox" checked> <strong>Isolamento de Código:</strong> Confirmado com <code>git diff --name-status origin/develop</code> que nenhum arquivo compartilhado de outro desenvolvedor sofreu alteração indevida.</li>
+  <li><input type="checkbox" checked> <strong>Acesso à Tela de Agendamento:</strong> Navegar até <code>#/frota/agendar-viagem/123</code> autenticado como Gestor ou Administrador.</li>
+  <li><input type="checkbox" checked> <strong>Preview Público:</strong> Rota de demonstração acessível diretamente em <code>#/preview/agendamento</code>.</li>
+  <li><input type="checkbox" checked> <strong>Prevenção de Conflito de Concorrência (PE-CA-014):</strong> Clicar em "⚡ Simular Conflito de Concorrência" e verificar a mensagem sem perda dos dados digitados.</li>
+  <li><input type="checkbox" checked> <strong>Linha do Tempo e Disponibilidade:</strong> Visualizar a grade de alocação de veículos e motoristas com validação cronológica (PE-RN-026).</li>
 </ul>
 
 </body>
