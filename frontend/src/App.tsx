@@ -15,6 +15,7 @@ import UserManagementPage from './pages/UserManagementPage';
 import DriversPage from './pages/DriversPage';
 import FuelingsPage from './pages/FuelingsPage';
 import MyTripsPage from './pages/MyTripsPage';
+import RequestAnalysisPage from './pages/RequestAnalysisPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -65,6 +66,13 @@ function PrivateRoute() {
     return (
       <Layout>
         <FuelingsPage />
+      </Layout>
+    );
+  }
+  if (decision.kind === 'request-analysis') {
+    return (
+      <Layout>
+        <RequestAnalysisPage />
       </Layout>
     );
   }

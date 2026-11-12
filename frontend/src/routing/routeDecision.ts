@@ -6,6 +6,7 @@ import { canReadVehicles, VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 import { canManageMaintenance, MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
 import { canReadDrivers, DRIVERS_PATH } from '../drivers/driverAccess.ts'
 import { canAccessFuelings, FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
+import { canAnalyzeRequests, REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 
 type RouteDecision =
   | { kind: 'login' }
@@ -16,6 +17,7 @@ type RouteDecision =
   | { kind: 'maintenance'; profile: Profile }
   | { kind: 'drivers'; profile: Profile }
   | { kind: 'fuelings'; profile: Profile }
+  | { kind: 'request-analysis'; profile: 'GESTOR' }
 
 export function resolveRoute(session: AuthSession | null, path: string, now = Date.now()): RouteDecision {
   const profile = session && resolveProfile(session.perfil)
@@ -45,6 +47,11 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
   if (path === FUELINGS_PATH) {
     return canAccessFuelings(profile)
       ? { kind: 'fuelings', profile }
+      : { kind: 'redirect', to: home }
+  }
+  if (path === REQUEST_ANALYSIS_PATH) {
+    return canAnalyzeRequests(profile)
+      ? { kind: 'request-analysis', profile }
       : { kind: 'redirect', to: home }
   }
   return path === home ? { kind: 'home', profile } : { kind: 'redirect', to: home }

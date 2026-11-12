@@ -72,6 +72,23 @@ function submitRequest(body: unknown, role: UserRole | null = 'SOLICITANTE'): Pr
   })
 }
 
+function requestApi(path: string, role: UserRole | null, options: RequestInit = {}): Promise<Response> {
+  return fetch(baseUrl + path, {
+    ...options,
+    headers: {
+      ...(role ? { Authorization: 'Bearer ' + getUser(role).token } : {}),
+      ...(options.headers ?? {}),
+    },
+  })
+}
+
+async function createPendingRequest(serviceId: string, requestedDate: string): Promise<string> {
+  const response = await submitRequest({ ...validRequest, serviceId, requestedDate })
+  assert.equal(response.status, 201)
+  const body = await response.json() as { id: string }
+  return body.id
+}
+
 async function assertNoRequestEffects(): Promise<void> {
   const [requests, events, audits] = await Promise.all([
     pool.query<{ total: number }>('SELECT count(*)::int AS total FROM trip.requests'),
@@ -223,4 +240,66 @@ test('IT-REQUEST-05: perfil revogado no cadastro atual invalida o perfil SOLICIT
   const response = await submitRequest({ ...validRequest, serviceId }, 'SOLICITANTE')
   assert.equal(response.status, 403)
   await assertNoRequestEffects()
+})
+
+test('IT-REQUEST-06: Gestor filtra, pagina e consulta o detalhe com os dados da decisão', async () => {
+  const serviceId = await createService()
+  const earlyId = await createPendingRequest(serviceId, '2099-12-01')
+  const lateId = await createPendingRequest(serviceId, '2099-12-02')
+
+  const missingAuth = await requestApi('/requests?status=PENDING', null)
+  assert.equal(missingAuth.status, 401)
+  const forbidden = await requestApi('/requests', 'MOTORISTA')
+  assert.equal(forbidden.status, 403)
+
+  const listResponse = await requestApi(
+    '/requests?status=PENDING&from=2099-12-01&to=2099-12-02&requester=Solicitante%20Fict%C3%ADcio&service=FROTA-80&page=1&pageSize=1',
+    'GESTOR',
+  )
+  assert.equal(listResponse.status, 200)
+  const page = await listResponse.json() as { requests: Array<{ id: string; requestedDate: string }>; total: number; totalPages: number }
+  assert.deepEqual(page, {
+    requests: [{
+      id: earlyId,
+      requesterId: getUser('SOLICITANTE').id,
+      requesterName: getUser('SOLICITANTE').name,
+      serviceId,
+      serviceName: 'Serviço fictício de integração FROTA-80',
+      requestedDate: '2099-12-01',
+      requestedTime: '08:30',
+      origin: validRequest.origin,
+      destination: validRequest.destination,
+      purpose: validRequest.purpose,
+      passengers: 1,
+      status: 'PENDING',
+      createdAt: page.requests[0]?.createdAt,
+      updatedAt: page.requests[0]?.updatedAt,
+    }],
+    total: 2,
+    page: 1,
+    pageSize: 1,
+    totalPages: 2,
+  })
+
+  const ownDetail = await requestApi(`/requests/${earlyId}`, 'SOLICITANTE')
+  assert.equal(ownDetail.status, 200)
+  const detail = await ownDetail.json() as { requesterName: string; decidedByName: string | null; trip: unknown }
+  assert.equal(detail.requesterName, getUser('SOLICITANTE').name)
+  assert.equal(detail.decidedByName, null)
+  assert.equal(detail.trip, null)
+
+  const decision = await requestApi(`/requests/${earlyId}/reject`, 'GESTOR', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Sem viatura disponível' }),
+  })
+  assert.equal(decision.status, 200)
+  const decidedDetail = await requestApi(`/requests/${earlyId}`, 'GESTOR')
+  const decided = await decidedDetail.json() as { status: string; decidedByName: string; decisionReason: string; decidedAt: string }
+  assert.equal(decided.status, 'REJECTED')
+  assert.equal(decided.decidedByName, getUser('GESTOR').name)
+  assert.equal(decided.decisionReason, 'Sem viatura disponível')
+  assert.ok(Number.isFinite(Date.parse(decided.decidedAt)))
+
+  const anotherPage = await requestApi('/requests?status=PENDING&page=2&pageSize=1', 'GESTOR')
+  const second = await anotherPage.json() as { requests: Array<{ id: string }> }
+  assert.equal(second.requests[0]?.id, lateId)
 })
