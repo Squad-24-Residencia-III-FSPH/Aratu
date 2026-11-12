@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { resolveRoute } from '../src/routing/routeDecision.ts'
 import { PROFILE_PERMISSIONS_PATH, resolveProfile } from '../src/auth/profiles.ts'
 import { sessionFor } from './fixtures.mjs'
+import { TRIP_CONFIRMATION_PATH } from '../src/trips/tripConfirmationTypes.ts'
 
 const destinations = [
   ['ADMINISTRADOR', '/administracao/usuarios'],
@@ -89,4 +90,15 @@ test('somente MOTORISTA abre /viagens/minhas; demais perfis voltam à própria h
       to: home,
     })
   }
+})
+
+test('somente GESTOR abre a tela de confirmação de viagens', () => {
+  assert.deepEqual(resolveRoute(sessionFor('GESTOR'), TRIP_CONFIRMATION_PATH), {
+    kind: 'trip-confirmation', profile: 'GESTOR',
+  })
+  for (const [profile, home] of destinations) {
+    if (profile === 'GESTOR') continue
+    assert.deepEqual(resolveRoute(sessionFor(profile), TRIP_CONFIRMATION_PATH), { kind: 'redirect', to: home })
+  }
+  assert.deepEqual(resolveRoute(null, TRIP_CONFIRMATION_PATH), { kind: 'redirect', to: '/login' })
 })

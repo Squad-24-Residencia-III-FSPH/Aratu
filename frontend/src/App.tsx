@@ -15,6 +15,7 @@ import UserManagementPage from './pages/UserManagementPage';
 import DriversPage from './pages/DriversPage';
 import FuelingsPage from './pages/FuelingsPage';
 import MyTripsPage from './pages/MyTripsPage';
+import TripConfirmationPage from './pages/TripConfirmationPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -67,6 +68,9 @@ function PrivateRoute() {
         <FuelingsPage />
       </Layout>
     );
+  }
+  if (decision.kind === 'trip-confirmation') {
+    return <Layout><TripConfirmationPage /></Layout>;
   }
   return (
     <Layout>
