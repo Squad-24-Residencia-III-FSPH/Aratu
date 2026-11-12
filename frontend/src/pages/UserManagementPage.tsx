@@ -3,24 +3,13 @@ import type { FormEvent } from 'react'
 import {
   Alert,
   Box,
-  Breadcrumbs,
   Button,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
-  MenuItem,
   Paper,
-  Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material'
@@ -33,6 +22,14 @@ import type { Profile } from '../auth/profiles'
 import { tokenUserId } from '../auth/token'
 import { listProfiles } from '../services/profileService'
 import type { ProfileOption } from '../services/profileService'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
+import DataTable from '../components/ui/DataTable'
+import type { DataTableColumn } from '../components/ui/DataTable'
+import FilterBar from '../components/ui/FilterBar'
+import { FormField, FormSelect } from '../components/ui/FormField'
+import PageHeader from '../components/ui/PageHeader'
+import StateFeedback from '../components/ui/StateFeedback'
+import StatusChip from '../components/ui/StatusChip'
 import {
   activateUser,
   createUser,
@@ -42,6 +39,10 @@ import {
   updateUser,
 } from '../services/usersService'
 import type { ManagedUser } from '../users/userTypes'
+import {
+  resolveProfileChangeConfirmation,
+  shouldConfirmProfileChange,
+} from '../users/profileChangeConfirmation'
 import { validateUserForm } from '../users/userFormValidation'
 import type { UserFormErrors, UserFormValues } from '../users/userFormValidation'
 import styles from './UserManagementPage.module.css'
@@ -77,6 +78,7 @@ const fieldSx = {
     color: colors.secondary,
   },
   '& .MuiOutlinedInput-root': {
+    minHeight: 44,
     borderRadius: 1,
     backgroundColor: '#fff',
     '& fieldset': {
@@ -104,6 +106,38 @@ interface PendingStatus {
 function profileLabel(profile: Profile): string {
   return PROFILE_HOMES[profile].label
 }
+
+const USER_COLUMNS: readonly DataTableColumn<ManagedUser>[] = [
+  {
+    key: 'name',
+    header: 'Usuário',
+    width: 220,
+    render: (user) => <Typography sx={{ color: colors.heading, fontWeight: 600 }}>{user.name}</Typography>,
+  },
+  {
+    key: 'email',
+    header: 'E-mail',
+    width: 260,
+    render: (user) => <Typography sx={{ color: colors.text }}>{user.email}</Typography>,
+  },
+  {
+    key: 'role',
+    header: 'Perfil',
+    width: 180,
+    render: (user) => <Typography sx={{ color: colors.text }}>{profileLabel(user.role)}</Typography>,
+  },
+  {
+    key: 'status',
+    header: 'Situação',
+    width: 110,
+    render: (user) => (
+      <StatusChip
+        label={user.active ? 'Ativo' : 'Inativo'}
+        tone={user.active ? 'success' : 'neutral'}
+      />
+    ),
+  },
+]
 
 function messageFrom(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
@@ -135,6 +169,7 @@ export default function UserManagementPage() {
   const [formValues, setFormValues] = useState<UserFormValues>(initialFormValues)
   const [formErrors, setFormErrors] = useState<UserFormErrors>({})
   const [formError, setFormError] = useState('')
+  const [profileChangeConfirmationOpen, setProfileChangeConfirmationOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [pendingStatus, setPendingStatus] = useState<PendingStatus | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -233,6 +268,7 @@ export default function UserManagementPage() {
   }
 
   function openCreateForm() {
+    setProfileChangeConfirmationOpen(false)
     setFormMode('create')
     setEditingUser(null)
     setFormValues(initialFormValues)
@@ -243,6 +279,7 @@ export default function UserManagementPage() {
   }
 
   function openEditForm(user: ManagedUser) {
+    setProfileChangeConfirmationOpen(false)
     setFormMode('edit')
     setEditingUser(user)
     setFormValues({
@@ -260,6 +297,7 @@ export default function UserManagementPage() {
 
   function closeForm() {
     if (saving) return
+    setProfileChangeConfirmationOpen(false)
     setFormOpen(false)
     setEditingUser(null)
     setFormValues(initialFormValues)
@@ -282,12 +320,7 @@ export default function UserManagementPage() {
     setPage(nextPage)
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const errors = validateUserForm(formValues, formMode)
-    setFormErrors(errors)
-    if (Object.keys(errors).length > 0) return
-
+  async function saveUserForm() {
     setSaving(true)
     setFormError('')
     try {
@@ -320,6 +353,30 @@ export default function UserManagementPage() {
     }
   }
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const errors = validateUserForm(formValues, formMode)
+    setFormErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
+    if (shouldConfirmProfileChange(formMode, editingUser?.roleId ?? null, formValues.roleId)) {
+      setProfileChangeConfirmationOpen(true)
+      return
+    }
+
+    await saveUserForm()
+  }
+
+  async function handleConfirmProfileChange() {
+    setProfileChangeConfirmationOpen(false)
+    await resolveProfileChangeConfirmation('confirmed', saveUserForm)
+  }
+
+  async function handleCancelProfileChange() {
+    setProfileChangeConfirmationOpen(false)
+    await resolveProfileChangeConfirmation('cancelled', saveUserForm)
+  }
+
   async function handleConfirmStatus() {
     if (!pendingStatus) return
     setConfirming(true)
@@ -344,67 +401,78 @@ export default function UserManagementPage() {
   }
 
   const hasFilters = Boolean(search.trim() || roleFilter || statusFilter)
+  const selectedProfile = profiles.find(({ id: profileId }) => profileId === formValues.roleId)
+  const emptyContent = (
+    <StateFeedback
+      kind="empty"
+      title={hasFilters ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
+      titleSx={{ color: colors.heading, fontWeight: 700 }}
+      description={hasFilters
+        ? 'Ajuste os filtros ou limpe a busca para ver todos os usuários.'
+        : 'Cadastre o primeiro usuário para começar a administrar os acessos.'}
+      descriptionSx={{ color: colors.secondary, mt: 1, maxWidth: 480, lineHeight: 1.7 }}
+      icon={(
+        <Box
+          sx={{
+            width: 52,
+            height: 52,
+            borderRadius: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#f1f5f9',
+            color: colors.secondary,
+          }}
+        >
+          <PeopleAlt sx={{ fontSize: 28 }} />
+        </Box>
+      )}
+      centered
+      sx={{
+        py: 6,
+        px: 3,
+        mb: 0,
+        backgroundColor: 'transparent',
+        boxShadow: 'none',
+        border: 0,
+        color: colors.text,
+        '& .MuiAlert-icon': { p: 0 },
+        '& .MuiAlert-message': { maxWidth: '100%' },
+      }}
+      actionLabel={hasFilters ? 'Limpar filtros' : undefined}
+      onAction={hasFilters ? clearFilters : undefined}
+      actionSx={{ ...buttonSx, mt: 2, color: colors.primary }}
+    />
+  )
 
   return (
     <Box className={styles.page}>
-      <Breadcrumbs
-        aria-label="Navegação estrutural"
-        sx={{ mb: 2, color: colors.secondary, fontSize: '0.85rem' }}
-      >
-        <Typography variant="body2" sx={{ color: colors.secondary }}>
-          Início
-        </Typography>
-        <Typography variant="body2" aria-current="page" sx={{ color: colors.heading }}>
-          Usuários
-        </Typography>
-      </Breadcrumbs>
-
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="body2" sx={{ color: colors.secondary, mb: 0.5 }}>
-          Administração do sistema
-        </Typography>
-
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: { xs: 'flex-start', sm: 'center' },
-            flexWrap: 'wrap',
-            gap: 2,
-          }}
-        >
-          <Box>
-            <Typography
-              component="h1"
-              variant="h4"
+      <PageHeader
+        title="Gerenciar usuários"
+        titleVariant="h4"
+        titleSx={{ color: colors.heading, fontSize: { xs: '1.5rem', sm: '2rem' } }}
+        breadcrumbs={['Início', 'Usuários']}
+        breadcrumbsSx={{ mb: 2, color: colors.secondary, fontSize: '0.85rem' }}
+        eyebrow="Administração do sistema"
+        description="Cadastre, edite e controle a situação das contas e seus perfis de acesso."
+        descriptionSx={{ color: colors.secondary, mt: 0.5 }}
+        sx={{ mb: 3 }}
+        actions={(
+          <Button
+              variant="contained"
+              startIcon={<PersonAddAlt1 />}
+              onClick={openCreateForm}
               sx={{
-                fontWeight: 700,
-                color: colors.heading,
-                fontSize: { xs: '1.5rem', sm: '2rem' },
+                ...buttonSx,
+                backgroundColor: colors.primary,
+                boxShadow: 'none',
+                '&:hover': { backgroundColor: '#e85d00', boxShadow: 'none' },
               }}
             >
-              Gerenciar usuários
-            </Typography>
-            <Typography variant="body2" sx={{ color: colors.secondary, mt: 0.5 }}>
-              Cadastre, edite e controle a situação das contas e seus perfis de acesso.
-            </Typography>
-          </Box>
-
-          <Button
-            variant="contained"
-            startIcon={<PersonAddAlt1 />}
-            onClick={openCreateForm}
-            sx={{
-              ...buttonSx,
-              backgroundColor: colors.primary,
-              boxShadow: 'none',
-              '&:hover': { backgroundColor: '#e85d00', boxShadow: 'none' },
-            }}
-          >
-            Cadastrar usuário
+              Cadastrar usuário
           </Button>
-        </Box>
-      </Box>
+        )}
+      />
 
       {successNotice && (
         <Alert severity="success" role="status" sx={{ mb: 2 }} onClose={() => setSuccessNotice('')}>
@@ -427,71 +495,70 @@ export default function UserManagementPage() {
           overflow: 'hidden',
         }}
       >
-        <Box
+        <FilterBar
+          label="Filtros de usuários"
           sx={{
             p: 2.5,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            flexWrap: 'wrap',
+            mb: 0,
+            border: 0,
+            borderRadius: 0,
             borderBottom: `1px solid ${colors.border}`,
+            boxShadow: 'none',
           }}
         >
-          <TextField
-            size="small"
-            placeholder="Buscar por nome ou e-mail..."
-            value={search}
-            onChange={(event) => updateSearch(event.target.value)}
-            aria-label="Buscar usuários por nome ou e-mail"
-            sx={{
-              ...fieldSx,
-              flex: '1 1 240px',
-              '& .MuiInputBase-root': { fontSize: '0.875rem' },
-            }}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <Search sx={{ color: colors.secondary, fontSize: 20, mr: 1 }} />
-                ),
-              },
-            }}
-          />
+          <Box sx={{ flex: '1 1 240px', minWidth: { xs: '100%', sm: 240 } }}>
+            <FormField
+              label="Buscar usuários por nome ou e-mail"
+              hideLabel
+              value={search}
+              onChange={updateSearch}
+              placeholder="Buscar por nome ou e-mail..."
+              startAdornment={<Search sx={{ color: colors.secondary, fontSize: 20, mr: 1 }} />}
+              sx={{
+                ...fieldSx,
+                '& .MuiInputBase-root': { fontSize: '0.875rem' },
+              }}
+            />
+          </Box>
 
-          <FormControl size="small" sx={{ ...fieldSx, width: { xs: '100%', sm: 190 } }}>
-            <Select
-              displayEmpty
+          <Box sx={{ width: { xs: '100%', sm: 190 } }}>
+            <FormSelect
+              label="Filtrar por perfil"
+              hideLabel
               value={roleFilter}
-              onChange={(event) => updateRoleFilter(event.target.value)}
-              inputProps={{ 'aria-label': 'Filtrar por perfil' }}
-            >
-              <MenuItem value="">Todos os perfis</MenuItem>
-              {profiles.map((profile) => (
-                <MenuItem key={profile.id} value={profile.name}>
-                  {profileLabel(profile.name)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl size="small" sx={{ ...fieldSx, width: { xs: '100%', sm: 150 } }}>
-            <Select
+              onChange={updateRoleFilter}
+              options={profiles.map((profile) => ({
+                value: profile.name,
+                label: profileLabel(profile.name),
+              }))}
+              emptyLabel="Todos os perfis"
               displayEmpty
+              sx={fieldSx}
+            />
+          </Box>
+
+          <Box sx={{ width: { xs: '100%', sm: 150 } }}>
+            <FormSelect
+              label="Filtrar por situação"
+              hideLabel
               value={statusFilter}
-              onChange={(event) => updateStatusFilter(event.target.value)}
-              inputProps={{ 'aria-label': 'Filtrar por situação' }}
-            >
-              <MenuItem value="">Todos os status</MenuItem>
-              <MenuItem value="active">Ativo</MenuItem>
-              <MenuItem value="inactive">Inativo</MenuItem>
-            </Select>
-          </FormControl>
+              onChange={updateStatusFilter}
+              options={[
+                { value: 'active', label: 'Ativo' },
+                { value: 'inactive', label: 'Inativo' },
+              ]}
+              emptyLabel="Todos os status"
+              displayEmpty
+              sx={fieldSx}
+            />
+          </Box>
 
           {hasFilters && (
             <Button onClick={clearFilters} sx={{ ...buttonSx, color: colors.text }}>
               Limpar filtros
             </Button>
           )}
-        </Box>
+        </FilterBar>
 
         {profilesError && (
           <Alert
@@ -508,154 +575,86 @@ export default function UserManagementPage() {
         )}
 
         {listError && (
-          <Alert
-            severity="error"
+          <StateFeedback
+            kind="error"
+            title={listError}
             sx={{ m: 2, borderRadius: 1 }}
-            action={
-              <Button
-                color="inherit"
-                onClick={() => {
-                  beginListRequest()
-                  setReloadKey((current) => current + 1)
-                }}
-              >
-                Tentar novamente
-              </Button>
-            }
-          >
-            {listError}
-          </Alert>
+            actionLabel="Tentar novamente"
+            onAction={() => {
+              beginListRequest()
+              setReloadKey((current) => current + 1)
+            }}
+          />
         )}
 
-        <TableContainer className={styles.tableContainer}>
-          <Table aria-label="Usuários cadastrados" aria-busy={listLoading}>
-            <TableHead>
-              <TableRow>
-                {['Usuário', 'E-mail', 'Perfil', 'Situação', 'Ações'].map((heading) => (
-                  <TableCell
-                    key={heading}
-                    scope="col"
-                    sx={{
-                      backgroundColor: colors.tableHeader,
-                      color: colors.secondary,
-                      fontWeight: 600,
-                      fontSize: '0.8rem',
-                      whiteSpace: 'nowrap',
-                      borderBottom: `1px solid ${colors.border}`,
-                      py: 1.75,
-                    }}
+        {!listError && <DataTable
+          caption="Usuários cadastrados"
+          columns={USER_COLUMNS}
+          rows={users}
+          rowKey={(user) => user.id}
+          busy={listLoading}
+          loadingContent={(
+            <StateFeedback
+              kind="loading"
+              title="Carregando usuários..."
+              progressSize={26}
+              sx={{ py: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}
+            />
+          )}
+          emptyContent={emptyContent}
+          stateCellSx={{ py: 0, borderBottom: 0 }}
+          containerClassName={styles.tableContainer}
+          minWidth={960}
+          tableLayout="fixed"
+          actionsWidth={190}
+          paperSx={{ borderRadius: 0, overflow: 'hidden', border: 0, boxShadow: 'none' }}
+          headerCellSx={{
+            backgroundColor: colors.tableHeader,
+            color: colors.secondary,
+            fontSize: '0.8rem',
+            borderBottom: `1px solid ${colors.border}`,
+            py: 1.75,
+          }}
+          renderActions={(user) => {
+            const ownAccount = user.id === currentUserId
+            return (
+              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                <Button
+                  size="small"
+                  onClick={() => openEditForm(user)}
+                  aria-label={`Editar ${user.name}`}
+                  sx={{ ...buttonSx, color: colors.primary }}
+                >
+                  Editar
+                </Button>
+                {user.active && !ownAccount && (
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => setPendingStatus({ kind: 'deactivate', user })}
+                    aria-label={`Inativar ${user.name}`}
+                    sx={buttonSx}
                   >
-                    {heading}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
+                    Inativar
+                  </Button>
+                )}
+                {!user.active && (
+                  <Button
+                    size="small"
+                    color="success"
+                    onClick={() => setPendingStatus({ kind: 'activate', user })}
+                    aria-label={`Reativar ${user.name}`}
+                    sx={buttonSx}
+                  >
+                    Reativar
+                  </Button>
+                )}
+              </Box>
+            )
+          }}
+        />}
 
-            <TableBody>
-              {listLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} sx={{ borderBottom: 0 }}>
-                    <Box sx={{ py: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                      <CircularProgress size={26} />
-                      <Typography variant="body2" sx={{ color: colors.secondary }}>
-                        Carregando usuários...
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ) : users.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} sx={{ borderBottom: 0 }}>
-                    <Box sx={{ py: 6, px: 3, display: 'flex', alignItems: 'center', flexDirection: 'column', textAlign: 'center' }}>
-                      <Box
-                        sx={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: 2,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: '#f1f5f9',
-                          color: colors.secondary,
-                          mb: 2,
-                        }}
-                      >
-                        <PeopleAlt sx={{ fontSize: 28 }} />
-                      </Box>
-                      <Typography variant="subtitle1" sx={{ color: colors.heading, fontWeight: 700 }}>
-                        {hasFilters ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: colors.secondary, mt: 1, maxWidth: 480, lineHeight: 1.7 }}>
-                        {hasFilters
-                          ? 'Ajuste os filtros ou limpe a busca para ver todos os usuários.'
-                          : 'Cadastre o primeiro usuário para começar a administrar os acessos.'}
-                      </Typography>
-                      {hasFilters && (
-                        <Button onClick={clearFilters} sx={{ ...buttonSx, mt: 2, color: colors.primary }}>
-                          Limpar filtros
-                        </Button>
-                      )}
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                users.map((user) => {
-                  const ownAccount = user.id === currentUserId
-                  return (
-                    <TableRow key={user.id} hover>
-                      <TableCell sx={{ color: colors.heading, fontWeight: 600 }}>{user.name}</TableCell>
-                      <TableCell sx={{ color: colors.text }}>{user.email}</TableCell>
-                      <TableCell sx={{ color: colors.text }}>{profileLabel(user.role)}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={user.active ? 'Ativo' : 'Inativo'}
-                          color={user.active ? 'success' : 'default'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                          <Button
-                            size="small"
-                            onClick={() => openEditForm(user)}
-                            aria-label={`Editar ${user.name}`}
-                            sx={{ ...buttonSx, minHeight: 36, color: colors.primary }}
-                          >
-                            Editar
-                          </Button>
-                          {user.active && !ownAccount && (
-                            <Button
-                              size="small"
-                              color="error"
-                              onClick={() => setPendingStatus({ kind: 'deactivate', user })}
-                              aria-label={`Inativar ${user.name}`}
-                              sx={{ ...buttonSx, minHeight: 36 }}
-                            >
-                              Inativar
-                            </Button>
-                          )}
-                          {!user.active && (
-                            <Button
-                              size="small"
-                              color="success"
-                              onClick={() => setPendingStatus({ kind: 'activate', user })}
-                              aria-label={`Reativar ${user.name}`}
-                              sx={{ ...buttonSx, minHeight: 36 }}
-                            >
-                              Reativar
-                            </Button>
-                          )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        <Box
+        {!listError && <Box
           sx={{
             px: 2.5,
             py: 1.75,
@@ -680,7 +679,7 @@ export default function UserManagementPage() {
                 setPage((current) => Math.max(1, current - 1))
               }}
               disabled={page <= 1 || listLoading}
-              sx={{ ...buttonSx, minHeight: 36, color: colors.text }}
+              sx={{ ...buttonSx, color: colors.text }}
             >
               Anterior
             </Button>
@@ -694,12 +693,12 @@ export default function UserManagementPage() {
                 setPage((current) => current + 1)
               }}
               disabled={page >= totalPages || listLoading}
-              sx={{ ...buttonSx, minHeight: 36, color: colors.text }}
+              sx={{ ...buttonSx, color: colors.text }}
             >
               Próxima
             </Button>
           </Box>
-        </Box>
+        </Box>}
       </Paper>
 
       <Dialog
@@ -723,14 +722,12 @@ export default function UserManagementPage() {
             </Typography>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              <TextField
+              <FormField
                 label="Nome completo"
-                fullWidth
                 required
                 value={formValues.name}
-                error={Boolean(formErrors.name)}
-                helperText={formErrors.name}
-                onChange={(event) => updateFormValue('name', event.target.value)}
+                error={formErrors.name}
+                onChange={(value) => updateFormValue('name', value)}
                 sx={fieldSx}
               />
 
@@ -747,29 +744,23 @@ export default function UserManagementPage() {
                 sx={fieldSx}
               />
 
-              <FormControl fullWidth required error={Boolean(formErrors.roleId)} sx={fieldSx}>
-                <Select
-                  displayEmpty
-                  value={formValues.roleId}
-                  disabled={profilesLoading || Boolean(profilesError)}
-                  onChange={(event) => updateFormValue('roleId', event.target.value)}
-                  inputProps={{ 'aria-label': 'Perfil de acesso' }}
-                >
-                  <MenuItem value="" disabled>
-                    Selecione o perfil de acesso
-                  </MenuItem>
-                  {profiles.map((profile) => (
-                    <MenuItem key={profile.id} value={profile.id}>
-                      {profileLabel(profile.name)}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {formErrors.roleId && (
-                  <Typography variant="caption" role="alert" sx={{ color: '#d32f2f', mt: 0.5 }}>
-                    {formErrors.roleId}
-                  </Typography>
-                )}
-              </FormControl>
+              <FormSelect
+                label="Perfil de acesso"
+                hideLabel
+                value={formValues.roleId}
+                onChange={(value) => updateFormValue('roleId', value)}
+                options={profiles.map((profile) => ({
+                  value: profile.id,
+                  label: profileLabel(profile.name),
+                }))}
+                emptyLabel="Selecione o perfil de acesso"
+                emptyOptionDisabled
+                displayEmpty
+                required
+                disabled={profilesLoading || Boolean(profilesError)}
+                error={formErrors.roleId}
+                sx={fieldSx}
+              />
 
               {formMode === 'create' && (
                 <>
@@ -786,16 +777,17 @@ export default function UserManagementPage() {
                     sx={fieldSx}
                   />
 
-                  <FormControl fullWidth sx={fieldSx}>
-                    <Select
-                      value={formValues.active ? 'active' : 'inactive'}
-                      onChange={(event) => updateFormValue('active', event.target.value === 'active')}
-                      inputProps={{ 'aria-label': 'Situação inicial' }}
-                    >
-                      <MenuItem value="active">Ativo</MenuItem>
-                      <MenuItem value="inactive">Inativo</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <FormSelect
+                    label="Situação inicial"
+                    hideLabel
+                    value={formValues.active ? 'active' : 'inactive'}
+                    onChange={(value) => updateFormValue('active', value === 'active')}
+                    options={[
+                      { value: 'active', label: 'Ativo' },
+                      { value: 'inactive', label: 'Inativo' },
+                    ]}
+                    sx={fieldSx}
+                  />
                 </>
               )}
 
@@ -841,47 +833,54 @@ export default function UserManagementPage() {
         </Box>
       </Dialog>
 
-      <Dialog
+      <ConfirmDialog
+        open={profileChangeConfirmationOpen}
+        title="Confirmar mudança de perfil"
+        description={(
+          <Typography variant="body2" sx={{ color: colors.text, lineHeight: 1.7 }}>
+            {editingUser && (
+              <>Confirme a alteração do perfil de {editingUser.name} de {profileLabel(editingUser.role)} para {selectedProfile ? profileLabel(selectedProfile.name) : 'perfil selecionado'}. A mudança será enviada à API ao confirmar.</>
+            )}
+          </Typography>
+        )}
+        cancelLabel="Cancelar alteração"
+        confirmLabel="Confirmar mudança de perfil"
+        onCancel={() => void handleCancelProfileChange()}
+        onConfirm={() => void handleConfirmProfileChange()}
+        autoFocusCancel
+        paperSx={{ borderRadius: 2 }}
+        actionsSx={{ p: 2.5, pt: 1, gap: 1 }}
+        cancelSx={{ ...buttonSx, color: colors.text }}
+        confirmSx={{
+          ...buttonSx,
+          backgroundColor: colors.primary,
+          boxShadow: 'none',
+          '&:hover': { backgroundColor: '#e85d00', boxShadow: 'none' },
+        }}
+      />
+
+      <ConfirmDialog
         open={Boolean(pendingStatus)}
-        onClose={() => { if (!confirming) setPendingStatus(null) }}
-        fullWidth
-        maxWidth="xs"
-        aria-labelledby={`${id}-confirm-title`}
-        slotProps={{ paper: { sx: { borderRadius: 2 } } }}
-      >
-        <DialogTitle id={`${id}-confirm-title`} sx={{ color: colors.heading, fontWeight: 700 }}>
-          {pendingStatus?.kind === 'deactivate' ? 'Inativar usuário' : 'Reativar usuário'}
-        </DialogTitle>
-        <DialogContent>
+        title={pendingStatus?.kind === 'deactivate' ? 'Inativar usuário' : 'Reativar usuário'}
+        description={(
           <Typography variant="body2" sx={{ color: colors.text, lineHeight: 1.7 }}>
             {pendingStatus?.kind === 'deactivate'
               ? `Ao inativar ${pendingStatus.user.name}, o acesso ao sistema será bloqueado imediatamente. O histórico é preservado.`
               : `Reativar ${pendingStatus?.user.name} devolverá o acesso ao sistema com o mesmo perfil.`}
           </Typography>
-        </DialogContent>
-        <DialogActions sx={{ p: 2.5, pt: 1, gap: 1 }}>
-          <Button
-            onClick={() => setPendingStatus(null)}
-            disabled={confirming}
-            sx={{ ...buttonSx, color: colors.text }}
-          >
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            color={pendingStatus?.kind === 'deactivate' ? 'error' : 'success'}
-            onClick={() => void handleConfirmStatus()}
-            disabled={confirming}
-            sx={{ ...buttonSx, boxShadow: 'none' }}
-          >
-            {confirming
-              ? 'Aguarde...'
-              : pendingStatus?.kind === 'deactivate'
-                ? 'Inativar'
-                : 'Reativar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        )}
+        confirmLabel={pendingStatus?.kind === 'deactivate' ? 'Inativar' : 'Reativar'}
+        loadingLabel="Aguarde..."
+        onCancel={() => setPendingStatus(null)}
+        onConfirm={() => void handleConfirmStatus()}
+        loading={confirming}
+        danger={pendingStatus?.kind === 'deactivate'}
+        confirmColor={pendingStatus?.kind === 'activate' ? 'success' : undefined}
+        paperSx={{ borderRadius: 2 }}
+        actionsSx={{ p: 2.5, pt: 1, gap: 1 }}
+        cancelSx={{ ...buttonSx, color: colors.text }}
+        confirmSx={{ ...buttonSx, boxShadow: 'none' }}
+      />
     </Box>
   )
 }

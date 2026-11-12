@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-100 — Tela do motorista para registrar a viagem (mobile) (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  
+    td, code { overflow-wrap: anywhere; }
+    .table-scroll { max-width: 100%; overflow-x: auto; }
+    .table-scroll table { min-width: 640px; }
+    .table-scroll:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: 2px; }
+    .check label { display: flex; align-items: flex-start; gap: 8px; min-height: 44px; cursor: pointer; }
+    .check label input { margin-top: 6px; }
+    @media (max-width: 600px) { body { margin-top: 16px; padding: 0 16px 40px; } .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media print { .table-scroll { overflow: visible; } .table-scroll table { min-width: 0; } }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-100: Tela do motorista para registrar a viagem (mobile)</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-100</code> — Tela do motorista para registrar a viagem (mobile)</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/frota-100-execucao-viagem-mobile</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-100-tela-motorista-execucao-viagem.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>VIAGENS</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>MOTORISTA</code> (execução); demais perfis mantêm as restrições existentes</p>
+  <p><strong>Data da Revisão:</strong> 2026-11-10 (America/Sao_Paulo)</p>
+</div>
+
+
+<div class="verdict-approved">Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA</div>
+<p><strong>O achado funcional bloqueante (R1) e os pontos de atenção da revisão foram integralmente corrigidos e comprovados.</strong> As suítes completas de frontend (147 testes) e backend (312 testes, incluindo 199 integrações com PostgreSQL 18 ativo) passaram sem falhas, e as verificações de foco pós-término, zoom de 200% e árvore de acessibilidade foram executadas no navegador.</p>
+<div class="summary-grid"><div class="summary-card"><span class="count">0</span><span class="label">🔴 Bloqueantes</span></div><div class="summary-card"><span class="count">0</span><span class="label">🟡 Atenção</span></div><div class="summary-card"><span class="count">14</span><span class="label">🟢 OK</span></div><div class="summary-card"><span class="count">3</span><span class="label">⚪ N/A</span></div></div>
+<p>Os contadores classificam os <strong>17 critérios</strong> após a aplicação das correções em <code>useMyTrips.ts</code>, <code>TripExecutionDialog.tsx</code>, <code>MyTripsPage.tsx</code> e <code>myTripsPage.test.mjs</code>, o restabelecimento do banco PostgreSQL 18 e a validação no navegador.</p>
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados e Resolução Aplicada</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+
+<p>Branch <code>feat/frota-100-execucao-viagem-mobile</code> comparada contra a base local <code>develop</code> (<code>e70eccaf215dc1e5c3d462e228ed80c2893b7a9c</code>). Inclui a implementação da tela do motorista, a correção do achado R1, os testes de regressão e a documentação atualizada.</p>
+<p>Jira <a href="https://squad24.atlassian.net/browse/FROTA-100">FROTA-100</a>: subtask de FROTA-98, status “Em análise”, prioridade Normal. Módulo efetivo <strong>VIAGENS</strong>, com execução exclusiva de MOTORISTA. Foto depende da definição do armazenamento e está fora desta entrega conforme o SDD. Nenhuma decisão de negócio ambígua precisou ser assumida.</p>
+<div class="table-scroll" role="region" aria-label="Tabela 1 da revisão" tabindex="0"><table><thead><tr><th scope="col">Arquivo</th><th scope="col">Camada</th><th scope="col">Linhas +/−</th><th scope="col">Resumo</th></tr></thead><tbody><tr><td><code>backend/tests/trips-execution.integration.test.ts</code></td><td>Testes backend</td><td>+211/−0</td><td>Histórico cumulativo, concorrência e rollback de execução</td></tr><tr><td><code>docs/manuais/modulos.md</code></td><td>Documentação</td><td>+2/−1</td><td>Catálogo e referência de VIAGENS</td></tr><tr><td><code>docs/modulos/VIAGENS.html</code></td><td>Documentação</td><td>+503/−0</td><td>Documento funcional/técnico do módulo</td></tr><tr><td><code>docs/plans/frota-100-tela-motorista-execucao-viagem.html</code></td><td>SDD</td><td>+361/−0</td><td>Plano, decisões confirmadas e registro consolidado de validações</td></tr><tr><td><code>frontend/src/App.tsx</code></td><td>Navegação</td><td>+2/−0</td><td>Renderiza a home do MOTORISTA</td></tr><tr><td><code>frontend/src/components/sidebarNavigation.ts</code></td><td>Navegação</td><td>+7/−0</td><td>Atalho Minhas viagens restrito ao MOTORISTA</td></tr><tr><td><code>frontend/src/components/ui/ConfirmDialog.tsx</code></td><td>UI compartilhada</td><td>+7/−1</td><td>Callback opcional após abertura</td></tr><tr><td><code>frontend/src/components/ui/EntityCard.tsx</code></td><td>UI compartilhada</td><td>+87/−0</td><td>Card composto com título e situação acessíveis</td></tr><tr><td><code>frontend/src/components/ui/FormField.tsx</code></td><td>UI compartilhada</td><td>+5/−1</td><td>Referência opcional ao campo nativo</td></tr><tr><td><code>frontend/src/hooks/useMyTrips.ts</code></td><td>Hook</td><td>+244/−0</td><td>Consulta, execução, rascunho, reconciliação bloqueante pós-conflito e recuperação de falhas</td></tr><tr><td><code>frontend/src/pages/MyTripsPage.tsx</code></td><td>Página</td><td>+163/−0</td><td>Lista, filtro, cards, aviso de resultado e repasse de bloqueio centralizado ao diálogo</td></tr><tr><td><code>frontend/src/pages/myTripsPage/TripExecutionDialog.tsx</code></td><td>Diálogo</td><td>+125/−0</td><td>Quilometragem, confirmação protegida no clique/Enter e atualização de situação</td></tr><tr><td><code>frontend/src/services/tripsService.ts</code></td><td>Cliente HTTP</td><td>+165/−0</td><td>Listagem, início/término e validação de respostas</td></tr><tr><td><code>frontend/src/trips/tripPresentation.ts</code></td><td>Apresentação</td><td>+98/−0</td><td>Filtro temporal, rótulos, validação de entrada e formatos</td></tr><tr><td><code>frontend/src/trips/tripTypes.ts</code></td><td>Tipos</td><td>+78/−0</td><td>DTOs, ações, filtros e erros</td></tr><tr><td><code>frontend/tests/my-trips.fixture.mjs</code></td><td>Testes frontend</td><td>+39/−0</td><td>Fixtures fictícias para listagem e execução</td></tr><tr><td><code>frontend/tests/myTripsPage.test.mjs</code></td><td>Testes frontend</td><td>+400/−0</td><td>17 testes de componente cobrindo fluxos, foco, erros e bloqueio pós-409 (R1)</td></tr><tr><td><code>frontend/tests/routing.test.mjs</code></td><td>Testes frontend</td><td>+14/−0</td><td>Regressão de rota inicial por perfil</td></tr><tr><td><code>frontend/tests/sidebarNavigation.test.mjs</code></td><td>Testes frontend</td><td>+14/−0</td><td>Regressão de menu lateral por perfil</td></tr><tr><td><code>frontend/tests/tripPresentation.test.mjs</code></td><td>Testes frontend</td><td>+55/−0</td><td>Recorte temporal, fuso e validação de entrada</td></tr><tr><td><code>frontend/tests/tripsService.test.mjs</code></td><td>Testes frontend</td><td>+78/−0</td><td>Contratos HTTP e validação em runtime</td></tr></tbody></table></div>
+<p>Documentos/manuais e testes de base foram consultados conforme a revisão canônica. Arquivos de produção backend foram lidos apenas na fronteira consumida por esta tela.</p>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<div class="table-scroll" role="region" aria-label="Tabela 2 da revisão" tabindex="0"><table><thead><tr><th scope="col">Código</th><th scope="col">Critério</th><th scope="col">Status</th><th scope="col">Evidência / limite</th></tr></thead><tbody><tr><td><code>C1</code></td><td>Escopo e tamanho do diff</td><td><span class="badge-ok">🟢 OK</span></td><td>21 arquivos (+2.658/−3 linhas) com composição justificada e sem refatoração em massa: 981 linhas de código de produção frontend (11 arquivos), 811 linhas de testes automatizados (7 arquivos) e 866 linhas de documentação HTML/Markdown obrigatória (3 arquivos).</td></tr><tr><td><code>C2</code></td><td>Gitflow e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>Branch feat/frota-100-execucao-viagem-mobile criada a partir de develop (e70ecca); commits em Conventional Commits e destino de PR develop.</td></tr><tr><td><code>C3</code></td><td>Aderência ao requisito e SDD</td><td><span class="badge-ok">🟢 OK</span></td><td>R1 corrigido: useMyTrips marca reconciliação bloqueante (reconciling + confirmBlocked) após 409/404/403 e impede novo envio por clique ou Enter até consulta bem-sucedida, preservando o km e oferecendo “Atualizar situação” no diálogo.</td></tr><tr><td><code>C4</code></td><td>Camadas backend</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhum arquivo de produção backend alterado; o único arquivo backend do diff é um teste de integração. Camadas consumidas foram lidas como contexto, sem reauditoria integral da base.</td></tr><tr><td><code>C5</code></td><td>Camadas frontend e reuso</td><td><span class="badge-ok">🟢 OK</span></td><td>Página compõe PageHeader, EntityCard, StatusChip, StateFeedback, FormField e ConfirmDialog; I/O fica em tripsService via useAuth().api; estado assíncrono no hook. Extensões inputRef/onEntered são opcionais.</td></tr><tr><td><code>C6</code></td><td>Ciclos e feature flags</td><td><span class="badge-ok">🟢 OK</span></td><td>Novas dependências seguem página → hook/serviço → tipos/apresentação; nenhuma feature flag ou configuração nova foi introduzida. Não identificado ciclo nos módulos alterados.</td></tr><tr><td><code>C7</code></td><td>SQL parametrizado</td><td><span class="badge-ok">🟢 OK</span></td><td>As consultas acrescentadas no teste usam parâmetros $1 para IDs e valores fixos de fixtures. Sem SQL novo de produção e sem interpolação de entrada do usuário.</td></tr><tr><td><code>C8</code></td><td>Projeção e performance SQL</td><td><span class="badge-ok">🟢 OK</span></td><td>snapshotHistory projeta colunas explícitas em quatro consultas independentes, sem SELECT * ou consulta por item. Sem alteração em filtros ou índices de produção.</td></tr><tr><td><code>C9</code></td><td>Transações e concorrência</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhuma transação de produção alterada. Com o PostgreSQL 18 restabelecido, todos os 312 testes backend (incluindo os 199 de integração e IT-EXECUTION-08/09/10 para repetição, concorrência e rollback) passaram.</td></tr><tr><td><code>C10</code></td><td>Migrações PostgreSQL</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhuma migração, tabela, coluna, índice ou constraint criada ou alterada no diff.</td></tr><tr><td><code>C11</code></td><td>Autorização backend e RBAC</td><td><span class="badge-ok">🟢 OK</span></td><td>Rotas existentes /trips/mine e /trips/:id/start|finish exigem autenticação e MOTORISTA; TripsService.lockOwnTrip valida vínculo. A nova home/menu usa o perfil real MOTORISTA; testes frontend e backend validam todos os perfis.</td></tr><tr><td><code>C12</code></td><td>LGPD, sigilo e segredos</td><td><span class="badge-ok">🟢 OK</span></td><td>Fixtures de viagens, usuários QA e placas fictícias; nenhum segredo hardcoded identificado nas alterações. Relatório omite responsáveis/relatores reais do Jira e credenciais.</td></tr><tr><td><code>C13</code></td><td>Tipagem estrita</td><td><span class="badge-ok">🟢 OK</span></td><td>Backend tsc --noEmit e frontend tsc -b --noEmit aprovados local e nos containers; sem any/@ts-ignore novo. Respostas HTTP entram como unknown e passam por validação em runtime; DTOs organizados em trips/ conforme padrão local e SDD.</td></tr><tr><td><code>C14</code></td><td>Nomenclatura, TSDoc e código limpo</td><td><span class="badge-ok">🟢 OK</span></td><td>Novos identificadores em inglês, mensagens/TSDoc em português; API pública do cliente e hook documentadas. /viagens/minhas e códigos RBAC portugueses são contratos preexistentes preservados explicitamente pelo plano.</td></tr><tr><td><code>C15</code></td><td>Cinco estados e recuperação de falhas</td><td><span class="badge-ok">🟢 OK</span></td><td>Os cinco estados estão representados e o bloqueio de estado parcial/reconciliação pendente (confirmBlocked) protege tanto os cards quanto o botão e o envio por Enter no diálogo aberto, oferecendo “Atualizar situação” dentro do diálogo.</td></tr><tr><td><code>C16</code></td><td>Rótulos e erros acessíveis</td><td><span class="badge-ok">🟢 OK</span></td><td>FormField associa label/id, aria-describedby, aria-invalid e alerta; inputMode numeric; ações identificam viagem/destino. Testes de componente e inspeção no navegador aprovam valor preservado e foco após erro local/API.</td></tr><tr><td><code>C17</code></td><td>Teclado, foco, toque e WCAG</td><td><span class="badge-ok">🟢 OK</span></td><td>Comprovados em jsdom e no navegador real: Esc devolve foco ao acionador; término da viagem #34 (1.620 km) move document.activeElement para DIV[role="status"][aria-live="polite"]; zoom de 200% mantém scrollWidth === clientWidth (zero overflow horizontal) e alvos &gt;= 44×44px; árvore de acessibilidade verificada.</td></tr></tbody></table></div>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados e Resolução Aplicada</h2>
+
+<h3>3.1 🟢 R1 — [P2] Bloquear reenvio até reconciliar o conflito (RESOLVIDO)</h3>
+<p><strong>Local principal:</strong> <code>frontend/src/hooks/useMyTrips.ts</code>, <code>frontend/src/pages/myTripsPage/TripExecutionDialog.tsx</code> e <code>frontend/src/pages/MyTripsPage.tsx</code>. Regressão: <code>frontend/tests/myTripsPage.test.mjs</code>.</p>
+<p><strong>Causa original:</strong> após um POST receber 409, <code>failExecution</code> disparava <code>loadTrips()</code> sem marcar a reconciliação como bloqueante e liberava <code>submittingRef</code>. Enquanto o GET estava pendente ou após falhar (<code>stale</code>), o diálogo permitia repetir o POST por clique ou pressionando <code>Enter</code> no campo, e não exibia o botão “Atualizar situação” dentro do diálogo quando o GET falhava.</p>
+<p><strong>Correção aplicada:</strong></p>
+<ol><li>Adicionados o campo <code>reconciling: boolean</code> em <code>ExecutionDraft</code> e a guarda síncrona <code>reconcilingRef</code> em <code>useMyTrips</code>, ativados em <code>failExecution</code> quando a API responde <code>409</code>, <code>404</code> ou <code>403</code>, juntamente com <code>setLoading(true)</code> antes de <code>loadTrips()</code>, e limpos em <code>settleList</code> somente quando uma consulta <code>GET /trips/mine</code> conclui com sucesso (<code>outcome.trips !== null</code>).</li><li>Centralizada no hook a condição <code>confirmBlocked</code> (<code>!execution || Boolean(executionIssue) || execution.denied || execution.reconciling || stale</code>), aplicada na guarda de <code>submitExecution</code> e passada ao <code>TripExecutionDialog</code> via <code>confirmDisabled={trips.confirmBlocked}</code>, além de verificada em <code>confirmExecution()</code> no <code>onSubmit</code> do formulário (cobrindo <code>Enter</code>).</li><li>Exibido o botão “Atualizar situação” dentro do diálogo quando <code>draft.uncertain || draft.reconciling || stale || Boolean(issue)</code>, preservando a quilometragem digitada e permitindo reconciliar sem fechar o diálogo.</li><li>Adicionados dois testes de regressão em <code>frontend/tests/myTripsPage.test.mjs</code> cobrindo 409 com GET pendente e 409 com GET falho (tanto por clique quanto por <code>Enter</code>).</li></ol>
+
+<h3>3.2 🟢 Validações complementares de ambiente, acessibilidade e tamanho (RESOLVIDAS)</h3>
+<ul><li><strong>Ambiente backend e suíte de integração:</strong> os containers Docker (<code>aratu-db-1</code>, <code>aratu-backend-1</code>, <code>aratu-frontend-1</code>) foram restabelecidos e a suíte completa de backend foi executada no banco isolado <code>aratu_test_review_frota100_20261110</code>: <strong>312 testes passaram e 0 falharam</strong> (incluindo os 199 testes de integração e os cenários <code>IT-EXECUTION-08/09/10</code>).</li>
+<li><strong>Acessibilidade e navegador real:</strong> com a aplicação ativa em <code>http://localhost:5173/#/viagens/minhas</code>, foi executado o término da viagem #34 com <code>1.620 km</code> em viewport móvel (<code>390×844</code>), comprovando que <code>document.activeElement</code> moveu para <code>DIV[role="status"][aria-live="polite"]</code> (<code>.playwright-mcp/frota-100-fixed-finish-focus-390x844.jpg</code>). Também foram comprovados no navegador o fechamento por <code>Esc</code> com devolução de foco ao botão acionador, a árvore de acessibilidade exposta pelo Chromium e o zoom de 200% (<code>1280×800</code> com <code>zoom: 2</code>, <code>scrollWidth === clientWidth === 1265</code>, sem overflow horizontal e botões de 88 px; <code>.playwright-mcp/frota-100-zoom200-1280x800.jpg</code>).</li>
+<li><strong>Composição do diff:</strong> as +2.658/−3 linhas em 21 arquivos distribuem-se de forma coesa entre 981 linhas de código de produção frontend (11 arquivos), 811 linhas de testes automatizados e fixtures (7 arquivos) e 866 linhas de documentação obrigatória do módulo e SDD (3 arquivos).</li></ul>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+
+<div class="table-scroll" role="region" aria-label="Tabela 3 da revisão" tabindex="0"><table><thead><tr><th scope="col">Verificação</th><th scope="col">Resultado após as correções</th><th scope="col">Evidência / limite</th></tr></thead><tbody>
+<tr><td>aratu-check.mjs</td><td>0 bloqueantes e 0 atenções estáticas; 18 arquivos de código auditados</td><td>Execução completa com Gitflow, Conventional Commits, análise estática C4–C17, TypeScript e 147 testes frontend aprovados</td></tr>
+<tr><td>TypeScript backend e frontend</td><td>Aprovados (local e containers)</td><td><code>npx tsc --noEmit</code> e <code>npx tsc -b --noEmit</code> com saída 0</td></tr>
+<tr><td>Suíte frontend completa</td><td><strong>147 passaram; 0 falharam</strong></td><td><code>node --test tests/*.test.mjs</code>; inclui 17 testes em <code>myTripsPage.test.mjs</code> com as 2 regressões de R1</td></tr>
+<tr><td>ESLint frontend</td><td>Aprovado, saída 0 (local e container)</td><td><code>docker compose exec -T frontend npm run lint</code></td></tr>
+<tr><td>Build frontend</td><td>Aprovado, saída 0 (local e container)</td><td><code>docker compose exec -T frontend npm run build</code> (pacote JS de 719,49 kB / 217,74 kB gzip)</td></tr>
+<tr><td>Suíte backend completa</td><td><strong>312 passaram; 0 falharam</strong></td><td><code>.tmp/frota-100-review-backend-tests.log</code>; banco isolado <code>aratu_test_review_frota100_20261110</code> com PostgreSQL 18 ativo (113 unitários + 199 integrações, incluindo IT-EXECUTION-08/09/10)</td></tr>
+<tr><td>Verificação em navegador real (Playwright)</td><td><strong>Aprovada</strong></td><td>Foco pós-término em <code>role="status"</code> (viagem #34 com 1.620 km), <code>Esc</code> devolvendo foco ao acionador, zoom 200% sem overflow horizontal e árvore de acessibilidade inspecionada</td></tr>
+<tr><td>git diff --check develop...HEAD</td><td>Aprovado</td><td>Sem erro de whitespace no diff</td></tr>
+</tbody></table></div>
+<p><strong>Total consolidado sem duplicação:</strong> <strong>459 testes automatizados distintos aprovados</strong> (147 frontend + 312 backend), além das verificações em navegador real conectado à API e ao PostgreSQL 18.</p>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul class="check"><li><label><input type="checkbox" id="review-check-1" checked> Corrigir R1 e comprovar um único POST tanto com GET pendente quanto com GET falho, por clique e Enter; preservar o valor digitado.</label></li><li><label><input type="checkbox" id="review-check-2" checked> Restabelecer o PostgreSQL e executar a suíte backend em banco de testes isolado; validar histórico cumulativo, concorrência e rollback.</label></li><li><label><input type="checkbox" id="review-check-3" checked> Reexecutar o fluxo início/término no navegador e reconferir o foco no aviso após retirar o card finalizado.</label></li><li><label><input type="checkbox" id="review-check-4" checked> Validar zoom real de 200%, árvore de acessibilidade, teclado completo, contraste e alvos de toque nas larguras móveis previstas (homologação humana opcional com leitor de tela físico NVDA/TalkBack).</label></li><li><label><input type="checkbox" id="review-check-5" checked> Confirmar PR destinado a develop, comparar com base remota atual e justificar o tamanho do diff.</label></li><li><label><input type="checkbox" id="review-check-6" checked> Manter fotos fora da entrega até a definição de armazenamento, conforme escopo do Jira/SDD.</label></li></ul>
+<p><strong>Revisão → padrões do projeto, compatibilidade, DRY e recuperação explícita de falhas · dúvidas de negócio: nenhuma pendente.</strong></p>
+
+</body>
+</html>

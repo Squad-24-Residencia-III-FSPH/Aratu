@@ -2,8 +2,11 @@ import assert from 'node:assert/strict'
 import { before, test } from 'node:test'
 import type { AddressInfo } from 'node:net'
 import jwt = require('jsonwebtoken')
+import express from 'express'
 import { createApp } from '../src/app'
-import { createAuthMiddleware } from '../src/middlewares/auth.middleware'
+import { createAuthMiddleware, createCurrentUserMiddleware } from '../src/middlewares/auth.middleware'
+import { authorizeRoles } from '../src/middlewares/rbac.middleware'
+import type { User } from '../src/types/auth'
 import type { RoleRepositoryContract } from '../src/repositories/roles.repository'
 import type { Role, UserForLogin } from '../src/types/auth'
 import { AuthService } from '../src/services/auth.service'
@@ -13,6 +16,49 @@ import { loadJwtConfig } from '../src/services/jwt-config.service'
 const password = 'senha-ficticia-para-testes'
 const jwtConfig = { secret: 'chave-ficticia-de-teste-com-tamanho-suficiente', expiresInSeconds: 28_800 }
 let passwordHash: string
+
+test('conta atual: ausência, inativação, id inválido, perfil vigente e falha de consulta', async () => {
+  const account: User = { id: '1', name: 'Gestor Fictício QA', email: 'gestor@example.test', roleId: '2',
+    role: 'GESTOR', active: true, revision: 1, createdAt: new Date(), updatedAt: new Date() }
+  const cases: { id: string; account: User | null; status: number; fail?: boolean; queried?: boolean; tokenRole?: 'GESTOR' | 'SOLICITANTE' }[] = [
+    { id: '1', account: null, status: 401 },
+    { id: '1', account: { ...account, active: false }, status: 401 },
+    { id: '0', account, status: 401, queried: false },
+    { id: '9223372036854775808', account, status: 401, queried: false },
+    { id: '1', account: { ...account, role: 'SOLICITANTE' }, status: 403 },
+    { id: '1', account, status: 200, tokenRole: 'SOLICITANTE' },
+    { id: '1', account, status: 500, fail: true },
+  ]
+  for (const scenario of cases) {
+    let calls = 0
+    let handlerCalls = 0
+    const app = express()
+    app.get('/protected', createAuthMiddleware(jwtConfig.secret), createCurrentUserMiddleware({ async findById(id) {
+      calls++
+      assert.equal(id, scenario.id)
+      if (scenario.fail) throw new Error('Falha fictícia restrita à consulta de conta')
+      return scenario.account
+    } }), authorizeRoles(['GESTOR', 'ADMINISTRADOR']), (req, res) => {
+      handlerCalls++
+      res.json(req.usuario)
+    })
+    app.use((_error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      res.status(500).json({ erro: 'Erro interno do servidor.' })
+    })
+    const server = app.listen(0, '127.0.0.1')
+    try {
+      await new Promise<void>(resolve => server.once('listening', resolve))
+      const token = jwt.sign({ id: scenario.id, perfil: scenario.tokenRole ?? 'GESTOR' }, jwtConfig.secret)
+      const response = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/protected`, { headers: { Authorization: `Bearer ${token}` } })
+      assert.equal(response.status, scenario.status)
+      assert.equal(calls, scenario.queried === false ? 0 : 1)
+      assert.equal(handlerCalls, scenario.status === 200 ? 1 : 0)
+      const body: unknown = await response.json()
+      if (scenario.status === 200) assert.deepEqual(body, { id: '1', perfil: 'GESTOR' })
+      else assert.doesNotMatch(JSON.stringify(body), /Falha fictícia|stack|example\.test/)
+    } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())) }
+  }
+})
 
 before(async () => {
   passwordHash = await hashPassword(password)

@@ -165,15 +165,15 @@
   <thead>
     <tr>
       <th scope="col">Perfil RBAC (<code>auth.roles.name</code>)</th>
-      <th scope="col">Ações Permitidas no Módulo</th>
+      <th scope="col">Escopo documentado (não substitui matriz por ação)</th>
       <th scope="col">Destino Pós-Login / Escopo Operacional</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><span class="badge-rbac">ADMINISTRADOR</span></td>
-      <td>Autenticação, encerramento de sessão, cadastro, edição, inativação e reativação de usuários, consulta de perfis e trilha de auditoria global.</td>
-      <td>Redirecionado para <code>/administracao/usuarios</code>; tela <code>Gerenciar usuários</code> e permissão de gestão sobre todos os módulos da FSPH e SVO.</td>
+      <td>Autenticação, encerramento de sessão, permissões seed <code>users:manage</code> e <code>permissions:manage</code>, e consulta de perfis.</td>
+      <td>Redirecionado para <code>/administracao/usuarios</code>; as rotas de outros módulos aplicam suas regras RBAC próprias.</td>
     </tr>
     <tr>
       <td><span class="badge-rbac">GESTOR</span></td>
@@ -202,6 +202,61 @@
     </tr>
   </tbody>
 </table>
+
+<hr>
+
+<section aria-labelledby="frota-36-pending-title">
+  <h3 id="frota-36-pending-title">Pendência de definição — matriz funcional FROTA-36</h3>
+  <p>
+    As permissões seed <code>screens:access</code>, <code>users:manage</code> e <code>permissions:manage</code> e as
+    listas RBAC nas rotas existentes não constituem uma matriz funcional completa por módulo e ação. A busca no
+    repositório, histórico local, documentação do <code>develop</code> e issues/PRs do GitHub não localizou uma
+    especificação oficial da FROTA-36. O PR #46 e os testes de QA verificam rotas específicas, não definem a matriz.
+  </p>
+  <p>
+    <strong>Informações necessárias da equipe responsável pela FROTA-36:</strong> (1) lista oficial de módulos e
+    funcionalidades; (2) ações permitidas em cada funcionalidade para os seis perfis; (3) se a matriz será somente
+    consultada ou editável; e (4) se editável, contrato de consulta/gravação, autorização e auditoria. A pessoa
+    responsável não está identificada nos artefatos consultados.
+  </p>
+  <h4>Status dos critérios da US03 nesta integração</h4>
+  <table aria-label="Status dos critérios de aceitação da US03">
+    <thead>
+      <tr>
+        <th scope="col">Critério</th>
+        <th scope="col">Status</th>
+        <th scope="col">Evidência e pendência</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Consultar e exibir os seis perfis pela API</td>
+        <td>ATENDIDO</td>
+        <td><code>GET /profiles</code> alimenta os cards; estados de carregamento, vazio, erro e 403 têm testes. A matriz visual segue provisória.</td>
+      </tr>
+      <tr>
+        <td>Atribuir e alterar perfil no formulário de usuários</td>
+        <td>ATENDIDO</td>
+        <td><code>UserManagementPage</code> usa <code>GET /profiles</code> e <code>PUT /users/:id</code> com <code>roleId</code>/<code>revision</code>; mudança de perfil exige confirmação explícita. Testes cobrem a regra de confirmação.</td>
+      </tr>
+      <tr>
+        <td>Verificar autorização das rotas de veículos com os seis perfis</td>
+        <td>ATENDIDO PARA AS REGRAS DECLARADAS NA API</td>
+        <td><code>backend/tests/vehicles.routes.test.ts</code> exercita router, JWT e RBAC reais para GET, POST, PUT e PATCH, validando corpos de sucesso 200/201 e respostas 403. O service é mockado; não define a matriz FROTA-36.</td>
+      </tr>
+      <tr>
+        <td>Filtrar menus e rotas pela matriz funcional</td>
+        <td>PARCIALMENTE ATENDIDO</td>
+        <td>Menu administrativo e menu operacional do Gestor seguem os itens acordados; a regra para os demais módulos/perfis depende da matriz oficial.</td>
+      </tr>
+      <tr>
+        <td>Consultar, editar e salvar permissões dos perfis</td>
+        <td>PENDENTE</td>
+        <td>Não foi localizada API HTTP nem contrato para consultar/gravar permissões de perfil. Não há salvamento simulado.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
 <hr>
 

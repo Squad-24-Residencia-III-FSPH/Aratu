@@ -1,51 +1,49 @@
 import { Box, Chip } from '@mui/material'
 
-export type StatusChipType = 'success' | 'warning' | 'error' | 'info' | 'default'
+export type StatusTone = 'success' | 'warning' | 'info' | 'neutral'
+
+const TONES: Readonly<Record<StatusTone, { background: string; foreground: string }>> = {
+  success: { background: '#dcfce7', foreground: '#14532d' },
+  warning: { background: '#fef3c7', foreground: '#78350f' },
+  info: { background: '#dbeafe', foreground: '#1e3a8a' },
+  neutral: { background: '#f1f5f9', foreground: '#334155' },
+}
 
 export interface StatusChipProps {
   label: string
-  statusType?: StatusChipType
-  icon?: React.ReactElement
-  size?: 'small' | 'medium'
+  tone: StatusTone
 }
 
-const STATUS_COLORS: Record<StatusChipType, { bg: string; color: string; border: string }> = {
-  success: { bg: '#e8f5e9', color: '#1b5e20', border: '#a5d6a7' },
-  warning: { bg: '#fff8e1', color: '#b78103', border: '#ffe082' },
-  error: { bg: '#ffebee', color: '#b71c1c', border: '#ef9a9a' },
-  info: { bg: '#e3f2fd', color: '#0d47a1', border: '#90caf9' },
-  default: { bg: '#f1f5f9', color: '#334155', border: '#cbd5e1' },
-}
-
-/**
- * Chip de status operacional que combina texto legível, ícone auxiliar
- * e contraste mínimo de 4.5:1 para conformidade com a WCAG 2.2 AA.
- */
-export function StatusChip({ label, statusType = 'default', icon, size = 'small' }: StatusChipProps) {
-  const styles = STATUS_COLORS[statusType]
-
+/** Chip de situação que combina texto, cor e marcador (não depende só de cor). */
+export default function StatusChip({ label, tone }: StatusChipProps) {
+  const colors = TONES[tone]
   return (
     <Chip
-      size={size}
-      label={label}
-      icon={
-        icon ? (
-          <Box component="span" sx={{ display: 'inline-flex', mr: 0.5, color: styles.color }}>
-            {icon}
-          </Box>
-        ) : undefined
+      size="small"
+      label={
+        <>
+          <Box
+            component="span"
+            aria-hidden="true"
+            sx={{
+              display: 'inline-block',
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: colors.foreground,
+              mr: 0.75,
+            }}
+          />
+          {label}
+        </>
       }
       sx={{
-        backgroundColor: styles.bg,
-        color: styles.color,
-        border: `1px solid ${styles.border}`,
-        fontWeight: 600,
-        fontSize: size === 'small' ? 12 : 13,
-        borderRadius: 1,
-        px: 0.5,
-        '& .MuiChip-label': {
-          px: 1,
-        },
+        backgroundColor: colors.background,
+        color: colors.foreground,
+        fontWeight: 700,
+        fontSize: '0.75rem',
+        height: 26,
+        border: `1px solid ${colors.foreground}33`,
       }}
     />
   )

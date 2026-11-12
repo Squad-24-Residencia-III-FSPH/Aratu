@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-73 — API de multas e infrações (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  
+    .table-wrap { overflow-x:auto; max-width:100%; }
+    td code, p code, li code { overflow-wrap:anywhere; word-break:normal; }
+    .toc a { display:inline-flex; align-items:center; min-height:44px; }
+    @media(max-width:640px) { body { margin:16px auto; padding:0 16px 32px; } .summary-grid { grid-template-columns:repeat(2,1fr); } table { min-width:620px; } }
+    
+    .table-wrap { overflow-x:auto; max-width:100%; }
+    td code, p code, li code { overflow-wrap:anywhere; word-break:normal; }
+    .toc a { display:inline-flex; align-items:center; min-height:44px; }
+    @media(max-width:640px) { body { margin:16px auto; padding:0 16px 32px; } .summary-grid { grid-template-columns:repeat(2,1fr); } table { min-width:620px; } }
+    </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-73: API de multas e infrações</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-73</code> — API de multas e infrações</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/us10-gerenciar-multas</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <a href="../plans/frota-73-api-multas-infracoes.html">frota-73-api-multas-infracoes.html</a></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>FROTA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-11-08</p>
+</div>
+
+<div class="verdict-approved">APROVADO_PARA_REVISAO_HUMANA — sem bloqueantes da entrega.</div>
+<p>Relatório FROTA-73 da revisão conjunta FROTA-73/FROTA-75. <a href="frota-75-testes-multas.html">Abrir relatório da outra tarefa</a>. Mesma evidência e mesmo escopo de código; não somar os contadores dos dois documentos.</p>
+<p>Os contadores abaixo representam os <strong>17 critérios C1–C17</strong>; dois critérios estão em atenção. Os achados técnicos são duas melhorias P3 na cobertura e uma observação de volume do PR.</p>
+<div class="summary-grid">
+<div class="summary-card"><span class="count" style="color:#991b1b">0</span><span class="label">🔴 Bloqueantes</span></div>
+<div class="summary-card"><span class="count" style="color:#92400e">2</span><span class="label">🟡 Atenção</span></div>
+<div class="summary-card"><span class="count" style="color:#166534">11</span><span class="label">🟢 OK</span></div>
+<div class="summary-card"><span class="count" style="color:#475569">4</span><span class="label">⚪ N/A</span></div>
+</div>
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<p><strong>Base:</strong> c9899b83119f83ee7532512d950bcb4b68913fbb (HEAD/develop); branch feat/us10-gerenciar-multas. Revisados 17 arquivos de entrada: 13 de backend e 4 de documentação/planos. Incluídos arquivos modificados, não rastreados e os planos aprovados. git diff develop isolado não contém os novos arquivos.</p><p>Somente revisão. Código de aplicação, testes e planos não foram alterados. Os novos artefatos desta etapa são estes dois relatórios e evidências locais ignoradas em .tmp. Fontes funcionais: SDDs aprovados e contextos Jira locais de FROTA-73/FROTA-75, sem reproduzir nomes pessoais dos responsáveis.</p><div class="table-wrap"><table><thead><tr><th scope="col">Arquivo</th><th scope="col">Estado inicial</th><th scope="col">Conteúdo revisado</th></tr></thead><tbody><tr><td><a href="../../backend/src/types/fine.types.ts"><code>backend/src/types/fine.types.ts</code></a></td><td>Novo</td><td>Contratos, erros e matriz de transições.</td></tr><tr><td><a href="../../backend/src/database/migrations/202611080001_add_fine_creation_key.sql"><code>backend/src/database/migrations/202611080001_add_fine_creation_key.sql</code></a></td><td>Novo</td><td>UUID e índice único parcial por autor.</td></tr><tr><td><a href="../../backend/src/database/migrations/202611080001_add_fine_creation_key.down.sql"><code>backend/src/database/migrations/202611080001_add_fine_creation_key.down.sql</code></a></td><td>Novo</td><td>Recusa de rollback após uso da chave ou do pedido original.</td></tr><tr><td><a href="../../backend/src/repositories/fines.repository.ts"><code>backend/src/repositories/fines.repository.ts</code></a></td><td>Novo</td><td>SQL, locks, detalhe consistente e projeção pública de histórico/legado.</td></tr><tr><td><a href="../../backend/src/services/fines.service.ts"><code>backend/src/services/fines.service.ts</code></a></td><td>Novo</td><td>Validações, FSM, snapshots, reenvio imutável e coordenação transacional.</td></tr><tr><td><a href="../../backend/src/controllers/fines.controller.ts"><code>backend/src/controllers/fines.controller.ts</code></a></td><td>Novo</td><td>Tradução HTTP, query escalar e autoria da sessão.</td></tr><tr><td><a href="../../backend/src/routes/fines.routes.ts"><code>backend/src/routes/fines.routes.ts</code></a></td><td>Novo</td><td>Seis rotas, JWT → conta atual → RBAC.</td></tr><tr><td><a href="../../backend/src/app.ts"><code>backend/src/app.ts</code></a></td><td>Alterado</td><td>Composição de /fines sem dependência da FROTA-67.</td></tr><tr><td><a href="../../backend/src/middlewares/auth.middleware.ts"><code>backend/src/middlewares/auth.middleware.ts</code></a></td><td>Alterado</td><td>Revalidação da conta antes da autorização das multas.</td></tr><tr><td><a href="../../backend/tests/fines.service.test.ts"><code>backend/tests/fines.service.test.ts</code></a></td><td>Novo</td><td>9 testes de domínio, incluindo matriz completa de situações.</td></tr><tr><td><a href="../../backend/tests/fines.integration.test.ts"><code>backend/tests/fines.integration.test.ts</code></a></td><td>Novo</td><td>18 testes HTTP/PostgreSQL; cenários IT-FINE-01 a 19 agrupados.</td></tr><tr><td><a href="../../backend/tests/auth.test.ts"><code>backend/tests/auth.test.ts</code></a></td><td>Alterado</td><td>Conta ausente/inativa, id inválido, perfil vigente e falha da consulta.</td></tr><tr><td><a href="../../backend/tests/database.integration.test.ts"><code>backend/tests/database.integration.test.ts</code></a></td><td>Alterado</td><td>Extensão incluída nas quatro listas de rollback/reaplicação.</td></tr><tr><td><a href="../../docs/modulos/FROTA.html"><code>docs/modulos/FROTA.html</code></a></td><td>Novo</td><td>Contratos, histórico, acesso e resultados reais da implementação.</td></tr><tr><td><a href="../../docs/manuais/modulos.md"><code>docs/manuais/modulos.md</code></a></td><td>Alterado</td><td>Índice do módulo.</td></tr><tr><td><a href="../../docs/plans/frota-73-api-multas-infracoes.html"><code>docs/plans/frota-73-api-multas-infracoes.html</code></a></td><td>Novo / referência aprovada</td><td>SDD e decisões confirmadas; não alterado pela revisão.</td></tr><tr><td><a href="../../docs/plans/frota-75-testes-multas.html"><code>docs/plans/frota-75-testes-multas.html</code></a></td><td>Novo / referência aprovada</td><td>Plano de testes; não alterado pela revisão.</td></tr></tbody></table></div>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Critério</th><th scope="col">Avaliação</th><th scope="col">Status</th><th scope="col">Evidência e limites</th></tr></thead><tbody><tr><td><code>C1</code></td><td>Escopo e tamanho</td><td><span class="badge-warn">Atenção</span></td><td>Escopo corresponde aos dois SDDs. São 1.420 linhas adicionadas e 1 removida em código/testes/SQL; mais 600 linhas de documentação e planos. Justificar a entrega conjunta no PR, acima das 400 linhas recomendadas. Não houve refatoração alheia.</td></tr><tr><td><code>C2</code></td><td>Gitflow e commits</td><td><span class="badge-ok">OK</span></td><td>feat/us10-gerenciar-multas; HEAD e develop = c9899b83119f83ee7532512d950bcb4b68913fbb. Zero commits divergentes: Conventional Commits e destino do PR ficam para a publicação. Nenhum checkout, commit ou push nesta revisão.</td></tr><tr><td><code>C3</code></td><td>Requisitos, SDD e cobertura</td><td><span class="badge-warn">Atenção</span></td><td>Implementação atende aos contratos e decisões confirmadas. Os cenários principais passam. Há duas melhorias de cobertura P3 detalhadas em r3; não foi demonstrado defeito de produção. Troca entre dois motoristas não nulos também não possui asserção específica no IT-FINE-06.</td></tr><tr><td><code>C4</code></td><td>Camadas backend</td><td><span class="badge-ok">OK</span></td><td>Rotas e controller delegam ao serviço; serviço sem Express ou SQL. Repository centraliza pg. Transações reutilizam VehiclesRepository.withTransaction e AuditService recebe o mesmo cliente.</td></tr><tr><td><code>C5</code></td><td>Camadas frontend</td><td><span class="badge-na">N/A</span></td><td>Nenhum arquivo frontend alterado. FROTA-74 pertence a outra entrega.</td></tr><tr><td><code>C6</code></td><td>Ciclos e flags</td><td><span class="badge-ok">OK</span></td><td>Imports de domínio seguem a direção rotas/controller → service → contratos/repositories. Sem nova dependência de pacote, flag, variável ou import do módulo de documentos.</td></tr><tr><td><code>C7</code></td><td>SQL Injection</td><td><span class="badge-ok">OK</span></td><td>Valores externos vinculados com $1…$n. FINE_COLUMNS, FINE_FROM e EVENT_JSON são fragmentos privados constantes, sem texto do usuário interpolado.</td></tr><tr><td><code>C8</code></td><td>Projeção e consultas</td><td><span class="badge-ok">OK</span></td><td>Colunas explícitas; filtros AND por infraction_at com >= from e < to; JOINs evitam N+1. Listagem simples prevista no SDD, sem paginação nova. Nenhum ganho de performance ou EXPLAIN com massa foi alegado.</td></tr><tr><td><code>C9</code></td><td>Atomicidade e concorrência</td><td><span class="badge-ok">OK</span></td><td>Veículos por id crescente, depois multa FOR UPDATE OF f; viagem FOR SHARE. Revisão conferida após lock. Cenários concorrentes e seis falhas controladas de evento/auditoria revertem entidade, revisão, chave, eventos e auditoria. finally libera o cliente. As melhorias P3 dizem respeito à prova de caminhos adicionais, não a uma corrida demonstrada.</td></tr><tr><td><code>C10</code></td><td>Migrações e legado</td><td><span class="badge-ok">OK</span></td><td>Extensão 202611080001 preserva FROTA-72 e permite chaves nulas legadas. Índice por created_by/creation_key. Down transacional com ACCESS EXCLUSIVE e guarda por chave OU registrationRequest. Migração/rollback anterior e recusa após uso exercitados em transação isolada; não foi revertido schema operacional.</td></tr><tr><td><code>C11</code></td><td>Autorização backend</td><td><span class="badge-ok">OK</span></td><td>JWT → createCurrentUserMiddleware → authorizeRoles([GESTOR, ADMINISTRADOR]) nas seis rotas. Demais quatro perfis recebem 403; conta ausente/inativa 401; papel revogado após token 403; falha da consulta 500 sem handler de multas. Associação ao motorista não concede acesso.</td></tr><tr><td><code>C12</code></td><td>Privacidade e histórico</td><td><span class="badge-ok">OK</span></td><td>Whitelist explícita no estado, before/after e snapshots legados; actor público só id/name/role. Sem CPF/CNH, e-mail do ator, registrationRequest ou dados SVO nas respostas verificadas. Fixtures sintéticas. Snapshots não mudam na correção financeira; eventos append-only; pedido original continua interno e imutável após edição.</td></tr><tr><td><code>C13</code></td><td>TypeScript estrito</td><td><span class="badge-ok">OK</span></td><td>Backend local e container sem erros; sem any/@ts-ignore novos. IDs BIGINT como strings, dinheiro validado com bigint, DTOs explícitos.</td></tr><tr><td><code>C14</code></td><td>Nomes e TSDoc</td><td><span class="badge-ok">OK</span></td><td>Identificadores novos em inglês, mensagens e documentação em português. Métodos públicos do serviço e middleware documentados. Sem log de depuração novo.</td></tr><tr><td><code>C15</code></td><td>Cinco estados visuais</td><td><span class="badge-na">N/A</span></td><td>API oferece lista vazia, erros e conflito; carregamento e fluxo visual da tela de multas não foram implementados ou verificados.</td></tr><tr><td><code>C16</code></td><td>Formulários acessíveis</td><td><span class="badge-na">N/A</span></td><td>Sem tela de multas neste escopo. Mensagens HTTP textuais revisadas; isso não certifica WCAG da futura FROTA-74.</td></tr><tr><td><code>C17</code></td><td>Teclado, foco e alvos</td><td><span class="badge-na">N/A</span></td><td>Nenhuma validação visual de tela da aplicação realizada nesta revisão backend. Relatórios HTML são os únicos artefatos visuais produzidos.</td></tr></tbody></table></div>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+
+<h3>3.1 Bloqueantes da entrega: nenhum</h3>
+<p>Não foi identificado defeito acionável de severidade P0/P1/P2 na API revisada. A aprovação é para revisão humana e continuidade da validação, não uma certificação de tela ou aprovação global do repositório.</p>
+<h3 id="qa-01">3.2 [P3] Tornar determinística a colisão da chave entre veículos diferentes</h3>
+<p><strong>Arquivo/linha:</strong> <a href="../../backend/tests/fines.integration.test.ts"><code>backend/tests/fines.integration.test.ts:447–451</code></a>. <strong>Tarefa:</strong> FROTA-75; critério C3, IT-FINE-10.</p>
+<p>O cenário usa apenas <code>Promise.all</code>. Uma requisição pode confirmar antes da consulta de registro da outra; nesse caso o teste passa pelo replay de entrada e não exercita a recuperação de <code>23505</code> em <code>fines.service.ts:163–166</code>. O teste com <code>race</code> existente usa o mesmo veículo e serializa antes do INSERT, portanto também não obriga esse caminho específico.</p>
+<p><strong>Impacto:</strong> uma regressão no tratamento do índice único pode passar sem ser detectada, comprometendo a resposta esperada a dois cadastros simultâneos com a mesma chave. Não foi observada duplicação nem falha na implementação atual.</p>
+<p><strong>Recomendação:</strong> criar barreira controlada depois de ambas as transações consultarem a ausência da chave e antes de inserir; usar dois veículos, liberar ambas e confirmar um 201/um 409, exatamente uma multa/REGISTERED/auditoria e chave associada ao pedido vencedor. Sem sleeps como condição de sincronização.</p>
+<h3 id="qa-02">3.3 [P3] Exercitar a troca de veículo sob concorrência</h3>
+<p><strong>Arquivo/linha:</strong> <a href="../../backend/tests/fines.integration.test.ts"><code>backend/tests/fines.integration.test.ts:326–342</code></a>. <strong>Tarefa:</strong> FROTA-75; critério C3, IT-FINE-06/11/13.</p>
+<p>As duas mutações concorrentes atuais mantêm o mesmo veículo. O único PUT com outro veículo é rejeitado por vínculo incompatível. Nenhum teste confirma uma troca válida de <code>vehicleId</code>, a aquisição de dois locks em ordem crescente (<code>fines.service.ts:225–231</code>), ou o conflito quando o vínculo muda entre pré-leitura e lock.</p>
+<p><strong>Impacto:</strong> a proteção contra inversão de locks e a conservação dos snapshots na mudança de vínculo ficam sem regressão automatizada. A implementação foi inspecionada e ordena os ids; não foi demonstrado deadlock.</p>
+<p><strong>Recomendação:</strong> cobrir troca válida A→B sem viagem, preservação do snapshot do motorista que não mudou, novo retrato do veículo e before histórico. Adicionar duas correções opostas A→B/B→A com barreira e timeout, e uma mutação obsoleta sobre a mesma multa; verificar ausência de deadlock, resultados/revisões e contagens exatas. Complementar com troca entre dois motoristas não nulos.</p>
+<h3>3.4 Observação de processo — tamanho do PR</h3>
+<p>C1 recebe atenção pelo volume conjunto, já explicado pelo backend completo, migration e testes aprovados nos planos. Registrar a justificativa no PR para develop e organizar os commits por FROTA-73/FROTA-75. Não é pedido de refatoração ou de alteração de regra.</p>
+<h3>3.5 Mapa de cobertura real da FROTA-75</h3><div class="table-wrap"><table><thead><tr><th scope="col">Área do SDD</th><th scope="col">Evidência inspecionada</th><th scope="col">Limite concreto</th></tr></thead><tbody><tr><td>Cadastro, moeda, tempo e filtros</td><td>IT-FINE-01/02/03/08/17 e testes unitários</td><td>Zero, máximo NUMERIC, ISO com fuso, campos controlados e filtros semiabertos cobertos.</td></tr><tr><td>Sugestão e confirmação explícita</td><td>IT-FINE-04/05; relógio injetado; viagem cancelada depois da consulta</td><td>Início/fim e ongoing cobertos; motorista divergente entre dois ids distintos sem asserção dedicada.</td></tr><tr><td>Retificação e snapshots</td><td>IT-FINE-06/13/16, incluindo legado em before/after</td><td>Identifica e remove motorista; preserva retratos financeiros. Troca não nula e troca válida de veículo ainda sem caso próprio (QA-02).</td></tr><tr><td>FSM, pagamentos e reabertura</td><td>Matriz unitária com os 16 pares e IT-FINE-07/14</td><td>Pagamento anterior preservado; motivo cancelado preservado; no-op e revisão antiga cobertos.</td></tr><tr><td>JWT, conta atual e RBAC</td><td>IT-FINE-09/18/19 e auth.test.ts</td><td>Seis rotas negadas/permitidas, motorista vinculado negado, conta ausente/inativa e falha de consulta cobertas.</td></tr><tr><td>Reenvio e concorrência</td><td>IT-FINE-10/11</td><td>Pedido original após edição e autor distinto cobertos; disputa com veículos distintos precisa barreira (QA-01).</td></tr><tr><td>Atomicidade e histórico append-only</td><td>IT-FINE-12/14</td><td>Falha em evento e em auditoria para POST/PUT/PATCH; estado/revisão/chave/eventos/auditoria sem efeitos parciais; UPDATE/DELETE de eventos rejeitados.</td></tr><tr><td>Migração, rollback e legado</td><td>IT-FINE-15; quatro listas ajustadas em database.integration.test.ts</td><td>Down anterior e recusa por chave testados; guarda alternativa somente por registrationRequest foi inspecionada, sem teste específico. Nenhum schema operacional foi revertido.</td></tr></tbody></table></div>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Verificação</th><th scope="col">Execução nesta revisão (08/11/2026)</th><th scope="col">Resultado</th></tr></thead><tbody><tr><td>Isolamento do banco</td><td>Validação do nome alvo antes de npm test no container</td><td>aratu_test; diferente da base operacional. Nenhuma credencial impressa.</td></tr><tr><td>Typecheck backend local</td><td>npx tsc --noEmit via aratu-check</td><td>Passou.</td></tr><tr><td>Typecheck backend container</td><td>docker compose exec -T backend npx tsc --noEmit</td><td>Passou.</td></tr><tr><td>Build backend local</td><td>npm run build</td><td>Passou.</td></tr><tr><td>Suíte completa backend container</td><td>docker compose exec -T backend npm test</td><td>176 testes passaram; 0 falhas, 0 cancelados, 0 skips; 76,939 s. Inclui autenticação, banco, multas e módulos preexistentes.</td></tr><tr><td>Pré-auditoria global</td><td>node docs/scripts/aratu-check.mjs</td><td>Exit 1: testes frontend falharam (91 passaram, 3 falharam). Typecheck frontend também falha. Nenhuma violação estática apontada no código real da entrega; ressalva de inventário abaixo.</td></tr><tr><td>Lint frontend container</td><td>docker compose exec -T frontend npm run lint</td><td>Exit 1: frontend/tests/sidebarNavigation.test.mjs:39, Parsing error: Unexpected token :. Preexistente.</td></tr><tr><td>Build frontend container</td><td>docker compose exec -T frontend npm run build</td><td>Exit 2: ConfirmDialog.tsx tem SxProps/Theme duplicados e sx não declarado; MaintenanceDetailDialog.tsx usa sx ausente no contrato. Preexistente.</td></tr><tr><td>Testes frontend locais</td><td>node --test tests/*.test.mjs via auditor</td><td>91 passaram, 3 suítes falharam: driversPage, sidebarNavigation e userManagementPage. Sem regressão atribuída à US10.</td></tr><tr><td>Tela de multas / WCAG visual</td><td>Não executado</td><td>FROTA-74 fora do escopo. Nenhuma alegação de navegador, contraste ou teclado da aplicação.</td></tr></tbody></table></div><p><strong>Origem das falhas frontend confirmada:</strong> <code>git diff develop -- frontend</code> vazio; HEAD = develop. Hash de ConfirmDialog no disco e no HEAD: <code>3b9fc280c07ccae0db362960e7da3d9d3643bff7</code>. Hash de sidebarNavigation no disco e no HEAD: <code>46e5a285e49976a68d85d1088cd30c019c277bed</code>. A checagem global não está verde; esses problemas não são achados introduzidos por FROTA-73/75 e não foram corrigidos aqui.</p>
+<p><strong>Limite do auditor:</strong> o primeiro item aparece como <code>ackend/src/app.ts</code>, pois o helper aplica trim à saída de git status antes de recortar as três colunas. Esse caminho não existe e app.ts deixa de ser lido automaticamente. O diff real de <code>backend/src/app.ts</code> foi revisado manualmente. Não se atribui esse defeito preexistente do utilitário à entrega.</p>
+<p><strong>Logs desta revisão:</strong> <a href="../../.tmp/frota-73-75-review-container-tests.log">backend no container</a>; <a href="../../.tmp/frota-73-75-review-audit.log">auditoria</a>; <a href="../../.tmp/frota-73-75-review-frontend-lint.log">lint frontend</a>; <a href="../../.tmp/frota-73-75-review-frontend-build.log">build frontend</a>. Os logs anteriores de implementação são evidências separadas e não substituem esta execução.</p>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul>
+<li>Revisor humano: conferir os contratos entregues à FROTA-74, principalmente reenvio com UUID, expectedRevision, confirmação de candidato e distinção entre cadastro atual e snapshot histórico.</li>
+<li>Chat de validação posterior: considerar QA-01/QA-02 e os limites de cobertura descritos; repetir somente os testes necessários após eventual correção. Nenhum defeito bloqueante impede iniciar essa etapa.</li>
+<li>Antes do PR: justificar o volume, organizar commits convencionais por tarefa e apontar o destino develop. Não houve commit/push nesta revisão.</li>
+<li>Acompanhar separadamente as falhas preexistentes de frontend; a aprovação desta API não significa pipeline global aprovado.</li>
+<li>Validação de UI, responsividade e WCAG da tela de multas pertence à FROTA-74. Não exigir tela inexistente como evidência deste backend.</li>
+</ul><p><strong>Encaminhamento:</strong> revisão concluída; APROVADO_PARA_REVISAO_HUMANA, sem bloqueantes da entrega, com melhorias P3 de testes. O chat de implementação poderá encadear a validação já solicitada. Esta revisão não abre outro chat.</p>
+<p>Revisão → padrões do projeto, compatibilidade de contratos e dados, atomicidade, DRY e YAGNI · dúvidas: nenhuma pendente.</p>
+
+</body>
+</html>

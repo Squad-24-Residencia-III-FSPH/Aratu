@@ -1,82 +1,212 @@
 import { useId } from 'react'
-import type { InputProps } from '@mui/material'
-import { FormControl, FormHelperText, FormLabel, OutlinedInput } from '@mui/material'
+import type { ReactNode, Ref } from 'react'
+import { MenuItem, TextField } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material'
 
-export interface FormFieldProps extends Omit<InputProps, 'id' | 'error'> {
+export interface FormFieldProps {
   label: string
-  errorMessage?: string
+  value: string
+  onChange: (value: string) => void
+  error?: string
   helperText?: string
   required?: boolean
-  children?: React.ReactNode
+  disabled?: boolean
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local'
+  multiline?: boolean
+  minRows?: number
+  autoComplete?: string
+  placeholder?: string
+  inputMode?: 'text' | 'numeric'
+  maxLength?: number
+  autoFocus?: boolean
+  /** Permite ao fluxo focar o controle nativo após a abertura do diálogo ou uma validação. */
+  inputRef?: Ref<HTMLInputElement | HTMLTextAreaElement>
+  sx?: SxProps<Theme>
+  hideLabel?: boolean
+  startAdornment?: ReactNode
 }
 
-/**
- * Campo de formulário acessível em conformidade com WCAG 2.2 AA.
- * Utiliza useId() para associar programaticamente o rótulo ao controle
- * e os textos de ajuda/erro via aria-describedby e role="alert".
- */
+const visuallyHiddenLabel = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+}
+
+interface FeedbackIds {
+  describedBy: string | undefined
+  helperContent: ReactNode
+}
+
+/** Liga erro/ajuda ao controle por `aria-describedby` e anuncia o erro. */
+function useFeedbackIds(error?: string, helperText?: string): FeedbackIds {
+  const baseId = useId()
+  const errorId = `${baseId}-error`
+  const helperId = `${baseId}-help`
+  const describedBy = [error ? errorId : null, helperText ? helperId : null].filter(Boolean).join(' ') || undefined
+  const helperContent = error || helperText
+    ? (
+        <>
+          {error && <span id={errorId} role="alert">{error}</span>}
+          {helperText && <span id={helperId} style={{ display: 'block' }}>{helperText}</span>}
+        </>
+      )
+    : undefined
+  return { describedBy, helperContent }
+}
+
+/** Campo de texto acessível com rótulo persistente e erro associado. */
 export function FormField({
   label,
-  errorMessage,
+  value,
+  onChange,
+  error,
   helperText,
   required,
-  children,
-  ...inputProps
+  disabled,
+  type = 'text',
+  multiline,
+  minRows,
+  autoComplete,
+  placeholder,
+  inputMode,
+  maxLength,
+  autoFocus,
+  inputRef,
+  sx,
+  hideLabel = false,
+  startAdornment,
 }: FormFieldProps) {
   const id = useId()
-  const errorId = `${id}-error`
-  const helperId = `${id}-helper`
-  const hasError = Boolean(errorMessage)
+  const { describedBy, helperContent } = useFeedbackIds(error, helperText)
 
   return (
-    <FormControl fullWidth required={required} error={hasError} sx={{ mb: 2.5 }}>
-      <FormLabel
-        htmlFor={id}
-        sx={{
-          mb: 0.75,
-          fontSize: 14,
-          fontWeight: 600,
-          color: '#1e293b',
-          '&.Mui-focused': { color: '#ea580c' },
-        }}
-      >
-        {label}
-      </FormLabel>
+    <TextField
+      id={id}
+      label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      error={Boolean(error)}
+      helperText={helperContent}
+      required={required}
+      disabled={disabled}
+      fullWidth
+      size="small"
+      type={type}
+      multiline={multiline}
+      minRows={minRows}
+      autoComplete={autoComplete}
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+      inputRef={inputRef}
+      sx={sx}
+      slotProps={{
+        ...(startAdornment ? { input: { startAdornment } } : {}),
+        htmlInput: {
+          'aria-invalid': error ? true : undefined,
+          'aria-describedby': describedBy,
+          ...(maxLength ? { maxLength } : {}),
+          ...(inputMode ? { inputMode } : {}),
+        },
+        inputLabel: {
+          shrink: true,
+          ...(hideLabel ? { sx: visuallyHiddenLabel } : {}),
+        },
+      }}
+    />
+  )
+}
 
-      {children ? (
-        children
-      ) : (
-        <OutlinedInput
-          {...inputProps}
-          id={id}
-          inputProps={{
-            ...inputProps.inputProps,
-            'aria-invalid': hasError,
-            'aria-describedby': hasError ? errorId : helperText ? helperId : undefined,
-          }}
-          sx={{
-            minHeight: 44,
-            borderRadius: 1.5,
-            bgcolor: '#ffffff',
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#f97316',
-              borderWidth: 2,
-            },
-            ...inputProps.sx,
-          }}
-        />
-      )}
+export interface FormSelectOption {
+  value: string
+  label: string
+}
 
-      {hasError && (
-        <FormHelperText id={errorId} role="alert" sx={{ fontWeight: 500, fontSize: 13 }}>
-          {errorMessage}
-        </FormHelperText>
+interface FormSelectBaseProps {
+  label: string
+  options: readonly FormSelectOption[]
+  error?: string
+  helperText?: string
+  required?: boolean
+  disabled?: boolean
+  /** Quando informado, acrescenta uma opção vazia (uso em filtros). */
+  emptyLabel?: string
+  autoFocus?: boolean
+  sx?: SxProps<Theme>
+  hideLabel?: boolean
+  displayEmpty?: boolean
+  emptyOptionDisabled?: boolean
+}
+
+interface SingleSelectProps extends FormSelectBaseProps {
+  multiple?: false
+  value: string
+  onChange: (value: string) => void
+}
+
+interface MultipleSelectProps extends FormSelectBaseProps {
+  multiple: true
+  value: readonly string[]
+  onChange: (value: string[]) => void
+}
+
+export type FormSelectProps = SingleSelectProps | MultipleSelectProps
+
+/** Select acessível com rótulo, erro e suporte a múltipla seleção. */
+export function FormSelect(props: FormSelectProps) {
+  const id = useId()
+  const { describedBy, helperContent } = useFeedbackIds(props.error, props.helperText)
+  const multiple = props.multiple === true
+
+  return (
+    <TextField
+      select
+      id={id}
+      label={props.label}
+      value={props.value}
+      onChange={(event) => {
+        const value = event.target.value
+        if (props.multiple) props.onChange(Array.isArray(value) ? value : [value])
+        else props.onChange(Array.isArray(value) ? (value[0] ?? '') : value)
+      }}
+      error={Boolean(props.error)}
+      helperText={helperContent}
+      required={props.required}
+      disabled={props.disabled}
+      fullWidth
+      size="small"
+      autoFocus={props.autoFocus}
+      sx={props.sx}
+      slotProps={{
+        select: {
+          multiple,
+          displayEmpty: props.displayEmpty ?? false,
+          inputProps: {
+            'aria-invalid': props.error ? true : undefined,
+            'aria-describedby': describedBy,
+          },
+        },
+        inputLabel: {
+          shrink: true,
+          ...(props.hideLabel ? { sx: visuallyHiddenLabel } : {}),
+        },
+      }}
+    >
+      {!multiple && props.emptyLabel !== undefined && (
+        <MenuItem value="" disabled={props.emptyOptionDisabled ?? false}>
+          {props.emptyLabel}
+        </MenuItem>
       )}
-      {!hasError && helperText && (
-        <FormHelperText id={helperId} sx={{ fontSize: 13, color: '#64748b' }}>
-          {helperText}
-        </FormHelperText>
-      )}
-    </FormControl>
+      {props.options.map((option) => (
+        <MenuItem key={option.value} value={option.value}>
+          {option.label}
+        </MenuItem>
+      ))}
+    </TextField>
   )
 }

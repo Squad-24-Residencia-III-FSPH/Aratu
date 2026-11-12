@@ -21,11 +21,21 @@ export interface VehiclesRepositoryContract {
   saveStatus(id: string, expectedRevision: number, status: VehicleStatus, client: PoolClient): Promise<VehicleMutationResult>
   findActorSnapshot(id: string, client: PoolClient): Promise<VehicleActorSnapshot | null>
   createEvent(input: CreateVehicleEventInput, client: PoolClient): Promise<void>
+  hasActiveMaintenanceBlock(id: string, client: PoolClient): Promise<boolean>
 }
 
 /** Acesso parametrizado ao estado vigente e ao histórico de veículos. */
 export class VehiclesRepository implements VehiclesRepositoryContract {
   constructor(private readonly pool: Pool) {}
+
+  /** Consulta sob a trava da viatura para impedir liberação manual de uma OS ativa. */
+  async hasActiveMaintenanceBlock(id: string, client: PoolClient): Promise<boolean> {
+    const result = await client.query<{ found: boolean }>(
+      `SELECT EXISTS (SELECT id FROM fleet.maintenance_orders
+        WHERE vehicle_id = $1 AND blocks_vehicle AND status IN ('OPEN', 'IN_PROGRESS')) AS found`, [id],
+    )
+    return result.rows[0]!.found
+  }
 
   /** Executa uma unidade de trabalho com commit/rollback e libera o cliente. */
   async withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -65,6 +75,11 @@ export class VehiclesRepository implements VehiclesRepositoryContract {
               updated_at AS "updatedAt"
          FROM fleet.vehicles
         WHERE ($1::text IS NULL OR status = $1)
+          AND ($1::text IS DISTINCT FROM 'AVAILABLE' OR NOT EXISTS (
+            SELECT m.id FROM fleet.maintenance_orders m
+             WHERE m.vehicle_id = fleet.vehicles.id AND m.blocks_vehicle
+               AND m.status IN ('OPEN', 'IN_PROGRESS')
+          ))
           AND ($2::text IS NULL OR $2 = ANY(categories))
           AND ($3::text IS NULL OR operation_type = $3)
         ORDER BY license_plate ASC, id ASC`,

@@ -1,0 +1,4 @@
+NAME               IMAGE                COMMAND                  SERVICE    CREATED        STATUS        PORTS
+aratu-backend-1    aratu-backend        "docker-entrypoint.s…"   backend    2 weeks ago    Up 18 hours   0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+aratu-db-1         postgres:18-alpine   "docker-entrypoint.s…"   db         2 weeks ago    Up 18 hours   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+aratu-frontend-1   aratu-frontend       "docker-entrypoint.s…"   frontend   18 hours ago   Up 18 hours   0.0.0.0:5173->5173/tcp, [::]:5173->5173/tcp
