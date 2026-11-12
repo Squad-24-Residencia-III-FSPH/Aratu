@@ -5,6 +5,73 @@ export const REQUEST_STATUSES = {
   pending: 'PENDING',
 } as const
 
+/** Situações visíveis no histórico e na análise de solicitações. */
+export const REQUEST_STATUS_VALUES = ['PENDING', 'APPROVED', 'REJECTED', 'SCHEDULED', 'CANCELED'] as const
+export type RequestStatus = typeof REQUEST_STATUS_VALUES[number]
+
+/** Escopo autenticado aplicado às consultas de solicitações. */
+export interface RequestActor {
+  id: string
+  role: UserRole
+}
+
+/** Filtros e paginação da lista de solicitações. */
+export interface RequestListFilters {
+  status?: RequestStatus
+  from?: string
+  to?: string
+  requester?: string
+  service?: string
+  page?: number
+  pageSize?: number
+}
+
+/** Campos da solicitação mostrados na tabela de análise. */
+export interface RequestSummary {
+  id: string
+  requesterId: string
+  requesterName: string
+  serviceId: string
+  serviceName: string
+  requestedDate: string
+  requestedTime: string
+  origin: string
+  destination: string
+  purpose: string
+  passengers: number
+  status: RequestStatus
+  createdAt: string
+  updatedAt: string
+}
+
+/** Viagem criada a partir de uma solicitação agendada. */
+export interface RequestTrip {
+  id: string
+  status: string
+  scheduledStart: string
+  scheduledEnd: string
+  vehicle: { id: string; licensePlate: string; brand: string | null; model: string | null }
+  driver: { id: string; name: string }
+}
+
+/** Detalhe completo da solicitação e da decisão registrada. */
+export interface RequestDetail extends RequestSummary {
+  decidedBy: string | null
+  decidedByName: string | null
+  decidedAt: string | null
+  decisionReason: string | null
+  trip: RequestTrip | null
+}
+
+/** Página da consulta, com total para navegação entre páginas. */
+export interface PaginatedRequests {
+  requests: RequestSummary[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 /** Campos recebidos do corpo HTTP antes da validação de domínio. */
 export interface CreateRequestBody {
   requestedDate?: unknown

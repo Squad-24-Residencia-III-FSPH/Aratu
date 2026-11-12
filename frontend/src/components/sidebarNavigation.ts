@@ -4,6 +4,7 @@ import { VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 import { MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
 import { DRIVERS_PATH } from '../drivers/driverAccess.ts'
 import { FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
+import { REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 
 export type SidebarIconName =
   | 'home'
@@ -91,6 +92,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
           profiles: ['MOTORISTA'],
         },
         { label: 'Solicitações', icon: 'requests', behavior: 'button' },
+        { label: 'Analisar solicitações', icon: 'requests', behavior: 'link', path: REQUEST_ANALYSIS_PATH, profiles: ['GESTOR'] },
         { label: 'Viagens', icon: 'trips', behavior: 'button' },
         { label: 'Confirmar viagens', icon: 'confirmTrips', behavior: 'button' },
       ],

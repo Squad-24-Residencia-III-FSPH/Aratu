@@ -7,6 +7,8 @@ import { RequestsService } from '../src/services/requests.service'
 import type {
   CreateRequestEventInput,
   CreateRequestInput,
+  RequestActor,
+  RequestListFilters,
   RequestActorSnapshot,
   RequestServiceSnapshot,
   TripRequest,
@@ -23,9 +25,20 @@ const serviceSnapshot: RequestServiceSnapshot = {
 }
 
 function setup(options: { serviceAvailable?: boolean; failAudit?: boolean } = {}) {
-  const saved: { input?: CreateRequestInput; actor?: RequestActorSnapshot; event?: CreateRequestEventInput } = {}
+  const saved: {
+    input?: CreateRequestInput
+    actor?: RequestActorSnapshot
+    event?: CreateRequestEventInput
+    filters?: RequestListFilters & { requesterId?: string }
+    lookup?: { id: string; requesterId?: string }
+  } = {}
   const repository: RequestsRepositoryContract = {
     async withTransaction<T>(work: (transaction: PoolClient) => Promise<T>): Promise<T> { return work(client) },
+    async list(filters) {
+      saved.filters = filters
+      return { requests: [], total: 0, page: filters.page ?? 1, pageSize: filters.pageSize ?? 20, totalPages: 0 }
+    },
+    async findById(id, requesterId) { saved.lookup = { id, ...(requesterId ? { requesterId } : {}) }; return null },
     async findActorSnapshot(): Promise<RequestActorSnapshot> { return actor },
     async findActiveServiceForUpdate(): Promise<RequestServiceSnapshot | null> {
       return options.serviceAvailable === false ? null : serviceSnapshot
@@ -86,4 +99,25 @@ test('rejeita campos inválidos, serviço indisponível e data passada', async (
 
 test('falha de auditoria propaga o erro para permitir rollback da transação', async () => {
   await assert.rejects(setup({ failAudit: true }).service.createRequest(futureRequest, actor.id), /falha fictícia de auditoria/)
+})
+
+test('consulta pagina, valida filtros e restringe listas e detalhes de solicitantes ao próprio id', async () => {
+  const context = setup()
+  const manager: RequestActor = { id: '8', role: 'GESTOR' }
+  await context.service.listRequests({
+    status: 'PENDING', from: '2099-01-01', to: '2099-12-31', requester: ' Solicitante ',
+    service: 'Transporte', page: 2, pageSize: 10,
+  }, manager)
+  assert.deepEqual(context.saved.filters, {
+    status: 'PENDING', from: '2099-01-01', to: '2099-12-31', requester: 'Solicitante',
+    service: 'Transporte', page: 2, pageSize: 10,
+  })
+
+  const requester: RequestActor = { id: actor.id, role: 'SOLICITANTE' }
+  await context.service.listRequests({}, requester)
+  assert.equal(context.saved.filters?.requesterId, actor.id)
+  await assert.rejects(context.service.getRequest('41', requester), isServiceError(404))
+  assert.deepEqual(context.saved.lookup, { id: '41', requesterId: actor.id })
+  await assert.rejects(context.service.listRequests({ from: '2099-12-31', to: '2099-01-01' }, manager), isServiceError(400))
+  await assert.rejects(context.service.listRequests({ pageSize: 101 }, manager), isServiceError(400))
 })

@@ -54,6 +54,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   assert.deepEqual(getLabels(navigation), [
     'Início',
     'Solicitações',
+    'Analisar solicitações',
     'Viagens',
     'Confirmar viagens',
     'Veículos',
@@ -74,6 +75,8 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'CONTROLE',
     'GESTÃO',
   ])
+  const requestAnalysis = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Analisar solicitações')
+  assert.deepEqual({ behavior: requestAnalysis?.behavior, path: requestAnalysis?.path }, { behavior: 'link', path: '/frota/solicitacoes/analise' })
   const vehicles = navigation.sections
     .flatMap((section) => section.items)
     .find((item) => item.label === 'Veículos')
@@ -89,7 +92,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   assert.deepEqual({ behavior: fuelings.behavior, path: fuelings.path }, { behavior: 'link', path: '/abastecimentos' })
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]
-      .filter((item) => !['Veículos', 'Motoristas', 'Manutenção', 'Abastecimentos'].includes(item.label))
+      .filter((item) => !['Veículos', 'Motoristas', 'Manutenção', 'Abastecimentos', 'Analisar solicitações'].includes(item.label))
       .every((item) => item.behavior === 'button'),
   )
   assert.equal(navigation.showDividerAfterTop, true)
@@ -111,6 +114,12 @@ test('somente GESTOR e ADMINISTRADOR recebem o atalho de abastecimentos', () => 
   }
   for (const profile of ['GESTOR', 'ADMINISTRADOR']) {
     assert.equal(getLabels(getSidebarNavigation(profile)).includes('Abastecimentos'), true)
+  }
+})
+
+test('somente GESTOR recebe o atalho de análise de solicitações', () => {
+  for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Analisar solicitações'), false)
   }
 })
 
