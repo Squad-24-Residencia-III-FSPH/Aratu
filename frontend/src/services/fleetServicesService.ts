@@ -22,9 +22,12 @@ export interface CompatibleVehiclesView {
 export type FleetServiceErrorKind = 'validation' | 'forbidden' | 'not-found' | 'conflict' | 'unavailable'
 
 export class FleetServiceRequestError extends Error {
-  constructor(readonly kind: FleetServiceErrorKind, message: string) {
+  readonly kind: FleetServiceErrorKind
+
+  constructor(kind: FleetServiceErrorKind, message: string) {
     super(message)
     this.name = 'FleetServiceRequestError'
+    this.kind = kind
   }
 }
 
