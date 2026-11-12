@@ -288,6 +288,10 @@ test('IT-REQUEST-06: Gestor filtra, pagina e consulta o detalhe com os dados da 
   assert.equal(detail.decidedByName, null)
   assert.equal(detail.trip, null)
 
+  const anotherPage = await requestApi('/requests?status=PENDING&page=2&pageSize=1', 'GESTOR')
+  const second = await anotherPage.json() as { requests: Array<{ id: string }> }
+  assert.equal(second.requests[0]?.id, lateId)
+
   const decision = await requestApi(`/requests/${earlyId}/reject`, 'GESTOR', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Sem viatura disponível' }),
   })
@@ -298,8 +302,4 @@ test('IT-REQUEST-06: Gestor filtra, pagina e consulta o detalhe com os dados da 
   assert.equal(decided.decidedByName, getUser('GESTOR').name)
   assert.equal(decided.decisionReason, 'Sem viatura disponível')
   assert.ok(Number.isFinite(Date.parse(decided.decidedAt)))
-
-  const anotherPage = await requestApi('/requests?status=PENDING&page=2&pageSize=1', 'GESTOR')
-  const second = await anotherPage.json() as { requests: Array<{ id: string }> }
-  assert.equal(second.requests[0]?.id, lateId)
 })
