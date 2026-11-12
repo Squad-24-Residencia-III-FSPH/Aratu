@@ -1,7 +1,7 @@
 import type { ApiRequest } from '../api/client.ts'
 import { SESSION_EXPIRED } from '../auth/token.ts'
 import { DRIVER_TRIP_STATUSES, TripRequestError } from '../trips/tripTypes.ts'
-import type { DriverTrip, DriverTripStatus, Trip, TripRequestErrorKind } from '../trips/tripTypes.ts'
+import type { DriverTrip, DriverTripStatus, ScheduleTripInput, Trip, TripRequestErrorKind } from '../trips/tripTypes.ts'
 
 const NETWORK_MESSAGE = 'Não foi possível se comunicar com o servidor. Verifique a conexão.'
 const INVALID_RESPONSE_MESSAGE = 'A resposta do servidor não pôde ser confirmada.'
@@ -162,4 +162,20 @@ export function startTrip(api: ApiRequest, tripId: string, startKm: number): Pro
 export function finishTrip(api: ApiRequest, tripId: string, endKm: number): Promise<Trip> {
   return postTransition(api, tripId, 'finish', { endKm }, (trip) =>
     trip.status === 'FINISHED' && trip.endKm !== null && trip.finishedAt !== null)
+}
+
+/** Agenda uma solicitação aprovada com veículo e motorista escolhidos pelo Gestor. */
+export async function scheduleTrip(api: ApiRequest, input: ScheduleTripInput): Promise<Trip> {
+  const response = await send(api, '/trips', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) throw await failureFrom(response)
+  const trip = parseTrip(await response.json().catch(() => null))
+  if (trip.requestId !== input.requestId || trip.vehicleId !== input.vehicleId
+    || trip.driverId !== input.driverId || trip.status !== 'SCHEDULED') {
+    throw new TripRequestError('invalidResponse', INVALID_RESPONSE_MESSAGE)
+  }
+  return trip
 }
