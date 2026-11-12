@@ -4,6 +4,7 @@ import { VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 import { MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
 import { DRIVERS_PATH } from '../drivers/driverAccess.ts'
 import { FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
+import { MY_REQUESTS_PATH, NEW_REQUEST_PATH } from '../requests/requestAccess.ts'
 
 export type SidebarIconName =
   | 'home'
@@ -136,9 +137,9 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
 
 const SOLICITANTE_NAVIGATION: SidebarNavigation = {
   topItems: [
-    { label: 'Início', icon: 'home', behavior: 'link', path: '/inicio' },
-    { label: 'Nova Solicitação', icon: 'requests', behavior: 'button' },
-    { label: 'Minhas Solicitações', icon: 'confirmTrips', behavior: 'link', path: '/minhas-solicitacoes', badgeCount: 2 },
+    { label: 'Início', icon: 'home', behavior: 'link', path: MY_REQUESTS_PATH },
+    { label: 'Nova Solicitação', icon: 'requests', behavior: 'link', path: NEW_REQUEST_PATH },
+    { label: 'Minhas Solicitações', icon: 'confirmTrips', behavior: 'link', path: MY_REQUESTS_PATH, badgeCount: 2 },
   ],
   sections: [],
   footerItems: [{ label: 'Ajuda', icon: 'help', behavior: 'static' }],

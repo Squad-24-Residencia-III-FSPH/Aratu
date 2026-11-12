@@ -127,3 +127,15 @@ test('somente MOTORISTA recebe o atalho Minhas viagens apontando para a própria
     assert.equal(getLabels(getSidebarNavigation(profile)).includes('Minhas viagens'), false)
   }
 })
+
+test('SOLICITANTE recebe links funcionais para Minhas Solicitações e Nova Solicitação', () => {
+  const solicitanteNav = getSidebarNavigation('SOLICITANTE')
+  assert.deepEqual(
+    solicitanteNav.topItems.map(({ label, behavior, path }) => ({ label, behavior, path })),
+    [
+      { label: 'Início', behavior: 'link', path: '/solicitacoes/minhas' },
+      { label: 'Nova Solicitação', behavior: 'link', path: '/solicitacoes/nova' },
+      { label: 'Minhas Solicitações', behavior: 'link', path: '/solicitacoes/minhas' },
+    ],
+  )
+})

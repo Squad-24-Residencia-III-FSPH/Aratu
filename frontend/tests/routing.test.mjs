@@ -17,6 +17,7 @@ const vehicleReaders = new Set(['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'])
 const VEHICLES_PATH = '/veiculos'
 const DRIVERS_PATH = '/motoristas'
 const FUELINGS_PATH = '/abastecimentos'
+const NEW_REQUEST_PATH = '/solicitacoes/nova'
 
 for (const [profile, path] of destinations) {
   test(profile + ' vai para a própria tela e não pode abrir as demais', () => {
@@ -85,6 +86,33 @@ test('somente MOTORISTA abre /viagens/minhas; demais perfis voltam à própria h
   for (const [profile, home] of destinations) {
     if (profile === 'MOTORISTA') continue
     assert.deepEqual(resolveRoute(sessionFor(profile), '/viagens/minhas'), {
+      kind: 'redirect',
+      to: home,
+    })
+  }
+})
+
+test('somente SOLICITANTE abre /solicitacoes/nova e redireciona rotas legadas para /solicitacoes/minhas', () => {
+  const solicitanteSession = sessionFor('SOLICITANTE')
+  assert.deepEqual(resolveRoute(solicitanteSession, NEW_REQUEST_PATH), {
+    kind: 'new-request',
+    profile: 'SOLICITANTE',
+  })
+  assert.deepEqual(resolveRoute(solicitanteSession, '/minhas-solicitacoes'), {
+    kind: 'redirect',
+    to: '/solicitacoes/minhas',
+  })
+  assert.deepEqual(resolveRoute(solicitanteSession, '/inicio'), {
+    kind: 'redirect',
+    to: '/solicitacoes/minhas',
+  })
+  assert.deepEqual(resolveRoute(null, NEW_REQUEST_PATH), {
+    kind: 'redirect',
+    to: '/login',
+  })
+  for (const [profile, home] of destinations) {
+    if (profile === 'SOLICITANTE') continue
+    assert.deepEqual(resolveRoute(sessionFor(profile), NEW_REQUEST_PATH), {
       kind: 'redirect',
       to: home,
     })

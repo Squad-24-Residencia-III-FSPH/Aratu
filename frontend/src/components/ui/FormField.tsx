@@ -11,7 +11,7 @@ export interface FormFieldProps {
   helperText?: string
   required?: boolean
   disabled?: boolean
-  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local'
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'time' | 'datetime-local'
   multiline?: boolean
   minRows?: number
   autoComplete?: string
@@ -137,6 +137,8 @@ interface FormSelectBaseProps {
   /** Quando informado, acrescenta uma opção vazia (uso em filtros). */
   emptyLabel?: string
   autoFocus?: boolean
+  /** Permite ao fluxo focar o controle nativo após uma validação. */
+  inputRef?: Ref<HTMLInputElement | HTMLTextAreaElement>
   sx?: SxProps<Theme>
   hideLabel?: boolean
   displayEmpty?: boolean
@@ -181,6 +183,7 @@ export function FormSelect(props: FormSelectProps) {
       fullWidth
       size="small"
       autoFocus={props.autoFocus}
+      inputRef={props.inputRef}
       sx={props.sx}
       slotProps={{
         select: {

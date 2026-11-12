@@ -72,9 +72,9 @@
   <p><strong>Módulo (chave):</strong> <code>VIAGENS</code></p>
   <p><strong>Índice de referência:</strong> <code>docs/manuais/modulos.md</code></p>
   <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/trips.routes.ts</code>, <code>backend/src/routes/availability.routes.ts</code>, <code>backend/src/controllers/trips.controller.ts</code>, <code>backend/src/controllers/availability.controller.ts</code>, <code>backend/src/services/trips.service.ts</code>, <code>backend/src/services/availability.service.ts</code>, <code>backend/src/repositories/trips.repository.ts</code>, <code>backend/src/repositories/availability.repository.ts</code></p>
-  <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/MyTripsPage.tsx</code>, <code>frontend/src/pages/myTripsPage/TripExecutionDialog.tsx</code>, <code>frontend/src/components/ui/EntityCard.tsx</code>, <code>frontend/src/hooks/useMyTrips.ts</code>, <code>frontend/src/services/tripsService.ts</code>, <code>frontend/src/trips/tripTypes.ts</code>, <code>frontend/src/trips/tripPresentation.ts</code></p>
+  <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/RequestTripPage.tsx</code>, <code>frontend/src/pages/SolicitacaoPage/SolicitacaoPage.tsx</code>, <code>frontend/src/pages/MyTripsPage.tsx</code>, <code>frontend/src/pages/myTripsPage/TripExecutionDialog.tsx</code>, <code>frontend/src/components/ui/EntityCard.tsx</code>, <code>frontend/src/hooks/useMyTrips.ts</code>, <code>frontend/src/services/requestsService.ts</code>, <code>frontend/src/services/tripsService.ts</code>, <code>frontend/src/requests/requestForm.ts</code>, <code>frontend/src/requests/createdRequestsStore.ts</code>, <code>frontend/src/trips/tripTypes.ts</code>, <code>frontend/src/trips/tripPresentation.ts</code></p>
   <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (schema nativo <code>trip</code>, integrado a <code>fleet</code>, <code>auth</code> e <code>audit</code>)</p>
-  <p><strong>Versão da documentação:</strong> 2026-11-10 (inclui <code>FROTA-96</code>, <code>FROTA-97</code>, <code>FROTA-99</code>, <code>FROTA-100</code>, <code>FROTA-101</code>, <code>FROTA-106</code> e <code>FROTA-107</code>; <code>FROTA-102</code> foi absorvida e entregue pela <code>FROTA-99</code>)</p>
+  <p><strong>Versão da documentação:</strong> 2026-11-12 (inclui <code>FROTA-78</code>, <code>FROTA-79</code>, <code>FROTA-80</code>, <code>FROTA-96</code>, <code>FROTA-97</code>, <code>FROTA-99</code>, <code>FROTA-100</code>, <code>FROTA-101</code>, <code>FROTA-106</code> e <code>FROTA-107</code>; <code>FROTA-102</code> foi absorvida e entregue pela <code>FROTA-99</code>)</p>
 </div>
 
 <ol class="toc">
@@ -94,6 +94,7 @@
 <h2 id="s1">1. Visão Geral</h2>
 <p>O módulo <strong>VIAGENS</strong> coordena o ciclo operacional de transporte institucional da <strong>Fundação de Saúde Parreiras Horta (FSPH)</strong> e do <strong>Serviço de Verificação de Óbito (SVO)</strong>, desde a avaliação de disponibilidade de viaturas e motoristas até o agendamento, a execução em campo pelo motorista com registro de hodômetro e a conferência/confirmação final pela gestão de frota:</p>
 <ol>
+  <li><strong>Solicitação de Viagem pelo Solicitante (<code>FROTA-78</code>, <code>FROTA-79</code> e <code>FROTA-80</code>):</strong> abertura de solicitações institucionais pelo perfil <span class="badge-rbac">SOLICITANTE</span> na tela dedicada <code>RequestTripPage</code> (<code>/solicitacoes/nova</code>), carregando tipos de serviço ativos via <code>GET /services</code> e submetendo <code>POST /requests</code> para registrar a solicitação com status <span class="badge-status">PENDING</span>, confirmação acessível <em>"Solicitação registrada"</em> e redirecionamento para <em>Minhas Solicitações</em> (<code>/solicitacoes/minhas</code>).</li>
   <li><strong>Avaliação de Disponibilidade (<code>FROTA-96</code>):</strong> consulta unificada de veículos (<code>GET /vehicles/available</code>) e motoristas (<code>GET /drivers/available</code>) para um período ISO 8601 com fuso horário, expondo impedimentos explícitos (<code>MAINTENANCE</code>, <code>INCOMPATIBLE</code>, <code>CONFLICT</code>, <code>INACTIVE</code>, <code>AWAY</code>, <code>CNH_EXPIRED</code>).</li>
   <li><strong>Agendamento de Viagem (<code>FROTA-97</code>):</strong> transformação transacional de uma solicitação aprovada (<span class="badge-status">APPROVED</span>) em viagem agendada (<span class="badge-status">SCHEDULED</span>) com travas pessimistas (<code>SELECT ... FOR UPDATE</code>) sobre solicitação, veículo e motorista e captura de snapshots históricos (<code>vehicle_snapshot</code> e <code>driver_snapshot</code>).</li>
   <li><strong>Execução da Viagem pelo Motorista — Backend e Tela Mobile-First (<code>FROTA-99</code>, <code>FROTA-100</code> e <code>FROTA-101</code>):</strong> listagem das viagens pendentes do condutor logado (<code>GET /trips/mine</code>) e registro de início (<code>POST /trips/:id/start</code> com <code>startKm</code>) e término (<code>POST /trips/:id/finish</code> com <code>endKm</code>). Na interface React 19, a rota inicial do perfil <span class="badge-rbac">MOTORISTA</span> (<code>/viagens/minhas</code>) apresenta o recorte operacional <em>Hoje e em andamento</em> (no fuso <code>America/Maceio</code>) com alternância imediata para <em>Todas as pendentes</em>, cartões compostos <code>EntityCard</code> e diálogo único <code>TripExecutionDialog</code>.
@@ -188,7 +189,12 @@
       <td>Sem acesso às rotas exclusivas de execução do motorista (<code>/trips/mine</code>, <code>/:id/start</code>, <code>/:id/finish</code>)</td>
     </tr>
     <tr>
-      <td><span class="badge-rbac">SOLICITANTE</span> / <span class="badge-rbac">ATENDENTE_SVO</span> / <span class="badge-rbac">EQUIPE_SVO</span></td>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td>Acessar <strong>Minhas Solicitações</strong> (<code>/solicitacoes/minhas</code>) e <strong>Nova solicitação de viagem</strong> (<code>/solicitacoes/nova</code>), consultar tipos de serviço ativos (<code>GET /services</code>) e criar solicitações de viagem (<code>POST /requests</code>)</td>
+      <td>Sem acesso aos endpoints de execução ou confirmação de <code>/trips/*</code> (recebe <code>403 Forbidden</code>); somente <code>SOLICITANTE</code> acessa <code>/solicitacoes/nova</code> e <code>/solicitacoes/minhas</code></td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span> / <span class="badge-rbac">EQUIPE_SVO</span></td>
       <td>Sem acesso direto aos endpoints de execução ou confirmação de <code>/trips</code></td>
       <td>Qualquer chamada direta a <code>/trips/*</code> retorna <code>403 Forbidden</code>; a navegação de cada perfil permanece na sua própria home operacional</td>
     </tr>
@@ -372,6 +378,14 @@
 
 <h2 id="s7">7. Interface e Acessibilidade (Frontend React 19 + WCAG 2.2 AA)</h2>
 <ul>
+  <li><strong>Formulário de Solicitação de Viagem do Solicitante — <code>RequestTripPage</code> (<code>/solicitacoes/nova</code>, <code>FROTA-78</code>):</strong>
+    <ul>
+      <li>Rota protegida exclusiva para <span class="badge-rbac">SOLICITANTE</span> (validada em <code>resolveRoute</code> e conectada ao item <strong>Nova Solicitação</strong> da Sidebar e ao botão <strong>Nova Solicitação</strong> de <code>SolicitacaoPage</code>).</li>
+      <li>Consome <code>GET /services</code> via <code>listActiveServices</code> (<code>frontend/src/services/requestsService.ts</code>) para popular o <code>FormSelect</code> de tipos de serviço ativos e submete <code>POST /requests</code> via <code>createTripRequest</code> com os 6 campos do contrato (<code>requestedDate</code>, <code>requestedTime</code>, <code>serviceId</code>, <code>origin</code>, <code>destination</code> e <code>purpose</code>).</li>
+      <li>Utiliza <code>PageHeader</code>, <code>FormField</code> (incluindo <code>type="date"</code> e <code>type="time"</code> com <code>useId()</code>, <code>aria-invalid</code> e <code>role="alert"</code>), <code>FormSelect</code> e <code>StateFeedback</code> (tratando os estados <em>Carregando</em>, <em>Vazio</em>, <em>Erro com tentar novamente</em> e <em>Ideal</em>), além de bloqueio síncrono de duplo envio (<code>submittingRef</code>) e redirecionamento de foco para o primeiro campo inválido.</li>
+      <li>Após receber <code>201 { id, status: "PENDING" }</code>, registra a solicitação em <code>createdRequestsStore.ts</code>, anuncia <em>"Solicitação registrada"</em> (<code>role="status"</code>) e redireciona para <code>/solicitacoes/minhas</code>, exibindo a nova solicitação no topo de <code>SolicitacaoPage.tsx</code> com status <code>Pendente</code>. Os arquivos <code>createdRequestsStore.ts</code>, <code>requestsService.ts</code>, <code>requestTypes.ts</code> e <code>SolicitacaoPage.tsx</code> possuem marcações <code>TODO(FROTA-82/FROTA-84)</code> indicando o ponto exato de substituição pela leitura de <code>GET /requests</code> quando a US12 for integrada.</li>
+    </ul>
+  </li>
   <li><strong>Tela Inicial do Motorista — <code>MyTripsPage</code> (<code>/viagens/minhas</code>, <code>FROTA-100</code>):</strong>
     <ul>
       <li>Renderizada automaticamente para o perfil <span class="badge-rbac">MOTORISTA</span> em <code>ProfileHome</code> (<code>frontend/src/App.tsx</code>) e acessível pelo item <strong>Minhas viagens</strong> na seção <code>OPERAÇÃO</code> do menu lateral (<code>frontend/src/components/sidebarNavigation.ts</code>). Os demais perfis mantêm suas telas e itens de menu inalterados.</li>
@@ -458,6 +472,26 @@
       <td><code>backend/tests/requests.integration.test.ts</code></td>
       <td>Testes de integração (Backend)</td>
       <td>Valida a API <code>POST /requests</code>, persistência, RBAC, autoria, evento <code>CREATED</code> e auditoria <code>CREATE</code> no banco de testes</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/RequestTripPage.tsx</code></td>
+      <td>Page (Frontend)</td>
+      <td>Formulário dedicado de solicitação de viagem (<code>/solicitacoes/nova</code>, <code>FROTA-78</code>) integrado a <code>GET /services</code> e <code>POST /requests</code></td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/services/requestsService.ts</code></td>
+      <td>API Client (Frontend)</td>
+      <td>Cliente HTTP tipado para listagem de serviços ativos (<code>GET /services</code>) e criação de solicitação (<code>POST /requests</code>)</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/requests/requestForm.ts</code></td>
+      <td>Domain Helper (Frontend)</td>
+      <td>Validação de campos obrigatórios, data/hora futura em <code>America/Maceio</code> e normalização do payload de <code>POST /requests</code></td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/requests/createdRequestsStore.ts</code></td>
+      <td>Store de Sessão (Frontend)</td>
+      <td>Sincronização das solicitações recém-criadas e da mensagem <em>"Solicitação registrada"</em> com <code>SolicitacaoPage.tsx</code> até a entrega de <code>FROTA-82</code>/<code>FROTA-84</code></td>
     </tr>
     <tr>
       <td><code>frontend/src/pages/MyTripsPage.tsx</code></td>

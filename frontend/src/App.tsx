@@ -15,6 +15,7 @@ import UserManagementPage from './pages/UserManagementPage';
 import DriversPage from './pages/DriversPage';
 import FuelingsPage from './pages/FuelingsPage';
 import MyTripsPage from './pages/MyTripsPage';
+import RequestTripPage from './pages/RequestTripPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -68,6 +69,13 @@ function PrivateRoute() {
       </Layout>
     );
   }
+  if (decision.kind === 'new-request') {
+    return (
+      <Layout>
+        <RequestTripPage />
+      </Layout>
+    );
+  }
   return (
     <Layout>
       <ProfileHome profile={decision.profile} />
@@ -85,15 +93,6 @@ export default function App() {
     >
       <Routes>
         <Route path="/login" element={<LoginRoute />} />
-        {/* Rota específica para garantir o acesso direto à tela de solicitações */}
-        <Route
-          path="/minhas-solicitacoes"
-          element={
-            <Layout>
-              <SolicitacaoPage />
-            </Layout>
-          }
-        />
         <Route path="*" element={<PrivateRoute />} />
       </Routes>
     </HashRouter>

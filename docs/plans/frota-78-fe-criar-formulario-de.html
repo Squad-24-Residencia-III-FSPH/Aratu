@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-78 — [FE] Criar formulário de solicitação de viagem (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-78: [FE] Criar formulário de solicitação de viagem</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-78</code> — [FE] Criar formulário de solicitação de viagem (Story pai: <code>FROTA-76 — US11 - Solicitar viagem</code>)</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/frota-78-formulario-solicitacao-viagem</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>VIAGENS</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>SOLICITANTE</code></p>
+  <p><strong>Data:</strong> 2026-11-12</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p>Permitir que o servidor autenticado com perfil <code>SOLICITANTE</code> na Fundação de Saúde Parreiras Horta (FSPH) solicite uma viagem institucional por meio de uma página dedicada (<code>RequestTripPage.tsx</code> em <code>/solicitacoes/nova</code>), consultando os tipos de serviço ativos na API real (<code>GET /services</code>) e enviando a solicitação para <code>POST /requests</code> via <code>createApiClient</code>. Ao concluir o envio com sucesso (<code>201 Created</code> com <code>{ id, status: "PENDING" }</code>), a interface exibe a confirmação <em>"Solicitação registrada"</em>, sincroniza o registro criado na listagem em memória do solicitante e redireciona para <em>"Minhas solicitações"</em> (<code>/solicitacoes/minhas</code>), onde a nova solicitação aparece imediatamente com status <code>Pendente</code>.</p>
+
+<h3>Delimitação de Escopo (YAGNI)</h3>
+<ul>
+  <li><strong>Entra no escopo (<code>FROTA-78</code> / US11 Front-end):</strong>
+    <ul>
+      <li>Criação da página dedicada <code>frontend/src/pages/RequestTripPage.tsx</code> na rota protegida <code>/solicitacoes/nova</code> (exclusiva para <code>SOLICITANTE</code>);</li>
+      <li>Utilização dos componentes padronizados <code>PageHeader</code>, <code>FormField</code> (incluindo suporte a <code>type="time"</code>), <code>FormSelect</code> e <code>StateFeedback</code>;</li>
+      <li>Cliente de API tipado <code>frontend/src/services/requestsService.ts</code> para <code>GET /services</code> (carregamento de tipos de serviço ativos) e <code>POST /requests</code> (criação da solicitação);</li>
+      <li>Tipagens, regras de acesso, validação de conforto de formulário e armazenamento de sessão das solicitações criadas em <code>frontend/src/requests/</code>;</li>
+      <li>Unificação das rotas do perfil <code>SOLICITANTE</code> em <code>routeDecision.ts</code>, <code>sidebarNavigation.ts</code> e <code>App.tsx</code> (<code>/solicitacoes/minhas</code> e <code>/solicitacoes/nova</code>, mantendo compatibilidade de redirecionamento de <code>/minhas-solicitacoes</code> para <code>/solicitacoes/minhas</code>) e sincronização com <code>SolicitacaoPage.tsx</code>;</li>
+      <li>Testes automatizados unitários e de renderização/fluxo em <code>frontend/tests/</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Fora do escopo (Com marcação explícita <code>TODO</code> no código para futuras tasks):</strong>
+    <ul>
+      <li>Alterações no backend Express ou banco PostgreSQL 18 (o backend de <code>POST /requests</code> já foi entregue em <code>FROTA-79</code>/<code>FROTA-80</code>);</li>
+      <li>Implementação do endpoint backend <code>GET /requests</code> (pertence à subtarefa <code>FROTA-82</code> da <code>FROTA-81 — US12 Consultar solicitação</code>) e refatoração completa da tabela de consulta de <code>SolicitacaoPage.tsx</code> (<code>FROTA-84</code>). Todos os pontos de transição entre o armazenamento local de solicitações recém-criadas e a futura API <code>GET /requests</code> serão documentados com comentários explícitos <code>// TODO(FROTA-82/FROTA-84): ...</code> no código.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>Decisões Confirmadas pela Regra da Dúvida</h3>
+<ol>
+  <li><strong>Contrato de campos do formulário:</strong> Manter estritamente os 6 campos do contrato de <code>POST /requests</code> (<code>FROTA-79</code>): data da viagem (<code>requestedDate</code>), horário de saída (<code>requestedTime</code>), tipo de serviço (<code>serviceId</code> populado via <code>GET /services</code>), origem (<code>origin</code>), destino (<code>destination</code>) e finalidade (<code>purpose</code>), sem alterar o backend.</li>
+  <li><strong>Estrutura de tela e rota:</strong> Criar página dedicada <code>RequestTripPage.tsx</code> em <code>/solicitacoes/nova</code> conectada ao item <em>"Nova Solicitação"</em> da Sidebar do Solicitante e ao botão <em>"Nova Solicitação"</em> da página <em>"Minhas Solicitações"</em>, redirecionando para <code>/solicitacoes/minhas</code> após o envio bem-sucedido.</li>
+  <li><strong>Sincronização com "Minhas Solicitações" antes de <code>FROTA-82</code>:</strong> Ao receber <code>201 { id, status: "PENDING" }</code> de <code>POST /requests</code>, registrar a solicitação recém-criada em um store/sessão compartilhado no front-end e exibi-la como <code>Pendente</code> no topo de <code>SolicitacaoPage.tsx</code>, deixando comentários claros (<code>TODO(FROTA-82)</code>) indicando onde substituir pela leitura de <code>GET /requests</code> quando a US12 for integrada.</li>
+  <li><strong>Identificação do SDD e branch:</strong> Vincular à subtarefa de Front-end <code>FROTA-78</code> (<code>docs/plans/frota-78-fe-criar-formulario-de.html</code> e branch <code>feat/frota-78-formulario-solicitacao-viagem</code>).</li>
+</ol>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Dado</th>
+      <th scope="col">Quando</th>
+      <th scope="col">Então</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>SOLICITANTE</code> autenticado acessa <code>/solicitacoes/nova</code> e existem tipos de serviço ativos</td>
+      <td>A página inicializa</td>
+      <td>Busca <code>GET /services</code> via <code>api/client.ts</code>, exibe estado de carregamento acessível e popula o seletor <em>"Tipo de serviço"</em> com os serviços ativos.</td>
+    </tr>
+    <tr>
+      <td><code>SOLICITANTE</code> preenche data futura, horário válido, tipo de serviço, origem, destino e finalidade</td>
+      <td>Submete o formulário clicando em <em>"Solicitar viagem"</em></td>
+      <td>Desabilita o botão com indicador de envio, envia <code>POST /requests</code>, recebe <code>201 { id, status: "PENDING" }</code>, registra o alerta de sucesso <em>"Solicitação registrada"</em>, adiciona o item como <code>Pendente</code> na lista de <em>"Minhas solicitações"</em> e redireciona para <code>/solicitacoes/minhas</code>.</td>
+    </tr>
+    <tr>
+      <td>Usuário submete formulário com campos obrigatórios vazios, data inválida ou horário fora de <code>HH:mm</code></td>
+      <td>Tenta enviar o formulário</td>
+      <td>Bloqueia o envio HTTP, exibe mensagens de erro por campo via <code>FormField</code>/<code>FormSelect</code> (com <code>aria-invalid="true"</code> e <code>role="alert"</code>) e move o foco para o primeiro campo inválido.</td>
+    </tr>
+    <tr>
+      <td>API <code>POST /requests</code> responde <code>400</code> ou <code>422</code> com <code>{ erro: "..." }</code> (ex: data/hora no passado ou serviço inativo)</td>
+      <td>Recebe resposta de erro da API</td>
+      <td>Mantém os dados digitados no formulário, reabilita o botão de envio e exibe a mensagem exata do campo <code>erro</code> da API em um <code>Alert</code> com <code>role="alert"</code>; nunca exibe sucesso nem redireciona.</td>
+    </tr>
+    <tr>
+      <td>Backend fora do ar ou falha de rede/timeout em <code>GET /services</code> ou <code>POST /requests</code></td>
+      <td>O <code>createApiClient</code> lança <code>SERVICE_UNAVAILABLE</code></td>
+      <td>Exibe a mensagem <em>"Serviço temporariamente indisponível"</em> com opção de tentar novamente (no carregamento de serviços) ou preserva o formulário preenchido (no envio).</td>
+    </tr>
+    <tr>
+      <td>Catálogo <code>GET /services</code> retorna lista vazia (<code>[]</code>)</td>
+      <td>A página conclui o carregamento</td>
+      <td>Exibe <code>StateFeedback</code> de estado vazio orientando que não há tipos de serviço ativos disponíveis para solicitação no momento.</td>
+    </tr>
+    <tr>
+      <td>Usuário não autenticado ou com perfil diferente de <code>SOLICITANTE</code></td>
+      <td>Tenta acessar <code>/solicitacoes/nova</code> ou <code>/solicitacoes/minhas</code></td>
+      <td><code>resolveRoute</code> redireciona para <code>/login</code> (se sem sessão/expirado) ou para a home do respectivo perfil RBAC.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="notice-block">
+  <strong>Nota para Desenvolvedores e Agentes de IA (Pontos Abertos de Tarefas Futuras):</strong>
+  <ul>
+    <li><strong><code>FROTA-82</code> / <code>FROTA-84</code> (US12 — Consultar solicitação):</strong> O endpoint <code>GET /requests</code> ainda não está na <code>develop</code>. Por isso, as solicitações criadas via <code>POST /requests</code> são sincronizadas pelo módulo <code>frontend/src/requests/createdRequestsStore.ts</code> para exibição imediata em <code>SolicitacaoPage.tsx</code>. Quando <code>FROTA-82</code> for mergeada, basta conectar <code>listRequests</code> em <code>requestsService.ts</code> (marcada com <code>TODO(FROTA-82)</code>) e remover os mocks residuais de <code>SolicitacaoPage.tsx</code>.</li>
+    <li><strong>Campo <code>passengers</code> (Nº de passageiros):</strong> Caso a Squad decida futuramente expor <code>passengers</code> no payload de <code>POST /requests</code> (a coluna já existe em <code>trip.requests</code> com default <code>1</code>), o DTO <code>CreateTripRequestInput</code> em <code>requestTypes.ts</code> contém comentário indicando o ponto exato de extensão.</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Ação</th>
+      <th scope="col">Responsabilidade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>frontend/src/components/ui/FormField.tsx</code></td>
+      <td>Modificar</td>
+      <td>Adicionar <code>'time'</code> à união de tipos <code>FormFieldProps['type']</code> para suportar campos nativos de horário (<code>HH:mm</code>) mantendo <code>useId()</code> e <code>aria-describedby</code>.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/requests/requestAccess.ts</code></td>
+      <td>Criar</td>
+      <td>Definir constantes de rota <code>MY_REQUESTS_PATH = '/solicitacoes/minhas'</code>, <code>NEW_REQUEST_PATH = '/solicitacoes/nova'</code>, <code>LEGACY_MY_REQUESTS_PATH = '/minhas-solicitacoes'</code> e predicado RBAC <code>canAccessRequests(profile)</code>.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/requests/requestTypes.ts</code></td>
+      <td>Criar</td>
+      <td>Definir tipos <code>ActiveServiceOption</code>, <code>CreateTripRequestInput</code>, <code>CreatedTripRequestResponse</code>, <code>SubmittedTripRequest</code> e erros tipados de requisição.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/requests/requestForm.ts</code></td>
+      <td>Criar</td>
+      <td>Estado inicial do formulário (<code>EMPTY_REQUEST_FORM</code>), normalização e validação de conforto (campos obrigatórios, formato <code>YYYY-MM-DD</code>, formato <code>HH:mm</code> e verificação de data/hora não passada no fuso <code>America/Maceio</code>).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/requests/createdRequestsStore.ts</code></td>
+      <td>Criar</td>
+      <td>Store leve em memória + <code>sessionStorage</code> para registrar solicitações criadas na sessão (após <code>201 Created</code> de <code>POST /requests</code>) e mensagem flash <code>"Solicitação registrada"</code>, com marcação explícita <code>TODO(FROTA-82/FROTA-84)</code> para futura substituição pelo <code>GET /requests</code>.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/services/requestsService.ts</code></td>
+      <td>Criar</td>
+      <td>Funções <code>listActiveServices(api)</code> (<code>GET /services</code>) e <code>createTripRequest(api, input)</code> (<code>POST /requests</code>), tratando <code>{ erro }</code> da API e <code>SERVICE_UNAVAILABLE</code>.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/RequestTripPage.tsx</code></td>
+      <td>Criar</td>
+      <td>Página de criação de solicitação de viagem (US11 / <code>FROTA-78</code>) utilizando <code>PageHeader</code>, <code>FormField</code>, <code>FormSelect</code> e <code>StateFeedback</code>, com bloqueio de duplo envio e redirecionamento para <code>/solicitacoes/minhas</code>.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/SolicitacaoPage/SolicitacaoPage.tsx</code></td>
+      <td>Modificar</td>
+      <td>Integrar botão <em>"Nova Solicitação"</em> para navegar à rota <code>/solicitacoes/nova</code>, exibir banner <code>role="status"</code> quando redirecionado com <em>"Solicitação registrada"</em> e mesclar no topo da tabela as solicitações reais criadas na sessão (com comentário <code>TODO(FROTA-82/FROTA-84)</code>).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/routing/routeDecision.ts</code></td>
+      <td>Modificar</td>
+      <td>Adicionar suporte à rota <code>/solicitacoes/nova</code> (<code>kind: 'new-request'</code> para <code>SOLICITANTE</code>) e redirecionar <code>/minhas-solicitacoes</code> ou <code>/inicio</code> do Solicitante para <code>/solicitacoes/minhas</code>.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/sidebarNavigation.ts</code></td>
+      <td>Modificar</td>
+      <td>Configurar os links da Sidebar de <code>SOLICITANTE</code>: <em>"Início"</em> → <code>/solicitacoes/minhas</code>, <em>"Nova Solicitação"</em> → <code>/solicitacoes/nova</code> (<code>behavior: 'link'</code>) e <em>"Minhas Solicitações"</em> → <code>/solicitacoes/minhas</code>.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/App.tsx</code></td>
+      <td>Modificar</td>
+      <td>Renderizar <code>RequestTripPage</code> quando <code>decision.kind === 'new-request'</code> dentro de <code>Layout</code> e unificar o roteamento autenticado de solicitações.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/tests/requestForm.test.mjs</code></td>
+      <td>Criar</td>
+      <td>Testes unitários das validações de formulário e normalização de payload (<code>requestForm.ts</code>).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/tests/requestsService.test.mjs</code></td>
+      <td>Criar</td>
+      <td>Testes unitários de <code>listActiveServices</code> e <code>createTripRequest</code> (sucesso <code>201</code>, erro de domínio <code>400/422</code> com campo <code>erro</code>, <code>SERVICE_UNAVAILABLE</code> e payload inválido).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/tests/requestTripPage.test.mjs</code></td>
+      <td>Criar</td>
+      <td>Testes de integração/renderização da página <code>RequestTripPage</code> e sincronização com <code>SolicitacaoPage</code> (carregamento de serviços, validação, envio <code>POST /requests</code>, exibição de <em>"Solicitação registrada"</em>, listagem como <code>Pendente</code> e erros da API).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/tests/routing.test.mjs</code> e <code>frontend/tests/sidebarNavigation.test.mjs</code></td>
+      <td>Modificar</td>
+      <td>Adicionar asserções para a rota <code>/solicitacoes/nova</code> restrita a <code>SOLICITANTE</code> e para os links do menu lateral de <code>SOLICITANTE</code>.</td>
+    </tr>
+    <tr>
+      <td><code>docs/modulos/VIAGENS.html</code></td>
+      <td>Modificar</td>
+      <td>Documentar a tela <code>RequestTripPage</code> (<code>/solicitacoes/nova</code>), o fluxo de integração com <code>GET /services</code> e <code>POST /requests</code> e o ponto de extensão para <code>FROTA-82</code>.</td>
+    </tr>
+  </tbody>
+</table>
+<h3>Arquivos de referência no projeto (padrão a seguir)</h3>
+<ul>
+  <li><strong>Camadas Backend e Frontend:</strong> <code>docs/manuais/arquitetura-camadas.md</code>, <code>docs/manuais/padroes-backend.md</code> e <code>docs/manuais/padroes-frontend.md</code>.</li>
+  <li><strong>Padrões de Projeto (Design Patterns):</strong> <code>docs/manuais/padroes-projeto.md</code> (Repository, State/FSM, Strategy, Chain of Responsibility, Compound Components).</li>
+  <li><strong>Componentes UI Acessíveis:</strong> <code>frontend/src/components/ui/</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p><strong>Não se aplica a esta tarefa.</strong> As tabelas <code>trip.requests</code>, <code>trip.request_events</code> e <code>fleet.services</code> já foram criadas e validadas nas migrações anteriores (<code>202610280003_create_services.sql</code> e <code>202610280004_create_trip_requests.sql</code>). Nenhuma migração SQL será criada ou modificada.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<p><strong>Nenhuma alteração no código do backend.</strong> O front-end consumirá os endpoints REST já implementados e testados na branch <code>develop</code>:</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Método</th>
+      <th scope="col">Endpoint</th>
+      <th scope="col">Perfis Autorizados</th>
+      <th scope="col">Payload de Requisição</th>
+      <th scope="col">Respostas Esperadas</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/services</code></td>
+      <td><span class="badge-rbac">SOLICITANTE</span>, <span class="badge-rbac">GESTOR</span>, <span class="badge-rbac">ADMINISTRADOR</span>, <span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td>Query opcional (para <code>SOLICITANTE</code>, o backend já retorna exclusivamente serviços com <code>active = true</code>).</td>
+      <td>
+        <code>200 OK</code>: <code>Array&lt;{ id: string, name: string, description: string | null, active: boolean, ... }&gt;</code><br>
+        <code>401 Unauthorized</code> / <code>403 Forbidden</code>: <code>{ erro: string }</code>
+      </td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">POST</span></td>
+      <td><code>/requests</code></td>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td>
+        <pre><code>{
+  "requestedDate": "2026-12-15",
+  "requestedTime": "14:30",
+  "origin": "FSPH — Unidade Central",
+  "destination": "Hospital de Urgência de Sergipe (HUSE)",
+  "purpose": "Transporte de insumos laboratoriais",
+  "serviceId": "1"
+}</code></pre>
+      </td>
+      <td>
+        <code>201 Created</code>: <code>{ id: string, status: "PENDING" }</code><br>
+        <code>400 Bad Request</code>: <code>{ erro: string }</code> (campo ausente/inválido ou serviço inativo)<br>
+        <code>401 Unauthorized</code> / <code>403 Forbidden</code>: <code>{ erro: string }</code><br>
+        <code>422 Unprocessable Entity</code>: <code>{ erro: "A data e o horário da viagem não podem estar no passado." }</code>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+
+<h3>Componentes Reutilizados (DRY)</h3>
+<ul>
+  <li><code>PageHeader</code> (<code>frontend/src/components/ui/PageHeader.tsx</code>): cabeçalho semântico com <code>h1</code> <em>"Nova solicitação de viagem"</em>, breadcrumbs <code>['Início', 'Minhas solicitações', 'Nova solicitação']</code>, descrição orientadora e ação secundária <em>"Voltar para minhas solicitações"</em>.</li>
+  <li><code>FormField</code> e <code>FormSelect</code> (<code>frontend/src/components/ui/FormField.tsx</code>): controles de formulário com <code>useId()</code>, associação programática de <code>label</code>, <code>aria-invalid</code> e <code>aria-describedby</code> apontando para mensagens de erro com <code>role="alert"</code>.</li>
+  <li><code>StateFeedback</code> (<code>frontend/src/components/ui/StateFeedback.tsx</code>): tratamento padronizado dos estados de carregamento inicial de tipos de serviço, lista vazia de tipos de serviço e erro de comunicação com botão <em>"Tentar novamente"</em>.</li>
+</ul>
+
+<h3>Tratamento dos 5 Estados Visuais</h3>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Estado Visual</th>
+      <th scope="col">Comportamento na Tela (<code>RequestTripPage.tsx</code> e <code>SolicitacaoPage.tsx</code>)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Ideal</strong></td>
+      <td>Formulário renderizado com tipos de serviço ativos carregados no <code>FormSelect</code> e campos <code>Data da viagem</code>, <code>Horário de saída</code>, <code>Tipo de serviço</code>, <code>Origem</code>, <code>Destino</code> e <code>Finalidade</code>. Após envio válido, redireciona para <code>/solicitacoes/minhas</code> exibindo alerta de sucesso <code>"Solicitação registrada"</code> (<code>role="status"</code>) e a solicitação no topo da tabela com status <code>Pendente</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Carregando (Loading)</strong></td>
+      <td>
+        <ul>
+          <li><strong>Ao abrir a tela:</strong> <code>StateFeedback kind="loading" title="Carregando tipos de serviço..."</code> com <code>role="status"</code> e <code>aria-busy="true"</code> enquanto <code>GET /services</code> está em curso.</li>
+          <li><strong>Durante o envio (<code>POST /requests</code>):</strong> Botão de submissão e controles desabilitados com <code>CircularProgress size={18}</code> e rótulo <em>"Enviando solicitação..."</em> para impedir cliques duplicados (idempotência de UI).</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>3. Vazio (Empty State)</strong></td>
+      <td>Quando <code>GET /services</code> retorna zero serviços ativos, exibe <code>StateFeedback kind="empty" title="Nenhum tipo de serviço disponível" description="Não há tipos de serviço ativos para registrar uma solicitação no momento." actionLabel="Atualizar"</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>4. Erro</strong></td>
+      <td>
+        <ul>
+          <li><strong>Falha ao carregar <code>GET /services</code>:</strong> <code>StateFeedback kind="error"</code> exibindo a mensagem da API ou <em>"Serviço temporariamente indisponível"</em> com botão <em>"Tentar novamente"</em>.</li>
+          <li><strong>Falha ao enviar <code>POST /requests</code>:</strong> <code>Alert severity="error" role="alert"</code> no topo do formulário exibindo a mensagem do campo <code>erro</code> da API (ou <em>"Serviço temporariamente indisponível"</em> quando offline), preservando 100% dos campos preenchidos pelo usuário.</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>5. Parcial</strong></td>
+      <td>Em <code>SolicitacaoPage.tsx</code>, exibe as solicitações recém-criadas na API real (<code>POST /requests</code>) mescladas à listagem local enquanto o endpoint de consulta <code>GET /requests</code> (<code>FROTA-82</code>) não está publicado na <code>develop</code>, sinalizando em código com <code>TODO(FROTA-82/FROTA-84)</code> o ponto exato de substituição.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<ul class="check">
+  <li><input type="checkbox" checked> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Todos os 6 campos (<code>requestedDate</code>, <code>requestedTime</code>, <code>serviceId</code>, <code>origin</code>, <code>destination</code>, <code>purpose</code>) usam <code>FormField</code> / <code>FormSelect</code> com <code>useId()</code> conectando <code>&lt;label htmlFor&gt;</code> ao <code>&lt;input id&gt;</code>, <code>aria-invalid</code> e mensagem de erro com <code>role="alert"</code>.</li>
+  <li><input type="checkbox" checked> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Operável integralmente via <code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code> e <code>Espaço</code>, com redirecionamento automático de foco (<code>inputRef</code>) para o primeiro campo com erro ao validar.</li>
+  <li><input type="checkbox" checked> <strong>Tamanho do Alvo (2.5.8):</strong> Botões <em>"Solicitar viagem"</em>, <em>"Cancelar"</em> e <em>"Nova Solicitação"</em> possuem altura mínima de <strong>44px</strong> (definida no tema e reforçada em <code>sx={{ minHeight: 44 }}</code>).</li>
+  <li><input type="checkbox" checked> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste de texto &gt;= 4.5:1 e status <code>Pendente</code> acompanhado de rótulo textual explícito além da cor.</li>
+  <li><input type="checkbox" checked> <strong>Mensagens de Status (4.1.3) e Entrada Não Redundante (3.3.7):</strong> Confirmação <em>"Solicitação registrada"</em> anunciada via <code>role="status"</code> / <code>aria-live="polite"</code>; em caso de erro da API, nenhum campo preenchido pelo usuário é perdido.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Perfil RBAC</th>
+      <th scope="col">Acesso a <code>/solicitacoes/nova</code> e <code>/solicitacoes/minhas</code></th>
+      <th scope="col">Comportamento do Roteador (<code>resolveRoute</code>)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td>Permitido</td>
+      <td>Renderiza <code>RequestTripPage</code> em <code>/solicitacoes/nova</code> e <code>SolicitacaoPage</code> em <code>/solicitacoes/minhas</code> (redirecionando <code>/minhas-solicitacoes</code> e <code>/inicio</code> para <code>/solicitacoes/minhas</code>).</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">ADMINISTRADOR</span>, <span class="badge-rbac">GESTOR</span>, <span class="badge-rbac">MOTORISTA</span>, <span class="badge-rbac">ATENDENTE_SVO</span>, <span class="badge-rbac">EQUIPE_SVO</span></td>
+      <td>Bloqueado</td>
+      <td>Redireciona automaticamente para a home do respectivo perfil (<code>PROFILE_HOMES[profile].path</code>).</td>
+    </tr>
+    <tr>
+      <td>Não autenticado / Token expirado</td>
+      <td>Bloqueado</td>
+      <td>Redireciona para <code>/login</code>.</td>
+    </tr>
+  </tbody>
+</table>
+<p>Nenhuma variável de ambiente nova ou feature flag é necessária.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<h3>1. Testes Automatizados (Node Test Runner — <code>frontend/tests/</code>)</h3>
+<ul>
+  <li><strong><code>frontend/tests/requestForm.test.mjs</code>:</strong>
+    <ul>
+      <li>Valida obrigatoriedade de <code>requestedDate</code>, <code>requestedTime</code>, <code>serviceId</code>, <code>origin</code>, <code>destination</code> e <code>purpose</code>;</li>
+      <li>Rejeita datas malformadas ou passadas em relação ao fuso operacional (<code>America/Maceio</code>) e horários fora do padrão <code>HH:mm</code>;</li>
+      <li>Normaliza espaços extras (<code>trim()</code>) ao construir o payload <code>CreateTripRequestInput</code>.</li>
+    </ul>
+  </li>
+  <li><strong><code>frontend/tests/requestsService.test.mjs</code>:</strong>
+    <ul>
+      <li><code>listActiveServices</code>: retorna lista filtrada de serviços ativos quando <code>GET /services</code> responde <code>200</code>; lança erro da API ou <code>SERVICE_UNAVAILABLE</code> em falhas;</li>
+      <li><code>createTripRequest</code>: envia <code>POST /requests</code> com JSON correto e retorna <code>{ id, status: 'PENDING' }</code> em <code>201</code>; propaga a mensagem do campo <code>erro</code> em <code>400</code>/<code>422</code>; propaga <em>"Serviço temporariamente indisponível"</em> quando o cliente falha por rede.</li>
+    </ul>
+  </li>
+  <li><strong><code>frontend/tests/requestTripPage.test.mjs</code>:</strong>
+    <ul>
+      <li>Renderiza o formulário após carregar <code>GET /services</code>, preenche campos com dados fictícios, submete <code>POST /requests</code>, verifica que o botão fica desabilitado durante o envio, confirma a mensagem <em>"Solicitação registrada"</em> e verifica que a nova solicitação aparece como <code>Pendente</code> em <code>SolicitacaoPage</code>;</li>
+      <li>Verifica que erros <code>400</code>/<code>422</code> da API (<code>{ erro: "A data e o horário da viagem não podem estar no passado." }</code>) e falha de rede (<em>"Serviço temporariamente indisponível"</em>) são exibidos em <code>role="alert"</code> e nunca tratados como sucesso.</li>
+    </ul>
+  </li>
+  <li><strong><code>frontend/tests/routing.test.mjs</code> e <code>frontend/tests/sidebarNavigation.test.mjs</code>:</strong>
+    <ul>
+      <li>Garante que apenas <code>SOLICITANTE</code> acessa <code>/solicitacoes/nova</code> e que o menu lateral de <code>SOLICITANTE</code> expõe links funcionais para <code>/solicitacoes/minhas</code> e <code>/solicitacoes/nova</code>.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>2. Roteiro de Verificação Manual (Dados 100% Fictícios — LGPD)</h3>
+<ol>
+  <li>Autenticar na aplicação com usuário fictício de perfil <code>SOLICITANTE</code>;</li>
+  <li>Acionar <em>"Nova Solicitação"</em> no menu lateral ou no topo de <em>"Minhas Solicitações"</em> para abrir <code>#/solicitacoes/nova</code>;</li>
+  <li>Tentar enviar o formulário em branco e verificar os alertas acessíveis em cada campo obrigatório;</li>
+  <li>Preencher com dados fictícios (Data futura, Horário <code>14:30</code>, Tipo de serviço ativo carregado da API, Origem <code>FSPH — Unidade Central</code>, Destino <code>Hemose — Bloco A</code>, Finalidade <code>Transporte de amostras laboratoriais</code>) e clicar em <em>"Solicitar viagem"</em>;</li>
+  <li>Confirmar o redirecionamento para <code>#/solicitacoes/minhas</code>, a exibição do alerta <em>"Solicitação registrada"</em> e a presença da solicitação recém-criada na tabela com status <code>Pendente</code>.</li>
+</ol>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-78)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivo de referência:</strong> <code>docs/modulos/VIAGENS.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<p>Atualizar <code>docs/modulos/VIAGENS.html</code> adicionando a documentação da tela <code>RequestTripPage</code> (<code>/solicitacoes/nova</code>), o fluxo de integração do Solicitante com <code>GET /services</code> e <code>POST /requests</code>, e a nota técnica sobre a transição da listagem local para <code>GET /requests</code> quando <code>FROTA-82</code> / <code>FROTA-84</code> forem implementadas.</p>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do módulo. Atualize as seções correspondentes antes de abrir o Pull Request.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>
