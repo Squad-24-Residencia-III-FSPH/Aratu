@@ -91,26 +91,22 @@ export default function ServicesPage() {
   const { api, session } = useAuth()
   const profile = session ? resolveProfile(session.perfil) : null
   const allowed = canManageServiceTypes(profile)
+  const forbidden = !allowed
+
   const [rows, setRows] = useState<ServiceRow[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [forbidden, setForbidden] = useState(false)
   const [refreshCount, setRefreshCount] = useState(0)
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'partial'; message: string } | null>(null)
   const [formTarget, setFormTarget] = useState<ServiceRow | 'new' | null>(null)
   const [statusTarget, setStatusTarget] = useState<FleetService | null>(null)
 
   useEffect(() => {
-    if (!allowed) {
-      setLoading(false)
-      setForbidden(true)
-      return
-    }
+    if (!allowed) return
+
     let current = true
-    setLoading(true)
-    setLoadError(null)
     Promise.all([listFleetServices(api), listVehicles(api)])
       .then(async ([services, loadedVehicles]) => {
         const linked = await Promise.all(services.map((service) => listCompatibleVehicles(api, service.id)))
@@ -123,7 +119,6 @@ export default function ServicesPage() {
         if (!current) return
         setLoading(false)
         if (error instanceof FleetServiceRequestError && error.kind === 'forbidden') {
-          setForbidden(true)
           return
         }
         setLoadError(errorMessage(error, 'Não foi possível carregar os tipos de serviço.'))
@@ -139,8 +134,8 @@ export default function ServicesPage() {
   }, [query, rows])
 
   function reload() {
+    setLoading(true)
     setLoadError(null)
-    setForbidden(false)
     setRefreshCount((count) => count + 1)
   }
 

@@ -122,13 +122,9 @@ export default function ScheduleTripPage() {
   const [successMessage, setSuccessMessage] = useState('')
 
   useEffect(() => {
-    if (!allowed) {
-      setRequestsLoading(false)
-      return
-    }
+    if (!allowed) return
+
     let current = true
-    setRequestsLoading(true)
-    setRequestsError('')
     void listApprovedRequests(api)
       .then((loaded) => {
         if (!current) return
@@ -153,20 +149,9 @@ export default function ScheduleTripPage() {
   const invalidWallTime = Boolean((period.start && !scheduledStart) || (period.end && !scheduledEnd))
 
   useEffect(() => {
-    if (!selectedRequest || !validPeriod || !scheduledStart || !scheduledEnd) {
-      setAvailabilityState('idle')
-      setVehicleAvailability(null)
-      setDriverAvailability(null)
-      setAvailabilityError('')
-      return
-    }
+    if (!selectedRequest || !validPeriod || !scheduledStart || !scheduledEnd) return
+
     let current = true
-    setAvailabilityState('loading')
-    setAvailabilityError('')
-    setVehicleAvailability(null)
-    setDriverAvailability(null)
-    setVehicleId('')
-    setDriverId('')
     void Promise.allSettled([
       listAvailableVehicles(api, scheduledStart, scheduledEnd, selectedRequest.serviceId),
       listAvailableDrivers(api, scheduledStart, scheduledEnd),
@@ -207,10 +192,22 @@ export default function ScheduleTripPage() {
     setDriverId('')
     setScheduleError('')
     setSuccessMessage('')
+    setAvailabilityState('idle')
+    setVehicleAvailability(null)
+    setDriverAvailability(null)
+    setAvailabilityError('')
   }
 
   function changePeriod(field: keyof PeriodValue, value: string) {
-    setPeriod((current) => ({ ...current, [field]: value }))
+    const updated = { ...period, [field]: value }
+    const newStart = toOperationalIso(updated.start)
+    const newEnd = toOperationalIso(updated.end)
+    const isValid = Boolean(newStart && newEnd && Date.parse(newEnd) > Date.parse(newStart))
+    setPeriod(updated)
+    setAvailabilityState(isValid && selectedRequest ? 'loading' : 'idle')
+    setVehicleAvailability(null)
+    setDriverAvailability(null)
+    setAvailabilityError('')
     setVehicleId('')
     setDriverId('')
     setScheduleError('')
@@ -234,6 +231,11 @@ export default function ScheduleTripPage() {
       setPeriod({ start: '', end: '' })
       setVehicleId('')
       setDriverId('')
+      setRequestsLoading(true)
+      setRequestsError('')
+      setAvailabilityState('idle')
+      setVehicleAvailability(null)
+      setDriverAvailability(null)
       setRequestRefresh((current) => current + 1)
     } catch (error) {
       setScheduleError(formatError(error))
@@ -263,7 +265,11 @@ export default function ScheduleTripPage() {
       {requestsError ? (
         <StateFeedback kind="error" title="Não foi possível carregar as solicitações aprovadas"
           description={requestsError} actionLabel="Tentar novamente"
-          onAction={() => setRequestRefresh((current) => current + 1)} />
+          onAction={() => {
+            setRequestsLoading(true)
+            setRequestsError('')
+            setRequestRefresh((current) => current + 1)
+          }} />
       ) : requestsLoading ? (
         <StateFeedback kind="loading" title="Carregando solicitações aprovadas..." />
       ) : requests?.length === 0 ? (
@@ -349,12 +355,24 @@ export default function ScheduleTripPage() {
                 {availabilityState === 'error' && (
                   <StateFeedback kind="error" title="Não foi possível consultar a disponibilidade"
                     description={availabilityError} actionLabel="Consultar novamente"
-                    onAction={() => setAvailabilityRefresh((current) => current + 1)} sx={{ mt: 2 }} />
+                    onAction={() => {
+                      setAvailabilityState('loading')
+                      setAvailabilityError('')
+                      setVehicleAvailability(null)
+                      setDriverAvailability(null)
+                      setAvailabilityRefresh((current) => current + 1)
+                    }} sx={{ mt: 2 }} />
                 )}
                 {availabilityState === 'partial' && (
                   <StateFeedback kind="partial" title="Consulta de disponibilidade incompleta"
                     description={availabilityError} actionLabel="Tentar novamente"
-                    onAction={() => setAvailabilityRefresh((current) => current + 1)} sx={{ mt: 2 }} />
+                    onAction={() => {
+                      setAvailabilityState('loading')
+                      setAvailabilityError('')
+                      setVehicleAvailability(null)
+                      setDriverAvailability(null)
+                      setAvailabilityRefresh((current) => current + 1)
+                    }} sx={{ mt: 2 }} />
                 )}
 
                 {validPeriod && availabilityState === 'ready' && (
