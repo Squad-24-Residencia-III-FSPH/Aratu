@@ -7,6 +7,8 @@ import { canManageMaintenance, MAINTENANCE_PATH } from '../maintenance/maintenan
 import { canReadDrivers, DRIVERS_PATH } from '../drivers/driverAccess.ts'
 import { canAccessFuelings, FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
 import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
+import { canManageServiceTypes, SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
+import { canScheduleTrips, TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
 
 type RouteDecision =
   | { kind: 'login' }
@@ -18,6 +20,8 @@ type RouteDecision =
   | { kind: 'drivers'; profile: Profile }
   | { kind: 'fuelings'; profile: Profile }
   | { kind: 'trip-confirmation'; profile: 'GESTOR' }
+  | { kind: 'service-types'; profile: Profile }
+  | { kind: 'trip-scheduling'; profile: Profile }
 
 export function resolveRoute(session: AuthSession | null, path: string, now = Date.now()): RouteDecision {
   const profile = session && resolveProfile(session.perfil)
@@ -50,6 +54,16 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
   if (path === FUELINGS_PATH) {
     return canAccessFuelings(profile)
       ? { kind: 'fuelings', profile }
+      : { kind: 'redirect', to: home }
+  }
+  if (path === SERVICE_TYPES_PATH) {
+    return canManageServiceTypes(profile)
+      ? { kind: 'service-types', profile }
+      : { kind: 'redirect', to: home }
+  }
+  if (path === TRIP_SCHEDULING_PATH) {
+    return canScheduleTrips(profile)
+      ? { kind: 'trip-scheduling', profile }
       : { kind: 'redirect', to: home }
   }
   return path === home ? { kind: 'home', profile } : { kind: 'redirect', to: home }

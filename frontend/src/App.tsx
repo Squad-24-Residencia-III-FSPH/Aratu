@@ -16,6 +16,8 @@ import DriversPage from './pages/DriversPage';
 import FuelingsPage from './pages/FuelingsPage';
 import MyTripsPage from './pages/MyTripsPage';
 import TripConfirmationPage from './pages/TripConfirmationPage';
+import ServicesPage from './pages/gestor/servicePage/ServicesPage';
+import ScheduleTripPage from './pages/gestor/schedulingPage/ScheduleTripPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -69,9 +71,9 @@ function PrivateRoute() {
       </Layout>
     );
   }
-  if (decision.kind === 'trip-confirmation') {
-    return <Layout><TripConfirmationPage /></Layout>;
-  }
+  if (decision.kind === 'trip-confirmation') return <Layout><TripConfirmationPage /></Layout>;
+  if (decision.kind === 'service-types') return <Layout><ServicesPage /></Layout>
+  if (decision.kind === 'trip-scheduling') return <Layout><ScheduleTripPage /></Layout>
   return (
     <Layout>
       <ProfileHome profile={decision.profile} />
@@ -89,7 +91,6 @@ export default function App() {
     >
       <Routes>
         <Route path="/login" element={<LoginRoute />} />
-        {/* Rota específica para garantir o acesso direto à tela de solicitações */}
         <Route
           path="/minhas-solicitacoes"
           element={
