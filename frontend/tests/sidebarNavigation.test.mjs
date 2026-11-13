@@ -17,6 +17,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     'Início',
     'Usuários',
     'Perfis e Permissões',
+    'Tipos de serviço',
     'Veículos',
     'Manutenção',
     'Abastecimentos',
@@ -32,6 +33,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     [
       { label: 'Usuários', path: '/administracao/usuarios' },
       { label: 'Perfis e Permissões', path: '/administracao/perfis' },
+      { label: 'Tipos de serviço', path: '/tipos-de-servico' },
       { label: 'Veículos', path: '/veiculos' },
       { label: 'Manutenção', path: '/maintenance-orders' },
       { label: 'Abastecimentos', path: '/abastecimentos' },
@@ -42,8 +44,9 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
   assert.equal(navigation.topItems[4].behavior, 'link')
   assert.equal(navigation.topItems[5].behavior, 'link')
   assert.equal(navigation.topItems[6].behavior, 'link')
-  assert.equal(navigation.topItems[7].behavior, 'static')
+  assert.equal(navigation.topItems[7].behavior, 'link')
   assert.equal(navigation.topItems[8].behavior, 'static')
+  assert.equal(navigation.topItems[9].behavior, 'static')
   assert.equal(navigation.footerItems[0].behavior, 'static')
   assert.equal(navigation.showDividerAfterTop, false)
 })
@@ -59,6 +62,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'Veículos',
     'Motoristas',
     'Tipos de serviço',
+    'Agendar viagem',
     'Manutenção',
     'Abastecimentos',
     'Documentos',
@@ -83,13 +87,15 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   )
   const drivers = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Motoristas')
   assert.deepEqual({ behavior: drivers.behavior, path: drivers.path }, { behavior: 'link', path: '/motoristas' })
+  const scheduling = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Agendar viagem')
+  assert.deepEqual({ behavior: scheduling.behavior, path: scheduling.path }, { behavior: 'link', path: '/agendar-viagem' })
   const maintenance = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Manutenção')
   assert.deepEqual({ behavior: maintenance.behavior, path: maintenance.path }, { behavior: 'link', path: '/maintenance-orders' })
   const fuelings = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Abastecimentos')
   assert.deepEqual({ behavior: fuelings.behavior, path: fuelings.path }, { behavior: 'link', path: '/abastecimentos' })
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]
-      .filter((item) => !['Veículos', 'Motoristas', 'Manutenção', 'Abastecimentos'].includes(item.label))
+      .filter((item) => !['Veículos', 'Motoristas', 'Tipos de serviço', 'Agendar viagem', 'Manutenção', 'Abastecimentos'].includes(item.label))
       .every((item) => item.behavior === 'button'),
   )
   assert.equal(navigation.showDividerAfterTop, true)

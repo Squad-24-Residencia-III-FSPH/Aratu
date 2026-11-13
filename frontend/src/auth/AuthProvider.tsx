@@ -7,8 +7,22 @@ import type { LoginCredentials } from './types'
 import { createApiClient } from '../api/client'
 import { SESSION_EXPIRED, tokenExpiresAt } from './token'
 
+function initialSession() {
+  const storedSession = readSession()
+  if (storedSession || !import.meta.env.DEV || new URLSearchParams(window.location.search).get('preview') !== 'gestor') {
+    return storedSession
+  }
+
+  // Visual-only local preview: the backend still validates every API request.
+  const encode = (value: object) => btoa(JSON.stringify(value))
+    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+  const header = encode({ alg: 'HS256', typ: 'JWT' })
+  const payload = encode({ id: 'local-preview', role: 'GESTOR', exp: Math.floor(Date.now() / 1000) + 3600 })
+  return { token: `${header}.${payload}.preview`, nome: 'Prévia do Gestor', perfil: 'GESTOR' }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState(readSession)
+  const [session, setSession] = useState(initialSession)
   const sessionRef = useRef(session)
   const [notice, setNotice] = useState('')
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
