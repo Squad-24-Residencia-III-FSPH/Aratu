@@ -1,5 +1,8 @@
 import test, { after } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { fileURLToPath } from 'node:url'
@@ -7,15 +10,23 @@ import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { getOdometerError } from '../src/maintenance/maintenanceForm.ts'
 
+// O cache precisa ficar fora de `node_modules`, que pode ser somente leitura
+// quando as dependências foram instaladas por outro usuário (ex: container).
+const viteCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aratu-vite-test-'))
+
 const vite = await createServer({
   configFile: false,
   root: fileURLToPath(new URL('..', import.meta.url)),
+  cacheDir: viteCacheDir,
   plugins: [react()],
   server: { middlewareMode: true },
   appType: 'custom',
 })
 const { FormField } = await vite.ssrLoadModule('/src/components/ui/FormField.tsx')
-after(async () => { await vite.close() })
+after(async () => {
+  await vite.close()
+  fs.rmSync(viteCacheDir, { recursive: true, force: true })
+})
 
 function renderOdometer(value) {
   return renderToStaticMarkup(createElement(FormField, {
