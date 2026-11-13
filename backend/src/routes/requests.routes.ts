@@ -7,8 +7,16 @@ import type { RequestsService } from '../services/requests.service'
 import type { JwtConfig } from '../types/auth'
 
 const REQUEST_CREATION_ROLES = ['SOLICITANTE'] as const
+const REQUEST_READ_ROLES = ['SOLICITANTE', 'GESTOR', 'ADMINISTRADOR'] as const
 
-/** Monta a rota protegida e revalida o perfil atual antes de criar solicitações de viagem. */
+/**
+ * Monta as rotas protegidas de solicitações de viagem.
+ *
+ * A criação é exclusiva do Solicitante; a consulta é liberada ao próprio
+ * Solicitante, ao Gestor e ao Administrador. Todas revalidam a conta no
+ * cadastro atual antes de autorizar, impedindo que um token anterior à
+ * desativação ou à troca de perfil conserve acesso.
+ */
 export function createRequestsRouter(
   service: RequestsService,
   jwtConfig: JwtConfig,
@@ -16,12 +24,12 @@ export function createRequestsRouter(
 ): Router {
   const router = Router()
   const controller = createRequestsController(service)
-  router.post(
-    '/',
-    createAuthMiddleware(jwtConfig.secret),
-    createCurrentUserMiddleware(users),
-    authorizeRoles(REQUEST_CREATION_ROLES),
-    controller.create,
-  )
+  const authenticate = createAuthMiddleware(jwtConfig.secret)
+  const currentUser = createCurrentUserMiddleware(users)
+
+  router.get('/', authenticate, currentUser, authorizeRoles(REQUEST_READ_ROLES), controller.list)
+  router.get('/:id', authenticate, currentUser, authorizeRoles(REQUEST_READ_ROLES), controller.getById)
+  router.post('/', authenticate, currentUser, authorizeRoles(REQUEST_CREATION_ROLES), controller.create)
+
   return router
 }
