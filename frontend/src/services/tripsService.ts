@@ -1,7 +1,6 @@
 import type { ApiRequest } from '../api/client.ts'
 import { SESSION_EXPIRED } from '../auth/token.ts'
 import { DRIVER_TRIP_STATUSES, TripRequestError } from '../trips/tripTypes.ts'
-import type { DriverTrip, DriverTripStatus, Trip, TripRequestErrorKind } from '../trips/tripTypes.ts'
 import type { TripConfirmationFilters, TripConfirmationItem, TripConfirmationResult } from '../trips/tripConfirmationTypes.ts'
 import type { DriverTrip, DriverTripStatus, ScheduleTripInput, Trip, TripRequestErrorKind } from '../trips/tripTypes.ts'
 
