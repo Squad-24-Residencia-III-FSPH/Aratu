@@ -1,6 +1,7 @@
 import type { ApiRequest } from '../api/client.ts'
 import { SESSION_EXPIRED } from '../auth/token.ts'
 import { DRIVER_TRIP_STATUSES, TripRequestError } from '../trips/tripTypes.ts'
+import type { TripConfirmationFilters, TripConfirmationItem, TripConfirmationResult } from '../trips/tripConfirmationTypes.ts'
 import type { DriverTrip, DriverTripStatus, ScheduleTripInput, Trip, TripRequestErrorKind } from '../trips/tripTypes.ts'
 
 const NETWORK_MESSAGE = 'Não foi possível se comunicar com o servidor. Verifique a conexão.'
@@ -118,6 +119,82 @@ function parseTrip(value: unknown): Trip {
     finishedAt: value.finishedAt,
     revision: value.revision,
     createdAt: value.createdAt,
+  }
+}
+
+function parseTripConfirmationItem(value: unknown): TripConfirmationItem {
+  if (!isRecord(value)
+    || !isString(value.id)
+    || !isString(value.requestId)
+    || value.status !== 'FINISHED'
+    || !isIsoDate(value.scheduledStart)
+    || !isIsoDate(value.scheduledEnd)
+    || !isNullable(value.startedAt, isIsoDate)
+    || !isNullable(value.finishedAt, isIsoDate)
+    || !isNullable(value.startKm, isKm)
+    || !isNullable(value.endKm, isKm)
+    || !isString(value.vehicleLicensePlate)
+    || !isString(value.driverName)
+    || !isString(value.origin)
+    || !isString(value.destination)
+    || !isNullable(value.confirmedBy, isString)
+    || !isNullable(value.confirmedAt, isIsoDate)) {
+    throw new TripRequestError('invalidResponse', INVALID_RESPONSE_MESSAGE)
+  }
+  return {
+    id: value.id,
+    requestId: value.requestId,
+    status: 'FINISHED',
+    scheduledStart: value.scheduledStart,
+    scheduledEnd: value.scheduledEnd,
+    startedAt: value.startedAt,
+    finishedAt: value.finishedAt,
+    startKm: value.startKm,
+    endKm: value.endKm,
+    vehicleLicensePlate: value.vehicleLicensePlate,
+    driverName: value.driverName,
+    origin: value.origin,
+    destination: value.destination,
+    confirmedBy: value.confirmedBy,
+    confirmedAt: value.confirmedAt,
+  }
+}
+
+/** Consulta viagens finalizadas com o filtro de período aceito pelo GET gerencial FROTA-106. */
+export async function listTripConfirmations(
+  api: ApiRequest,
+  filters: TripConfirmationFilters = {},
+): Promise<TripConfirmationItem[]> {
+  const query = new URLSearchParams({ status: 'FINISHED' })
+  if (filters.from) query.set('from', filters.from)
+  if (filters.to) query.set('to', filters.to)
+  const response = await send(api, `/trips?${query.toString()}`)
+  if (!response.ok) throw await failureFrom(response)
+  const body: unknown = await response.json().catch(() => null)
+  if (!Array.isArray(body)) throw new TripRequestError('invalidResponse', INVALID_RESPONSE_MESSAGE)
+  return body.map(parseTripConfirmationItem)
+}
+
+/** Confirma uma viagem e valida a resposta de transição antes de informar sucesso à tela. */
+export async function confirmTrip(api: ApiRequest, tripId: string): Promise<TripConfirmationResult> {
+  const response = await send(api, `/trips/${encodeURIComponent(tripId)}/confirm`, { method: 'POST' })
+  if (!response.ok) throw await failureFrom(response)
+  const body: unknown = await response.json().catch(() => null)
+  if (!isRecord(body)
+    || body.id !== tripId
+    || body.status !== 'CONFIRMED'
+    || !isString(body.confirmedBy)
+    || !isIsoDate(body.confirmedAt)
+    || typeof body.revision !== 'number'
+    || !Number.isSafeInteger(body.revision)) {
+    throw new TripRequestError('invalidResponse', INVALID_RESPONSE_MESSAGE)
+  }
+  return {
+    id: tripId,
+    status: 'CONFIRMED',
+    confirmedBy: body.confirmedBy,
+    confirmedAt: body.confirmedAt,
+    revision: body.revision,
   }
 }
 

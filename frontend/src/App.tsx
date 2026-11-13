@@ -15,6 +15,7 @@ import UserManagementPage from './pages/UserManagementPage';
 import DriversPage from './pages/DriversPage';
 import FuelingsPage from './pages/FuelingsPage';
 import MyTripsPage from './pages/MyTripsPage';
+import TripConfirmationPage from './pages/TripConfirmationPage';
 import ServicesPage from './pages/gestor/servicePage/ServicesPage';
 import ScheduleTripPage from './pages/gestor/schedulingPage/ScheduleTripPage';
 
@@ -70,6 +71,7 @@ function PrivateRoute() {
       </Layout>
     );
   }
+  if (decision.kind === 'trip-confirmation') return <Layout><TripConfirmationPage /></Layout>;
   if (decision.kind === 'service-types') return <Layout><ServicesPage /></Layout>
   if (decision.kind === 'trip-scheduling') return <Layout><ScheduleTripPage /></Layout>
   return (

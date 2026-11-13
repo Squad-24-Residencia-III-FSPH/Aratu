@@ -95,6 +95,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   assert.deepEqual({ behavior: fuelings.behavior, path: fuelings.path }, { behavior: 'link', path: '/abastecimentos' })
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]
+      .filter((item) => !['Confirmar viagens', 'Veículos', 'Motoristas', 'Manutenção', 'Abastecimentos'].includes(item.label))
       .filter((item) => !['Veículos', 'Motoristas', 'Tipos de serviço', 'Agendar viagem', 'Manutenção', 'Abastecimentos'].includes(item.label))
       .every((item) => item.behavior === 'button'),
   )
@@ -131,5 +132,16 @@ test('somente MOTORISTA recebe o atalho Minhas viagens apontando para a própria
   )
   for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
     assert.equal(getLabels(getSidebarNavigation(profile)).includes('Minhas viagens'), false)
+  }
+})
+
+test('Confirmar viagens aponta para a página e fica restrito ao GESTOR', () => {
+  const gestorNav = getSidebarNavigation('GESTOR')
+  const confirmation = gestorNav.sections.flatMap((section) => section.items).find((item) => item.label === 'Confirmar viagens')
+  assert.deepEqual({ behavior: confirmation?.behavior, path: confirmation?.path }, {
+    behavior: 'link', path: '/viagens/confirmacao',
+  })
+  for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Confirmar viagens'), false)
   }
 })
