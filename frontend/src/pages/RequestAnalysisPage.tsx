@@ -37,6 +37,12 @@ export default function RequestAnalysisPage() {
   const queryKey = JSON.stringify({ filters, page, pageSize, reload })
 
   useEffect(() => {
+    const previousTitle = document.title
+    document.title = 'Análise de solicitações — Aratu'
+    return () => { document.title = previousTitle }
+  }, [])
+
+  useEffect(() => {
     let current = true
     void listRequests(api, { ...filters, status: 'PENDING', page: page + 1, pageSize })
       .then(data => { if (current) setListResult({ key: queryKey, data }) })
@@ -130,7 +136,9 @@ export default function RequestAnalysisPage() {
           Agendar viagem
         </Button>
       ) : undefined}>{notice}</Alert>}
-      {error && <StateFeedback kind="error" title="Não foi possível carregar as solicitações pendentes." description={error}
+      {error && <StateFeedback kind={notice ? 'partial' : 'error'}
+        title={notice ? 'A decisão foi registrada, mas a lista pode estar desatualizada.' : 'Não foi possível carregar as solicitações pendentes.'}
+        description={error}
         actionLabel="Tentar novamente" onAction={() => setReload(value => value + 1)} />}
 
       {!error && (

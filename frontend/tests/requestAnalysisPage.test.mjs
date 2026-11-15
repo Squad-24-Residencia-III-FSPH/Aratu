@@ -61,6 +61,7 @@ test('seleciona, lê os detalhes e rejeita com justificativa; a solicitação sa
   const user = userEvent.setup()
   render(createElement(AuthContext.Provider, { value: auth }, createElement(RequestAnalysisPage)))
 
+  assert.equal(document.title, 'Análise de solicitações — Aratu')
   assert.ok(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
   await user.click(screen.getByRole('button', { name: 'Ver detalhes da solicitação 41' }))
   assert.ok(await screen.findByText('Atividade institucional fictícia'))
@@ -102,4 +103,32 @@ test('aprovação oferece atalho para agendar a solicitação aprovada', async (
   const scheduleLink = screen.getByText('Agendar viagem').closest('a')
   assert.equal(scheduleLink?.getAttribute('href'), '#/agendar-viagem?requestId=41')
   await waitFor(() => assert.equal(listCalls, 2))
+})
+
+test('mostra estado parcial quando a decisão foi salva e a atualização da lista falha', async () => {
+  let listCalls = 0
+  const api = async (path) => {
+    if (path.startsWith('/requests?')) {
+      listCalls += 1
+      if (listCalls === 2) return Response.json({ erro: 'Falha ao atualizar a lista.' }, { status: 503 })
+      return Response.json({ requests: listCalls === 1 ? [request] : [], total: listCalls === 1 ? 1 : 0, page: 1, pageSize: 20, totalPages: listCalls === 1 ? 1 : 0 })
+    }
+    if (path === '/requests/41') return Response.json(request)
+    if (path === '/requests/41/approve') return Response.json({ id: '41', status: 'APPROVED' })
+    throw new Error(`Rota de teste inesperada: ${path}`)
+  }
+  const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
+  const user = userEvent.setup()
+  render(createElement(AuthContext.Provider, { value: auth }, createElement(RequestAnalysisPage)))
+  await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
+  await user.click(await screen.findByRole('button', { name: 'Aprovar solicitação' }))
+  const dialog = await screen.findByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: 'Aprovar solicitação' }))
+
+  assert.ok(await screen.findByText('A decisão foi registrada, mas a lista pode estar desatualizada.'))
+  assert.ok(screen.getByText('Falha ao atualizar a lista.'))
+  assert.ok(screen.getByText('Agendar viagem'))
+  await user.click(await screen.findByRole('button', { name: 'Tentar novamente' }))
+  await waitFor(() => assert.equal(listCalls, 3))
+  await waitFor(() => assert.equal(screen.queryByText('A decisão foi registrada, mas a lista pode estar desatualizada.'), null))
 })
