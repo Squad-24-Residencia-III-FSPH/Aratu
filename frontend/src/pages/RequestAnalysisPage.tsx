@@ -12,8 +12,17 @@ import { useAuth } from '../auth/useAuth'
 import { decideRequest, listRequests } from '../services/requestsService'
 import type { PaginatedRequests, RequestListFilters, RequestSummary } from '../requests/requestTypes'
 import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess'
+import { maintenanceControls } from './gestor/ManuPage/maintenanceStyles'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
+const analysisControls = {
+  ...maintenanceControls,
+  '& .MuiButton-containedPrimary': {
+    backgroundColor: 'primary.dark',
+    color: '#fff',
+    '&:hover': { backgroundColor: '#873700' },
+  },
+}
 const EMPTY_FILTERS: RequestListFilters = { status: 'PENDING', page: 1, pageSize: 20 }
 
 type DialogAction = { request: RequestSummary; decision: 'approve' | 'reject' } | null
@@ -117,7 +126,7 @@ export default function RequestAnalysisPage() {
   ] as const
 
   return (
-    <Box component="main" sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 4 }}>
+    <Box component="main" sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 4, ...analysisControls }}>
       <PageHeader title="Análise de solicitações" description="Revise os dados antes de aprovar ou rejeitar uma viagem." />
 
       <FilterBar label="Filtros das solicitações pendentes">
@@ -191,6 +200,7 @@ export default function RequestAnalysisPage() {
       )}
 
       <ConfirmDialog
+        sx={analysisControls}
         open={dialogAction !== null}
         title={dialogAction?.decision === 'reject' ? 'Rejeitar solicitação' : 'Aprovar solicitação'}
         description={dialogAction?.decision === 'reject'
