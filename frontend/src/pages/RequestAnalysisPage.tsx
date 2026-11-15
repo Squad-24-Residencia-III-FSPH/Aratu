@@ -121,11 +121,11 @@ export default function RequestAnalysisPage() {
       <PageHeader title="Análise de solicitações" description="Revise os dados antes de aprovar ou rejeitar uma viagem." />
 
       <FilterBar label="Filtros das solicitações pendentes">
-        <FormField label="Data inicial" type="date" value={draftFilters.from} onChange={from => setDraftFilters(current => ({ ...current, from }))} sx={{ flex: 1, minWidth: 180 }} />
-        <FormField label="Data final" type="date" value={draftFilters.to} onChange={to => setDraftFilters(current => ({ ...current, to }))} sx={{ flex: 1, minWidth: 180 }} />
-        <FormField label="Solicitante" value={draftFilters.requester} onChange={requester => setDraftFilters(current => ({ ...current, requester }))} sx={{ flex: 1, minWidth: 200 }} />
-        <FormField label="Tipo de serviço" value={draftFilters.service} onChange={service => setDraftFilters(current => ({ ...current, service }))} sx={{ flex: 1, minWidth: 200 }} />
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+        <FormField label="Data inicial" type="date" value={draftFilters.from} onChange={from => setDraftFilters(current => ({ ...current, from }))} sx={{ flex: 1, minWidth: { xs: 0, sm: 180 } }} />
+        <FormField label="Data final" type="date" value={draftFilters.to} onChange={to => setDraftFilters(current => ({ ...current, to }))} sx={{ flex: 1, minWidth: { xs: 0, sm: 180 } }} />
+        <FormField label="Solicitante" value={draftFilters.requester} onChange={requester => setDraftFilters(current => ({ ...current, requester }))} sx={{ flex: 1, minWidth: { xs: 0, sm: 200 } }} />
+        <FormField label="Tipo de serviço" value={draftFilters.service} onChange={service => setDraftFilters(current => ({ ...current, service }))} sx={{ flex: 1, minWidth: { xs: 0, sm: 200 } }} />
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', minWidth: 0 }}>
           <Button variant="contained" onClick={applyFilters} sx={{ minHeight: 44 }}>Aplicar filtros</Button>
           <Button variant="outlined" onClick={clearFilters} sx={{ minHeight: 44 }}>Limpar</Button>
         </Stack>
@@ -142,7 +142,7 @@ export default function RequestAnalysisPage() {
         actionLabel="Tentar novamente" onAction={() => setReload(value => value + 1)} />}
 
       {!error && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.35fr) minmax(320px, 1fr)' }, gap: 2.5, alignItems: 'start' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1.35fr) minmax(320px, 1fr)' }, gap: 2.5, alignItems: 'start' }}>
           <Box>
             <DataTable
               caption="Solicitações pendentes"
