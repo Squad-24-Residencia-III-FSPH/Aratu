@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { after, before, beforeEach, test } from 'node:test'
+import { after, before, beforeEach, describe, test } from 'node:test'
 import type { Pool } from 'pg'
 import { createApp } from '../src/app'
 import { seedRolesAndPermissions } from '../src/database/scripts/seed'
@@ -19,6 +19,20 @@ import {
 } from './fixtures/rbac-users.fixture'
 import type { RbacTestUser } from './fixtures/rbac-users.fixture'
 
+/**
+ * Identificadores das solicitações fictícias criadas antes de cada caso de teste.
+ *
+ * Os nomes remetem ao cenário coberto, não à ordem de inserção, para que as
+ * asserções permaneçam legíveis mesmo se a fixture evoluir.
+ */
+interface RequestFixtures {
+  pending: string
+  approved: string
+  scheduledWithTrip: string
+  scheduledWithoutTrip: string
+  otherRequester: string
+}
+
 interface RequestBody extends Record<string, unknown> {
   requestedDate: string
   requestedTime: string
@@ -28,10 +42,7 @@ interface RequestBody extends Record<string, unknown> {
   serviceId: string
 }
 
-let pool: Pool
-let server: Server
-let baseUrl: string
-let testUsers: Map<UserRole, RbacTestUser>
+const EXPECTED_NOT_FOUND_BODY = { erro: 'Solicitação não encontrada.' }
 
 const validRequest: Omit<RequestBody, 'serviceId'> = {
   requestedDate: '2099-12-01',
@@ -41,49 +52,11 @@ const validRequest: Omit<RequestBody, 'serviceId'> = {
   purpose: 'Atendimento administrativo fictício',
 }
 
-function getUser(role: UserRole): RbacTestUser {
-  const user = testUsers.get(role)
-  if (!user) throw new Error('Usuário de teste não instanciado para o perfil ' + role + '.')
-  return user
-}
-
-async function createService(active = true): Promise<string> {
-  const result = await pool.query<{ id: string }>(
-    `INSERT INTO fleet.services (name)
-     VALUES ('Serviço fictício de integração FROTA-80')
-     RETURNING id::text AS id`,
-  )
-  const id = result.rows[0]?.id
-  if (!id) throw new Error('Falha ao criar o serviço fictício de teste.')
-  if (!active) {
-    await pool.query('UPDATE fleet.services SET active = false WHERE id = $1', [id])
-  }
-  return id
-}
-
-function submitRequest(body: unknown, role: UserRole | null = 'SOLICITANTE'): Promise<Response> {
-  return fetch(baseUrl + '/requests', {
-    method: 'POST',
-    headers: {
-      ...(role ? { Authorization: 'Bearer ' + getUser(role).token } : {}),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
-}
-
-async function assertNoRequestEffects(): Promise<void> {
-  const [requests, events, audits] = await Promise.all([
-    pool.query<{ total: number }>('SELECT count(*)::int AS total FROM trip.requests'),
-    pool.query<{ total: number }>('SELECT count(*)::int AS total FROM trip.request_events'),
-    pool.query<{ total: number }>(
-      `SELECT count(*)::int AS total FROM audit.logs WHERE table_name = 'trip.requests'`,
-    ),
-  ])
-  assert.equal(requests.rows[0]?.total, 0)
-  assert.equal(events.rows[0]?.total, 0)
-  assert.equal(audits.rows[0]?.total, 0)
-}
+let pool: Pool
+let server: Server
+let baseUrl: string
+let testUsers: Map<UserRole, RbacTestUser>
+let fixtures: RequestFixtures
 
 before(async () => {
   await setupTestDatabase()
@@ -92,12 +65,6 @@ before(async () => {
   server = app.listen(0, '127.0.0.1')
   await new Promise<void>((resolve) => server.once('listening', resolve))
   baseUrl = 'http://127.0.0.1:' + (server.address() as AddressInfo).port
-})
-
-beforeEach(async () => {
-  await truncateTestDatabase()
-  await seedRolesAndPermissions(pool)
-  testUsers = await seedRbacTestUsers(pool, RBAC_JWT_SECRET)
 })
 
 after(async () => {
@@ -109,118 +76,542 @@ after(async () => {
   await closeTestPool()
 })
 
-test('IT-REQUEST-01: criação válida ignora status/autoria forjados e grava solicitação, evento e auditoria', async () => {
-  const serviceId = await createService()
-  const requester = getUser('SOLICITANTE')
-  const response = await submitRequest({
-    ...validRequest,
-    serviceId,
-    status: 'APPROVED',
-    requesterId: '999999',
-  })
+function getUser(role: UserRole): RbacTestUser {
+  const user = testUsers.get(role)
+  if (!user) throw new Error('Usuário de teste não instanciado para o perfil ' + role + '.')
+  return user
+}
 
-  assert.equal(response.status, 201)
-  const body = await response.json() as { id: string; status: string }
-  assert.match(body.id, /^[1-9]\d*$/)
-  assert.equal(body.status, 'PENDING')
+/** Deixa o banco com perfis e usuários RBAC fictícios e sem solicitações anteriores. */
+async function prepareDatabase(): Promise<void> {
+  await truncateTestDatabase()
+  await seedRolesAndPermissions(pool)
+  testUsers = await seedRbacTestUsers(pool, RBAC_JWT_SECRET)
+}
 
-  const requestResult = await pool.query<{
-    requesterId: string
-    serviceId: string
-    status: string
-    requesterIdSnapshot: string
-  }>(
-    `SELECT requester_id::text AS "requesterId",
-            service_id::text AS "serviceId",
-            status,
-            requester_snapshot->>'id' AS "requesterIdSnapshot"
-       FROM trip.requests
-      WHERE id = $1`,
-    [body.id],
-  )
-  assert.deepEqual(requestResult.rows[0], {
-    requesterId: requester.id,
-    serviceId,
-    status: 'PENDING',
-    requesterIdSnapshot: requester.id,
-  })
+describe('Solicitações de viagem — abertura (FROTA-80)', () => {
+  beforeEach(prepareDatabase)
 
-  const eventResult = await pool.query<{
-    eventType: string
-    registeredBy: string
-    afterStatus: string
-  }>(
-    `SELECT event_type AS "eventType",
-            registered_by::text AS "registeredBy",
-            after_state->>'status' AS "afterStatus"
-       FROM trip.request_events
-      WHERE request_id = $1`,
-    [body.id],
-  )
-  assert.deepEqual(eventResult.rows, [{
-    eventType: 'CREATED',
-    registeredBy: requester.id,
-    afterStatus: 'PENDING',
-  }])
-
-  const auditResult = await pool.query<{ total: number }>(
-    `SELECT count(*)::int AS total
-       FROM audit.logs
-      WHERE table_name = 'trip.requests'
-        AND record_id = $1
-        AND user_id = $2
-        AND operation = 'CREATE'`,
-    [body.id, requester.id],
-  )
-  assert.equal(auditResult.rows[0]?.total, 1)
-})
-
-test('IT-REQUEST-02: entradas ausentes, malformadas ou passadas não deixam efeitos no banco', async () => {
-  const serviceId = await createService()
-  const cases: Array<{ body: unknown; status: number }> = [
-    { body: {}, status: 400 },
-    { body: { ...validRequest, serviceId, origin: '   ' }, status: 400 },
-    { body: { ...validRequest, serviceId, requestedDate: '2025-02-30' }, status: 400 },
-    { body: { ...validRequest, serviceId, requestedTime: '24:00' }, status: 400 },
-    { body: { ...validRequest, serviceId, requestedDate: '2000-01-01' }, status: 422 },
-  ]
-
-  for (const scenario of cases) {
-    const response = await submitRequest(scenario.body)
-    assert.equal(response.status, scenario.status)
-    const body = await response.json() as { erro?: string }
-    assert.equal(typeof body.erro, 'string')
-    await assertNoRequestEffects()
+  async function createService(active = true): Promise<string> {
+    const result = await pool.query<{ id: string }>(
+      `INSERT INTO fleet.services (name)
+       VALUES ('Serviço fictício de integração FROTA-80')
+       RETURNING id::text AS id`,
+    )
+    const id = result.rows[0]?.id
+    if (!id) throw new Error('Falha ao criar o serviço fictício de teste.')
+    if (!active) {
+      await pool.query('UPDATE fleet.services SET active = false WHERE id = $1', [id])
+    }
+    return id
   }
+
+  function submitRequest(body: unknown, role: UserRole | null = 'SOLICITANTE'): Promise<Response> {
+    return fetch(baseUrl + '/requests', {
+      method: 'POST',
+      headers: {
+        ...(role ? { Authorization: 'Bearer ' + getUser(role).token } : {}),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+  }
+
+  async function assertNoRequestEffects(): Promise<void> {
+    const [requests, events, audits] = await Promise.all([
+      pool.query<{ total: number }>('SELECT count(*)::int AS total FROM trip.requests'),
+      pool.query<{ total: number }>('SELECT count(*)::int AS total FROM trip.request_events'),
+      pool.query<{ total: number }>(
+        `SELECT count(*)::int AS total FROM audit.logs WHERE table_name = 'trip.requests'`,
+      ),
+    ])
+    assert.equal(requests.rows[0]?.total, 0)
+    assert.equal(events.rows[0]?.total, 0)
+    assert.equal(audits.rows[0]?.total, 0)
+  }
+
+  test('IT-REQUEST-01: criação válida ignora status/autoria forjados e grava solicitação, evento e auditoria', async () => {
+    const serviceId = await createService()
+    const requester = getUser('SOLICITANTE')
+    const response = await submitRequest({
+      ...validRequest,
+      serviceId,
+      status: 'APPROVED',
+      requesterId: '999999',
+    })
+
+    assert.equal(response.status, 201)
+    const body = await response.json() as { id: string; status: string }
+    assert.match(body.id, /^[1-9]\d*$/)
+    assert.equal(body.status, 'PENDING')
+
+    const requestResult = await pool.query<{
+      requesterId: string
+      serviceId: string
+      status: string
+      requesterIdSnapshot: string
+    }>(
+      `SELECT requester_id::text AS "requesterId",
+              service_id::text AS "serviceId",
+              status,
+              requester_snapshot->>'id' AS "requesterIdSnapshot"
+         FROM trip.requests
+        WHERE id = $1`,
+      [body.id],
+    )
+    assert.deepEqual(requestResult.rows[0], {
+      requesterId: requester.id,
+      serviceId,
+      status: 'PENDING',
+      requesterIdSnapshot: requester.id,
+    })
+
+    const eventResult = await pool.query<{
+      eventType: string
+      registeredBy: string
+      afterStatus: string
+    }>(
+      `SELECT event_type AS "eventType",
+              registered_by::text AS "registeredBy",
+              after_state->>'status' AS "afterStatus"
+         FROM trip.request_events
+        WHERE request_id = $1`,
+      [body.id],
+    )
+    assert.deepEqual(eventResult.rows, [{
+      eventType: 'CREATED',
+      registeredBy: requester.id,
+      afterStatus: 'PENDING',
+    }])
+
+    const auditResult = await pool.query<{ total: number }>(
+      `SELECT count(*)::int AS total
+         FROM audit.logs
+        WHERE table_name = 'trip.requests'
+          AND record_id = $1
+          AND user_id = $2
+          AND operation = 'CREATE'`,
+      [body.id, requester.id],
+    )
+    assert.equal(auditResult.rows[0]?.total, 1)
+  })
+
+  test('IT-REQUEST-02: entradas ausentes, malformadas ou passadas não deixam efeitos no banco', async () => {
+    const serviceId = await createService()
+    const cases: Array<{ body: unknown; status: number }> = [
+      { body: {}, status: 400 },
+      { body: { ...validRequest, serviceId, origin: '   ' }, status: 400 },
+      { body: { ...validRequest, serviceId, requestedDate: '2025-02-30' }, status: 400 },
+      { body: { ...validRequest, serviceId, requestedTime: '24:00' }, status: 400 },
+      { body: { ...validRequest, serviceId, requestedDate: '2000-01-01' }, status: 422 },
+    ]
+
+    for (const scenario of cases) {
+      const response = await submitRequest(scenario.body)
+      assert.equal(response.status, scenario.status)
+      const body = await response.json() as { erro?: string }
+      assert.equal(typeof body.erro, 'string')
+      await assertNoRequestEffects()
+    }
+  })
+
+  test('IT-REQUEST-03: serviço inexistente ou inativo retorna 400 sem persistir', async () => {
+    const inactiveServiceId = await createService(false)
+    for (const serviceId of ['999999', inactiveServiceId]) {
+      const response = await submitRequest({ ...validRequest, serviceId })
+      assert.equal(response.status, 400)
+      await assertNoRequestEffects()
+    }
+  })
+
+  test('IT-REQUEST-04: somente SOLICITANTE autenticado pode criar solicitações', async () => {
+    const serviceId = await createService()
+    const body = { ...validRequest, serviceId }
+
+    assert.equal((await submitRequest(body, null)).status, 401)
+    for (const role of ['GESTOR', 'ADMINISTRADOR', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO'] as const) {
+      assert.equal((await submitRequest(body, role)).status, 403, role)
+      await assertNoRequestEffects()
+    }
+  })
+
+  test('IT-REQUEST-05: perfil revogado no cadastro atual invalida o perfil SOLICITANTE do token antigo', async () => {
+    const serviceId = await createService()
+    const requester = getUser('SOLICITANTE')
+    const manager = getUser('GESTOR')
+    await pool.query('UPDATE auth.users SET role_id = $1 WHERE id = $2', [manager.roleId, requester.id])
+
+    const response = await submitRequest({ ...validRequest, serviceId }, 'SOLICITANTE')
+    assert.equal(response.status, 403)
+    await assertNoRequestEffects()
+  })
 })
 
-test('IT-REQUEST-03: serviço inexistente ou inativo retorna 400 sem persistir', async () => {
-  const inactiveServiceId = await createService(false)
-  for (const serviceId of ['999999', inactiveServiceId]) {
-    const response = await submitRequest({ ...validRequest, serviceId })
+describe('Solicitações de viagem — consulta (FROTA-82)', () => {
+  beforeEach(async () => {
+    await prepareDatabase()
+    fixtures = await seedRequestFixtures(pool, testUsers)
+  })
+
+  test('IT-REQ-01: sem token retorna 401', async () => {
+    const response = await request('/requests')
+
+    assert.equal(response.status, 401)
+  })
+
+  test('IT-REQ-02: MOTORISTA recebe 403 ao consultar solicitações', async () => {
+    const motorista = getUser('MOTORISTA')
+    const response = await request('/requests', motorista.token)
+
+    assert.equal(response.status, 403)
+  })
+
+  test('IT-REQ-03: SOLICITANTE lista apenas as próprias solicitações', async () => {
+    const solicitante = getUser('SOLICITANTE')
+    const response = await request('/requests', solicitante.token)
+
+    assert.equal(response.status, 200)
+    const body = await response.json() as {
+      requests: Array<{ requesterId: string }>
+      total: number
+      page: number
+      pageSize: number
+      totalPages: number
+    }
+    assert.equal(body.total, 4)
+    assert.equal(body.requests.length, 4)
+    assert.equal(body.page, 1)
+    assert.equal(body.pageSize, 20)
+    assert.equal(body.totalPages, 1)
+    assert.ok(body.requests.every((item) => item.requesterId === solicitante.id))
+  })
+
+  test('IT-REQ-04: GESTOR e ADMINISTRADOR listam todas as solicitações', async () => {
+    for (const role of ['GESTOR', 'ADMINISTRADOR'] as const) {
+      const user = getUser(role)
+      const response = await request('/requests', user.token)
+
+      assert.equal(response.status, 200)
+      const body = await response.json() as { total: number }
+      assert.equal(body.total, 5, `Perfil ${role} deve enxergar todas as solicitações.`)
+    }
+  })
+
+  test('IT-REQ-05: filtro por situação retorna somente o status pedido', async () => {
+    const gestor = getUser('GESTOR')
+    const response = await request('/requests?status=APPROVED', gestor.token)
+
+    assert.equal(response.status, 200)
+    const body = await response.json() as {
+      requests: Array<{ id: string; status: string }>
+      total: number
+    }
+    assert.equal(body.total, 1)
+    assert.equal(body.requests[0]?.id, fixtures.approved)
+    assert.equal(body.requests[0]?.status, 'APPROVED')
+  })
+
+  test('IT-REQ-06: filtro por período é inclusivo nos dois limites', async () => {
+    const gestor = getUser('GESTOR')
+    const response = await request('/requests?from=2026-11-01&to=2026-11-15', gestor.token)
+
+    assert.equal(response.status, 200)
+    const body = await response.json() as { requests: Array<{ id: string }>; total: number }
+    assert.equal(body.total, 3)
+    const returnedIds = body.requests.map((item) => item.id)
+    assert.deepEqual(
+      new Set(returnedIds),
+      new Set([fixtures.pending, fixtures.approved, fixtures.otherRequester]),
+    )
+  })
+
+  test('IT-REQ-07: período invertido retorna 400', async () => {
+    const gestor = getUser('GESTOR')
+    const response = await request('/requests?from=2026-11-30&to=2026-11-01', gestor.token)
+
     assert.equal(response.status, 400)
-    await assertNoRequestEffects()
+    assert.deepEqual(await response.json(), {
+      erro: 'A data inicial não pode ser posterior à data final.',
+    })
+  })
+
+  test('IT-REQ-08: situação desconhecida retorna 400', async () => {
+    const gestor = getUser('GESTOR')
+    const response = await request('/requests?status=APROVADA', gestor.token)
+
+    assert.equal(response.status, 400)
+    assert.deepEqual(await response.json(), { erro: 'Situação da solicitação inválida.' })
+  })
+
+  test('IT-REQ-09: paginação inválida retorna 400', async () => {
+    const gestor = getUser('GESTOR')
+
+    const invalidPage = await request('/requests?page=0', gestor.token)
+    assert.equal(invalidPage.status, 400)
+    assert.deepEqual(await invalidPage.json(), { erro: 'Página inválida.' })
+
+    const invalidPageSize = await request('/requests?pageSize=101', gestor.token)
+    assert.equal(invalidPageSize.status, 400)
+    assert.deepEqual(await invalidPageSize.json(), {
+      erro: 'O tamanho da página deve estar entre 1 e 100.',
+    })
+  })
+
+  test('IT-REQ-10: paginação retorna a página e os metadados corretos', async () => {
+    const gestor = getUser('GESTOR')
+    const response = await request('/requests?page=2&pageSize=2', gestor.token)
+
+    assert.equal(response.status, 200)
+    const body = await response.json() as {
+      requests: Array<{ id: string }>
+      total: number
+      page: number
+      pageSize: number
+      totalPages: number
+    }
+    assert.equal(body.total, 5)
+    assert.equal(body.page, 2)
+    assert.equal(body.pageSize, 2)
+    assert.equal(body.totalPages, 3)
+    assert.equal(body.requests.length, 2)
+    assert.deepEqual(
+      body.requests.map((item) => item.id),
+      [fixtures.otherRequester, fixtures.approved],
+    )
+  })
+
+  test('IT-REQ-11: lista vazia retorna 200 com requests vazio e total zero', async () => {
+    const gestor = getUser('GESTOR')
+    const response = await request('/requests?status=REJECTED', gestor.token)
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      requests: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      totalPages: 0,
+    })
+  })
+
+  test('IT-REQ-12: SOLICITANTE consulta o detalhe da própria solicitação', async () => {
+    const solicitante = getUser('SOLICITANTE')
+    const response = await request(`/requests/${fixtures.pending}`, solicitante.token)
+
+    assert.equal(response.status, 200)
+    const body = await response.json() as {
+      id: string
+      requesterId: string
+      requestedDate: string
+      requestedTime: string
+      status: string
+      trip: unknown
+    }
+    assert.equal(body.id, fixtures.pending)
+    assert.equal(body.requesterId, solicitante.id)
+    assert.equal(body.requestedDate, '2026-11-01')
+    assert.equal(body.requestedTime, '08:00')
+    assert.equal(body.status, 'PENDING')
+    assert.equal(body.trip, null)
+  })
+
+  test('IT-REQ-13: detalhe de solicitação de outra pessoa retorna 404 sem revelar existência', async () => {
+    const solicitante = getUser('SOLICITANTE')
+    const response = await request(`/requests/${fixtures.otherRequester}`, solicitante.token)
+
+    assert.equal(response.status, 404)
+    assert.deepEqual(await response.json(), EXPECTED_NOT_FOUND_BODY)
+  })
+
+  test('IT-REQ-14: GESTOR consulta o detalhe de qualquer solicitação', async () => {
+    const gestor = getUser('GESTOR')
+    const response = await request(`/requests/${fixtures.pending}`, gestor.token)
+
+    assert.equal(response.status, 200)
+    const body = await response.json() as { id: string; requesterId: string }
+    assert.equal(body.id, fixtures.pending)
+  })
+
+  test('IT-REQ-15: identificador inválido retorna 400', async () => {
+    const gestor = getUser('GESTOR')
+    const response = await request('/requests/abc', gestor.token)
+
+    assert.equal(response.status, 400)
+    assert.deepEqual(await response.json(), {
+      erro: 'Identificador de solicitação inválido.',
+    })
+  })
+
+  test('IT-REQ-16: detalhe de solicitação agendada inclui veículo, motorista e horários', async () => {
+    const solicitante = getUser('SOLICITANTE')
+    const response = await request(`/requests/${fixtures.scheduledWithTrip}`, solicitante.token)
+
+    assert.equal(response.status, 200)
+    const body = await response.json() as {
+      status: string
+      trip: {
+        status: string
+        scheduledStart: string
+        scheduledEnd: string
+        vehicle: { licensePlate: string; brand: string; model: string }
+        driver: { name: string }
+      } | null
+    }
+    assert.equal(body.status, 'SCHEDULED')
+    assert.ok(body.trip)
+    assert.equal(body.trip.status, 'SCHEDULED')
+    assert.equal(body.trip.scheduledStart, '2026-11-30T11:00:00.000Z')
+    assert.equal(body.trip.scheduledEnd, '2026-11-30T15:00:00.000Z')
+    assert.equal(body.trip.vehicle.licensePlate, 'ABC1D23')
+    assert.equal(body.trip.vehicle.brand, 'Chevrolet')
+    assert.equal(body.trip.vehicle.model, 'S10')
+    assert.equal(body.trip.driver.name, 'Motorista Fictício QA')
+  })
+
+  test('IT-REQ-17: solicitação agendada sem viagem retorna trip null', async () => {
+    const solicitante = getUser('SOLICITANTE')
+    const response = await request(`/requests/${fixtures.scheduledWithoutTrip}`, solicitante.token)
+
+    assert.equal(response.status, 200)
+    const body = await response.json() as { status: string; trip: unknown }
+    assert.equal(body.status, 'SCHEDULED')
+    assert.equal(body.trip, null)
+  })
+})
+
+function request(path: string, token?: string): Promise<Response> {
+  return fetch(`${baseUrl}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+}
+
+async function insertReturningId(sql: string, values: unknown[]): Promise<string> {
+  const result = await pool.query<{ id: string }>(sql, values)
+  const id = result.rows[0]?.id
+  if (!id) {
+    throw new Error('Falha ao inserir fixture de teste: identificador não retornado.')
   }
-})
+  return id
+}
 
-test('IT-REQUEST-04: somente SOLICITANTE autenticado pode criar solicitações', async () => {
-  const serviceId = await createService()
-  const body = { ...validRequest, serviceId }
+async function insertRequest(input: {
+  requesterId: string
+  serviceId: string
+  requestedDate: string
+  requestedTime: string
+  status: 'PENDING' | 'APPROVED' | 'SCHEDULED' | 'REJECTED' | 'CANCELED'
+  decidedById?: string
+}): Promise<string> {
+  return insertReturningId(
+    `INSERT INTO trip.requests
+       (requester_id, service_id, requested_date, requested_time,
+        origin, destination, purpose, passengers, status, decided_by, decided_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING id::text AS id`,
+    [
+      input.requesterId,
+      input.serviceId,
+      input.requestedDate,
+      input.requestedTime,
+      'Sede FSPH',
+      'Unidade Centro',
+      'Reunião institucional fictícia',
+      2,
+      input.status,
+      input.decidedById ?? null,
+      input.decidedById ? '2026-11-05T13:00:00.000Z' : null,
+    ],
+  )
+}
 
-  assert.equal((await submitRequest(body, null)).status, 401)
-  for (const role of ['GESTOR', 'ADMINISTRADOR', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO'] as const) {
-    assert.equal((await submitRequest(body, role)).status, 403, role)
-    await assertNoRequestEffects()
+/**
+ * Cria o cenário compartilhado pelos testes de consulta: um serviço, um veículo,
+ * um motorista, quatro solicitações do SOLICITANTE (incluindo uma agendada com
+ * viagem e outra agendada sem viagem) e uma solicitação de outro usuário.
+ *
+ * Todos os dados são 100% fictícios, conforme a LGPD e o sigilo do SVO.
+ */
+async function seedRequestFixtures(
+  databasePool: Pool,
+  users: Map<UserRole, RbacTestUser>,
+): Promise<RequestFixtures> {
+  const solicitante = users.get('SOLICITANTE')
+  const gestor = users.get('GESTOR')
+  if (!solicitante || !gestor) {
+    throw new Error('Fixture RBAC incompleta para os perfis SOLICITANTE e GESTOR.')
   }
-})
 
-test('IT-REQUEST-05: perfil revogado no cadastro atual invalida o perfil SOLICITANTE do token antigo', async () => {
-  const serviceId = await createService()
-  const requester = getUser('SOLICITANTE')
-  const manager = getUser('GESTOR')
-  await pool.query('UPDATE auth.users SET role_id = $1 WHERE id = $2', [manager.roleId, requester.id])
+  const serviceId = await insertReturningId(
+    `INSERT INTO fleet.services (name, description)
+     VALUES ('Transporte Administrativo', 'Serviço fictício para testes de integração.')
+     RETURNING id::text AS id`,
+    [],
+  )
 
-  const response = await submitRequest({ ...validRequest, serviceId }, 'SOLICITANTE')
-  assert.equal(response.status, 403)
-  await assertNoRequestEffects()
-})
+  const vehicleId = await insertReturningId(
+    `INSERT INTO fleet.vehicles
+       (license_plate, categories, seats, body_limit, operation_type, status, brand, model)
+     VALUES ('ABC1D23', ARRAY['PASSENGER']::TEXT[], 5, 0, 'ADMINISTRATIVE', 'AVAILABLE', 'Chevrolet', 'S10')
+     RETURNING id::text AS id`,
+    [],
+  )
+
+  const driverId = await insertReturningId(
+    `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at)
+     VALUES ('Motorista Fictício QA', '12345678901', 'CNH-FICT-0001', 'D', '2030-12-31')
+     RETURNING id::text AS id`,
+    [],
+  )
+
+  const pending = await insertRequest({
+    requesterId: solicitante.id,
+    serviceId,
+    requestedDate: '2026-11-01',
+    requestedTime: '08:00:00',
+    status: 'PENDING',
+  })
+
+  const approved = await insertRequest({
+    requesterId: solicitante.id,
+    serviceId,
+    requestedDate: '2026-11-15',
+    requestedTime: '09:00:00',
+    status: 'APPROVED',
+    decidedById: gestor.id,
+  })
+
+  const scheduledWithTrip = await insertRequest({
+    requesterId: solicitante.id,
+    serviceId,
+    requestedDate: '2026-11-30',
+    requestedTime: '10:00:00',
+    status: 'SCHEDULED',
+    decidedById: gestor.id,
+  })
+
+  const scheduledWithoutTrip = await insertRequest({
+    requesterId: solicitante.id,
+    serviceId,
+    requestedDate: '2026-11-30',
+    requestedTime: '11:00:00',
+    status: 'SCHEDULED',
+    decidedById: gestor.id,
+  })
+
+  const otherRequester = await insertRequest({
+    requesterId: gestor.id,
+    serviceId,
+    requestedDate: '2026-11-15',
+    requestedTime: '12:00:00',
+    status: 'PENDING',
+  })
+
+  await databasePool.query(
+    `INSERT INTO trip.trips
+       (request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status)
+     VALUES ($1, $2, $3, '2026-11-30T11:00:00.000Z', '2026-11-30T15:00:00.000Z', 'SCHEDULED')`,
+    [scheduledWithTrip, vehicleId, driverId],
+  )
+
+  return { pending, approved, scheduledWithTrip, scheduledWithoutTrip, otherRequester }
+}
