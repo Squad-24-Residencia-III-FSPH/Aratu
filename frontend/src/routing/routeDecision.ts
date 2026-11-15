@@ -6,6 +6,9 @@ import { canReadVehicles, VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 import { canManageMaintenance, MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
 import { canReadDrivers, DRIVERS_PATH } from '../drivers/driverAccess.ts'
 import { canAccessFuelings, FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
+import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
+import { canManageServiceTypes, SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
+import { canScheduleTrips, TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
 import { canAnalyzeRequests, REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 
 type RouteDecision =
@@ -17,6 +20,9 @@ type RouteDecision =
   | { kind: 'maintenance'; profile: Profile }
   | { kind: 'drivers'; profile: Profile }
   | { kind: 'fuelings'; profile: Profile }
+  | { kind: 'trip-confirmation'; profile: 'GESTOR' }
+  | { kind: 'service-types'; profile: Profile }
+  | { kind: 'trip-scheduling'; profile: Profile }
   | { kind: 'request-analysis'; profile: 'GESTOR' }
 
 export function resolveRoute(session: AuthSession | null, path: string, now = Date.now()): RouteDecision {
@@ -26,6 +32,9 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
     return path === '/login' ? { kind: 'login' } : { kind: 'redirect', to: '/login' }
   }
   const home = PROFILE_HOMES[profile].path
+  if (path === TRIP_CONFIRMATION_PATH) {
+    return profile === 'GESTOR' ? { kind: 'trip-confirmation', profile } : { kind: 'redirect', to: home }
+  }
   if (path === MAINTENANCE_PATH) {
     return canManageMaintenance(profile) ? { kind: 'maintenance', profile } : { kind: 'redirect', to: home }
   }
@@ -49,10 +58,18 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
       ? { kind: 'fuelings', profile }
       : { kind: 'redirect', to: home }
   }
-  if (path === REQUEST_ANALYSIS_PATH) {
-    return canAnalyzeRequests(profile)
-      ? { kind: 'request-analysis', profile }
+  if (path === SERVICE_TYPES_PATH) {
+    return canManageServiceTypes(profile)
+      ? { kind: 'service-types', profile }
       : { kind: 'redirect', to: home }
+  }
+  if (path === TRIP_SCHEDULING_PATH) {
+    return canScheduleTrips(profile)
+      ? { kind: 'trip-scheduling', profile }
+      : { kind: 'redirect', to: home }
+  }
+  if (path === REQUEST_ANALYSIS_PATH) {
+    return canAnalyzeRequests(profile) ? { kind: 'request-analysis', profile: 'GESTOR' } : { kind: 'redirect', to: home }
   }
   return path === home ? { kind: 'home', profile } : { kind: 'redirect', to: home }
 }

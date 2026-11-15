@@ -11,6 +11,7 @@ import RequestDetailsPanel from '../components/RequestDetailsPanel'
 import { useAuth } from '../auth/useAuth'
 import { decideRequest, listRequests } from '../services/requestsService'
 import type { PaginatedRequests, RequestListFilters, RequestSummary } from '../requests/requestTypes'
+import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 const EMPTY_FILTERS: RequestListFilters = { status: 'PENDING', page: 1, pageSize: 20 }
@@ -32,6 +33,7 @@ export default function RequestAnalysisPage() {
   const [decisionBusy, setDecisionBusy] = useState(false)
   const [decisionError, setDecisionError] = useState('')
   const [notice, setNotice] = useState('')
+  const [approvedRequestId, setApprovedRequestId] = useState<string | null>(null)
   const queryKey = JSON.stringify({ filters, page, pageSize, reload })
 
   useEffect(() => {
@@ -89,6 +91,7 @@ export default function RequestAnalysisPage() {
       setNotice(dialogAction.decision === 'approve'
         ? `Solicitação #${dialogAction.request.id} aprovada.`
         : `Solicitação #${dialogAction.request.id} rejeitada.`)
+      setApprovedRequestId(dialogAction.decision === 'approve' ? dialogAction.request.id : null)
       setDialogAction(null)
       setSelectedId(null)
       setReload(value => value + 1)
@@ -122,7 +125,11 @@ export default function RequestAnalysisPage() {
         </Stack>
       </FilterBar>
 
-      {notice && <Alert severity="success" role="status" sx={{ mb: 2 }}>{notice}</Alert>}
+      {notice && <Alert severity="success" role="status" sx={{ mb: 2 }} action={approvedRequestId ? (
+        <Button component="a" href={`#${TRIP_SCHEDULING_PATH}?requestId=${encodeURIComponent(approvedRequestId)}`} color="inherit" sx={{ minHeight: 44 }}>
+          Agendar viagem
+        </Button>
+      ) : undefined}>{notice}</Alert>}
       {error && <StateFeedback kind="error" title="Não foi possível carregar as solicitações pendentes." description={error}
         actionLabel="Tentar novamente" onAction={() => setReload(value => value + 1)} />}
 

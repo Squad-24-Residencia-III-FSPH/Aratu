@@ -4,6 +4,9 @@ import { VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 import { MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
 import { DRIVERS_PATH } from '../drivers/driverAccess.ts'
 import { FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
+import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
+import { SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
+import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
 import { REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 
 export type SidebarIconName =
@@ -59,6 +62,7 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
       behavior: 'link',
       path: PROFILE_PERMISSIONS_PATH,
     },
+    { label: 'Tipos de serviço', icon: 'serviceTypes', behavior: 'link', path: SERVICE_TYPES_PATH },
     {
       label: 'Veículos',
       icon: 'vehicles',
@@ -94,7 +98,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
         { label: 'Solicitações', icon: 'requests', behavior: 'button' },
         { label: 'Analisar solicitações', icon: 'requests', behavior: 'link', path: REQUEST_ANALYSIS_PATH, profiles: ['GESTOR'] },
         { label: 'Viagens', icon: 'trips', behavior: 'button' },
-        { label: 'Confirmar viagens', icon: 'confirmTrips', behavior: 'button' },
+        { label: 'Confirmar viagens', icon: 'confirmTrips', behavior: 'link', path: TRIP_CONFIRMATION_PATH, profiles: ['GESTOR'] },
       ],
     },
     {
@@ -109,7 +113,8 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
           profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'],
         },
         { label: 'Motoristas', icon: 'drivers', behavior: 'link', path: DRIVERS_PATH, profiles: ['GESTOR'] },
-        { label: 'Tipos de serviço', icon: 'requests', behavior: 'button' },
+        { label: 'Tipos de serviço', icon: 'serviceTypes', behavior: 'link', path: SERVICE_TYPES_PATH, profiles: ['GESTOR'] },
+        { label: 'Agendar viagem', icon: 'trips', behavior: 'link', path: TRIP_SCHEDULING_PATH, profiles: ['GESTOR'] },
         { label: 'Manutenção', icon: 'maintenance', behavior: 'link', path: MAINTENANCE_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
         { label: 'Abastecimentos', icon: 'fuel', behavior: 'link', path: FUELINGS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
       ],

@@ -36,6 +36,51 @@ export interface Trip {
   createdAt: string
 }
 
+/** Solicitação aprovada que pode ser selecionada no fluxo de agendamento. */
+export interface ApprovedRequestSummary {
+  id: string
+  serviceId: string
+  serviceName: string
+  requestedDate: string
+  requestedTime: string
+  origin: string
+  destination: string
+  purpose: string
+  passengers: number
+  status: 'APPROVED'
+}
+
+export interface VehicleAvailability {
+  id: string
+  licensePlate: string
+  brand: string | null
+  model: string | null
+  categories: string[]
+  seats: number
+  bodyLimit: number
+  status: string
+  available: boolean
+  reasons: string[]
+}
+
+export interface DriverAvailability {
+  id: string
+  name: string
+  cnhCategory: string
+  cnhExpiresAt: string
+  status: string
+  available: boolean
+  reasons: string[]
+}
+
+export interface ScheduleTripInput {
+  requestId: string
+  vehicleId: string
+  driverId: string
+  scheduledStart: string
+  scheduledEnd: string
+}
+
 /** Recortes de apresentação do conjunto de viagens já autorizado pela API. */
 export const TRIP_FILTERS = ['TODAY_AND_IN_PROGRESS', 'ALL_PENDING'] as const
 export type TripFilter = typeof TRIP_FILTERS[number]

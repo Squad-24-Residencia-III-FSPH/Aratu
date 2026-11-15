@@ -15,6 +15,9 @@ import UserManagementPage from './pages/UserManagementPage';
 import DriversPage from './pages/DriversPage';
 import FuelingsPage from './pages/FuelingsPage';
 import MyTripsPage from './pages/MyTripsPage';
+import TripConfirmationPage from './pages/TripConfirmationPage';
+import ServicesPage from './pages/gestor/servicePage/ServicesPage';
+import ScheduleTripPage from './pages/gestor/schedulingPage/ScheduleTripPage';
 import RequestAnalysisPage from './pages/RequestAnalysisPage';
 
 function LoginRoute() {
@@ -69,13 +72,10 @@ function PrivateRoute() {
       </Layout>
     );
   }
-  if (decision.kind === 'request-analysis') {
-    return (
-      <Layout>
-        <RequestAnalysisPage />
-      </Layout>
-    );
-  }
+  if (decision.kind === 'trip-confirmation') return <Layout><TripConfirmationPage /></Layout>;
+  if (decision.kind === 'service-types') return <Layout><ServicesPage /></Layout>
+  if (decision.kind === 'trip-scheduling') return <Layout><ScheduleTripPage /></Layout>
+  if (decision.kind === 'request-analysis') return <Layout><RequestAnalysisPage /></Layout>
   return (
     <Layout>
       <ProfileHome profile={decision.profile} />
@@ -93,7 +93,6 @@ export default function App() {
     >
       <Routes>
         <Route path="/login" element={<LoginRoute />} />
-        {/* Rota específica para garantir o acesso direto à tela de solicitações */}
         <Route
           path="/minhas-solicitacoes"
           element={

@@ -79,3 +79,27 @@ test('seleciona, lê os detalhes e rejeita com justificativa; a solicitação sa
   assert.deepEqual(rejection, { reason: 'Sem veículo disponível' })
   assert.equal(screen.queryByRole('button', { name: 'Ver detalhes da solicitação 41' }), null)
 })
+
+test('aprovação oferece atalho para agendar a solicitação aprovada', async () => {
+  let listCalls = 0
+  const api = async (path) => {
+    if (path.startsWith('/requests?')) {
+      listCalls += 1
+      return Response.json({ requests: listCalls === 1 ? [request] : [], total: listCalls === 1 ? 1 : 0, page: 1, pageSize: 20, totalPages: listCalls === 1 ? 1 : 0 })
+    }
+    if (path === '/requests/41') return Response.json(request)
+    if (path === '/requests/41/approve') return Response.json({ id: '41', status: 'APPROVED' })
+    throw new Error(`Rota de teste inesperada: ${path}`)
+  }
+  const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
+  const user = userEvent.setup()
+  render(createElement(AuthContext.Provider, { value: auth }, createElement(RequestAnalysisPage)))
+  await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
+  await user.click(await screen.findByRole('button', { name: 'Aprovar solicitação' }))
+  const dialog = await screen.findByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: 'Aprovar solicitação' }))
+  assert.ok(await screen.findByText('Solicitação #41 aprovada.'))
+  const scheduleLink = screen.getByText('Agendar viagem').closest('a')
+  assert.equal(scheduleLink?.getAttribute('href'), '#/agendar-viagem?requestId=41')
+  await waitFor(() => assert.equal(listCalls, 2))
+})
