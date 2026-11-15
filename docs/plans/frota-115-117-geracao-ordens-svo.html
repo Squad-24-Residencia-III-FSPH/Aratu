@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-115 e FROTA-117 — Geração de ordens SVO e testes de integração (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+    code, td, th { overflow-wrap: anywhere; }
+    .check label { display: block; min-height: 44px; cursor: pointer; }
+    @media (max-width: 600px) { body { margin: 16px auto; padding: 0 14px 32px; } table { font-size: .8rem; } th, td { padding: 7px; } }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-115 e FROTA-117: Geração de ordens SVO e testes de integração</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-115 + FROTA-117</code> — Geração de ordens SVO e testes de integração</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/svo-orders</code> (sugerida; criar a partir de <code>develop</code> atualizada → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>SVO</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ATENDENTE_SVO, ADMINISTRADOR</code></p>
+  <p><strong>Data:</strong> 15/11/2026 · America/Sao_Paulo</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p>Permitir ao atendente SVO encaminhar uma solicitação confirmada a uma equipe e viatura elegíveis, gerando uma única ordem e preservando o contexto da decisão. Este SDD consolida exclusivamente <strong>FROTA-115 (API)</strong> e <strong>FROTA-117 (testes de integração)</strong>, da história FROTA-113/US18.</p>
+<table><thead><tr><th scope="col">Origem consultada em 15/11/2026</th><th scope="col">Contexto e aceite</th></tr></thead><tbody>
+<tr><td><a href="https://squad24.atlassian.net/browse/FROTA-113">FROTA-113</a> · História · A fazer · prioridade High</td><td>Gerar ordem de execução para encaminhar solicitação confirmada a equipe responsável. Critérios da história ainda indicados como “a definir no refinamento”; requisitos concretos abaixo vêm das subtarefas e das decisões desta conversa.</td></tr>
+<tr><td><a href="https://squad24.atlassian.net/browse/FROTA-115">FROTA-115</a> · Subtarefa backend · Em andamento</td><td>POST /svo/orders; somente ocorrência confirmada (400 em outro estado); uma ordem por ocorrência (409); veículo disponível; body_limit respeitado (409); ATENDENTE_SVO/ADMINISTRADOR; AuditService; documentação da API e validação pela FROTA-117.</td></tr>
+<tr><td><a href="https://squad24.atlassian.net/browse/FROTA-117">FROTA-117</a> · Subtarefa QA · Em andamento</td><td>Criar backend/tests/svo-orders.integration.test.ts. Cobrir sucesso, não confirmada, duplicidade, indisponibilidade, capacidade, 403 e auditoria. npm test deve passar sem regressão. A subtarefa substituiu a antiga definição de status inicial, incorporada na API.</td></tr>
+</tbody></table>
+<p>As subtarefas estão atribuídas ao desenvolvedor solicitante; não há comentários nas três issues consultadas. Prioridade própria não retornada para as subtarefas. Dependências: FROTA-112 (API presente na branch atual; Jira Em análise), FROTA-114 e FROTA-168 (migrations presentes; Jira Concluído).</p>
+<h3>Decisões confirmadas nesta conversa</h3>
+<ol><li>Entrada <code>{ occurrenceId, teamId, vehicleId }</code> com IDs string e saída <code>{ id, status: "OPEN" }</code>. Substitui explicitamente os exemplos em português do Jira; preserva a decisão anterior do modelo SVO de usar estados em inglês.</li>
+<li>Cada ordem reserva <strong>uma vaga</strong>. Contam OPEN, IN_TRANSIT, IN_SERVICE e IN_PROGRESS. COMPLETED, NOT_PERFORMED e CANCELED não contam. Comparar ocupação atual + 1 com a capacidade vigente.</li>
+<li>Equipe ativa, sem exigir membros. Veículo AVAILABLE, operação SVO, categoria BODY e capacidade livre. Sem acrescentar consulta de conflitos com viagens nesta entrega.</li></ol>
+<h3>Delimitação</h3>
+<p>Inclui API de criação, testes unitários do domínio, integração HTTP/PostgreSQL, histórico, auditoria e documentação. Não inclui tela FROTA-116, CRUD/listagem de equipes, endpoints GET de ordens, execução/encerramento/cancelamento, alocação de motorista, agenda de viagens, múltiplos corpos por ordem ou novas migrations. Os estados posteriores são apenas considerados na contagem; suas transições não são implementadas.</p>
+<h3>Base e Gitflow</h3>
+<p>Análise em <code>feat/svo-occurrences</code>, HEAD <code>2c7fb58</code>, árvore limpa antes deste documento. Referências locais observadas: develop <code>f18f363</code> e origin/develop <code>a302229</code>; não houve fetch e isso não atesta o estado atual do remoto. Branch sugerida para a entrega: <code>feat/svo-orders</code>, a partir de develop atualizada, com PR para develop. Antes da implementação, verificar que a FROTA-112 está integrada nessa base; se faltar, resolver a dependência sem implementar uma cópia do módulo.</p>
+<p>Este planejamento não cria branch, commit, push ou altera o Jira. Commits sugeridos: <code>feat(svo): gerar ordens de execucao (FROTA-115)</code> e <code>test(svo): validar geracao de ordens (FROTA-117)</code>.</p>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<table><thead><tr><th scope="col">Regra / Dado e quando</th><th scope="col">Então</th></tr></thead><tbody>
+<tr><td>RF01: ator autorizado, ocorrência CONFIRMED sem ordem, equipe ativa e veículo elegível com vaga</td><td>201; OPEN e revision 1; FKs corretas; um OPENED e um CREATE em audit.logs no mesmo commit.</td></tr>
+<tr><td>RF02: ocorrência PENDING ou CANCELED</td><td>400; orientar confirmar uma solicitação elegível. Nenhuma gravação.</td></tr>
+<tr><td>RF03: ocorrência já vinculada, inclusive ordem encerrada ou cancelada</td><td>409; nunca gerar segunda ordem nem substituir a anterior. A unicidade é histórica, não parcial por status.</td></tr>
+<tr><td>RF04: equipe inativa</td><td>409; orientar escolher equipe ativa. Equipe ativa sem membros continua elegível.</td></tr>
+<tr><td>RF05: veículo IN_MAINTENANCE/INACTIVE, operação diferente de SVO, sem BODY ou com manutenção impeditiva OPEN/IN_PROGRESS, inclusive no legado AVAILABLE</td><td>409; informar o impedimento e orientar selecionar outro veículo. Manutenção não impeditiva, DONE/CANCELED ou de outra viatura não bloqueia por si só.</td></tr>
+<tr><td>RF06: ocupação + 1 maior que bodyLimit; inclui limite zero ou capacidade reduzida abaixo da ocupação existente</td><td>409; histórico e ordens existentes permanecem intactos. No limite exato permitir.</td></tr>
+<tr><td>RF07: ocorrência, equipe ou veículo inexistente</td><td>404 com mensagem específica, somente após autenticação/autorização.</td></tr>
+<tr><td>RF08: JSON inválido, chaves extras, ID ausente, número, zero, negativo, fração, espaço ou fora do BIGINT</td><td>400; objeto erro em português, sem ecoar conteúdo recebido. Aceitar somente string decimal positiva canônica até 9223372036854775807.</td></tr>
+<tr><td>RF09: duas criações simultâneas para mesma ocorrência</td><td>Exatamente um 201 e um 409; uma ordem, um evento OPENED e uma auditoria CREATE.</td></tr>
+<tr><td>RF10: duas ocorrências concorrentes disputam última vaga da mesma viatura</td><td>Um 201 e um 409; ocupação nunca ultrapassa a capacidade ao concluir as criações.</td></tr>
+<tr><td>RF11: falha no evento ou na auditoria</td><td>Rollback integral da ordem, evento e auditoria. Liberar conexão em finally.</td></tr>
+</tbody></table>
+<p>A ocorrência permanece CONFIRMED, sem incrementar sua revisão, alterar triagem ou duplicar seu histórico. A reserva é derivada das ordens, não altera o status AVAILABLE nem a revisão do veículo. Equipe não ganha exclusividade: diferentes ordens podem compartilhar equipe e veículo até o limite confirmado. Não exigir motorista, membros, datas adicionais ou justificativa no payload.</p>
+<p>Estado OPEN, createdBy, openedAt, revision e snapshots são definidos pelo servidor. O instante de abertura é obtido do banco, depois das validações, e reutilizado no evento OPENED. Sem restrição de horário de atendimento.</p>
+<p>Precedência: autenticação e perfil atual → formato da entrada → ator transacional → existência e unicidade da ocorrência → CONFIRMED → equipe → veículo → capacidade → persistência. A unicidade precede o estado para que uma ordem existente sempre impeça outra criação.</p>
+<p>RNF: SQL parametrizado; projeções explícitas; TypeScript estrito; serviço sem Express; nenhuma dependência, flag ou variável nova; transações curtas. Reenvio não duplica, mas retorna 409: não é replay da resposta 201. Timeout após commit pode deixar resultado incerto para o cliente; a unicidade permanece garantida.</p>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<table><thead><tr><th scope="col">Arquivo</th><th scope="col">Ação e responsabilidade</th></tr></thead><tbody>
+<tr><td>backend/src/types/svo-order.types.ts</td><td>Novo: DTOs, estado inicial, estados que reservam vaga, snapshots explícitos e erro semântico do domínio.</td></tr>
+<tr><td>backend/src/repositories/svo-orders.repository.ts</td><td>Novo: contrato e implementação de leitura da equipe, unicidade, contagem, inserção da ordem e OPENED, sempre com PoolClient recebido.</td></tr>
+<tr><td>backend/src/services/svo-orders.service.ts</td><td>Novo: validação e coordenação da criação transacional, elegibilidade, capacidade, snapshots e projeção segura da auditoria.</td></tr>
+<tr><td>backend/src/controllers/svo-orders.controller.ts</td><td>Novo: adaptação HTTP da criação e resposta 201.</td></tr>
+<tr><td>backend/src/routes/svo-orders.routes.ts</td><td>Novo: autenticação, perfil atual, RBAC e handler sanitizado próprio das ordens.</td></tr>
+<tr><td>backend/src/app.ts</td><td>Alterar: compor dependências, registrar /svo/orders e handler por caminho antes do handler global.</td></tr>
+<tr><td>backend/tests/svo-orders.service.test.ts</td><td>Novo: regras do domínio e orquestração com dependências simuladas.</td></tr>
+<tr><td>backend/tests/svo-orders.integration.test.ts</td><td>Novo, FROTA-117: integração real, concorrência, snapshots, RBAC, atomicidade e sigilo.</td></tr>
+<tr><td>backend/tests/fixtures/svo-orders.fixture.ts</td><td>Novo: equipe/veículo/ordens sintéticos, sem duplicar fixtures existentes de usuários e ocorrências.</td></tr>
+<tr><td>README.md; docs/modulos/SVO.html; docs/manuais/modulos.md</td><td>Atualizar na implementação: contrato, regras confirmadas, cenários, limites e evidências de execução.</td></tr>
+</tbody></table>
+<p><strong>Reuso verificado:</strong> SvoOccurrencesRepository.withTransaction/findActorSnapshot/currentTime/findByIdForUpdate; VehiclesRepository.findByIdForUpdate/hasActiveMaintenanceBlock; SVO_WRITE_ROLES e SvoActorSnapshot; AuditService/AuditLogger; createAuthMiddleware, createCurrentUserMiddleware e authorizeRoles; createApp e helpers de PostgreSQL; fixtures rbac-users e svo-occurrences. Injetar contratos enxutos com Pick quando pertinente. Sem modificar esses componentes apenas para generalizar a nova entrega.</p>
+<p>AvailabilityService exige serviceId e período e trata viagens, não a reserva de corpos por ordens SVO; não o usar artificialmente nem ampliar suas regras. Padrões de referência: fluxo de ocorrência SVO, SQL em repositories e TSDoc de docs/manuais/padroes-docblocks.md.</p>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p><strong>Sem DDL novo.</strong> Reutilizar as migrations <code>202610280006_create_svo_occurrences.sql</code>, <code>202610280007_create_svo_teams.sql</code> e <code>202610280008_create_svo_execution_orders.sql</code>. A nomenclatura canônica é schema/tabela plural e PK id, prevalecendo sobre exemplos antigos com prefixos de três letras na skill operacional.</p>
+<table><thead><tr><th scope="col">Tabela</th><th scope="col">Uso e integridade</th></tr></thead><tbody>
+<tr><td>svo.occurrences</td><td>Ler com trava a solicitação e o contexto confirmado; não alterar.</td></tr>
+<tr><td>svo.teams</td><td>Ler equipe e active sob FOR SHARE; não exigir registros em team_members.</td></tr>
+<tr><td>fleet.vehicles</td><td>FOR UPDATE na linha existente; protege leitura de situação, categoria, operação e capacidade contra edição concorrente até o commit.</td></tr>
+<tr><td>svo.execution_orders</td><td>Uma linha por ocorrência (UNIQUE occurrence_id existente); FKs ON DELETE RESTRICT; OPEN, revision 1, created_by e snapshots; driver_id/driver_snapshot continuam null.</td></tr>
+<tr><td>svo.execution_order_events</td><td>Um OPENED append-only, com occurred_at, registered_at automático, autoria, motivo, evidência, before_state null e after_state.</td></tr>
+<tr><td>audit.logs</td><td>CREATE com projeção mínima, no mesmo cliente transacional.</td></tr>
+</tbody></table>
+<h3>Concorrência e consulta de ocupação</h3>
+<p>Reutilizar withTransaction da ocorrência. Ordem fixa das travas: conta/perfil FOR SHARE → ocorrência FOR UPDATE → equipe FOR SHARE → veículo FOR UPDATE. Ler a contagem em <strong>outra instrução SQL após obter a trava do veículo</strong>, no isolamento READ COMMITTED padrão; assim ela enxerga o commit do criador anterior. Não juntar trava e contagem no mesmo snapshot de uma única instrução.</p>
+<p>Após obter a trava do veículo e antes da contagem de vagas, consultar <code>hasActiveMaintenanceBlock(vehicle.id, client)</code> no mesmo cliente. Essa verificação reutiliza a regra vigente da frota e recusa manutenção impeditiva OPEN/IN_PROGRESS mesmo se o cadastro legado ainda estiver AVAILABLE. Uma manutenção confirmada enquanto a criação aguarda o lock deve ser vista pela instrução posterior. Não alterar registros históricos nem acrescentar consulta de agenda de viagens.</p>
+<pre><code>SELECT count(*)::text AS occupied
+  FROM svo.execution_orders
+ WHERE vehicle_id = $1
+   AND status = ANY($2::text[]);
+-- $2 = ['OPEN', 'IN_TRANSIT', 'IN_SERVICE', 'IN_PROGRESS']
+-- No Service: BigInt(occupied) + 1n &lt;= BigInt(vehicle.bodyLimit)
+</code></pre>
+<p>Usar os índices existentes svo_execution_orders_by_vehicle (vehicle_id, status, opened_at, id) e a constraint única de occurrence_id. Não criar índice redundante nem contador persistido. O total considera ordens antigas e novas, independentemente de snapshots nulos ou da equipe.</p>
+<p>A verificação antecipada de duplicidade melhora a mensagem; a constraint UNIQUE é a defesa definitiva. Mapear SQLSTATE 23505 apenas para a constraint de occurrence_id validada no schema para 409; outros erros não devem ser rotulados como duplicidade. A transação precisa ser revertida antes de responder.</p>
+<h3>Snapshots e preservação histórica</h3>
+<p>occurrenceSnapshot: projeção explícita do detalhe vigente (id, status, revision, requesterName, requesterPhone, requesterType, location, description, notes, receivedAt, triagedAt, triagedBy, attendantId, evidenceDescription). teamSnapshot: id, name, active, revision. vehicleSnapshot: id, licensePlate, categories, operationType, status, bodyLimit, revision. Usar tipos explícitos, sem copiar objetos arbitrários ou membros não exigidos.</p>
+<p>O evento preserva afterState da ordem com IDs, OPEN, openedAt, createdBy, revision e snapshots. registeredBy e actorSnapshot vêm da conta autenticada; reportedBy é o nome desse ator. Motivo fixo: “Ordem gerada a partir de solicitação SVO confirmada.” Evidência fixa: “Alocação de equipe e veículo registrada pelo operador na sessão autenticada.” Nenhuma evidência clínica é inventada.</p>
+<p>Dados pessoais da ocorrência ficam exclusivamente no domínio restrito SVO; não são copiados para audit.logs, resposta ou console. Registros legados não recebem backfill, não são apagados nem têm sua capacidade histórica reinterpretada. Contagem operacional usa o estado atual e capacidade atual; snapshots explicam a decisão passada.</p>
+<h3>Rollback</h3>
+<p>Falha de criação: ROLLBACK das três escritas e release no finally. Reversão da entrega: reverter código, rotas e documentação sem executar as migrations down das dependências nem apagar ordens/eventos/auditoria já gravados. Nenhum ajuste retroativo dos dados existentes.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<table><thead><tr><th scope="col">Método / caminho</th><th scope="col">Entrada</th><th scope="col">Sucesso</th></tr></thead><tbody><tr><td>POST /svo/orders</td><td>JWT Bearer e objeto JSON com exatamente occurrenceId, teamId, vehicleId</td><td>201 · { id: string, status: "OPEN" }</td></tr></tbody></table>
+<pre><code>interface CreateSvoOrderInput {
+  occurrenceId: string
+  teamId: string
+  vehicleId: string
+}
+interface SvoOrderCreationResult { id: string; status: 'OPEN' }
+// Exemplo sintético:
+// { "occurrenceId": "101", "teamId": "12", "vehicleId": "30" }
+// Resposta: { "id": "55", "status": "OPEN" }
+</code></pre>
+<p>Sem aliases em português e sem aceitar status, quantidade, autoria, snapshots, motorista ou revisão do cliente. Corpo ausente/null/array e chaves desconhecidas são inválidos. IDs permanecem strings até o pg; não usar Number para converter BIGINT.</p>
+<table><thead><tr><th scope="col">HTTP</th><th scope="col">Condição e mensagem orientadora</th></tr></thead><tbody>
+<tr><td>400</td><td>JSON/contrato/ID inválido; “Informe um identificador válido para a solicitação/equipe/veículo.” Não confirmada: “A solicitação precisa estar confirmada para gerar uma ordem.”</td></tr>
+<tr><td>401</td><td>Sem token, token inválido/expirado ou conta indisponível; reusar mensagens de autenticação existentes.</td></tr>
+<tr><td>403</td><td>Perfil atual sem permissão; “Seu perfil atual não permite gerar ordens SVO.”</td></tr>
+<tr><td>404</td><td>“Solicitação SVO não encontrada.” / “Equipe SVO não encontrada.” / “Veículo não encontrado.”</td></tr>
+<tr><td>409</td><td>“Esta solicitação já possui uma ordem de execução.”; “Escolha uma equipe SVO ativa.”; “Escolha um veículo disponível para operação SVO e transporte de corpos.”; “O veículo não possui vaga disponível. Escolha outro veículo.”</td></tr>
+<tr><td>500</td><td>Erro inesperado sanitizado: “Não foi possível concluir a geração da ordem. Confirme o resultado com a central antes de tentar novamente.” Não indicar um endpoint GET inexistente.</td></tr>
+</tbody></table>
+<p>Formato de todos os erros: <code>{ "erro": "mensagem" }</code>. Usar erro de domínio com códigos semânticos (INVALID_INPUT, ACCOUNT_UNAVAILABLE, ACCESS_DENIED, NOT_FOUND, OCCURRENCE_NOT_CONFIRMED, ORDER_ALREADY_EXISTS, TEAM_UNAVAILABLE, VEHICLE_UNAVAILABLE, CAPACITY_EXCEEDED), traduzidos na borda.</p>
+<h3>Responsabilidades e sequência de implementação</h3>
+<ol><li><strong>Types:</strong> definir DTOs, SVO_ORDER_INITIAL_STATUS, SVO_ORDER_OCCUPYING_STATUSES, tipos de snapshot, registro persistido e SvoOrderServiceError. Reusar SVO_WRITE_ROLES e SvoActorSnapshot.</li>
+<li><strong>Repository:</strong> findByOccurrenceId, findTeamForShare, countOccupyingOrders, create e createOpenedEvent; SQL com projeções explícitas e parâmetros. Métodos recebem o mesmo PoolClient, não abrem outra transação nem usam pool.query acidentalmente dentro do fluxo.</li>
+<li><strong>Service:</strong> createOrder(body: unknown, userId: string). Validar contrato; executar withTransaction; ler/revalidar ator com findActorSnapshot e conferir SVO_WRITE_ROLES; travar ocorrência e verificar unicidade/status; travar equipe; reusar VehiclesRepository.findByIdForUpdate; avaliar elegibilidade, consultar hasActiveMaintenanceBlock com o mesmo client e verificar contagem; obter currentTime; montar snapshots; inserir ordem, OPENED e auditoria; devolver apenas id e OPEN depois do commit.</li>
+<li><strong>Auditoria:</strong> reutilizar AuditService.recordAudit com o mesmo client, operation CREATE, table svo.execution_orders, recordId e userId. before null; after somente id, occurrenceId, teamId, vehicleId, status, openedAt e revision. actorSnapshot preserva id/name/email/role do operador. Sem incluir os snapshots operacionais, localização, telefone, descrição, notas ou evidência. O sanitizador genérico remove segredos, mas não substitui essa allowlist.</li>
+<li><strong>Controller:</strong> extrair body e ID autenticado, delegar ao service, responder 201. Sem regra de capacidade ou SQL.</li>
+<li><strong>Routes/App:</strong> createAuthMiddleware → createCurrentUserMiddleware → authorizeRoles(SVO_WRITE_ROLES) → controller. Registrar router em /svo/orders e handler específico em app.use('/svo/orders', ...), após routers e antes do handler global. Deve interceptar inclusive erros do express.json anterior ao router. Preservar o handler de ocorrências.</li>
+<li><strong>Falhas:</strong> nunca registrar Error bruto, stack/detail SQL, req.body ou token. Logs técnicos apenas com código controlado, operação CREATE_ORDER e instante; mensagens 400 sem repetir dados enviados.</li>
+<li><strong>Verificação/documentação:</strong> executar a matriz da seção 9, ajustar docs e registrar resultados reais. Não declarar testes aprovados no momento do planejamento.</li></ol>
+<p>O handler de ordens permanece local; esta funcionalidade não inclui refatoração transversal do tratamento de erros. Futuras mutações que aumentem ocupação (reabertura ou troca de veículo) precisarão respeitar o mesmo protocolo de trava, mas não são implementadas aqui.</p>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p><strong>Não há alteração de frontend.</strong> A tela pertence à FROTA-116, fora do pedido. Não criar página, menu, componente, hook ou cliente React nestas subtarefas.</p>
+<table><thead><tr><th scope="col">Estado visual obrigatório no template</th><th scope="col">Aplicabilidade nesta entrega</th></tr></thead><tbody>
+<tr><td>Ideal</td><td>API fornece id/OPEN com 201; renderização será tratada na tarefa de tela.</td></tr>
+<tr><td>Carregando</td><td>Não aplicável ao backend; nenhuma interface de progresso será criada.</td></tr>
+<tr><td>Vazio</td><td>Não há listagem nova; não se aplica.</td></tr>
+<tr><td>Erro</td><td>Mensagens orientadoras em português no contrato { erro }; exibição visual fora do escopo.</td></tr>
+<tr><td>Parcial/intermitente</td><td>Sem sucesso parcial persistido: ordem/evento/auditoria são atômicos. Falha de transporte após commit pode produzir resultado incerto, sem permitir duplicata por reenvio.</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>Aplicar WCAG 2.2 AA às mensagens consumidas por pessoas: identificar o problema, indicar a correção em português e não depender de códigos ou cores. Retornar mensagens específicas de confirmação, equipe, veículo e capacidade sem jargão SQL ou dados sensíveis.</p>
+<p>Teclado, foco, rótulos/useId, alvos de toque, zoom, responsividade e anúncios aria-live da aplicação não são verificáveis em uma entrega sem tela; pertencem à FROTA-116. Esta API não atesta conformidade visual. O próprio SDD usa idioma pt-BR, hierarquia de títulos, links nomeados e cabeçalhos de tabela com scope.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<table><thead><tr><th scope="col">Perfil atual da conta</th><th scope="col">Gerar ordem</th></tr></thead><tbody>
+<tr><td>ATENDENTE_SVO, ADMINISTRADOR</td><td>Permitido, sujeito às regras de domínio.</td></tr>
+<tr><td>GESTOR, SOLICITANTE, MOTORISTA, EQUIPE_SVO</td><td>403, sem consultar os dados da ocorrência ou gravar estado.</td></tr>
+<tr><td>Conta inativa/removida, sessão ausente/inválida/expirada</td><td>401. Token antigo não preserva privilégios removidos.</td></tr>
+</tbody></table>
+<p>Os perfis em português acima são os valores reais em backend/src/types/auth.ts e nas migrations; não migrar RBAC para os exemplos genéricos em inglês das referências. Revalidar ator dentro da transação para fechar a janela entre middleware e gravação.</p>
+<p>Sem configurações novas. Reutilizar configuração JWT, pool e DATABASE_URL_TEST existentes. Ordem SVO não muda permissões de consulta de ocorrências nem disponibilidade de viagens. O recorte confirmado não valida conflito de agenda, exclusividade de equipe ou habilitação de motorista.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<h3>FROTA-117 — integração real</h3>
+<p>Usar node:test, assert/strict, fetch, createApp com porta efêmera e PostgreSQL real, como svo-occurrences.integration.test.ts. Reusar setupTestDatabase/getTestPool/truncateTestDatabase/closeTestPool e fixtures RBAC. Antes de qualquer limpeza, validar URL com banco terminado em _test, distinto do banco da aplicação e correspondente a current_database(). Cleanup destrutivo somente nessa base sintética. Encerrar servidor e pool no after.</p>
+<p>Fluxo principal: cadastrar e confirmar ocorrência pela API FROTA-112, criar equipe e veículo fictícios e chamar POST /svo/orders. Fixtures SQL para estados futuros/legados são restritas aos testes e não exigem implementar endpoints fora do escopo.</p>
+<table><thead><tr><th scope="col">ID / cenário</th><th scope="col">Asserções necessárias</th></tr></thead><tbody>
+<tr><td>ORD-01 · sucesso por atendente e administrador</td><td>201 com exatamente id string e OPEN; vínculo correto; revision 1; createdBy autenticado; driver null; uma ordem, OPENED e auditoria CREATE.</td></tr>
+<tr><td>ORD-02 · PENDING e CANCELED</td><td>400; zero alterações em ordem/eventos/auditoria e na ocorrência.</td></tr>
+<tr><td>ORD-03 · segunda ordem</td><td>409 após criação anterior; repetir para todos os estados existentes, inclusive os finais. Nunca duplicar trilhas.</td></tr>
+<tr><td>ORD-04 · elegibilidade</td><td>INACTIVE/IN_MAINTENANCE, operação ADMINISTRATIVE, categoria sem BODY e equipe inativa → 409. Veículo AVAILABLE com manutenção impeditiva OPEN/IN_PROGRESS → 409 sem ordem, evento ou auditoria. Manutenção não impeditiva ativa, DONE/CANCELED ou de outra viatura não bloqueia. Equipe ativa sem membros e veículo BODY/SVO/AVAILABLE sem impedimento → elegível.</td></tr>
+<tr><td>ORD-05 · capacidade</td><td>Limite zero recusa; última vaga aceita; exceder recusa; cada um dos quatro estados ativos conta; cada um dos três finais libera. Contar ordens de equipes distintas no mesmo veículo e ignorar outros veículos.</td></tr>
+<tr><td>ORD-06 · referências e contrato</td><td>404 separado para cada referência inexistente; 400 para ausências, tipos errados, BIGINT fora do limite, campos extras, nomes antigos do Jira, payload null/array e JSON malformado; sem efeitos.</td></tr>
+<tr><td>ORD-07 · RBAC</td><td>403 nos quatro perfis negados; 401 sem token/inválido/expirado/conta inativa; trocar perfil após emitir JWT não mantém acesso; revalidação transacional coberta.</td></tr>
+<tr><td>ORD-08 · duplicidade concorrente</td><td>Dois POST para mesma ocorrência, inclusive com veículos distintos: [201, 409]; apenas uma ordem e suas duas trilhas.</td></tr>
+<tr><td>ORD-09 · última vaga concorrente</td><td>Duas ocorrências confirmadas e mesma viatura com uma vaga: [201, 409]. Com duas vagas: [201, 201]. Contagem final correta.</td></tr>
+<tr><td>ORD-10 · estabilidade sob locks</td><td>Segurar lock do veículo em conexão separada e confirmar que criação aguarda; atualizar situação/capacidade ou inserir manutenção impeditiva antes de liberar; criação lê os valores confirmados e recusa sem novas escritas. Equipe inativada antes da leitura travada também recusa.</td></tr>
+<tr><td>ORD-11 · rollback de auditoria</td><td>Injetar AuditRepositoryContract que falha via createApp.audits. 500 sanitizado, nenhuma ordem/evento/auditoria; nova tentativa com dependência válida funciona.</td></tr>
+<tr><td>ORD-12 · rollback de evento</td><td>Injetar falha em createOpenedEvent em serviço com repositories reais e transação real; nenhum dado parcial persiste. Não substituir toda a persistência por mocks para alegar integração.</td></tr>
+<tr><td>ORD-13 · snapshots e legado</td><td>OPENED preserva ator e contexto; openedAt igual a occurred_at; registered_at automático. Alterar equipe/veículo/ocorrência em fixture posterior não altera snapshots; ordem legada sem snapshot continua contando; sem backfill.</td></tr>
+<tr><td>ORD-14 · sigilo e mensagens</td><td>Sentinelas fictícias de nome/telefone/local/descrição/notas/evidência ausentes de resposta, audit.logs e console, inclusive erro do parser e erro SQL simulado. Auditoria contém só a allowlist e autoria.</td></tr>
+<tr><td>ORD-15 · invariantes laterais</td><td>Ocorrência mantém status/revision/triagem; veículo mantém status/revision; criação não inclui membros, motorista ou alterações em viagens.</td></tr>
+</tbody></table>
+<p>Testes de concorrência devem usar conexões independentes, barreiras explícitas/lock observado e prazo limitado, sem depender apenas de sleeps ou de Promise.all executar em certa ordem. Consultar o banco após ambas as respostas. Falhas devem afirmar ausência de novas escritas comparando antes/depois, sem exigir sequência de identity sem lacunas (rollback pode consumir IDs).</p>
+<h3>Unitários e transação do repository</h3>
+<p>Em svo-orders.service.test.ts, testar bordas de IDs, estados, equipe ativa sem membros, categorias, operação, capacidade e precedência; verificar reutilização do mesmo client e projeções de auditoria. Nos casos de integração direta, executar repositories com BEGIN/ROLLBACK para comprovar que gravações respeitam o cliente recebido; falha de evento/auditoria não pode deixar resíduos. Verificar liberação de conexão sem esgotar o pool.</p>
+<h3>Comandos de verificação na implementação</h3>
+<pre><code># Diretório de trabalho: backend.
+# Preparar o ambiente de testes já existente sem expor segredos.
+npx tsc --noEmit
+npx tsx --test --test-concurrency=1 tests/svo-orders.service.test.ts tests/svo-orders.integration.test.ts
+npm test
+npm run build
+# Na raiz, auditoria do projeto:
+node docs/scripts/aratu-check.mjs
+</code></pre>
+<p>Executar os quatro comandos de backend no diretório backend e o aratu-check na raiz. Inspecionar os resultados reais do aratu-check, separando achados preexistentes sem correções fora do escopo. Não executar testes de UI para atestar uma tela inexistente.</p>
+<p>Roteiro manual de API: autenticar um usuário sintético por perfil; criar/confirmar ocorrência; gerar ordem com equipe e veículo de teste; verificar resposta e as três escritas; repetir para observar 409; preencher a capacidade com ocorrências distintas; tentar exceder; conferir as recusas por perfil. Não usar pessoas ou chamados reais.</p>
+<p><strong>Status deste SDD:</strong> testes acima são planejados, não executados. A entrega atual é exclusivamente o documento.</p>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><label><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></label></li>
+  <li><label><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-115)</code>)</label></li>
+  <li><label><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos); separar API e testes em commits revisáveis sem sacrificar a cobertura necessária</label></li>
+  <li><label><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</label></li>
+  <li><label><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></label></li>
+  <li><label><input type="checkbox"> <code>npx tsc --noEmit</code>, <code>npm test</code> e <code>npm run build</code> no backend aprovados; auditoria do projeto revisada; frontend não alterado</label></li>
+  <li><label><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</label></li>
+  <li><label><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></label></li>
+  <li><label><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</label></li>
+  <li><label><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</label></li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+<p>Na implementação, atualizar <code>docs/modulos/SVO.html</code> preservando a documentação existente de solicitações: acrescentar geração de ordens, campos camelCase, status OPEN, RBAC, elegibilidade, fórmula de capacidade, unicidade histórica, locks, snapshots, evento OPENED, auditoria mínima, mensagens e rollback.</p>
+<p>Atualizar o índice <code>docs/manuais/modulos.md</code> e o README da API na raiz (<code>README.md</code>) com exemplo sintético de request/response, erros, reenvio 409, dependências e comandos de teste. Distinguir reservas de vagas da ocupação física por corpos coletados. Registrar somente resultados de testes realmente executados e os limites sem frontend, agenda ou execução de ordens.</p>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>ATENDENTE_SVO</code>, <code>SOLICITANTE</code>, <code>EQUIPE_SVO</code>, <code>MOTORISTA</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

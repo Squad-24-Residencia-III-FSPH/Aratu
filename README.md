@@ -141,6 +141,42 @@ Ocorrência, evento e auditoria são gravados na mesma transação; confirmaçõ
 
 Ver [documentação do SVO](docs/modulos/SVO.html), [plano da API](docs/plans/frota-112-api-registro-solicitacao-svo.html) e [matriz de integração](docs/plans/frota-111-testes-registro-solicitacao-svo.html). Testes: `cd backend`, `npx tsx --test tests/svo-occurrences.service.test.ts` e `npx tsx --test --test-concurrency=1 tests/svo-occurrences.integration.test.ts`, exclusivamente em banco de testes. A tela pertence à FROTA-109.
 
+## Geração de ordens SVO (FROTA-115 / FROTA-117)
+
+`POST /svo/orders`, com JWT Bearer de `ATENDENTE_SVO` ou `ADMINISTRADOR`. Depende da API de ocorrências (FROTA-112) e das migrations de equipes e ordens já existentes. Envie exatamente os três IDs como strings decimais positivas canônicas até o limite BIGINT:
+
+```json
+{ "occurrenceId": "101", "teamId": "12", "vehicleId": "30" }
+```
+
+Sucesso `201`:
+
+```json
+{ "id": "55", "status": "OPEN" }
+```
+
+A ocorrência precisa estar `CONFIRMED` e nunca ter recebido uma ordem, inclusive cancelada ou encerrada. A equipe precisa estar ativa; membros e motorista não são exigidos nesta criação. O veículo precisa estar `AVAILABLE`, ser da operação `SVO`, incluir a categoria `BODY` e ter uma vaga livre. Cada ordem reserva uma vaga: contam `OPEN`, `IN_TRANSIT`, `IN_SERVICE` e `IN_PROGRESS`; `COMPLETED`, `NOT_PERFORMED` e `CANCELED` liberam a reserva. A soma considera todas as equipes e ordens legadas, com capacidade vigente. Essa reserva não representa ocupação física por corpos coletados.
+
+Manutenção impeditiva `OPEN` ou `IN_PROGRESS` também torna o veículo indisponível, inclusive quando o cadastro legado ainda está `AVAILABLE`. A verificação usa a regra existente da frota, no mesmo cliente transacional após travar a viatura, e retorna `409` sem gerar ordem, evento ou auditoria. Manutenções não impeditivas, `DONE`/`CANCELED` ou de outro veículo não impedem a criação por si só.
+
+Erros usam `{ "erro": "mensagem orientadora" }`: `400` para contrato/JSON inválido ou ocorrência não confirmada; `401` para sessão/conta indisponível; `403` para perfil atual sem permissão; `404` para solicitação, equipe ou veículo inexistente; `409` para duplicidade histórica, equipe inativa, veículo inelegível ou capacidade esgotada; `500` sanitizado para falha inesperada.
+
+A criação trava conta/perfil, ocorrência, equipe e veículo nessa ordem. Ordem, evento `OPENED` e auditoria `CREATE` usam a mesma transação; qualquer falha causa rollback integral. Snapshots preservam o contexto da decisão no domínio SVO. A auditoria transversal inclui somente IDs, estado, abertura, revisão e autoria, sem conteúdo pessoal do chamado. Ocorrência e veículo mantêm seu estado e revisão.
+
+**Reenvio:** uma segunda criação retorna `409`, sem duplicar trilhas. Após timeout, confirme o resultado com a central antes de tentar novamente. Esta entrega não fornece GET de ordens, tela (FROTA-116), consulta de agenda de viagens ou execução das ordens.
+
+Validação com PostgreSQL real em base sintética exclusiva, a partir da raiz:
+
+```bash
+docker compose exec -T -e POSTGRES_DB_TEST=aratu_svo_115_117_20261115_test backend npx tsx --test --test-concurrency=1 tests/svo-orders.service.test.ts tests/svo-orders.integration.test.ts
+docker compose exec -T -e POSTGRES_DB_TEST=aratu_svo_115_117_20261115_test backend npm test
+docker compose exec -T backend npx tsc --noEmit
+docker compose exec -T backend npm run build
+node docs/scripts/aratu-check.mjs
+```
+
+Se `DATABASE_URL_TEST` estiver definida, ela tem precedência sobre `POSTGRES_DB_TEST`: direcione-a à base de testes desejada. O teste de ordens exige nome terminado em `_test`, diferente da base operacional e igual a `current_database()` antes da limpeza. Consulte o [SDD conjunto](docs/plans/frota-115-117-geracao-ordens-svo.html) e a [documentação SVO](docs/modulos/SVO.html#orders).
+
 ## Padrão de commits
 
 Será utilizado um padrão inspirado em Conventional Commits.
