@@ -103,6 +103,44 @@ Após a integração em `develop`, a equipe promove as alterações para `stagin
 
 Configure as proteções de branch, o ambiente `production`, secrets e variáveis do Actions e o servidor conforme [`docs/manuais/deploy.md`](docs/manuais/deploy.md).
 
+## Solicitações SVO (FROTA-112 / FROTA-111)
+
+A API registra chamados recebidos externamente, inclusive fora do expediente, e confirma a triagem simples. Todas as rotas exigem `Authorization: Bearer <token>` e revalidam o perfil atual da conta.
+
+| Método e endpoint | Perfis | Resultado |
+|---|---|---|
+| `POST /svo/occurrences` | `ATENDENTE_SVO`, `ADMINISTRADOR` | `201` com `{ id, status: "PENDING", receivedAt, createdAt, revision: 1 }` |
+| `GET /svo/occurrences?status=&from=&to=` | Os anteriores e `GESTOR` | `200` com array de resumos; sem resultados retorna `[]` |
+| `GET /svo/occurrences/:id` | Os anteriores e `GESTOR` | `200` com detalhe; inexistente retorna `404` |
+| `POST /svo/occurrences/:id/confirm` | `ATENDENTE_SVO`, `ADMINISTRADOR` | Sem corpo ou `{}`; `200` com `{ id, status: "CONFIRMED", triagedAt, triagedBy, revision }` |
+
+Exemplo sintético do corpo de criação:
+
+```json
+{
+  "requesterName": "Solicitante Fictício QA",
+  "requesterPhone": "00000000000",
+  "requesterType": "FAMILY",
+  "location": "Local Fictício de Teste",
+  "description": "Chamado sintético sem dados reais.",
+  "notes": null,
+  "receivedAt": "2020-01-04T02:15:00-03:00",
+  "evidenceDescription": "Contato telefônico fictício recebido pela central."
+}
+```
+
+`requesterType`: `FAMILY`, `HOSPITAL`, `UBS`, `UPA`, `PUBLIC_AGENCY` ou `OTHER`. Os textos obrigatórios são normalizados com `trim`; telefone não exige máscara. `notes` é opcional e valores vazios viram `null`. `receivedAt` é opcional (usa o relógio do banco), exige ISO 8601 com fuso quando informado e não aceita futuro. A evidência textual do canal/meio é obrigatória. Propriedades fora do contrato são rejeitadas.
+
+Os filtros opcionais `from` e `to` aceitam `AAAA-MM-DD`, inclusive ambos os dias em `America/Maceio`, sobre a data de recebimento. `status` aceita `PENDING`, `CONFIRMED` ou `CANCELED`. A ordenação é `receivedAt DESC, id DESC`, sem paginação nesta entrega. Exemplo: `GET /svo/occurrences?status=PENDING&from=2020-01-04&to=2020-01-05`.
+
+O resumo contém somente `id`, `requesterType`, `location`, `status`, `receivedAt`, `createdAt` e `revision`. O detalhe acrescenta `requesterName`, `requesterPhone`, `description`, `notes`, `attendantId`, `triagedAt`, `triagedBy`, `updatedAt` e `evidenceDescription`. Evidência ausente em legado permanece `null`. IDs são strings BIGINT, datas são ISO 8601 e snapshots/eventos brutos não são expostos.
+
+Erros usam `{ "erro": "mensagem orientadora" }`: `400` para entrada inválida, `401` para sessão/conta indisponível, `403` para perfil sem acesso, `404` para ocorrência inexistente, `409` para confirmação repetida/cancelada e `500` genérico para falha inesperada. `EQUIPE_SVO`, `SOLICITANTE` e `MOTORISTA` não acessam essas rotas. `GESTOR` só consulta.
+
+Ocorrência, evento e auditoria são gravados na mesma transação; confirmações concorrentes geram um único efeito. **Criação não oferece chave de idempotência:** após timeout ou resposta incerta, consulte e confira o registro antes de decidir reenviar. A consulta, sozinha, não comprova qual POST originou o chamado. Não há deduplicação por nome/telefone/local nem reenvio automático.
+
+Ver [documentação do SVO](docs/modulos/SVO.html), [plano da API](docs/plans/frota-112-api-registro-solicitacao-svo.html) e [matriz de integração](docs/plans/frota-111-testes-registro-solicitacao-svo.html). Testes: `cd backend`, `npx tsx --test tests/svo-occurrences.service.test.ts` e `npx tsx --test --test-concurrency=1 tests/svo-occurrences.integration.test.ts`, exclusivamente em banco de testes. A tela pertence à FROTA-109.
+
 ## Padrão de commits
 
 Será utilizado um padrão inspirado em Conventional Commits.
