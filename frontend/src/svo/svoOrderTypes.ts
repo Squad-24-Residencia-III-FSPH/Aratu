@@ -1,14 +1,24 @@
 export const SVO_TEAM_ORDERS_PATH = '/svo/ordens'
 export const SVO_ORDERS_PATH = '/svo/acompanhamento'
-export const SVO_ORDER_STATUSES = ['OPEN', 'IN_TRANSIT', 'IN_SERVICE', 'IN_PROGRESS', 'COMPLETED', 'NOT_PERFORMED', 'CANCELED'] as const
+export const SVO_ORDER_OCCUPYING_STATUSES = ['OPEN', 'IN_TRANSIT', 'IN_SERVICE', 'IN_PROGRESS'] as const
+export const SVO_ORDER_RESULTS = ['COMPLETED', 'NOT_PERFORMED'] as const
+export const SVO_ORDER_STATUSES = [...SVO_ORDER_OCCUPYING_STATUSES, ...SVO_ORDER_RESULTS, 'CANCELED'] as const
 export type SvoOrderStatus = typeof SVO_ORDER_STATUSES[number]
+export type SvoOrderResult = typeof SVO_ORDER_RESULTS[number]
 export type SvoOrderTransition = 'IN_TRANSIT' | 'IN_SERVICE'
+export type SvoOrderFilter = SvoOrderStatus | 'ACTIVE' | ''
+export interface RecordSvoOrderResultInput {
+  result: SvoOrderResult
+  failureReason: string | null
+  notes: string | null
+}
 export interface SvoOrderSummary {
   id: string
   occurrenceId: string
   teamId: string
   vehicleId: string
   status: SvoOrderStatus
+  result: SvoOrderResult | null
   revision: number
   openedAt: string
   departedAt: string | null
@@ -18,6 +28,7 @@ export interface SvoOrderSummary {
   dispatch: { location: string | null; teamName: string | null; vehicleLicensePlate: string | null }
   current: { location: string; teamName: string; vehicleLicensePlate: string }
   allowedTransitions: SvoOrderTransition[]
+  allowedResults: SvoOrderResult[]
 }
 export interface SvoOrderOccurrenceSnapshot {
   id: string
@@ -36,6 +47,9 @@ export interface SvoOrderOccurrenceSnapshot {
   evidenceDescription: string | null
 }
 export interface SvoOrderDetail extends SvoOrderSummary {
+  failureReason: string | null
+  notes: string | null
+  closedBy: string | null
   occurrenceSnapshot: SvoOrderOccurrenceSnapshot | null
   teamSnapshot: { id: string; name: string; active: boolean; revision: number } | null
   vehicleSnapshot: { id: string; licensePlate: string; categories: string[]; operationType: string; status: string; bodyLimit: number; revision: number } | null

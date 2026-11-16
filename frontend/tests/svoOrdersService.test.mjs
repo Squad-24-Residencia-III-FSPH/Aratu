@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { listSvoOrders, getSvoOrder, updateSvoOrderStatus } from '../src/services/svoOrdersService.ts'
+import { listSvoOrders, getSvoOrder, updateSvoOrderStatus, recordSvoOrderResult } from '../src/services/svoOrdersService.ts'
 import { SESSION_EXPIRED } from '../src/auth/token.ts'
 import { makeOrder, makeDetail, jsonResponse } from './svo-orders.fixture.mjs'
 
@@ -42,4 +42,43 @@ test('erros tipados distinguem rejeição de resultado incerto sem expor erro in
   await assert.rejects(listSvoOrders(async () => { throw new Error('Falha de rede') }, ''), { kind: 'network' })
   await assert.rejects(listSvoOrders(async () => { throw new Error(SESSION_EXPIRED) }, ''), { kind: 'session' })
   await assert.rejects(listSvoOrders(async () => jsonResponse({ erro: 'SQL SENTINELA' }, 500), ''), (error) => !/SQL SENTINELA/.test(error.message))
+})
+
+test('recordSvoOrderResult envia payload normalizado e valida coerência de coleta, fechamento e autoria', async () => {
+  let sent
+  const base = makeOrder({ status: 'IN_SERVICE', revision: 3, allowedTransitions: [], allowedResults: ['COMPLETED', 'NOT_PERFORMED'] })
+  const closedTime = '2026-11-15T12:30:00.000Z'
+  const completedDetail = makeDetail({
+    ...base, status: 'COMPLETED', result: 'COMPLETED', revision: 4,
+    collectedAt: closedTime, closedAt: closedTime, closedBy: '7', notes: 'Observação sintética',
+    allowedTransitions: [], allowedResults: [],
+  })
+  const completed = await recordSvoOrderResult(async (path, init) => { sent = { path, init }; return jsonResponse(completedDetail) }, base, {
+    result: 'COMPLETED', failureReason: '   ', notes: '  Observação sintética  ',
+  })
+  assert.equal(completed.result, 'COMPLETED')
+  assert.equal(sent.path, '/svo/orders/1/result'); assert.equal(sent.init.method, 'POST')
+  assert.deepEqual(JSON.parse(sent.init.body), { result: 'COMPLETED', revision: 3, failureReason: null, notes: 'Observação sintética' })
+  for (const invalidChange of [
+    { collectedAt: null }, { collectedAt: '2026-11-15T12:29:00.000Z' }, { closedAt: null },
+    { closedBy: null }, { failureReason: 'Contraditório' }, { revision: 3 }, { allowedResults: ['COMPLETED'] },
+  ]) {
+    await assert.rejects(recordSvoOrderResult(async () => jsonResponse({ ...completedDetail, ...invalidChange }), base, {
+      result: 'COMPLETED', failureReason: null, notes: null,
+    }), { kind: 'invalidResponse' })
+  }
+  const notPerformedDetail = makeDetail({
+    ...base, status: 'NOT_PERFORMED', result: 'NOT_PERFORMED', revision: 4,
+    collectedAt: null, closedAt: closedTime, closedBy: '7', failureReason: 'Local inacessível QA',
+    allowedTransitions: [], allowedResults: [],
+  })
+  const notPerformed = await recordSvoOrderResult(async () => jsonResponse(notPerformedDetail), base, {
+    result: 'NOT_PERFORMED', failureReason: ' Local inacessível QA ', notes: ' ',
+  })
+  assert.equal(notPerformed.result, 'NOT_PERFORMED')
+  for (const invalidChange of [{ collectedAt: closedTime }, { failureReason: null }, { failureReason: '   ' }]) {
+    await assert.rejects(recordSvoOrderResult(async () => jsonResponse({ ...notPerformedDetail, ...invalidChange }), base, {
+      result: 'NOT_PERFORMED', failureReason: 'Local inacessível QA', notes: null,
+    }), { kind: 'invalidResponse' })
+  }
 })

@@ -69,7 +69,13 @@
 <body>
 <h1>SVO — Solicitações, ordens e acompanhamento</h1>
 <div class="meta-block">
-<p><strong>Atualização atual:</strong> FROTA-118 — acompanhamento do atendimento · 15/11/2026 · America/Sao_Paulo.</p>
+<p><strong>Atualização atual:</strong> FROTA-122 (FROTA-123 FE, FROTA-124 BE, FROTA-125 QA) — registro de resultado e encerramento do atendimento · 15/11/2026 · America/Sao_Paulo.</p>
+<p><strong>Branch:</strong> <code>feat/svo-order-result</code>, criada sobre a cadeia SVO validada (<code>feat/svo-order-tracking</code>, <code>3269a5b</code>).</p>
+<p><strong>Camadas:</strong> Express 5 / TypeScript → Services → Repositories; React 19 / Material UI; PostgreSQL 18, sem nova migration. <strong>Perfis:</strong> EQUIPE_SVO, ATENDENTE_SVO, GESTOR e ADMINISTRADOR.</p>
+<p><a href="../plans/frota-122-registrar-resultado-svo.html">SDD FROTA-122</a> · <a href="#results">Entrega e validação atuais</a>. Os registros de entregas anteriores abaixo permanecem como evidência histórica.</p>
+</div>
+<div class="meta-block">
+<p><strong>Entrega anterior:</strong> FROTA-118 — acompanhamento do atendimento · 15/11/2026 · America/Sao_Paulo.</p>
 <p><strong>Branch:</strong> <code>feat/svo-order-tracking</code>, criada de <code>feat/svo-orders</code> (<code>813e8ef</code>) por confirmação expressa do usuário, enquanto a dependência FROTA-115/117 aguarda integração na develop.</p>
 <p><strong>Camadas:</strong> Express 5 / TypeScript → Services → Repositories; React 19 / Material UI; PostgreSQL 18, sem nova migration. <strong>Perfis:</strong> EQUIPE_SVO, ATENDENTE_SVO, GESTOR e ADMINISTRADOR.</p>
 <p><a href="../plans/frota-118-acompanhar-atendimento-svo.html">SDD FROTA-118</a> · <a href="#tracking">Entrega e validação atuais</a>. Os registros de entregas anteriores abaixo permanecem como evidência histórica.</p>
@@ -88,9 +94,10 @@
 <li><a href="#privacy">Dependências e proteção de dados</a></li><li><a href="#tests">Verificação e evidências</a></li>
 <li><a href="#orders">Geração de ordens SVO — FROTA-115 / FROTA-117</a></li>
 <li><a href="#tracking">Acompanhamento do atendimento — FROTA-118</a></li>
+<li><a href="#results">Registro de resultado e encerramento — FROTA-122</a></li>
 </ol>
 <h2 id="overview">1. Visão geral</h2>
-<p>Registra chamados recebidos externamente pela central SVO, a qualquer hora. Permite informar quando o recebimento aconteceu, consultar solicitações e confirmar a conferência dos campos de triagem. A entrega inicial FROTA-111/FROTA-112 compreende quatro endpoints de ocorrências. A FROTA-115/FROTA-117 acrescenta a geração de ordem para uma solicitação confirmada, descrita na <a href="#orders">seção de ordens</a>. A <a href="#tracking">FROTA-118</a> acrescenta consultas e confirmação de saída/chegada pela equipe, com duas telas. Telas de registro/geração (FROTA-109/FROTA-116), encerramento (FROTA-124), CRUD de equipes, cancelamento, retificação, reabertura, dados clínicos adicionais e anexos permanecem fora dessas entregas.</p>
+<p>Registra chamados recebidos externamente pela central SVO, a qualquer hora. Permite informar quando o recebimento aconteceu, consultar solicitações e confirmar a conferência dos campos de triagem. A entrega inicial FROTA-111/FROTA-112 compreende quatro endpoints de ocorrências. A FROTA-115/FROTA-117 acrescenta a geração de ordem para uma solicitação confirmada, descrita na <a href="#orders">seção de ordens</a>. A <a href="#tracking">FROTA-118</a> acrescenta consultas e confirmação de saída/chegada pela equipe, com duas telas. A <a href="#results">FROTA-122</a> acrescenta o registro do resultado final (concluída ou não realizada), liberação da reserva derivada, recorte inicial de ordens ativas para a equipe e acesso de leitura do gestor em <code>/svo/acompanhamento</code>. Telas de registro/geração (FROTA-109/FROTA-116), CRUD de equipes, cancelamento, retificação, reabertura, dados clínicos adicionais e anexos permanecem fora dessas entregas.</p>
 <h2 id="rules">2. Regras de negócio e transições de estado</h2>
 <ul>
 <li><code>SvoOccurrencesService.createOccurrence</code>: nome, telefone, tipo de solicitante, local, descrição e evidência do canal/meio obrigatórios. Textos usam trim. Telefone não exige máscara. Observações vazias/omitidas viram null.</li>
@@ -318,4 +325,36 @@ node docs/scripts/aratu-check.mjs</code></pre>
 <h3>Revalidação complementar no navegador integrado — FROTA-118</h3>
 <p>Após o bloqueio específico do controle do Firefox, a execução foi retomada no navegador integrado do ChatGPT, com API em 4302, frontend em 5174 e base sintética exclusiva <code>frota118_attention_ui_test</code>. A equipe confirmou saída e chegada da ordem fictícia #2; Enter/Espaço, Esc, retorno de foco e mensagem de sucesso em role=status foram observados. O atendente consultou a mesma ordem Em atendimento com saída/chegada, Atualizar e detalhe, sem comandos de alteração. Não foram capturados erros de console nessas abas.</p>
 <p>Medições DOM após conferir a largura efetiva: 320, 375, 800, 1024, 1280 e 1920 px sem scrollWidth superior ao viewport, com botões operacionais de 44 px. O ensaio não atesta zoom real de 200%: os atalhos não alteraram escala nem devicePixelRatio. Leitor de tela dedicado permanece pendente. Capturas recortadas dessa execução não foram utilizadas para atestar a composição visual. Ver o <a href="../reviews/frota-118-acompanhar-atendimento-svo.html">relatório de revisão atualizado</a> para evidências e limites.</p>
+<h2 id="results">13. Registro de resultado e encerramento — FROTA-122</h2>
+<p>Entrega conjunta das subtarefas FROTA-123 (interface), FROTA-124 (API) e FROTA-125 (QA), conforme <a href="../plans/frota-122-registrar-resultado-svo.html">SDD aprovado</a>. Reutiliza integralmente a migration <code>202610280008_create_svo_execution_orders.sql</code>, sem DDL adicional.</p>
+<h3>Regras de negócio, horários e liberação da reserva</h3>
+<ul>
+<li><code>SvoOrdersService.recordResult</code>: exclusivo para <code>EQUIPE_SVO</code> com conta ativa, vínculo vigente na equipe da ordem e equipe ativa.</li>
+<li>Máquina de estados de encerramento (<code>SVO_ORDER_ALLOWED_RESULTS</code>):
+  <ul>
+    <li><code>IN_SERVICE → COMPLETED</code>: <code>status = result = 'COMPLETED'</code>, <code>collected_at = closed_at = instante do servidor</code>, <code>closed_by = actor.id</code>, <code>failure_reason = null</code>, <code>revision + 1</code>.</li>
+    <li><code>IN_TRANSIT | IN_SERVICE → NOT_PERFORMED</code>: <code>status = result = 'NOT_PERFORMED'</code>, <code>failure_reason</code> obrigatório (normalizado com <code>trim</code>), <code>collected_at = null</code>, <code>closed_at = instante do servidor</code>, <code>closed_by = actor.id</code>, <code>revision + 1</code>.</li>
+    <li><code>OPEN</code>, <code>IN_PROGRESS</code> (legado), <code>COMPLETED</code>, <code>NOT_PERFORMED</code> e <code>CANCELED</code> não permitem encerramento (<code>409</code>). O endpoint <code>PATCH /svo/orders/:id/status</code> permanece restrito a saída/chegada e não aceita estados finais.</li>
+  </ul>
+</li>
+<li><code>notes</code> é opcional e normalizado com <code>trim</code> (vazio vira <code>null</code>). Informar <code>failureReason</code> não vazio para <code>COMPLETED</code> ou omitir/enviar em branco para <code>NOT_PERFORMED</code> retorna <code>400</code> sem escrita.</li>
+<li>Ao transitar para <code>COMPLETED</code> ou <code>NOT_PERFORMED</code>, a ordem deixa o conjunto ocupante (<code>OPEN, IN_TRANSIT, IN_SERVICE, IN_PROGRESS</code>), liberando imediatamente uma vaga na contagem derivada de capacidade da viatura (<code>countOccupyingOrders</code>), sem alterar o status cadastral de <code>fleet.vehicles</code> ou de <code>svo.occurrences</code>.</li>
+<li>Evento imutável (<code>COMPLETED</code> ou <code>NOT_PERFORMED</code>) em <code>svo.execution_order_events</code> com <code>before_state</code> e <code>after_state</code> completos, e registro <code>UPDATE</code> em <code>audit.logs</code> na mesma transação (<code>before</code>/<code>after</code> estruturais sem copiar textos livres de observações ou dados pessoais do chamado).</li>
+</ul>
+<h3>Contratos REST e matriz RBAC</h3>
+<table><thead><tr><th scope="col">Endpoint</th><th scope="col">Entrada</th><th scope="col">Saída</th></tr></thead><tbody>
+<tr><td>POST /svo/orders/:id/result</td><td><code>{ result: 'COMPLETED' | 'NOT_PERFORMED', revision: number, failureReason?: string | null, notes?: string | null }</code></td><td><code>200</code> com <code>SvoOrderDetail</code> atualizado (<code>result</code>, <code>allowedResults: []</code>, <code>failureReason</code>, <code>notes</code>, <code>closedBy</code>, <code>collectedAt</code>, <code>closedAt</code>)</td></tr>
+<tr><td>GET /svo/orders</td><td><code>status?</code> opcional</td><td><code>200</code> com <code>SvoOrderSummary[]</code> incluindo <code>result</code> e <code>allowedResults</code> (sem <code>failureReason</code>, <code>notes</code> ou <code>closedBy</code> na listagem)</td></tr>
+<tr><td>GET /svo/orders/:id</td><td>ID decimal canônico até BIGINT</td><td><code>200</code> com <code>SvoOrderDetail</code> acrescentando <code>failureReason</code>, <code>notes</code> e <code>closedBy</code></td></tr>
+</tbody></table>
+<table><thead><tr><th scope="col">Perfil</th><th scope="col">Consultar</th><th scope="col">POST /:id/result</th><th scope="col">Interface</th></tr></thead><tbody>
+<tr><td>EQUIPE_SVO</td><td>União de equipes com vínculo vigente</td><td>Somente próprias; vínculo vigente e equipe ativa</td><td><code>/svo/ordens</code> (recorte inicial <strong>Ativas</strong>)</td></tr>
+<tr><td>ATENDENTE_SVO</td><td>Todas</td><td>403</td><td><code>/svo/acompanhamento</code> (leitura)</td></tr>
+<tr><td>GESTOR</td><td>Todas</td><td>403</td><td><code>/svo/acompanhamento</code> (leitura, liberado no menu e rota)</td></tr>
+<tr><td>ADMINISTRADOR</td><td>Todas na API</td><td>403</td><td>API</td></tr>
+<tr><td>SOLICITANTE / MOTORISTA</td><td>403</td><td>403</td><td>Sem acesso</td></tr>
+</tbody></table>
+<h3>Interface, estados visuais e verificação</h3>
+<p>Em <code>/svo/ordens</code>, a equipe visualiza inicialmente o recorte <strong>Ativas</strong> (filtrando localmente os estados ocupantes sobre a lista autorizada da API, sem enviar <code>status=ACTIVE</code>). O card exibe <strong>Encerrar</strong> apenas quando <code>allowedResults</code> possui opções. O componente <code>SvoOrderResultDialog</code> conduz o preenchimento e a revisão em dois passos no mesmo diálogo, sem pré-selecionar conclusão, exigindo motivo apenas em <code>Não realizada</code> e preservando o rascunho ao acionar <strong>Voltar ao formulário</strong>. Após confirmação, anuncia <code>“Ordem #N encerrada como Concluída.”</code> ou <code>“Não realizada.”</code> em <code>role="status"</code>, retira o card de <strong>Ativas</strong> e mantém o registro consultável em <strong>Todas</strong> e nos filtros finais. Em perda de resposta após o POST, bloqueia reenvio e reconcilia via <code>GET /svo/orders/:id</code> exibindo a situação observada sem atribuir autoria ao usuário local.</p>
+<p>Verificações automatizadas executadas em 15/11/2026 na base isolada <code>frota122_svo_result_test</code>: 48 testes de ordens SVO no backend (15 unitários em <code>svo-orders.service.test.ts</code> e 33 integrações HTTP/PostgreSQL em <code>svo-orders.integration.test.ts</code>), 187 testes de frontend, compilação TypeScript, ESLint, builds de produção e auditoria estática <code>aratu-check.mjs</code> com 0 bloqueios e 0 alertas.</p>
 </body></html>

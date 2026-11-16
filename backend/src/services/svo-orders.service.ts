@@ -5,18 +5,24 @@ import type { AuditLogger } from '../types/audit.types'
 import type { PoolClient } from 'pg'
 import type { SvoActorSnapshot } from '../types/svo-occurrence.types'
 import { SVO_WRITE_ROLES } from '../types/svo-occurrence.types'
-import { SVO_ORDER_INITIAL_STATUS, SVO_ORDER_READ_ROLES, SVO_ORDER_STATUSES, SVO_ORDER_TRANSITIONS, SVO_ORDER_STATUS_AUDIT_OPERATION, SvoOrderServiceError } from '../types/svo-order.types'
+import {
+  SVO_ORDER_ALLOWED_RESULTS, SVO_ORDER_INITIAL_STATUS, SVO_ORDER_READ_ROLES, SVO_ORDER_RESULTS,
+  SVO_ORDER_STATUSES, SVO_ORDER_TRANSITIONS, SVO_ORDER_STATUS_AUDIT_OPERATION, SvoOrderServiceError,
+} from '../types/svo-order.types'
 import type {
-  CreateSvoOrderInput, SvoOrderCreationResult, SvoOrderSummary, SvoOrderDetail, SvoOrderReadRow,
-  SvoOrderState, SvoOrderStatus, SvoOrderTransition, UpdateSvoOrderStatusInput,
+  CreateSvoOrderInput, RecordSvoOrderResultInput, SvoOrderCreationResult, SvoOrderSummary, SvoOrderDetail,
+  SvoOrderDetailRow, SvoOrderReadRow, SvoOrderResult, SvoOrderState, SvoOrderStatus, SvoOrderTransition, UpdateSvoOrderStatusInput,
 } from '../types/svo-order.types'
 
 const CREATE_FIELDS = ['occurrenceId', 'teamId', 'vehicleId'] as const
+const RESULT_FIELDS = ['result', 'revision', 'failureReason', 'notes'] as const
 const MAX_BIGINT = 9223372036854775807n
 const OPENED_REASON = 'Ordem gerada a partir de solicitação SVO confirmada.'
 const OPENED_EVIDENCE = 'Alocação de equipe e veículo registrada pelo operador na sessão autenticada.'
 const STATUS_CONFLICT = 'A situação da ordem mudou ou não permite esta ação. Atualize a consulta antes de continuar.'
+const RESULT_CONFLICT = 'A situação da ordem mudou ou não permite encerramento. Atualize a consulta antes de continuar.'
 const UPDATE_DENIED = 'Você não tem permissão para atualizar esta ordem. Atualize a consulta ou procure a central.'
+const COMPLETED_REASON = 'Atendimento concluído pela equipe SVO.'
 const STATUS_REASON: Record<SvoOrderTransition, string> = {
   IN_TRANSIT: 'Saída confirmada pela equipe SVO.', IN_SERVICE: 'Chegada ao local confirmada pela equipe SVO.',
 }
@@ -35,6 +41,19 @@ function isStatus(value: unknown): value is SvoOrderStatus {
   return SVO_ORDER_STATUSES.some((status) => status === value)
 }
 
+function isResult(value: unknown): value is SvoOrderResult {
+  return SVO_ORDER_RESULTS.some((result) => result === value)
+}
+
+function parseOptionalText(value: unknown, label: string): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') {
+    throw new SvoOrderServiceError('INVALID_INPUT', `Informe um texto válido para ${label}.`)
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 function parseStatusInput(body: unknown): UpdateSvoOrderStatusInput {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new SvoOrderServiceError('INVALID_INPUT', 'Envie um objeto JSON com situação e revisão da ordem.')
@@ -47,13 +66,58 @@ function parseStatusInput(body: unknown): UpdateSvoOrderStatusInput {
   return { status: input.status, revision: input.revision as number }
 }
 
+function parseResultInput(body: unknown): RecordSvoOrderResultInput {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new SvoOrderServiceError('INVALID_INPUT', 'Envie um objeto JSON com o resultado e a revisão da ordem.')
+  }
+  const input = body as Record<string, unknown>
+  if (Object.keys(input).some((key) => !RESULT_FIELDS.some((field) => field === key))
+    || !isResult(input.result) || !Number.isSafeInteger(input.revision) || (input.revision as number) < 1) {
+    throw new SvoOrderServiceError('INVALID_INPUT', 'Envie somente um resultado válido e a revisão inteira positiva da ordem.')
+  }
+  const failureReason = parseOptionalText(input.failureReason, 'o motivo da não realização')
+  const notes = parseOptionalText(input.notes, 'as observações')
+  if (input.result === 'NOT_PERFORMED' && !failureReason) {
+    throw new SvoOrderServiceError('INVALID_INPUT', 'Informe o motivo da não realização.')
+  }
+  if (input.result === 'COMPLETED' && failureReason !== null) {
+    throw new SvoOrderServiceError('INVALID_INPUT', 'Não informe motivo de não realização quando o atendimento for concluído.')
+  }
+  return { result: input.result, revision: input.revision as number, failureReason, notes }
+}
+
+function hasPriorClosing(order: SvoOrderState): boolean {
+  return order.result !== null || order.closedAt !== null || order.closedBy !== null
+    || order.collectedAt !== null || order.failureReason !== null
+}
+
+function auditState(state: SvoOrderState): Omit<SvoOrderState, 'failureReason' | 'notes'> {
+  const { failureReason: _failureReason, notes: _notes, ...rest } = state
+  return rest
+}
+
 function summarize(row: SvoOrderReadRow, actor: SvoActorSnapshot): SvoOrderSummary {
+  const canAct = actor.role === 'EQUIPE_SVO' && row.teamActive
+    && row.result === null && row.closedAt === null && row.collectedAt === null
   return {
     id: row.id, occurrenceId: row.occurrenceId, teamId: row.teamId, vehicleId: row.vehicleId,
-    status: row.status, revision: row.revision, openedAt: row.openedAt, departedAt: row.departedAt,
-    arrivedAt: row.arrivedAt, collectedAt: row.collectedAt, closedAt: row.closedAt,
+    status: row.status, result: row.result, revision: row.revision, openedAt: row.openedAt,
+    departedAt: row.departedAt, arrivedAt: row.arrivedAt, collectedAt: row.collectedAt, closedAt: row.closedAt,
     dispatch: row.dispatch, current: row.current,
-    allowedTransitions: actor.role === 'EQUIPE_SVO' && row.teamActive ? SVO_ORDER_TRANSITIONS[row.status] : [],
+    allowedTransitions: canAct ? SVO_ORDER_TRANSITIONS[row.status] : [],
+    allowedResults: canAct ? SVO_ORDER_ALLOWED_RESULTS[row.status] : [],
+  }
+}
+
+function detail(row: SvoOrderDetailRow, actor: SvoActorSnapshot): SvoOrderDetail {
+  return {
+    ...summarize(row, actor),
+    failureReason: row.failureReason,
+    notes: row.notes,
+    closedBy: row.closedBy,
+    occurrenceSnapshot: row.occurrenceSnapshot,
+    teamSnapshot: row.teamSnapshot,
+    vehicleSnapshot: row.vehicleSnapshot,
   }
 }
 
@@ -112,8 +176,7 @@ export class SvoOrdersService {
       const { order } = await this.authorizeOrder(orderId, actor, false, client)
       const row = await this.orders.findById(order.id, client)
       if (!row) throw new SvoOrderServiceError('NOT_FOUND', 'Ordem SVO não encontrada.')
-      return { ...summarize(row, actor), occurrenceSnapshot: row.occurrenceSnapshot,
-        teamSnapshot: row.teamSnapshot, vehicleSnapshot: row.vehicleSnapshot }
+      return detail(row, actor)
     })
   }
 
@@ -132,7 +195,7 @@ export class SvoOrdersService {
       const priorTime = input.status === 'IN_SERVICE' ? before.departedAt ?? before.openedAt : before.openedAt
       const destinationTime = input.status === 'IN_TRANSIT' ? before.departedAt : before.arrivedAt
       if (before.revision !== input.revision || !target || destinationTime !== null
-        || time < before.openedAt || time < priorTime) {
+        || hasPriorClosing(before) || time < before.openedAt || time < priorTime) {
         throw new SvoOrderServiceError('INVALID_TRANSITION', STATUS_CONFLICT)
       }
       if (!await this.orders.updateStatus(before, target, time, client)) {
@@ -145,10 +208,57 @@ export class SvoOrdersService {
       await this.orders.createStatusEvent({ before, after, actor, occurredAt: time,
         eventType: target === 'IN_TRANSIT' ? 'DEPARTED' : 'ARRIVED', reason, evidenceDescription: STATUS_EVIDENCE }, client)
       await this.audit.recordAudit({ userId: actor.id, table: 'svo.execution_orders', recordId: before.id,
-        operation: SVO_ORDER_STATUS_AUDIT_OPERATION, before: { ...before }, after: { ...after }, actorSnapshot: { ...actor }, reason }, client)
+        operation: SVO_ORDER_STATUS_AUDIT_OPERATION, before: auditState(before), after: auditState(after), actorSnapshot: { ...actor }, reason }, client)
       const row = await this.orders.findById(before.id, client)
       if (!row) throw new SvoOrderServiceError('NOT_FOUND', 'Ordem SVO não encontrada.')
       return summarize(row, actor)
+    })
+  }
+
+  /**
+   * Registra o resultado final do atendimento (concluída ou não realizada) e encerra a ordem.
+   * @throws {SvoOrderServiceError} Se contrato, acesso, revisão, situação ou carimbos impedirem o encerramento.
+   * @remarks Libera a reserva derivada ao sair dos estados ocupantes; grava evento imutável e auditoria na mesma transação.
+   */
+  async recordResult(id: unknown, body: unknown, userId: string): Promise<SvoOrderDetail> {
+    const orderId = parseOrderId(id)
+    const input = parseResultInput(body)
+    return this.occurrences.withTransaction(async (client) => {
+      const actor = await this.authorizeActor(userId, true, client)
+      const { order: before, time } = await this.authorizeOrder(orderId, actor, true, client)
+      const target = SVO_ORDER_ALLOWED_RESULTS[before.status].find((result) => result === input.result)
+      if (before.revision !== input.revision || !target || hasPriorClosing(before)
+        || time < before.openedAt
+        || (before.departedAt !== null && time < before.departedAt)
+        || (before.arrivedAt !== null && time < before.arrivedAt)) {
+        throw new SvoOrderServiceError('INVALID_TRANSITION', RESULT_CONFLICT)
+      }
+      const after: SvoOrderState = {
+        ...before,
+        status: target,
+        result: target,
+        failureReason: input.failureReason,
+        notes: input.notes,
+        revision: before.revision + 1,
+        collectedAt: target === 'COMPLETED' ? time : null,
+        closedAt: time,
+        closedBy: actor.id,
+      }
+      if (!await this.orders.updateResult(after, before.revision, time, client)) {
+        throw new SvoOrderServiceError('INVALID_TRANSITION', RESULT_CONFLICT)
+      }
+      const reason = target === 'COMPLETED' ? COMPLETED_REASON : input.failureReason!
+      await this.orders.createStatusEvent({
+        before, after, actor, occurredAt: time, eventType: target, reason, evidenceDescription: STATUS_EVIDENCE,
+      }, client)
+      await this.audit.recordAudit({
+        userId: actor.id, table: 'svo.execution_orders', recordId: before.id,
+        operation: SVO_ORDER_STATUS_AUDIT_OPERATION, before: auditState(before), after: auditState(after),
+        actorSnapshot: { ...actor }, reason,
+      }, client)
+      const row = await this.orders.findById(before.id, client)
+      if (!row) throw new SvoOrderServiceError('NOT_FOUND', 'Ordem SVO não encontrada.')
+      return detail(row, actor)
     })
   }
 

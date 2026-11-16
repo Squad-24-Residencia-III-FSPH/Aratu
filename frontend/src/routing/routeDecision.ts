@@ -23,7 +23,7 @@ type RouteDecision =
   | { kind: 'trip-confirmation'; profile: 'GESTOR' }
   | { kind: 'service-types'; profile: Profile }
   | { kind: 'trip-scheduling'; profile: Profile }
-  | { kind: 'svo-orders'; profile: 'ATENDENTE_SVO' }
+  | { kind: 'svo-orders'; profile: 'ATENDENTE_SVO' | 'GESTOR' }
 
 export function resolveRoute(session: AuthSession | null, path: string, now = Date.now()): RouteDecision {
   const profile = session && resolveProfile(session.perfil)
@@ -33,7 +33,9 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
   }
   const home = PROFILE_HOMES[profile].path
   if (path === SVO_ORDERS_PATH) {
-    return profile === 'ATENDENTE_SVO' ? { kind: 'svo-orders', profile } : { kind: 'redirect', to: home }
+    return profile === 'ATENDENTE_SVO' || profile === 'GESTOR'
+      ? { kind: 'svo-orders', profile }
+      : { kind: 'redirect', to: home }
   }
   if (path === TRIP_CONFIRMATION_PATH) {
     return profile === 'GESTOR' ? { kind: 'trip-confirmation', profile } : { kind: 'redirect', to: home }

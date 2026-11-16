@@ -17,6 +17,7 @@ export interface SvoOrdersRepositoryContract {
   findByIdForUpdate(id: string, client: PoolClient): Promise<SvoOrderState | null>
   findMembershipForShare(teamId: string, userId: string, client: PoolClient): Promise<SvoOrderMembership | null>
   updateStatus(order: SvoOrderState, status: SvoOrderTransition, time: Date, client: PoolClient): Promise<boolean>
+  updateResult(after: SvoOrderState, expectedRevision: number, time: Date, client: PoolClient): Promise<boolean>
   createStatusEvent(event: SvoOrderStatusEvent, client: PoolClient): Promise<void>
 }
 
@@ -25,7 +26,7 @@ export class SvoOrdersRepository implements SvoOrdersRepositoryContract {
   async listForActor(userId: string | null, status: SvoOrderStatus | null, time: Date, client: PoolClient): Promise<SvoOrderReadRow[]> {
     const result = await client.query<SvoOrderReadRow>(
       `SELECT o.id::text AS id, o.occurrence_id::text AS "occurrenceId", o.team_id::text AS "teamId",
-          o.vehicle_id::text AS "vehicleId", o.status, o.revision, o.opened_at AS "openedAt",
+          o.vehicle_id::text AS "vehicleId", o.status, o.result, o.revision, o.opened_at AS "openedAt",
           o.departed_at AS "departedAt", o.arrived_at AS "arrivedAt", o.collected_at AS "collectedAt",
           o.closed_at AS "closedAt", t.active AS "teamActive",
           jsonb_build_object('location', o.occurrence_snapshot->>'location', 'teamName', o.team_snapshot->>'name',
@@ -46,9 +47,10 @@ export class SvoOrdersRepository implements SvoOrdersRepositoryContract {
   async findById(id: string, client: PoolClient): Promise<SvoOrderDetailRow | null> {
     const result = await client.query<SvoOrderDetailRow>(
       `SELECT o.id::text AS id, o.occurrence_id::text AS "occurrenceId", o.team_id::text AS "teamId",
-          o.vehicle_id::text AS "vehicleId", o.status, o.revision, o.opened_at AS "openedAt",
-          o.departed_at AS "departedAt", o.arrived_at AS "arrivedAt", o.collected_at AS "collectedAt",
-          o.closed_at AS "closedAt", t.active AS "teamActive",
+          o.vehicle_id::text AS "vehicleId", o.status, o.result, o.failure_reason AS "failureReason", o.notes,
+          o.revision, o.opened_at AS "openedAt", o.departed_at AS "departedAt", o.arrived_at AS "arrivedAt",
+          o.collected_at AS "collectedAt", o.closed_at AS "closedAt", o.closed_by::text AS "closedBy",
+          t.active AS "teamActive",
           jsonb_build_object('location', o.occurrence_snapshot->>'location', 'teamName', o.team_snapshot->>'name',
             'vehicleLicensePlate', o.vehicle_snapshot->>'licensePlate') AS dispatch,
           jsonb_build_object('location', c.location, 'teamName', t.name, 'vehicleLicensePlate', v.license_plate) AS current,
@@ -65,8 +67,9 @@ export class SvoOrdersRepository implements SvoOrdersRepositoryContract {
   async findByIdForUpdate(id: string, client: PoolClient): Promise<SvoOrderState | null> {
     const result = await client.query<SvoOrderState>(
       `SELECT id::text AS id, occurrence_id::text AS "occurrenceId", team_id::text AS "teamId",
-          vehicle_id::text AS "vehicleId", status, revision, opened_at AS "openedAt", departed_at AS "departedAt",
-          arrived_at AS "arrivedAt", collected_at AS "collectedAt", closed_at AS "closedAt"
+          vehicle_id::text AS "vehicleId", status, result, failure_reason AS "failureReason", notes,
+          revision, opened_at AS "openedAt", departed_at AS "departedAt", arrived_at AS "arrivedAt",
+          collected_at AS "collectedAt", closed_at AS "closedAt", closed_by::text AS "closedBy"
         FROM svo.execution_orders WHERE id = $1 FOR UPDATE`, [id],
     )
     return result.rows[0] ?? null
@@ -87,6 +90,16 @@ export class SvoOrdersRepository implements SvoOrdersRepositoryContract {
         departed_at = CASE WHEN $2 = 'IN_TRANSIT' THEN $3 ELSE departed_at END,
         arrived_at = CASE WHEN $2 = 'IN_SERVICE' THEN $3 ELSE arrived_at END
         WHERE id = $1 AND revision = $4`, [order.id, status, time, order.revision],
+    )
+    return result.rowCount === 1
+  }
+
+  async updateResult(after: SvoOrderState, expectedRevision: number, time: Date, client: PoolClient): Promise<boolean> {
+    const result = await client.query(
+      `UPDATE svo.execution_orders SET status = $2, result = $2, failure_reason = $3, notes = $4,
+        collected_at = $5, closed_at = $6, closed_by = $7, revision = revision + 1, updated_at = $6
+        WHERE id = $1 AND revision = $8`,
+      [after.id, after.result, after.failureReason, after.notes, after.collectedAt, time, after.closedBy, expectedRevision],
     )
     return result.rowCount === 1
   }

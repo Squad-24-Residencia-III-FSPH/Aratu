@@ -15,7 +15,7 @@ test('links de ordens SVO aparecem somente para seus respectivos perfis', () => 
     const navigation = getSidebarNavigation(profile)
     const items = [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items)]
     assert.equal(items.some((item) => item.path === '/svo/ordens'), profile === 'EQUIPE_SVO')
-    assert.equal(items.some((item) => item.path === '/svo/acompanhamento'), profile === 'ATENDENTE_SVO')
+    assert.equal(items.some((item) => item.path === '/svo/acompanhamento'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR')
   }
 })
 
@@ -67,6 +67,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'Início',
     'Solicitações',
     'Viagens',
+    'Acompanhamento de ordens',
     'Confirmar viagens',
     'Veículos',
     'Motoristas',
@@ -102,9 +103,11 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   assert.deepEqual({ behavior: maintenance.behavior, path: maintenance.path }, { behavior: 'link', path: '/maintenance-orders' })
   const fuelings = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Abastecimentos')
   assert.deepEqual({ behavior: fuelings.behavior, path: fuelings.path }, { behavior: 'link', path: '/abastecimentos' })
+  const svoTracking = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Acompanhamento de ordens')
+  assert.deepEqual({ behavior: svoTracking.behavior, path: svoTracking.path }, { behavior: 'link', path: '/svo/acompanhamento' })
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]
-      .filter((item) => !['Confirmar viagens', 'Veículos', 'Motoristas', 'Manutenção', 'Abastecimentos'].includes(item.label))
+      .filter((item) => !['Acompanhamento de ordens', 'Confirmar viagens', 'Veículos', 'Motoristas', 'Manutenção', 'Abastecimentos'].includes(item.label))
       .filter((item) => !['Veículos', 'Motoristas', 'Tipos de serviço', 'Agendar viagem', 'Manutenção', 'Abastecimentos'].includes(item.label))
       .every((item) => item.behavior === 'button'),
   )
