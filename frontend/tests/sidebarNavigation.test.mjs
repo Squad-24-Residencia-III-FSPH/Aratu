@@ -10,6 +10,15 @@ function getLabels(navigation) {
   ].map((item) => item.label)
 }
 
+test('links de ordens SVO aparecem somente para seus respectivos perfis', () => {
+  for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO']) {
+    const navigation = getSidebarNavigation(profile)
+    const items = [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items)]
+    assert.equal(items.some((item) => item.path === '/svo/ordens'), profile === 'EQUIPE_SVO')
+    assert.equal(items.some((item) => item.path === '/svo/acompanhamento'), profile === 'ATENDENTE_SVO')
+  }
+})
+
 test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
   const navigation = getSidebarNavigation('ADMINISTRADOR')
 

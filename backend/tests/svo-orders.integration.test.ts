@@ -19,7 +19,7 @@ import { closeTestPool, getTestDatabaseUrl, getTestPool, setupTestDatabase, trun
 import { RBAC_JWT_CONFIG, generateRbacUserToken, seedRbacTestUsers } from './fixtures/rbac-users.fixture'
 import type { RbacTestUser } from './fixtures/rbac-users.fixture'
 import { insertLegacySvo, svoInput } from './fixtures/svo-occurrences.fixture'
-import { insertLegacyMaintenance, insertLegacySvoOrder, insertSvoTeam, insertSvoVehicle } from './fixtures/svo-orders.fixture'
+import { insertLegacyMaintenance, insertLegacySvoOrder, insertSvoTeam, insertSvoVehicle, insertSvoMembership } from './fixtures/svo-orders.fixture'
 
 type JsonRecord = Record<string, unknown>
 let pool: Pool
@@ -28,6 +28,236 @@ let baseUrl: string
 let users: Map<UserRole, RbacTestUser>
 const ALL_STATUSES: readonly SvoOrderStatus[] = [...SVO_ORDER_OCCUPYING_STATUSES, 'COMPLETED', 'NOT_PERFORMED', 'CANCELED']
 const MISSING_ID = '9223372036854775807'
+
+function track(path = '', role: UserRole | null = 'EQUIPE_SVO', body?: unknown, url = baseUrl, token?: string): Promise<Response> {
+  return fetch(`${url}/svo/orders${path}`, { method: body === undefined ? 'GET' : 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...(role ? { Authorization: `Bearer ${token ?? user(role).token}` } : {}) },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10_000) })
+}
+
+async function trackedOrder(member = true): Promise<CreateSvoOrderInput & { id: string }> {
+  const input = await eligible()
+  const created = await json(await call(input), 201)
+  if (member) await insertSvoMembership(pool, input.teamId, user('EQUIPE_SVO').id)
+  return { ...input, id: created.id as string }
+}
+
+test('TRACK-01: união A/B sem C; detalhe restrito, lista mínima e filtro no banco', async () => {
+  const a = await trackedOrder(); const b = await trackedOrder(); const c = await trackedOrder(false)
+  const response = await track(); assert.equal(response.status, 200)
+  const rows = await response.json() as JsonRecord[]
+  assert.deepEqual(rows.map((row) => row.id), [b.id, a.id])
+  assert.deepEqual(rows[0]!.allowedTransitions, ['IN_TRANSIT'])
+  assert.doesNotMatch(JSON.stringify(rows), /requesterName|requesterPhone|SENTINELA_NOME|SENTINELA_TELEFONE|occurrenceSnapshot|teamActive/)
+  await rejectsWithoutWrite(() => track(`/${c.id}`), 403)
+  await rejectsWithoutWrite(() => track(`/${c.id}/status`, 'EQUIPE_SVO', { status: 'IN_SERVICE', revision: 999 }), 403)
+  const detail = await json(await track(`/${a.id}`), 200)
+  assert.ok(detail.occurrenceSnapshot); assert.ok(detail.teamSnapshot); assert.ok(detail.vehicleSnapshot)
+  assert.deepEqual(detail.dispatch, detail.current)
+  assert.deepEqual(await (await track('?status=IN_SERVICE')).json(), [])
+})
+
+test('TRACK-02: vínculo ausente, futuro, inativo e encerrado não concede leitura/alteração', async () => {
+  const order = await trackedOrder(false)
+  assert.deepEqual(await (await track()).json(), [])
+  const now = new Date()
+  await insertSvoMembership(pool, order.teamId, user('EQUIPE_SVO').id)
+  for (const options of [
+    { active: false, joined: new Date('2025-01-01Z'), left: null },
+    { active: true, joined: new Date(now.getTime() + 86_400_000), left: null },
+    { active: true, joined: new Date('2025-01-01Z'), left: now },
+  ]) {
+    await pool.query('UPDATE svo.team_members SET active = $1, joined_at = $2, left_at = $3 WHERE team_id = $4',
+      [options.active, options.joined, options.left, order.teamId])
+    assert.deepEqual(await (await track()).json(), [])
+    await rejectsWithoutWrite(() => track(`/${order.id}`), 403)
+    await rejectsWithoutWrite(() => track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }), 403)
+  }
+  await pool.query('UPDATE svo.team_members SET active = true, joined_at = $1, left_at = NULL WHERE team_id = $2', [new Date('2025-01-01Z'), order.teamId])
+  await pool.query('UPDATE svo.teams SET active = false WHERE id = $1', [order.teamId])
+  assert.deepEqual((await json(await track(`/${order.id}`), 200)).allowedTransitions, [])
+  assert.equal((await (await track()).json() as unknown[]).length, 1)
+  await rejectsWithoutWrite(() => track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }), 403)
+})
+
+test('TRACK-03: RBAC global de leitura, conta atual, token ausente/expirado e escrita exclusiva', async () => {
+  const order = await trackedOrder()
+  for (const role of ['ATENDENTE_SVO', 'GESTOR', 'ADMINISTRADOR'] as const) {
+    const rows = await (await track('', role)).json() as JsonRecord[]
+    assert.equal(rows.length, 1); assert.deepEqual(rows[0]!.allowedTransitions, [])
+    await json(await track(`/${order.id}`, role), 200)
+    await rejectsWithoutWrite(() => track(`/${order.id}/status`, role, { status: 'IN_TRANSIT', revision: 1 }), 403)
+  }
+  for (const role of ['SOLICITANTE', 'MOTORISTA'] as const) {
+    await rejectsWithoutWrite(() => track('', role), 403)
+    await rejectsWithoutWrite(() => track(`/${order.id}`, role), 403)
+  }
+  await rejectsWithoutWrite(() => track('', null), 401)
+  const expired = generateRbacUserToken(user('EQUIPE_SVO'), RBAC_JWT_CONFIG.secret, { expiresIn: -1 })
+  await rejectsWithoutWrite(() => track('', 'EQUIPE_SVO', undefined, baseUrl, expired), 401)
+  await pool.query('UPDATE auth.users SET role_id = $1 WHERE id = $2', [user('SOLICITANTE').roleId, user('EQUIPE_SVO').id])
+  await rejectsWithoutWrite(() => track(), 403)
+  await pool.query('UPDATE auth.users SET active = false WHERE id = $1', [user('ATENDENTE_SVO').id])
+  await rejectsWithoutWrite(() => track('', 'ATENDENTE_SVO'), 401)
+})
+
+test('TRACK-04: saída/chegada com horário, evento, autoria e auditoria sem perder snapshots/reserva', async () => {
+  const order = await trackedOrder()
+  const original = await history(order.id)
+  // A disponibilidade cadastral posterior não desfaz a decisão de alocação já registrada.
+  await pool.query("UPDATE fleet.vehicles SET status = 'IN_MAINTENANCE' WHERE id = $1", [order.vehicleId])
+  let departedAt: unknown
+  for (const [status, revision, eventType, timestamp] of [
+    ['IN_TRANSIT', 1, 'DEPARTED', 'departedAt'], ['IN_SERVICE', 2, 'ARRIVED', 'arrivedAt'],
+  ] as const) {
+    const beforeCall = Date.now()
+    const result = await json(await track(`/${order.id}/status`, 'EQUIPE_SVO', { status, revision }), 200)
+    assert.equal(result.status, status); assert.equal(result.revision, revision + 1)
+    assert.ok(Date.parse(result[timestamp] as string) >= beforeCall - 1000)
+    assert.ok(Date.parse(result[timestamp] as string) <= Date.now())
+    if (status === 'IN_TRANSIT') departedAt = result.departedAt
+    else { assert.equal(result.departedAt, departedAt); assert.deepEqual(result.allowedTransitions, []) }
+    const stored = await history(order.id)
+    const event = stored.events.find((row) => row.event_type === eventType)!
+    assert.equal((event.occurred_at as Date).toISOString(), result[timestamp])
+    assert.ok((event.registered_at as Date).getTime() >= (event.occurred_at as Date).getTime())
+    assert.equal(event.registered_by, user('EQUIPE_SVO').id)
+    assert.equal(event.reported_by, user('EQUIPE_SVO').name)
+    assert.equal((event.actor_snapshot as JsonRecord).role, 'EQUIPE_SVO')
+    assert.ok(event.reason); assert.ok(event.evidence_description)
+    assert.equal((event.before_state as JsonRecord).revision, revision)
+    assert.equal((event.after_state as JsonRecord).revision, revision + 1)
+    assert.deepEqual(stored.order.occurrence_snapshot, original.order.occurrence_snapshot)
+    assert.deepEqual(stored.order.team_snapshot, original.order.team_snapshot)
+    assert.deepEqual(stored.order.vehicle_snapshot, original.order.vehicle_snapshot)
+    const updates = stored.audits.filter((row) => row.operation === 'UPDATE')
+    assert.equal(updates.length, revision)
+    assert.doesNotMatch(JSON.stringify([updates, event.before_state, event.after_state]), /SENTINELA|requester|description|Snapshot/)
+    assert.equal((await pool.query<{ count: number }>(
+      'SELECT count(id)::integer AS count FROM svo.execution_orders WHERE vehicle_id = $1 AND status = ANY($2::text[])',
+      [order.vehicleId, SVO_ORDER_OCCUPYING_STATUSES])).rows[0]!.count, 1)
+  }
+  const attended = await (await track('', 'ATENDENTE_SVO')).json() as JsonRecord[]
+  assert.equal(attended[0]!.status, 'IN_SERVICE'); assert.ok(attended[0]!.arrivedAt)
+})
+
+test('TRACK-05: concorrência e revisão antiga não duplicam eventos nem avançam duas etapas', async () => {
+  const order = await trackedOrder()
+  const holder = await holdLock('SELECT id FROM svo.execution_orders WHERE id = $1 FOR UPDATE', order.id)
+  const first = track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 })
+  const second = track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 })
+  try {
+    await waitForBlocked(2); await holder.query('COMMIT')
+    assert.deepEqual((await Promise.all([first, second])).map((response) => response.status).sort(), [200, 409])
+    await rejectsWithoutWrite(() => track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_SERVICE', revision: 1 }), 409)
+    const stored = await history(order.id)
+    assert.equal(stored.events.filter((event) => event.event_type === 'DEPARTED').length, 1)
+    assert.equal(stored.audits.filter((event) => event.operation === 'UPDATE').length, 1)
+  } finally { await holder.query('ROLLBACK'); holder.release(); await Promise.allSettled([first, second]) }
+})
+
+test('TRACK-06: revogação de equipe/vínculo confirmada antes das travas impede alteração', async () => {
+  for (const target of ['team', 'membership'] as const) {
+    const order = await trackedOrder()
+    const holder = await holdLock(target === 'team' ? 'SELECT id FROM svo.teams WHERE id = $1 FOR UPDATE'
+      : 'SELECT id FROM svo.team_members WHERE team_id = $1 FOR UPDATE', order.teamId)
+    const pending = track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 })
+    try {
+      await waitForBlocked(1)
+      if (target === 'team') await holder.query('UPDATE svo.teams SET active = false WHERE id = $1', [order.teamId])
+      else await holder.query('UPDATE svo.team_members SET active = false WHERE team_id = $1', [order.teamId])
+      await holder.query('COMMIT')
+      await rejectsWithoutWrite(() => pending, 403)
+    } finally { await holder.query('ROLLBACK'); holder.release(); await Promise.allSettled([pending]) }
+  }
+})
+
+test('TRACK-07: revogação após autorização aguarda commit da mudança operacional', async () => {
+  for (const target of ['team', 'membership'] as const) {
+    const order = await trackedOrder()
+    let enter!: () => void; let resume!: () => void
+    const entered = new Promise<void>((resolve) => { enter = resolve })
+    const gate = new Promise<void>((resolve) => { resume = resolve })
+    class PausedRepository extends SvoOrdersRepository {
+      override async updateStatus(...args: Parameters<SvoOrdersRepository['updateStatus']>): Promise<boolean> {
+        enter(); await gate; return super.updateStatus(...args)
+      }
+    }
+    const service = new SvoOrdersService(new SvoOccurrencesRepository(pool), new PausedRepository(),
+      new VehiclesRepository(pool), new AuditService(new AuditRepository(pool)))
+    const pending = service.updateStatus(order.id, { status: 'IN_TRANSIT', revision: 1 }, user('EQUIPE_SVO').id)
+    await entered
+    const revoke = pool.query(target === 'team' ? 'UPDATE svo.teams SET active = false WHERE id = $1'
+      : 'UPDATE svo.team_members SET active = false WHERE team_id = $1', [order.teamId])
+    try {
+      await waitForBlocked(1); resume()
+      assert.equal((await pending).status, 'IN_TRANSIT'); await revoke
+      await rejectsWithoutWrite(() => track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_SERVICE', revision: 2 }), 403)
+    } finally { resume(); await Promise.allSettled([pending, revoke]) }
+  }
+})
+
+test('TRACK-08: falhas reais de evento e auditoria desfazem estado/carimbos e liberam conexão', async () => {
+  const order = await trackedOrder()
+  class BrokenStatusEvent extends SvoOrdersRepository {
+    override async createStatusEvent(_event: Parameters<SvoOrdersRepository['createStatusEvent']>[0], client: PoolClient): Promise<void> {
+      await client.query('SELECT $1::integer', ['Falha sintética no evento'])
+    }
+  }
+  const service = new SvoOrdersService(new SvoOccurrencesRepository(pool), new BrokenStatusEvent(),
+    new VehiclesRepository(pool), new AuditService(new AuditRepository(pool)))
+  const state = await databaseState()
+  for (let attempt = 0; attempt < 11; attempt++) {
+    await assert.rejects(service.updateStatus(order.id, { status: 'IN_TRANSIT', revision: 1 }, user('EQUIPE_SVO').id))
+  }
+  assert.deepEqual(await databaseState(), state)
+  const audits = new AuditRepository(pool)
+  const broken = await startServer({ async create(data, client) {
+    await audits.create(data, client); await client!.query('SELECT $1::integer', ['SENTINELA_LOCAL'])
+    throw new Error('Falha SQL esperada não ocorreu')
+  } })
+  const original = console.error; const logs: unknown[] = []; console.error = (...args: unknown[]) => { logs.push(args) }
+  try {
+    await rejectsWithoutWrite(() => track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }, broken.url), 500)
+    assert.match(JSON.stringify(logs), /UPDATE_STATUS/); assert.doesNotMatch(JSON.stringify(logs), /SENTINELA|22P02|stack/)
+  } finally { console.error = original; await closeServer(broken.instance) }
+  await json(await track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }), 200)
+})
+
+test('TRACK-09: validação HTTP e datas inválidas não alteram banco', async () => {
+  const order = await trackedOrder()
+  for (const path of ['?teamId=1', '?userId=1', '?status=BAD', '?status=OPEN&status=OPEN', '/01', '/9223372036854775808', '/-1']) {
+    await rejectsWithoutWrite(() => track(path), 400)
+  }
+  await rejectsWithoutWrite(() => track(`/${MISSING_ID}`), 404)
+  await rejectsWithoutWrite(() => track(`/${MISSING_ID}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }), 404)
+  for (const body of [null, [], { status: 'IN_TRANSIT' }, { status: 'IN_TRANSIT', revision: 1, userId: '1' }, { status: 'BAD', revision: 1 }]) {
+    await rejectsWithoutWrite(() => track(`/${order.id}/status`, 'EQUIPE_SVO', body), 400)
+  }
+  await rejectsWithoutWrite(() => fetch(`${baseUrl}/svo/orders/${order.id}/status`, {
+    method: 'PATCH', headers: { Authorization: `Bearer ${user('EQUIPE_SVO').token}`, 'Content-Type': 'application/json' }, body: '{',
+  }), 400)
+  await pool.query("UPDATE svo.execution_orders SET opened_at = clock_timestamp() + interval '1 day' WHERE id = $1", [order.id])
+  await rejectsWithoutWrite(() => track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }), 409)
+})
+
+test('TRACK-10: legado somente leitura, snapshots nulos e chegada sem inventar saída', async () => {
+  for (const status of ['IN_PROGRESS', 'COMPLETED', 'NOT_PERFORMED', 'CANCELED', 'IN_TRANSIT'] as const) {
+    const input = await eligible()
+    const id = await insertLegacySvoOrder(pool, { ...input, actorId: user().id, status })
+    await insertSvoMembership(pool, input.teamId, user('EQUIPE_SVO').id)
+    const detail = await json(await track(`/${id}`), 200)
+    assert.equal(detail.occurrenceSnapshot, null); assert.equal(detail.teamSnapshot, null); assert.equal(detail.vehicleSnapshot, null)
+    assert.deepEqual(detail.dispatch, { location: null, teamName: null, vehicleLicensePlate: null })
+    if (status === 'IN_TRANSIT') {
+      const result = await json(await track(`/${id}/status`, 'EQUIPE_SVO', { status: 'IN_SERVICE', revision: 1 }), 200)
+      assert.equal(result.departedAt, null); assert.ok(result.arrivedAt)
+    } else {
+      assert.deepEqual(detail.allowedTransitions, [])
+      await rejectsWithoutWrite(() => track(`/${id}/status`, 'EQUIPE_SVO', { status: 'IN_SERVICE', revision: 1 }), 409)
+    }
+  }
+})
 
 function user(role: UserRole = 'ATENDENTE_SVO'): RbacTestUser { return users.get(role)! }
 
@@ -64,7 +294,7 @@ async function eligible(bodyLimit = 1): Promise<CreateSvoOrderInput> {
 /** Projeções completas dos campos relevantes permitem comprovar ausência de escritas e efeitos laterais. */
 async function databaseState(): Promise<unknown> {
   const queries = [
-    'SELECT id, occurrence_id, team_id, vehicle_id, driver_id, driver_snapshot, status, opened_at, created_by, revision, occurrence_snapshot, team_snapshot, vehicle_snapshot FROM svo.execution_orders ORDER BY id',
+    'SELECT id, occurrence_id, team_id, vehicle_id, driver_id, driver_snapshot, status, opened_at, departed_at, arrived_at, updated_at, created_by, revision, occurrence_snapshot, team_snapshot, vehicle_snapshot FROM svo.execution_orders ORDER BY id',
     'SELECT id, execution_order_id, event_type, occurred_at, registered_at, reported_by, registered_by, actor_snapshot, reason, evidence_description, before_state, after_state FROM svo.execution_order_events ORDER BY id',
     'SELECT id, table_name, record_id, user_id, operation, "before", "after", actor_snapshot FROM audit.logs ORDER BY id',
     'SELECT id, status, revision, triaged_at, triaged_by, updated_at FROM svo.occurrences ORDER BY id',
@@ -289,8 +519,9 @@ async function waitForBlocked(count: number): Promise<void> {
       `SELECT count(pid)::integer AS count FROM pg_stat_activity
         WHERE datname = current_database() AND pid <> pg_backend_pid()
           AND cardinality(pg_blocking_pids(pid)) > 0
-          AND (query LIKE $1 OR query LIKE $2 OR query LIKE $3)`,
-      ['%FROM svo.occurrences%', '%FROM fleet.vehicles%', '%FROM svo.teams%'],
+          AND (query LIKE $1 OR query LIKE $2 OR query LIKE $3 OR query LIKE $4 OR query LIKE $5 OR query LIKE $6 OR query LIKE $7)`,
+      ['%FROM svo.occurrences%', '%FROM fleet.vehicles%', '%FROM svo.teams%', '%FROM svo.execution_orders%',
+        '%FROM svo.team_members%', '%UPDATE svo.teams%', '%UPDATE svo.team_members%'],
     )
     if (result.rows[0]!.count >= count) return
     await new Promise((resolve) => setTimeout(resolve, 20))

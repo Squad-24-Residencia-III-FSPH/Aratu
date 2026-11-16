@@ -2,16 +2,60 @@ import type { SvoOccurrencesRepositoryContract } from '../repositories/svo-occur
 import type { SvoOrdersRepositoryContract } from '../repositories/svo-orders.repository'
 import type { VehiclesRepositoryContract } from '../repositories/vehicles.repository'
 import type { AuditLogger } from '../types/audit.types'
+import type { PoolClient } from 'pg'
+import type { SvoActorSnapshot } from '../types/svo-occurrence.types'
 import { SVO_WRITE_ROLES } from '../types/svo-occurrence.types'
-import { SVO_ORDER_INITIAL_STATUS, SvoOrderServiceError } from '../types/svo-order.types'
-import type { CreateSvoOrderInput, SvoOrderCreationResult } from '../types/svo-order.types'
+import { SVO_ORDER_INITIAL_STATUS, SVO_ORDER_READ_ROLES, SVO_ORDER_STATUSES, SVO_ORDER_TRANSITIONS, SVO_ORDER_STATUS_AUDIT_OPERATION, SvoOrderServiceError } from '../types/svo-order.types'
+import type {
+  CreateSvoOrderInput, SvoOrderCreationResult, SvoOrderSummary, SvoOrderDetail, SvoOrderReadRow,
+  SvoOrderState, SvoOrderStatus, SvoOrderTransition, UpdateSvoOrderStatusInput,
+} from '../types/svo-order.types'
 
 const CREATE_FIELDS = ['occurrenceId', 'teamId', 'vehicleId'] as const
 const MAX_BIGINT = 9223372036854775807n
 const OPENED_REASON = 'Ordem gerada a partir de solicitação SVO confirmada.'
 const OPENED_EVIDENCE = 'Alocação de equipe e veículo registrada pelo operador na sessão autenticada.'
+const STATUS_CONFLICT = 'A situação da ordem mudou ou não permite esta ação. Atualize a consulta antes de continuar.'
+const UPDATE_DENIED = 'Você não tem permissão para atualizar esta ordem. Atualize a consulta ou procure a central.'
+const STATUS_REASON: Record<SvoOrderTransition, string> = {
+  IN_TRANSIT: 'Saída confirmada pela equipe SVO.', IN_SERVICE: 'Chegada ao local confirmada pela equipe SVO.',
+}
+const STATUS_EVIDENCE = 'Confirmação registrada pelo integrante da equipe na sessão autenticada.'
 type Occurrences = Pick<SvoOccurrencesRepositoryContract,
   'withTransaction' | 'findActorSnapshot' | 'findByIdForUpdate' | 'currentTime'>
+
+function parseOrderId(value: unknown): string {
+  if (typeof value !== 'string' || !/^[1-9]\d{0,18}$/.test(value) || BigInt(value) > MAX_BIGINT) {
+    throw new SvoOrderServiceError('INVALID_INPUT', 'Informe um identificador válido para a ordem.')
+  }
+  return value
+}
+
+function isStatus(value: unknown): value is SvoOrderStatus {
+  return SVO_ORDER_STATUSES.some((status) => status === value)
+}
+
+function parseStatusInput(body: unknown): UpdateSvoOrderStatusInput {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new SvoOrderServiceError('INVALID_INPUT', 'Envie um objeto JSON com situação e revisão da ordem.')
+  }
+  const input = body as Record<string, unknown>
+  if (Object.keys(input).length !== 2 || Object.keys(input).some((key) => key !== 'status' && key !== 'revision')
+    || !isStatus(input.status) || !Number.isSafeInteger(input.revision) || (input.revision as number) < 1) {
+    throw new SvoOrderServiceError('INVALID_INPUT', 'Envie somente uma situação válida e a revisão inteira positiva da ordem.')
+  }
+  return { status: input.status, revision: input.revision as number }
+}
+
+function summarize(row: SvoOrderReadRow, actor: SvoActorSnapshot): SvoOrderSummary {
+  return {
+    id: row.id, occurrenceId: row.occurrenceId, teamId: row.teamId, vehicleId: row.vehicleId,
+    status: row.status, revision: row.revision, openedAt: row.openedAt, departedAt: row.departedAt,
+    arrivedAt: row.arrivedAt, collectedAt: row.collectedAt, closedAt: row.closedAt,
+    dispatch: row.dispatch, current: row.current,
+    allowedTransitions: actor.role === 'EQUIPE_SVO' && row.teamActive ? SVO_ORDER_TRANSITIONS[row.status] : [],
+  }
+}
 
 function parseInput(body: unknown): CreateSvoOrderInput {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -39,6 +83,97 @@ export class SvoOrdersService {
     private readonly vehicles: Pick<VehiclesRepositoryContract, 'findByIdForUpdate' | 'hasActiveMaintenanceBlock'>,
     private readonly audit: AuditLogger,
   ) {}
+
+  /**
+   * Consulta a união das equipes com vínculo vigente, sem expor dados pessoais do chamado.
+   * @throws {SvoOrderServiceError} Se filtro, conta ou perfil não permitirem a consulta.
+   */
+  async listOrders(query: Record<string, unknown>, userId: string): Promise<SvoOrderSummary[]> {
+    if (Object.keys(query).some((key) => key !== 'status') || ('status' in query && !isStatus(query.status))) {
+      throw new SvoOrderServiceError('INVALID_INPUT', 'Use somente um filtro de situação válido para consultar as ordens.')
+    }
+    return this.occurrences.withTransaction(async (client) => {
+      const actor = await this.authorizeActor(userId, false, client)
+      const time = await this.occurrences.currentTime(client)
+      const rows = await this.orders.listForActor(actor.role === 'EQUIPE_SVO' ? actor.id : null,
+        (query.status as SvoOrderStatus | undefined) ?? null, time, client)
+      return rows.map((row) => summarize(row, actor))
+    })
+  }
+
+  /**
+   * Autoriza metadados antes de recuperar o contexto sigiloso do despacho.
+   * @throws {SvoOrderServiceError} Se identificador, conta, existência ou vínculo impedirem a leitura.
+   */
+  async getOrder(id: unknown, userId: string): Promise<SvoOrderDetail> {
+    const orderId = parseOrderId(id)
+    return this.occurrences.withTransaction(async (client) => {
+      const actor = await this.authorizeActor(userId, false, client)
+      const { order } = await this.authorizeOrder(orderId, actor, false, client)
+      const row = await this.orders.findById(order.id, client)
+      if (!row) throw new SvoOrderServiceError('NOT_FOUND', 'Ordem SVO não encontrada.')
+      return { ...summarize(row, actor), occurrenceSnapshot: row.occurrenceSnapshot,
+        teamSnapshot: row.teamSnapshot, vehicleSnapshot: row.vehicleSnapshot }
+    })
+  }
+
+  /**
+   * Confirma saída ou chegada com relógio do servidor e revisão protegida por trava.
+   * @throws {SvoOrderServiceError} Se contrato, acesso, revisão, etapa ou carimbos forem incompatíveis.
+   * @remarks Estado, evento e auditoria compartilham a transação; não libera reserva nem recria snapshots.
+   */
+  async updateStatus(id: unknown, body: unknown, userId: string): Promise<SvoOrderSummary> {
+    const orderId = parseOrderId(id)
+    const input = parseStatusInput(body)
+    return this.occurrences.withTransaction(async (client) => {
+      const actor = await this.authorizeActor(userId, true, client)
+      const { order: before, time } = await this.authorizeOrder(orderId, actor, true, client)
+      const target = SVO_ORDER_TRANSITIONS[before.status].find((status) => status === input.status)
+      const priorTime = input.status === 'IN_SERVICE' ? before.departedAt ?? before.openedAt : before.openedAt
+      const destinationTime = input.status === 'IN_TRANSIT' ? before.departedAt : before.arrivedAt
+      if (before.revision !== input.revision || !target || destinationTime !== null
+        || time < before.openedAt || time < priorTime) {
+        throw new SvoOrderServiceError('INVALID_TRANSITION', STATUS_CONFLICT)
+      }
+      if (!await this.orders.updateStatus(before, target, time, client)) {
+        throw new SvoOrderServiceError('INVALID_TRANSITION', STATUS_CONFLICT)
+      }
+      const after: SvoOrderState = { ...before, status: target, revision: before.revision + 1,
+        departedAt: target === 'IN_TRANSIT' ? time : before.departedAt,
+        arrivedAt: target === 'IN_SERVICE' ? time : before.arrivedAt }
+      const reason = STATUS_REASON[target]
+      await this.orders.createStatusEvent({ before, after, actor, occurredAt: time,
+        eventType: target === 'IN_TRANSIT' ? 'DEPARTED' : 'ARRIVED', reason, evidenceDescription: STATUS_EVIDENCE }, client)
+      await this.audit.recordAudit({ userId: actor.id, table: 'svo.execution_orders', recordId: before.id,
+        operation: SVO_ORDER_STATUS_AUDIT_OPERATION, before: { ...before }, after: { ...after }, actorSnapshot: { ...actor }, reason }, client)
+      const row = await this.orders.findById(before.id, client)
+      if (!row) throw new SvoOrderServiceError('NOT_FOUND', 'Ordem SVO não encontrada.')
+      return summarize(row, actor)
+    })
+  }
+
+  private async authorizeActor(userId: string, updating: boolean, client: PoolClient): Promise<SvoActorSnapshot> {
+    const actor = await this.occurrences.findActorSnapshot(userId, client)
+    if (!actor) throw new SvoOrderServiceError('ACCOUNT_UNAVAILABLE', 'Sua conta não está ativa. Entre novamente ou procure a administração.')
+    if (!SVO_ORDER_READ_ROLES.some((role) => role === actor.role) || (updating && actor.role !== 'EQUIPE_SVO')) {
+      throw new SvoOrderServiceError('ACCESS_DENIED', updating ? UPDATE_DENIED : 'Seu perfil atual não permite consultar ordens SVO.')
+    }
+    return actor
+  }
+
+  private async authorizeOrder(id: string, actor: SvoActorSnapshot, updating: boolean, client: PoolClient): Promise<{ order: SvoOrderState; time: Date }> {
+    const order = await this.orders.findByIdForUpdate(id, client)
+    if (!order) throw new SvoOrderServiceError('NOT_FOUND', 'Ordem SVO não encontrada.')
+    if (actor.role !== 'EQUIPE_SVO') return { order, time: await this.occurrences.currentTime(client) }
+    const team = await this.orders.findTeamForShare(order.teamId, client)
+    const membership = await this.orders.findMembershipForShare(order.teamId, actor.id, client)
+    const time = await this.occurrences.currentTime(client)
+    if (!membership?.active || membership.joinedAt > time || (membership.leftAt !== null && membership.leftAt <= time)
+      || !team || (updating && !team.active)) {
+      throw new SvoOrderServiceError('ACCESS_DENIED', updating ? UPDATE_DENIED : 'Você não tem permissão para consultar esta ordem. Atualize a consulta ou procure a central.')
+    }
+    return { order, time }
+  }
 
   /**
    * Reserva uma vaga para uma ocorrência confirmada sem alterar a ocorrência ou o veículo.

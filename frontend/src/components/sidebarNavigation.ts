@@ -7,6 +7,7 @@ import { FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
 import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
 import { SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
 import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
+import { SVO_ORDERS_PATH, SVO_TEAM_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
 
 export type SidebarIconName =
   | 'home'
@@ -96,6 +97,8 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
         },
         { label: 'Solicitações', icon: 'requests', behavior: 'button' },
         { label: 'Viagens', icon: 'trips', behavior: 'button' },
+        { label: 'Ordens da equipe', icon: 'requests', behavior: 'link', path: SVO_TEAM_ORDERS_PATH, profiles: ['EQUIPE_SVO'] },
+        { label: 'Acompanhamento de ordens', icon: 'requests', behavior: 'link', path: SVO_ORDERS_PATH, profiles: ['ATENDENTE_SVO'] },
         { label: 'Confirmar viagens', icon: 'confirmTrips', behavior: 'link', path: TRIP_CONFIRMATION_PATH, profiles: ['GESTOR'] },
       ],
     },

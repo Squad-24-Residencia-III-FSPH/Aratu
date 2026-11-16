@@ -5,6 +5,17 @@ import type { VehicleOperationType, VehicleStatus } from '../../src/types/vehicl
 
 let nextVehicle = 0
 
+/** Vínculo inteiramente sintético para cenários de vigência e isolamento. */
+export async function insertSvoMembership(database: Pool | PoolClient, teamId: string, userId: string, options: {
+  active?: boolean; joinedAt?: Date; leftAt?: Date | null
+} = {}): Promise<void> {
+  await database.query(
+    `INSERT INTO svo.team_members (team_id, user_id, active, joined_at, left_at)
+      VALUES ($1, $2, $3, $4, $5)`,
+    [teamId, userId, options.active ?? true, options.joinedAt ?? new Date('2025-01-01Z'), options.leftAt ?? null],
+  )
+}
+
 /** Reproduz manutenção legada sem sincronizar a situação cadastral da viatura. */
 export async function insertLegacyMaintenance(database: Pool | PoolClient, input: {
   vehicleId: string; actorId: string; status: MaintenanceStatus; blocksVehicle: boolean
