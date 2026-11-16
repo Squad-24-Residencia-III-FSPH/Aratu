@@ -477,6 +477,70 @@ describe('Solicitações de viagem — consulta (FROTA-82)', () => {
     assert.equal(body.status, 'SCHEDULED')
     assert.equal(body.trip, null)
   })
+
+  test('IT-REQ-18: filtro por trecho do solicitante ignora caixa e acento', async () => {
+    const gestor = getUser('GESTOR')
+    const response = await request(`/requests?requester=${encodeURIComponent('gestor fictício')}`, gestor.token)
+
+    assert.equal(response.status, 200)
+    const body = await response.json() as { requests: Array<{ id: string }>; total: number }
+    assert.equal(body.total, 1)
+    assert.deepEqual(body.requests.map((item) => item.id), [fixtures.otherRequester])
+  })
+
+  test('IT-REQ-19: filtro por tipo de serviço combina com situação e devolve lista vazia quando não há par', async () => {
+    const gestor = getUser('GESTOR')
+    const combined = await request('/requests?service=administrativo&status=PENDING', gestor.token)
+
+    assert.equal(combined.status, 200)
+    const combinedBody = await combined.json() as { requests: Array<{ id: string }>; total: number }
+    assert.equal(combinedBody.total, 2)
+    assert.deepEqual(
+      new Set(combinedBody.requests.map((item) => item.id)),
+      new Set([fixtures.pending, fixtures.otherRequester]),
+    )
+
+    const missing = await request('/requests?service=Servi%C3%A7o%20Inexistente', gestor.token)
+    assert.equal(missing.status, 200)
+    assert.deepEqual(await missing.json(), {
+      requests: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      totalPages: 0,
+    })
+  })
+
+  test('IT-REQ-20: filtro de texto acima de 120 caracteres retorna 400', async () => {
+    const gestor = getUser('GESTOR')
+    const longText = 'a'.repeat(121)
+
+    const requester = await request(`/requests?requester=${longText}`, gestor.token)
+    assert.equal(requester.status, 400)
+    assert.deepEqual(await requester.json(), {
+      erro: 'O filtro de solicitante deve ter até 120 caracteres.',
+    })
+
+    const service = await request(`/requests?service=${longText}`, gestor.token)
+    assert.equal(service.status, 400)
+    assert.deepEqual(await service.json(), {
+      erro: 'O filtro de tipo de serviço deve ter até 120 caracteres.',
+    })
+  })
+
+  test('IT-REQ-21: filtro por solicitante não amplia o escopo do SOLICITANTE', async () => {
+    const solicitante = getUser('SOLICITANTE')
+    const response = await request(`/requests?requester=${encodeURIComponent('Gestor Fictício QA')}`, solicitante.token)
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      requests: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      totalPages: 0,
+    })
+  })
 })
 
 function request(path: string, token?: string): Promise<Response> {

@@ -173,6 +173,12 @@ export class RequestsService {
     if (filters.to !== undefined && !isValidCalendarDate(filters.to)) {
       throw new RequestServiceError(400, 'Data final inválida.')
     }
+    if (filters.requester !== undefined && filters.requester.length > 120) {
+      throw new RequestServiceError(400, 'O filtro de solicitante deve ter até 120 caracteres.')
+    }
+    if (filters.service !== undefined && filters.service.length > 120) {
+      throw new RequestServiceError(400, 'O filtro de tipo de serviço deve ter até 120 caracteres.')
+    }
 
     if (filters.from !== undefined && filters.to !== undefined && filters.from > filters.to) {
       throw new RequestServiceError(400, 'A data inicial não pode ser posterior à data final.')
@@ -193,6 +199,8 @@ export class RequestsService {
 
     return this.repository.list({
       ...filters,
+      ...(filters.requester?.trim() ? { requester: filters.requester.trim() } : {}),
+      ...(filters.service?.trim() ? { service: filters.service.trim() } : {}),
       page,
       pageSize,
       ...(requesterId !== undefined ? { requesterId } : {}),

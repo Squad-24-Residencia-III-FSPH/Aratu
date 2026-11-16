@@ -49,7 +49,9 @@ const LIST_CONDITIONS = `
  WHERE ($1::text IS NULL OR r.status = $1)
    AND ($2::date IS NULL OR r.requested_date >= $2::date)
    AND ($3::date IS NULL OR r.requested_date <= $3::date)
-   AND ($4::bigint IS NULL OR r.requester_id = $4::bigint)`
+   AND ($4::bigint IS NULL OR r.requester_id = $4::bigint)
+   AND ($5::text IS NULL OR u.name ILIKE '%' || $5 || '%')
+   AND ($6::text IS NULL OR s.name ILIKE '%' || $6 || '%')`
 
 const LIST_DATA_SQL = `
 SELECT r.id::text AS id,
@@ -71,11 +73,13 @@ SELECT r.id::text AS id,
   JOIN fleet.services s ON s.id = r.service_id
 ${LIST_CONDITIONS}
  ORDER BY r.requested_date DESC, r.requested_time DESC, r.id DESC
- LIMIT $5 OFFSET $6`
+ LIMIT $7 OFFSET $8`
 
 const LIST_COUNT_SQL = `
 SELECT COUNT(*)::text AS total
   FROM trip.requests r
+  JOIN auth.users u ON u.id = r.requester_id
+  JOIN fleet.services s ON s.id = r.service_id
 ${LIST_CONDITIONS}`
 
 const DETAIL_SQL = `
@@ -255,6 +259,8 @@ export class RequestsRepository implements RequestsRepositoryContract {
       filters.from ?? null,
       filters.to ?? null,
       filters.requesterId ?? null,
+      filters.requester ?? null,
+      filters.service ?? null,
     ]
 
     const countResult = await this.pool.query<{ total: string }>(LIST_COUNT_SQL, filterValues)

@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { resolveRoute } from '../src/routing/routeDecision.ts'
 import { PROFILE_PERMISSIONS_PATH, resolveProfile } from '../src/auth/profiles.ts'
+import { REQUEST_ANALYSIS_PATH } from '../src/requests/requestAccess.ts'
 import { sessionFor } from './fixtures.mjs'
 import { TRIP_CONFIRMATION_PATH } from '../src/trips/tripConfirmationTypes.ts'
 
@@ -51,6 +52,9 @@ for (const [profile, path] of destinations) {
         ? { kind: 'fuelings', profile }
         : { kind: 'redirect', to: path },
     )
+    assert.deepEqual(resolveRoute(session, REQUEST_ANALYSIS_PATH), profile === 'GESTOR'
+      ? { kind: 'request-analysis', profile: 'GESTOR' }
+      : { kind: 'redirect', to: path })
   })
 }
 

@@ -57,6 +57,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   assert.deepEqual(getLabels(navigation), [
     'Início',
     'Solicitações',
+    'Analisar solicitações',
     'Viagens',
     'Confirmar viagens',
     'Veículos',
@@ -89,13 +90,15 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   assert.deepEqual({ behavior: drivers.behavior, path: drivers.path }, { behavior: 'link', path: '/motoristas' })
   const scheduling = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Agendar viagem')
   assert.deepEqual({ behavior: scheduling.behavior, path: scheduling.path }, { behavior: 'link', path: '/agendar-viagem' })
+  const analysis = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Analisar solicitações')
+  assert.deepEqual({ behavior: analysis.behavior, path: analysis.path }, { behavior: 'link', path: '/frota/solicitacoes/analise' })
   const maintenance = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Manutenção')
   assert.deepEqual({ behavior: maintenance.behavior, path: maintenance.path }, { behavior: 'link', path: '/maintenance-orders' })
   const fuelings = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Abastecimentos')
   assert.deepEqual({ behavior: fuelings.behavior, path: fuelings.path }, { behavior: 'link', path: '/abastecimentos' })
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]
-      .filter((item) => !['Confirmar viagens', 'Veículos', 'Motoristas', 'Manutenção', 'Abastecimentos'].includes(item.label))
+      .filter((item) => !['Confirmar viagens', 'Analisar solicitações', 'Veículos', 'Motoristas', 'Manutenção', 'Abastecimentos'].includes(item.label))
       .filter((item) => !['Veículos', 'Motoristas', 'Tipos de serviço', 'Agendar viagem', 'Manutenção', 'Abastecimentos'].includes(item.label))
       .every((item) => item.behavior === 'button'),
   )
@@ -119,6 +122,13 @@ test('somente GESTOR e ADMINISTRADOR recebem o atalho de abastecimentos', () => 
   for (const profile of ['GESTOR', 'ADMINISTRADOR']) {
     assert.equal(getLabels(getSidebarNavigation(profile)).includes('Abastecimentos'), true)
   }
+})
+
+test('somente GESTOR recebe o atalho de análise de solicitações', () => {
+  for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Analisar solicitações'), false)
+  }
+  assert.equal(getLabels(getSidebarNavigation('GESTOR')).includes('Analisar solicitações'), true)
 })
 
 test('somente MOTORISTA recebe o atalho Minhas viagens apontando para a própria home', () => {
