@@ -52,6 +52,9 @@ import { createRequestDecisionsRouter } from './routes/request-decisions.routes'
 import { SvoOccurrencesRepository } from './repositories/svo-occurrences.repository'
 import { SvoOccurrencesService } from './services/svo-occurrences.service'
 import { createSvoOccurrencesRouter, svoErrorHandler } from './routes/svo-occurrences.routes'
+import { SvoOrdersRepository } from './repositories/svo-orders.repository'
+import { SvoOrdersService } from './services/svo-orders.service'
+import { createSvoOrdersRouter, svoOrderErrorHandler } from './routes/svo-orders.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -143,12 +146,17 @@ export function createApp({
     app.use('/requests', createRequestsRouter(requestsService, jwtConfig, currentUsersRepository))
     const svoService = new SvoOccurrencesService(new SvoOccurrencesRepository(pool), auditService)
     app.use('/svo/occurrences', createSvoOccurrencesRouter(svoService, jwtConfig, currentUsersRepository))
+    const svoOrdersService = new SvoOrdersService(
+      new SvoOccurrencesRepository(pool), new SvoOrdersRepository(), vehiclesRepository, auditService,
+    )
+    app.use('/svo/orders', createSvoOrdersRouter(svoOrdersService, jwtConfig, currentUsersRepository))
   }
   if (rolesRepository && auditService && userRepository instanceof UsersRepository) {
     const usersService = new UsersService(userRepository, rolesRepository, auditService)
     app.use('/users', createUsersRouter(usersService, jwtConfig))
   }
   app.use('/svo/occurrences', svoErrorHandler)
+  app.use('/svo/orders', svoOrderErrorHandler)
   app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (res.headersSent) {
       next(error)
