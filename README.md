@@ -163,7 +163,7 @@ Erros usam `{ "erro": "mensagem orientadora" }`: `400` para contrato/JSON invál
 
 A criação trava conta/perfil, ocorrência, equipe e veículo nessa ordem. Ordem, evento `OPENED` e auditoria `CREATE` usam a mesma transação; qualquer falha causa rollback integral. Snapshots preservam o contexto da decisão no domínio SVO. A auditoria transversal inclui somente IDs, estado, abertura, revisão e autoria, sem conteúdo pessoal do chamado. Ocorrência e veículo mantêm seu estado e revisão.
 
-**Reenvio:** uma segunda criação retorna `409`, sem duplicar trilhas. Após timeout, confirme o resultado com a central antes de tentar novamente. Esta entrega não fornece GET de ordens, tela (FROTA-116), consulta de agenda de viagens ou execução das ordens.
+**Reenvio:** uma segunda criação retorna `409`, sem duplicar trilhas. Após timeout, confirme o resultado com a central antes de tentar novamente. A FROTA-118 acrescenta consulta e confirmação de saída/chegada, descritas abaixo; geração pela interface (FROTA-116) e consulta de agenda de viagens continuam fora desta entrega.
 
 Validação com PostgreSQL real em base sintética exclusiva, a partir da raiz:
 
@@ -176,6 +176,43 @@ node docs/scripts/aratu-check.mjs
 ```
 
 Se `DATABASE_URL_TEST` estiver definida, ela tem precedência sobre `POSTGRES_DB_TEST`: direcione-a à base de testes desejada. O teste de ordens exige nome terminado em `_test`, diferente da base operacional e igual a `current_database()` antes da limpeza. Consulte o [SDD conjunto](docs/plans/frota-115-117-geracao-ordens-svo.html) e a [documentação SVO](docs/modulos/SVO.html#orders).
+
+## Acompanhamento do atendimento SVO (FROTA-118)
+
+Com JWT Bearer, `GET /svo/orders?status=OPEN` retorna um array de resumos ordenado por abertura e ID decrescentes. O filtro é opcional e aceita `OPEN`, `IN_TRANSIT`, `IN_SERVICE`, `IN_PROGRESS`, `COMPLETED`, `NOT_PERFORMED` ou `CANCELED`; parâmetros desconhecidos/repetidos são rejeitados com `400`. Sem ordens/vínculo vigente, retorna `[]`. `GET /svo/orders/:id` acrescenta os snapshots do despacho; `404` para ordem inexistente e `403` para ordem existente fora do escopo do integrante.
+
+`EQUIPE_SVO` consulta a união das equipes com vínculo vigente: ativo, início até o instante atual e fim ausente ou futuro. A consulta preserva ordens de equipes inativas enquanto o vínculo do integrante permanecer vigente. `ATENDENTE_SVO`, `GESTOR` e `ADMINISTRADOR` consultam todas as ordens. Os demais perfis não têm acesso. O perfil atual da conta é revalidado; informar IDs de usuário/equipe na requisição não concede autorização.
+
+Somente `EQUIPE_SVO`, com vínculo vigente e equipe ativa, executa `PATCH /svo/orders/:id/status`. Envie exatamente a situação de destino e a revisão vista na consulta:
+
+```http
+PATCH /svo/orders/42/status
+Content-Type: application/json
+
+{ "status": "IN_TRANSIT", "revision": 1 }
+```
+
+Resposta `200` ilustrativa, com IDs e local inteiramente fictícios:
+
+```json
+{
+  "id": "42", "occurrenceId": "41", "teamId": "7", "vehicleId": "9",
+  "status": "IN_TRANSIT", "revision": 2,
+  "openedAt": "2026-11-15T12:00:00.000Z", "departedAt": "2026-11-15T12:05:00.000Z",
+  "arrivedAt": null, "collectedAt": null, "closedAt": null,
+  "dispatch": { "location": "Local Fictício QA", "teamName": "Equipe Fictícia QA", "vehicleLicensePlate": "FIC0A01" },
+  "current": { "location": "Local Fictício QA", "teamName": "Equipe Fictícia QA", "vehicleLicensePlate": "FIC0A01" },
+  "allowedTransitions": ["IN_SERVICE"]
+}
+```
+
+Fluxo `OPEN → IN_TRANSIT → IN_SERVICE`: hora do servidor, revisão +1, evento `DEPARTED`/`ARRIVED` e auditoria `UPDATE` na mesma transação. A próxima chamada usa `{ "status": "IN_SERVICE", "revision": 2 }`. Estados legados/encerrados não avançam. Revisão antiga, repetição, salto, retrocesso ou carimbo incompatível retornam `409`, sem novos efeitos. IDs são strings canônicas até o limite BIGINT; payload inválido retorna `400`, sessão/conta indisponível `401`, acesso negado `403` e falha inesperada `500` sanitizada. Erros mantêm `{ "erro": "mensagem orientadora" }`.
+
+Os resumos distinguem `dispatch` (somente snapshots) de `current` (cadastros atuais). Snapshots ausentes continuam nulos e são apresentados como “Não registrado no despacho”; não há preenchimento retroativo. Detalhes incluem `occurrenceSnapshot`, `teamSnapshot` e `vehicleSnapshot`. Somente o detalhe autorizado contém contato/descrição/notas do chamado; a auditoria de atualização guarda IDs, estado, revisão, horários e autoria. Saída/chegada preservam reserva, alocação e snapshots. O encerramento pertence à FROTA-124.
+
+Interface: `/svo/ordens` é a home exclusiva da equipe, com cards, filtro, detalhe e confirmação. `/svo/acompanhamento` é a consulta exclusiva do atendente, com botão **Atualizar** e sem comandos de escrita; sua home `/svo/solicitacoes` permanece para a FROTA-109. Gestor/admin consultam pela API, sem nova tela. Em perda de resposta após PATCH, a interface bloqueia reenvio até **Consultar situação** executar GET; não anuncia sucesso sem confirmação. Uma mutação confirmada cuja recarga falha mantém o card e sinaliza lista desatualizada, bloqueando novos avanços até atualização. Conteúdo operacional fica apenas em memória e é removido ao trocar sessão.
+
+Ver [SDD FROTA-118](docs/plans/frota-118-acompanhar-atendimento-svo.html) e [documentação e validação SVO](docs/modulos/SVO.html#tracking).
 
 ## Padrão de commits
 

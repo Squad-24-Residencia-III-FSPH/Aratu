@@ -20,6 +20,14 @@ const VEHICLES_PATH = '/veiculos'
 const DRIVERS_PATH = '/motoristas'
 const FUELINGS_PATH = '/abastecimentos'
 
+test('acompanhamento SVO é exclusivo do atendente e preserva home operacional da equipe', () => {
+  for (const [profile, home] of destinations) {
+    assert.deepEqual(resolveRoute(sessionFor(profile), '/svo/acompanhamento'), profile === 'ATENDENTE_SVO'
+      ? { kind: 'svo-orders', profile } : { kind: 'redirect', to: home })
+  }
+  assert.deepEqual(resolveRoute(null, '/svo/acompanhamento'), { kind: 'redirect', to: '/login' })
+})
+
 for (const [profile, path] of destinations) {
   test(profile + ' vai para a própria tela e não pode abrir as demais', () => {
     const session = sessionFor(profile)

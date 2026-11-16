@@ -8,7 +8,8 @@ import type { VehiclesRepositoryContract } from '../src/repositories/vehicles.re
 import type { AuditEntry, AuditLogger, CreateAuditInput } from '../src/types/audit.types'
 import type { SvoActorSnapshot, SvoOccurrenceDetail } from '../src/types/svo-occurrence.types'
 import { SvoOrderServiceError } from '../src/types/svo-order.types'
-import type { OpenSvoOrderEvent, SvoOrderErrorCode, SvoTeamSnapshot } from '../src/types/svo-order.types'
+import type { OpenSvoOrderEvent, SvoOrderErrorCode, SvoTeamSnapshot, SvoOrderDetailRow, SvoOrderState, SvoOrderStatusEvent } from '../src/types/svo-order.types'
+import { SVO_ORDER_STATUSES, SVO_ORDER_TRANSITIONS } from '../src/types/svo-order.types'
 import type { Vehicle } from '../src/types/vehicle.types'
 import { svoInput } from './fixtures/svo-occurrences.fixture'
 
@@ -43,6 +44,12 @@ function harness() {
     async currentTime(transaction) { step('clock', transaction); return time },
   }
   const orders: SvoOrdersRepositoryContract = {
+    async listForActor() { return [] },
+    async findById() { return null },
+    async findByIdForUpdate() { return null },
+    async findMembershipForShare() { return null },
+    async updateStatus() { throw new Error('Escrita inesperada') },
+    async createStatusEvent() { throw new Error('Evento inesperado') },
     async findByOccurrenceId(_id, transaction) { step('unique', transaction); return null },
     async findTeamForShare(_id, transaction) { step('team', transaction); return team },
     async countOccupyingOrders(_id, transaction) { step('capacity', transaction); return 0 },
@@ -74,6 +81,114 @@ test('ORD unit: usa ordem fixa de travas, mesmo cliente, relógio e auditoria m�
   assert.deepEqual(Object.keys(h.audits[0]!.after!).sort(), ['id', 'occurrenceId', 'teamId', 'vehicleId', 'status', 'openedAt', 'revision'].sort())
   assert.doesNotMatch(JSON.stringify(h.audits), /SENTINELA/)
   assert.deepEqual(h.audits[0]!.actorSnapshot, h.actor)
+})
+
+function trackingHarness() {
+  const h = harness()
+  h.actor.role = 'EQUIPE_SVO'
+  const state: SvoOrderState = { id: '4', occurrenceId: input.occurrenceId, teamId: '2', vehicleId: '3',
+    status: 'OPEN', revision: 1, openedAt: new Date(h.time.getTime() - 1000),
+    departedAt: null, arrivedAt: null, collectedAt: null, closedAt: null }
+  const events: SvoOrderStatusEvent[] = []
+  const membership = { active: true, joinedAt: new Date('2025-01-01Z'), leftAt: null as Date | null }
+  const row = (): SvoOrderDetailRow => ({ ...state, teamActive: h.team.active,
+    dispatch: { location: 'Local fictício do despacho', teamName: 'Equipe fictícia', vehicleLicensePlate: 'FIC0A01' },
+    current: { location: 'Local fictício atual', teamName: 'Equipe atual', vehicleLicensePlate: 'FIC0A02' },
+    occurrenceSnapshot: null, teamSnapshot: null, vehicleSnapshot: null })
+  h.orders.findByIdForUpdate = async () => { h.calls.push('order'); return { ...state } }
+  h.orders.findMembershipForShare = async () => { h.calls.push('membership'); return membership }
+  h.orders.findById = async () => { h.calls.push('detail'); return row() }
+  h.orders.listForActor = async () => [row()]
+  h.orders.updateStatus = async (_before, status, time) => {
+    h.calls.push('update'); state.status = status; state.revision++
+    if (status === 'IN_TRANSIT') state.departedAt = time
+    else state.arrivedAt = time
+    return true
+  }
+  h.orders.createStatusEvent = async (event) => { h.calls.push('statusEvent'); events.push(event) }
+  return { ...h, state, statusEvents: events, membership }
+}
+
+test('SVO tracking: FSM total impede saltos, retornos, repetição e avanço do legado', async () => {
+  for (const origin of SVO_ORDER_STATUSES) {
+    for (const target of SVO_ORDER_STATUSES) {
+      const h = trackingHarness(); h.state.status = origin
+      if (SVO_ORDER_TRANSITIONS[origin].some((next) => next === target)) {
+        const result = await h.service.updateStatus('4', { status: target, revision: 1 }, '1')
+        assert.equal(result.status, target); assert.equal(result.revision, 2)
+        assert.equal(h.statusEvents.length, 1); assert.equal(h.audits.length, 1)
+        assert.deepEqual(h.calls, ['begin', 'actor', 'order', 'team', 'membership', 'clock', 'update', 'statusEvent', 'audit', 'detail', 'commit'])
+        assert.doesNotMatch(JSON.stringify(h.audits), /Local fictício|requester|Snapshot.*SENTINELA/)
+      } else {
+        await assert.rejects(h.service.updateStatus('4', { status: target, revision: 1 }, '1'), code('INVALID_TRANSITION'))
+        assert.ok(!h.calls.includes('update')); assert.equal(h.statusEvents.length, 0)
+      }
+    }
+  }
+})
+
+test('SVO tracking: contrato estrito, revisão e datas rejeitados sem escrita', async () => {
+  for (const body of [null, [], {}, { status: 'IN_TRANSIT' }, { status: 'UNKNOWN', revision: 1 },
+    { status: 'IN_TRANSIT', revision: 1, teamId: '2' }, ...[0, -1, 1.1, '1', null, Number.MAX_SAFE_INTEGER + 1].map((revision) => ({ status: 'IN_TRANSIT', revision }))]) {
+    await assert.rejects(trackingHarness().service.updateStatus('4', body, '1'), code('INVALID_INPUT'))
+  }
+  for (const modify of [
+    (h: ReturnType<typeof trackingHarness>) => { h.state.revision = 2 },
+    (h: ReturnType<typeof trackingHarness>) => { h.state.openedAt = new Date(h.time.getTime() + 1) },
+    (h: ReturnType<typeof trackingHarness>) => { h.state.departedAt = h.time },
+  ]) {
+    const h = trackingHarness(); modify(h)
+    await assert.rejects(h.service.updateStatus('4', { status: 'IN_TRANSIT', revision: 1 }, '1'), code('INVALID_TRANSITION'))
+    assert.ok(!h.calls.includes('update'))
+  }
+  const h = trackingHarness(); h.state.status = 'IN_TRANSIT'; h.state.departedAt = new Date(h.time.getTime() + 1)
+  await assert.rejects(h.service.updateStatus('4', { status: 'IN_SERVICE', revision: 1 }, '1'), code('INVALID_TRANSITION'))
+})
+
+test('SVO tracking: autorização precede estado e detalhe sigiloso, equipe inativa mantém leitura', async () => {
+  for (const change of [
+    (h: ReturnType<typeof trackingHarness>) => { h.membership.active = false },
+    (h: ReturnType<typeof trackingHarness>) => { h.membership.joinedAt = new Date(h.time.getTime() + 1) },
+    (h: ReturnType<typeof trackingHarness>) => { h.membership.leftAt = h.time },
+    (h: ReturnType<typeof trackingHarness>) => { h.orders.findMembershipForShare = async () => null },
+  ]) {
+    const h = trackingHarness(); change(h); h.state.status = 'COMPLETED'
+    await assert.rejects(h.service.getOrder('4', '1'), code('ACCESS_DENIED'))
+    await assert.rejects(h.service.updateStatus('4', { status: 'IN_TRANSIT', revision: 1 }, '1'), code('ACCESS_DENIED'))
+    assert.ok(!h.calls.includes('detail')); assert.ok(!h.calls.includes('update'))
+  }
+  const h = trackingHarness(); h.team.active = false
+  assert.deepEqual((await h.service.getOrder('4', '1')).allowedTransitions, [])
+  await assert.rejects(h.service.updateStatus('4', { status: 'IN_TRANSIT', revision: 1 }, '1'), code('ACCESS_DENIED'))
+})
+
+test('SVO tracking: consulta global sem ações, filtro estrito e conta atual', async () => {
+  for (const role of ['ATENDENTE_SVO', 'GESTOR', 'ADMINISTRADOR'] as const) {
+    const h = trackingHarness(); h.actor.role = role
+    h.orders.listForActor = async (userId, status) => { assert.equal(userId, null); assert.equal(status, 'OPEN'); return [] }
+    await h.service.listOrders({ status: 'OPEN' }, '1')
+    assert.deepEqual((await h.service.getOrder('4', '1')).allowedTransitions, [])
+    await assert.rejects(h.service.updateStatus('4', { status: 'IN_TRANSIT', revision: 1 }, '1'), code('ACCESS_DENIED'))
+  }
+  for (const query of [{ status: ['OPEN', 'OPEN'] }, { status: 'BAD' }, { userId: '1' }, { teamId: '2' }]) {
+    await assert.rejects(trackingHarness().service.listOrders(query, '1'), code('INVALID_INPUT'))
+  }
+  const h = trackingHarness(); h.occurrences.findActorSnapshot = async () => null
+  await assert.rejects(h.service.getOrder('4', '1'), code('ACCOUNT_UNAVAILABLE'))
+})
+
+test('SVO tracking: chegada preserva saída ausente no legado e falhas não anunciam sucesso', async () => {
+  const h = trackingHarness(); h.state.status = 'IN_TRANSIT'
+  const result = await h.service.updateStatus('4', { status: 'IN_SERVICE', revision: 1 }, '1')
+  assert.equal(result.departedAt, null); assert.equal(result.arrivedAt, h.time)
+  for (const step of ['statusEvent', 'audit', 'revision'] as const) {
+    const failed = trackingHarness()
+    if (step === 'statusEvent') failed.orders.createStatusEvent = async () => { throw new Error('Falha sintética') }
+    if (step === 'audit') failed.audit.recordAudit = async () => { throw new Error('Falha sintética') }
+    if (step === 'revision') failed.orders.updateStatus = async () => false
+    await assert.rejects(failed.service.updateStatus('4', { status: 'IN_TRANSIT', revision: 1 }, '1'))
+    assert.equal(failed.calls.at(-1), 'rollback'); assert.ok(!failed.calls.includes('commit'))
+  }
 })
 
 test('ORD unit: IDs canônicos até BIGINT, sem perda de precisão ou consulta em entrada inválida', async () => {

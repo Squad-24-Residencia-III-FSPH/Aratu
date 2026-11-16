@@ -18,6 +18,8 @@ import MyTripsPage from './pages/MyTripsPage';
 import TripConfirmationPage from './pages/TripConfirmationPage';
 import ServicesPage from './pages/gestor/servicePage/ServicesPage';
 import ScheduleTripPage from './pages/gestor/schedulingPage/ScheduleTripPage';
+import SvoTeamOrdersPage from './pages/SvoTeamOrdersPage';
+import SvoOrdersPage from './pages/SvoOrdersPage';
 import RequestAnalysisPage from './pages/RequestAnalysisPage';
 
 function LoginRoute() {
@@ -34,6 +36,7 @@ function ProfileHome({ profile }: { profile: Profile }) {
   if (profile === 'ADMINISTRADOR') return <UserManagementPage />;
   if (profile === 'MOTORISTA') return <MyTripsPage />;
   if (profile === 'SOLICITANTE') return <SolicitacaoPage />;
+  if (profile === 'EQUIPE_SVO') return <SvoTeamOrdersPage />;
   return <PlaceholderPage title={PROFILE_HOMES[profile].title} />;
 }
 
@@ -75,6 +78,7 @@ function PrivateRoute() {
   if (decision.kind === 'trip-confirmation') return <Layout><TripConfirmationPage /></Layout>;
   if (decision.kind === 'service-types') return <Layout><ServicesPage /></Layout>
   if (decision.kind === 'trip-scheduling') return <Layout><ScheduleTripPage /></Layout>
+  if (decision.kind === 'svo-orders') return <Layout><SvoOrdersPage /></Layout>
   if (decision.kind === 'request-analysis') return <Layout><RequestAnalysisPage /></Layout>
   return (
     <Layout>

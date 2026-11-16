@@ -9,6 +9,7 @@ import { canAccessFuelings, FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
 import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
 import { canManageServiceTypes, SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
 import { canScheduleTrips, TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
+import { SVO_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
 import { canAnalyzeRequests, REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 
 type RouteDecision =
@@ -23,6 +24,7 @@ type RouteDecision =
   | { kind: 'trip-confirmation'; profile: 'GESTOR' }
   | { kind: 'service-types'; profile: Profile }
   | { kind: 'trip-scheduling'; profile: Profile }
+  | { kind: 'svo-orders'; profile: 'ATENDENTE_SVO' }
   | { kind: 'request-analysis'; profile: 'GESTOR' }
 
 export function resolveRoute(session: AuthSession | null, path: string, now = Date.now()): RouteDecision {
@@ -32,6 +34,9 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
     return path === '/login' ? { kind: 'login' } : { kind: 'redirect', to: '/login' }
   }
   const home = PROFILE_HOMES[profile].path
+  if (path === SVO_ORDERS_PATH) {
+    return profile === 'ATENDENTE_SVO' ? { kind: 'svo-orders', profile } : { kind: 'redirect', to: home }
+  }
   if (path === TRIP_CONFIRMATION_PATH) {
     return profile === 'GESTOR' ? { kind: 'trip-confirmation', profile } : { kind: 'redirect', to: home }
   }
