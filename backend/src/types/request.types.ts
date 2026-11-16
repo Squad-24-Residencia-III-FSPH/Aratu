@@ -91,6 +91,10 @@ export interface RequestListFilters {
   from?: string
   /** Data final inclusiva no formato `YYYY-MM-DD`. */
   to?: string
+  /** Trecho do nome da pessoa solicitante. */
+  requester?: string
+  /** Trecho do nome do tipo de serviço. */
+  service?: string
   /** Página solicitada, iniciando em 1. */
   page?: number
   /** Quantidade de registros por página, entre 1 e 100. */

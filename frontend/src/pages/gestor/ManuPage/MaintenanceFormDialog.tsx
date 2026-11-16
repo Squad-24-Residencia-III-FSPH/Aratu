@@ -9,7 +9,7 @@ import type { MaintenanceOrder, MaintenanceItem, MaintenanceType, CreateMaintena
 import { getOdometerError, normalizeFormItems, parseOdometer } from '../../../maintenance/maintenanceForm'
 import { createMaintenance, updateMaintenance, MaintenanceRequestError } from '../../../services/maintenanceService'
 import { ItemsEditor } from './MaintenanceItems'
-import { maintenanceControls } from './maintenanceStyles'
+import { accessibleControls } from '../../../components/ui/accessibleControls'
 
 interface MaintenanceFormDialogProps {
   /** A ordem recebida fixa veículo, data de entrada, autoria e revisão durante a edição. */
@@ -74,7 +74,7 @@ export default function MaintenanceFormDialog({ order, vehicles, api, onClose, o
   if (order && !vehicleOptions.some(vehicle => vehicle.value === order.vehicleId)) {
     vehicleOptions.push({ value: order.vehicleId, label: order.vehicleSnapshot?.licensePlate ?? `Veículo ${order.vehicleId}` })
   }
-  return <Dialog open onClose={busy ? undefined : onClose} fullWidth maxWidth="md" aria-labelledby={`${id}-title`} sx={maintenanceControls}>
+  return <Dialog open onClose={busy ? undefined : onClose} fullWidth maxWidth="md" aria-labelledby={`${id}-title`} sx={accessibleControls}>
     <DialogTitle id={`${id}-title`}>{order ? `Editar ordem #${order.id}` : 'Registrar Manutenção'}</DialogTitle>
     <form onSubmit={submit} aria-busy={busy} noValidate>
       <DialogContent dividers><Stack spacing={2.5}>

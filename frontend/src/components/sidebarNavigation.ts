@@ -8,6 +8,7 @@ import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
 import { SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
 import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
 import { SVO_ORDERS_PATH, SVO_TEAM_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
+import { REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 
 export type SidebarIconName =
   | 'home'
@@ -96,6 +97,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
           profiles: ['MOTORISTA'],
         },
         { label: 'Solicitações', icon: 'requests', behavior: 'button' },
+        { label: 'Analisar solicitações', icon: 'requests', behavior: 'link', path: REQUEST_ANALYSIS_PATH, profiles: ['GESTOR'] },
         { label: 'Viagens', icon: 'trips', behavior: 'button' },
         { label: 'Ordens da equipe', icon: 'requests', behavior: 'link', path: SVO_TEAM_ORDERS_PATH, profiles: ['EQUIPE_SVO'] },
         { label: 'Acompanhamento de ordens', icon: 'requests', behavior: 'link', path: SVO_ORDERS_PATH, profiles: ['ATENDENTE_SVO'] },
