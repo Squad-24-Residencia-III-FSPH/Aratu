@@ -2,44 +2,27 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { getSidebarNavigation } from '../src/components/sidebarNavigation.ts'
 
-function getAllItems(navigation) {
+function getLabels(navigation) {
   return [
     ...navigation.topItems,
     ...navigation.sections.flatMap((section) => section.items),
     ...navigation.footerItems,
-  ]
-}
-
-function getLabels(navigation) {
-  return getAllItems(navigation).map((item) => item.label)
-}
-
-function findByLabel(navigation, label) {
-  return getAllItems(navigation).find((item) => item.label === label)
+  ].map((item) => item.label)
 }
 
 test('links de ordens SVO aparecem somente para seus respectivos perfis', () => {
   for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO']) {
     const navigation = getSidebarNavigation(profile)
     const items = [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items)]
-
-    assert.strictEqual(
-      items.some((item) => item.path === '/svo/ordens'),
-      profile === 'EQUIPE_SVO',
-      `perfil ${profile}: visibilidade de /svo/ordens`,
-    )
-    assert.strictEqual(
-      items.some((item) => item.path === '/svo/acompanhamento'),
-      profile === 'ATENDENTE_SVO' || profile === 'GESTOR',
-      `perfil ${profile}: visibilidade de /svo/acompanhamento`,
-    )
+    assert.equal(items.some((item) => item.path === '/svo/ordens'), profile === 'EQUIPE_SVO')
+    assert.equal(items.some((item) => item.path === '/svo/acompanhamento'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR')
   }
 })
 
 test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
   const navigation = getSidebarNavigation('ADMINISTRADOR')
 
-  assert.deepStrictEqual(getLabels(navigation), [
+  assert.deepEqual(getLabels(navigation), [
     'Início',
     'Usuários',
     'Perfis e Permissões',
@@ -52,8 +35,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     'Configurações',
     'Ajuda',
   ])
-
-  assert.deepStrictEqual(
+  assert.deepEqual(
     navigation.topItems
       .filter((item) => item.behavior === 'link')
       .map(({ label, path }) => ({ label, path })),
@@ -67,22 +49,21 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
       { label: 'Motoristas', path: '/motoristas' },
     ],
   )
-
-  assert.strictEqual(navigation.topItems[0].behavior, 'static')
-  assert.strictEqual(navigation.topItems[4].behavior, 'link')
-  assert.strictEqual(navigation.topItems[5].behavior, 'link')
-  assert.strictEqual(navigation.topItems[6].behavior, 'link')
-  assert.strictEqual(navigation.topItems[7].behavior, 'link')
-  assert.strictEqual(navigation.topItems[8].behavior, 'static')
-  assert.strictEqual(navigation.topItems[9].behavior, 'static')
-  assert.strictEqual(navigation.footerItems[0].behavior, 'static')
-  assert.strictEqual(navigation.showDividerAfterTop, false)
+  assert.equal(navigation.topItems[0].behavior, 'static')
+  assert.equal(navigation.topItems[4].behavior, 'link')
+  assert.equal(navigation.topItems[5].behavior, 'link')
+  assert.equal(navigation.topItems[6].behavior, 'link')
+  assert.equal(navigation.topItems[7].behavior, 'link')
+  assert.equal(navigation.topItems[8].behavior, 'static')
+  assert.equal(navigation.topItems[9].behavior, 'static')
+  assert.equal(navigation.footerItems[0].behavior, 'static')
+  assert.equal(navigation.showDividerAfterTop, false)
 })
 
 test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   const navigation = getSidebarNavigation('GESTOR')
 
-  assert.deepStrictEqual(getLabels(navigation), [
+  assert.deepEqual(getLabels(navigation), [
     'Início',
     'Solicitações',
     'Analisar solicitações',
@@ -102,129 +83,99 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'Auditoria',
     'Ajuda',
   ])
+  assert.deepEqual(navigation.sections.map((section) => section.label), [
+    'OPERAÇÃO',
+    'FROTA',
+    'CONTROLE',
+    'GESTÃO',
+  ])
+  const vehicles = navigation.sections
+    .flatMap((section) => section.items)
+    .find((item) => item.label === 'Veículos')
+  assert.deepEqual(
+    { behavior: vehicles.behavior, path: vehicles.path },
+    { behavior: 'link', path: '/veiculos' },
+  )
+  const drivers = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Motoristas')
+  assert.deepEqual({ behavior: drivers.behavior, path: drivers.path }, { behavior: 'link', path: '/motoristas' })
+  const scheduling = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Agendar viagem')
+  assert.deepEqual({ behavior: scheduling.behavior, path: scheduling.path }, { behavior: 'link', path: '/agendar-viagem' })
+  const analysis = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Analisar solicitações')
+  assert.deepEqual({ behavior: analysis.behavior, path: analysis.path }, { behavior: 'link', path: '/frota/solicitacoes/analise' })
+  const maintenance = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Manutenção')
+  assert.deepEqual({ behavior: maintenance.behavior, path: maintenance.path }, { behavior: 'link', path: '/maintenance-orders' })
+  const fuelings = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Abastecimentos')
+  assert.deepEqual({ behavior: fuelings.behavior, path: fuelings.path }, { behavior: 'link', path: '/abastecimentos' })
+  const svoTracking = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Acompanhamento de ordens')
+  assert.deepEqual({ behavior: svoTracking.behavior, path: svoTracking.path }, { behavior: 'link', path: '/svo/acompanhamento' })
 
-  assert.deepStrictEqual(
-    navigation.sections.map((section) => section.label),
-    ['OPERAÇÃO', 'FROTA', 'CONTROLE', 'GESTÃO'],
+  const linkLabels = new Set([
+    'Acompanhamento de ordens',
+    'Confirmar viagens',
+    'Veículos',
+    'Motoristas',
+    'Tipos de serviço',
+    'Agendar viagem',
+    'Manutenção',
+    'Abastecimentos',
+    'Analisar solicitações',
+  ])
+  assert.ok(
+    [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]
+      .filter((item) => !linkLabels.has(item.label))
+      .every((item) => item.behavior === 'button'),
   )
 
-  const linkExpectations = [
-    { label: 'Veículos', path: '/veiculos' },
-    { label: 'Motoristas', path: '/motoristas' },
-    { label: 'Agendar viagem', path: '/agendar-viagem' },
-    { label: 'Analisar solicitações', path: '/frota/solicitacoes/analise' },
-    { label: 'Manutenção', path: '/maintenance-orders' },
-    { label: 'Abastecimentos', path: '/abastecimentos' },
-    { label: 'Acompanhamento de ordens', path: '/svo/acompanhamento' },
-  ]
-
-  for (const expected of linkExpectations) {
-    const item = findByLabel(navigation, expected.label)
-    assert.ok(item, `item "${expected.label}" não encontrado no menu do GESTOR`)
-    assert.deepStrictEqual(
-      { behavior: item.behavior, path: item.path },
-      { behavior: 'link', path: expected.path },
-      `item "${expected.label}" com comportamento/path inesperado`,
-    )
-  }
-
-  const linkLabels = new Set(linkExpectations.map((item) => item.label))
-  const nonLinkItems = getAllItems(navigation).filter((item) => !linkLabels.has(item.label))
-
-  for (const item of nonLinkItems) {
-    assert.strictEqual(
-      item.behavior,
-      'button',
-      `item "${item.label}" deveria ter behavior "button"`,
-    )
-  }
-
-  assert.strictEqual(navigation.showDividerAfterTop, true)
+  assert.equal(navigation.showDividerAfterTop, true)
 })
 
 test('somente perfis com leitura de veículos recebem o atalho no menu', () => {
   for (const profile of ['SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO']) {
-    assert.strictEqual(
-      getLabels(getSidebarNavigation(profile)).includes('Veículos'),
-      false,
-      `perfil ${profile} não deveria ter "Veículos"`,
-    )
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Veículos'), false)
   }
   for (const profile of ['GESTOR', 'ATENDENTE_SVO', 'ADMINISTRADOR']) {
-    assert.strictEqual(
-      getLabels(getSidebarNavigation(profile)).includes('Veículos'),
-      true,
-      `perfil ${profile} deveria ter "Veículos"`,
-    )
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Veículos'), true)
   }
-  assert.strictEqual(getLabels(getSidebarNavigation(null)).includes('Veículos'), false)
+  assert.equal(getLabels(getSidebarNavigation(null)).includes('Veículos'), false)
 })
 
 test('somente GESTOR e ADMINISTRADOR recebem o atalho de abastecimentos', () => {
   for (const profile of ['SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO']) {
-    assert.strictEqual(
-      getLabels(getSidebarNavigation(profile)).includes('Abastecimentos'),
-      false,
-      `perfil ${profile} não deveria ter "Abastecimentos"`,
-    )
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Abastecimentos'), false)
   }
   for (const profile of ['GESTOR', 'ADMINISTRADOR']) {
-    assert.strictEqual(
-      getLabels(getSidebarNavigation(profile)).includes('Abastecimentos'),
-      true,
-      `perfil ${profile} deveria ter "Abastecimentos"`,
-    )
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Abastecimentos'), true)
   }
 })
 
 test('somente GESTOR recebe o atalho de análise de solicitações', () => {
   for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
-    assert.strictEqual(
-      getLabels(getSidebarNavigation(profile)).includes('Analisar solicitações'),
-      false,
-      `perfil ${profile ?? 'null'} não deveria ter "Analisar solicitações"`,
-    )
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Analisar solicitações'), false)
   }
-  assert.strictEqual(
-    getLabels(getSidebarNavigation('GESTOR')).includes('Analisar solicitações'),
-    true,
-  )
+  assert.equal(getLabels(getSidebarNavigation('GESTOR')).includes('Analisar solicitações'), true)
 })
 
 test('somente MOTORISTA recebe o atalho Minhas viagens apontando para a própria home', () => {
   const driverNav = getSidebarNavigation('MOTORISTA')
-  const myTrips = findByLabel(driverNav, 'Minhas viagens')
-
-  assert.ok(myTrips, 'item "Minhas viagens" não encontrado no menu do MOTORISTA')
-  assert.deepStrictEqual(
-    { behavior: myTrips.behavior, path: myTrips.path },
+  const myTrips = driverNav.sections
+    .flatMap((section) => section.items)
+    .find((item) => item.label === 'Minhas viagens')
+  assert.deepEqual(
+    { behavior: myTrips?.behavior, path: myTrips?.path },
     { behavior: 'link', path: '/viagens/minhas' },
   )
-
   for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
-    assert.strictEqual(
-      getLabels(getSidebarNavigation(profile)).includes('Minhas viagens'),
-      false,
-      `perfil ${profile ?? 'null'} não deveria ter "Minhas viagens"`,
-    )
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Minhas viagens'), false)
   }
 })
 
 test('Confirmar viagens aponta para a página e fica restrito ao GESTOR', () => {
   const gestorNav = getSidebarNavigation('GESTOR')
-  const confirmation = findByLabel(gestorNav, 'Confirmar viagens')
-
-  assert.ok(confirmation, 'item "Confirmar viagens" não encontrado no menu do GESTOR')
-  assert.deepStrictEqual(
-    { behavior: confirmation.behavior, path: confirmation.path },
-    { behavior: 'link', path: '/viagens/confirmacao' },
-  )
-
+  const confirmation = gestorNav.sections.flatMap((section) => section.items).find((item) => item.label === 'Confirmar viagens')
+  assert.deepEqual({ behavior: confirmation?.behavior, path: confirmation?.path }, {
+    behavior: 'link', path: '/viagens/confirmacao',
+  })
   for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
-    assert.strictEqual(
-      getLabels(getSidebarNavigation(profile)).includes('Confirmar viagens'),
-      false,
-      `perfil ${profile ?? 'null'} não deveria ter "Confirmar viagens"`,
-    )
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Confirmar viagens'), false)
   }
 })
