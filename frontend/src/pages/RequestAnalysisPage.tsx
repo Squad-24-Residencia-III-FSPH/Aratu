@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Box, Button, Stack, TablePagination, Typography } from '@mui/material'
 import PageHeader from '../components/ui/PageHeader'
 import DataTable from '../components/ui/DataTable'
@@ -11,18 +11,12 @@ import RequestDetailsPanel from '../components/RequestDetailsPanel'
 import { useAuth } from '../auth/useAuth'
 import { decideRequest, listRequests } from '../services/requestsService'
 import type { PaginatedRequests, RequestListFilters, RequestSummary } from '../requests/requestTypes'
+import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONES } from '../requests/requestPresentation'
 import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess'
-import { maintenanceControls } from './gestor/ManuPage/maintenanceStyles'
+import { accessibleControls } from '../components/ui/accessibleControls'
+import { formatCalendarDate } from '../utils/dates'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
-const analysisControls = {
-  ...maintenanceControls,
-  '& .MuiButton-containedPrimary': {
-    backgroundColor: 'primary.dark',
-    color: '#fff',
-    '&:hover': { backgroundColor: '#873700' },
-  },
-}
 const EMPTY_FILTERS: RequestListFilters = { status: 'PENDING', page: 1, pageSize: 20 }
 
 type DialogAction = { request: RequestSummary; decision: 'approve' | 'reject' } | null
@@ -43,6 +37,7 @@ export default function RequestAnalysisPage() {
   const [decisionError, setDecisionError] = useState('')
   const [notice, setNotice] = useState('')
   const [approvedRequestId, setApprovedRequestId] = useState<string | null>(null)
+  const noticeRef = useRef<HTMLDivElement>(null)
   const queryKey = JSON.stringify({ filters, page, pageSize, reload })
 
   useEffect(() => {
@@ -94,6 +89,8 @@ export default function RequestAnalysisPage() {
     setDialogAction({ request, decision })
     setReason('')
     setDecisionError('')
+    setNotice('')
+    setApprovedRequestId(null)
   }
 
   async function submitDecision() {
@@ -120,13 +117,13 @@ export default function RequestAnalysisPage() {
   const columns = [
     { key: 'requester', header: 'Solicitante', render: (request: RequestSummary) => request.requesterName },
     { key: 'service', header: 'Tipo de serviço', render: (request: RequestSummary) => request.serviceName },
-    { key: 'date', header: 'Data e horário', render: (request: RequestSummary) => `${formatDate(request.requestedDate)} às ${request.requestedTime}` },
+    { key: 'date', header: 'Data e horário', render: (request: RequestSummary) => `${formatCalendarDate(request.requestedDate)} às ${request.requestedTime}` },
     { key: 'route', header: 'Trajeto', render: (request: RequestSummary) => `${request.origin} → ${request.destination}` },
-    { key: 'status', header: 'Status', render: () => <StatusChip label="Pendente" tone="warning" /> },
+    { key: 'status', header: 'Status', render: () => <StatusChip label={REQUEST_STATUS_LABELS.PENDING} tone={REQUEST_STATUS_TONES.PENDING} /> },
   ] as const
 
   return (
-    <Box component="main" sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 4, ...analysisControls }}>
+    <Box sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 4, ...accessibleControls }}>
       <PageHeader title="Análise de solicitações" description="Revise os dados antes de aprovar ou rejeitar uma viagem." />
 
       <FilterBar label="Filtros das solicitações pendentes">
@@ -140,7 +137,7 @@ export default function RequestAnalysisPage() {
         </Stack>
       </FilterBar>
 
-      {notice && <Alert severity="success" role="status" sx={{ mb: 2 }} action={approvedRequestId ? (
+      {notice && <Alert ref={noticeRef} tabIndex={-1} severity="success" role="status" sx={{ mb: 2 }} action={approvedRequestId ? (
         <Button component="a" href={`#${TRIP_SCHEDULING_PATH}?requestId=${encodeURIComponent(approvedRequestId)}`} color="inherit" sx={{ minHeight: 44 }}>
           Agendar viagem
         </Button>
@@ -200,7 +197,7 @@ export default function RequestAnalysisPage() {
       )}
 
       <ConfirmDialog
-        sx={analysisControls}
+        sx={accessibleControls}
         open={dialogAction !== null}
         title={dialogAction?.decision === 'reject' ? 'Rejeitar solicitação' : 'Aprovar solicitação'}
         description={dialogAction?.decision === 'reject'
@@ -213,6 +210,9 @@ export default function RequestAnalysisPage() {
         confirmDisabled={dialogAction?.decision === 'reject' && reason.trim().length === 0}
         onConfirm={() => { void submitDecision() }}
         onCancel={() => { if (!decisionBusy) setDialogAction(null) }}
+        // A linha decidida sai da lista levando o botão que abriu o diálogo; sem
+        // isso o foco cairia no body e o teclado perderia o lugar do fluxo.
+        onExited={() => noticeRef.current?.focus()}
       >
         {dialogAction?.decision === 'reject' && (
           <FormField label="Justificativa da rejeição" value={reason} onChange={setReason}
@@ -222,9 +222,4 @@ export default function RequestAnalysisPage() {
       </ConfirmDialog>
     </Box>
   )
-}
-
-function formatDate(value: string): string {
-  const [year, month, day] = value.split('-')
-  return year && month && day ? `${day}/${month}/${year}` : value
 }

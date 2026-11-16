@@ -9,7 +9,7 @@ import type { MaintenanceOrder, MaintenanceItem } from '../../../maintenance/mai
 import { normalizeFormItems } from '../../../maintenance/maintenanceForm'
 import { closeMaintenance, MaintenanceRequestError } from '../../../services/maintenanceService'
 import { ItemsEditor, ItemsSummary } from './MaintenanceItems'
-import { maintenanceControls } from './maintenanceStyles'
+import { accessibleControls } from '../../../components/ui/accessibleControls'
 
 interface MaintenanceDetailDialogProps {
   /** Detalhe atualizado da API; o orçamento só muda pela edição, nunca pelo encerramento. */
@@ -60,7 +60,7 @@ export default function MaintenanceDetailDialog({ order, api, onClose, onEdit, o
     } finally { submitting.current = false; setBusy(false); setConfirm(false) }
   }
   return <>
-    <Dialog open onClose={busy ? undefined : onClose} fullWidth maxWidth="md" aria-labelledby={`${id}-title`} sx={maintenanceControls}>
+    <Dialog open onClose={busy ? undefined : onClose} fullWidth maxWidth="md" aria-labelledby={`${id}-title`} sx={accessibleControls}>
       <DialogTitle id={`${id}-title`}>Ordem de serviço #{order.id} — {order.vehicleSnapshot?.licensePlate ?? `Veículo ${order.vehicleId}`}</DialogTitle>
       <DialogContent dividers><Stack spacing={2.5}>
         <Typography>{TYPE_LABELS[order.type]} · {STATUS_LABELS[order.status]} · Revisão {order.revision}</Typography>
@@ -103,7 +103,7 @@ export default function MaintenanceDetailDialog({ order, api, onClose, onEdit, o
         {closing && <Button type="submit" form={`${id}-close`} variant="contained" disabled={busy || conflict}>Revisar encerramento</Button>}
       </DialogActions>
     </Dialog>
-    <ConfirmDialog open={confirm} sx={maintenanceControls} title={`Encerrar ordem #${order.id}?`}
+    <ConfirmDialog open={confirm} sx={accessibleControls} title={`Encerrar ordem #${order.id}?`}
       description={`Veículo ${order.vehicleSnapshot?.licensePlate ?? order.vehicleId}. O orçamento será preservado e o custo final será calculado com a execução confirmada. O impedimento desta ordem será retirado, preservando uma eventual inativação independente.`}
       confirmLabel="Confirmar encerramento" onConfirm={() => void close()} onCancel={() => setConfirm(false)} loading={busy} />
   </>

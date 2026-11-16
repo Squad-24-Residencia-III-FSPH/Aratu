@@ -5,29 +5,15 @@ import type { ApiRequest } from '../api/client'
 import StateFeedback from './ui/StateFeedback'
 import StatusChip from './ui/StatusChip'
 import { getRequest } from '../services/requestsService'
-import type { RequestDetail, RequestStatus } from '../requests/requestTypes'
+import type { RequestDetail } from '../requests/requestTypes'
+import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONES } from '../requests/requestPresentation'
+import { formatCalendarDate, formatDateTime } from '../utils/dates'
 
 interface RequestDetailsPanelProps {
   /** ID selecionado na lista de análise; `null` limpa o painel. */
   requestId: string | null
   /** Cliente autenticado usado para consultar a API do Aratu. */
   api: ApiRequest
-}
-
-const STATUS_LABELS: Record<RequestStatus, string> = {
-  PENDING: 'Pendente',
-  APPROVED: 'Aprovada',
-  REJECTED: 'Rejeitada',
-  SCHEDULED: 'Agendada',
-  CANCELED: 'Cancelada',
-}
-
-const STATUS_TONES: Record<RequestStatus, 'warning' | 'success' | 'info' | 'neutral'> = {
-  PENDING: 'warning',
-  APPROVED: 'success',
-  REJECTED: 'neutral',
-  SCHEDULED: 'info',
-  CANCELED: 'neutral',
 }
 
 /** Mostra os dados da solicitação selecionada sem navegar para outra tela. */
@@ -72,13 +58,12 @@ export default function RequestDetailsPanel({ requestId, api }: RequestDetailsPa
           <Typography id={titleId} component="h2" variant="h6" sx={{ fontWeight: 700 }}>
             Detalhes da solicitação
           </Typography>
-          <StatusChip label={STATUS_LABELS[request.status]} tone={STATUS_TONES[request.status]} />
+          <StatusChip label={REQUEST_STATUS_LABELS[request.status]} tone={REQUEST_STATUS_TONES[request.status]} />
         </Box>
 
         <DetailsGrid>
           <Detail label="Solicitante" value={request.requesterName} />
-          <Detail label="Setor" value="Não informado" />
-          <Detail label="Data" value={formatDate(request.requestedDate)} />
+          <Detail label="Data" value={formatCalendarDate(request.requestedDate)} />
           <Detail label="Horário" value={request.requestedTime} />
           <Detail label="Origem" value={request.origin} />
           <Detail label="Destino" value={request.destination} />
@@ -121,14 +106,3 @@ function Detail({ label, value }: { label: string; value: string }) {
   )
 }
 
-function formatDate(value: string): string {
-  const [year, month, day] = value.split('-')
-  return year && month && day ? `${day}/${month}/${year}` : value
-}
-
-function formatDateTime(value: string): string {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'short', timeStyle: 'short',
-  }).format(date)
-}

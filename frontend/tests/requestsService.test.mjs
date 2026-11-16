@@ -1,11 +1,19 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { createServer } from 'vite'
 import { fileURLToPath } from 'node:url'
+
+// O cache precisa ficar fora de `node_modules`, que pode ser somente leitura
+// quando as dependências foram instaladas por outro usuário (ex: container).
+const viteCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aratu-vite-test-'))
 
 const vite = await createServer({
   configFile: false,
   root: fileURLToPath(new URL('..', import.meta.url)),
+  cacheDir: viteCacheDir,
   server: { middlewareMode: true, hmr: false },
   appType: 'custom',
 })

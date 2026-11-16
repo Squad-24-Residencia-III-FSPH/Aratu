@@ -1,11 +1,18 @@
 import test, { after, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { createElement } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { sessionFor } from './fixtures.mjs'
+
+// O cache precisa ficar fora de `node_modules`, que pode ser somente leitura
+// quando as dependências foram instaladas por outro usuário (ex: container).
+const viteCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aratu-vite-test-'))
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' })
 Object.defineProperties(globalThis, {
@@ -24,7 +31,7 @@ globalThis.cancelAnimationFrame ??= dom.window.cancelAnimationFrame.bind(dom.win
 
 const { cleanup, render, screen, waitFor, within } = await import('@testing-library/react')
 const userEvent = (await import('@testing-library/user-event')).default
-const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), plugins: [react()],
+const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir, plugins: [react()],
   server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: RequestAnalysisPage }, { AuthContext }] = await Promise.all([
   vite.ssrLoadModule('/src/pages/RequestAnalysisPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
@@ -65,7 +72,6 @@ test('seleciona, lê os detalhes e rejeita com justificativa; a solicitação sa
   assert.ok(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
   await user.click(screen.getByRole('button', { name: 'Ver detalhes da solicitação 41' }))
   assert.ok(await screen.findByText('Atividade institucional fictícia'))
-  assert.ok(screen.getByText('Não informado'))
 
   await user.click(screen.getByRole('button', { name: 'Rejeitar solicitação' }))
   const dialog = await screen.findByRole('dialog')
@@ -78,7 +84,10 @@ test('seleciona, lê os detalhes e rejeita com justificativa; a solicitação sa
   assert.ok(await screen.findByText('Solicitação #41 rejeitada.'))
   await waitFor(() => assert.equal(listCalls, 2))
   assert.deepEqual(rejection, { reason: 'Sem veículo disponível' })
+  // O botão que abriu o diálogo sai da lista com a linha decidida; o foco retorna
+  // ao aviso para o teclado não cair no body (ver `onExited` do ConfirmDialog).
   assert.equal(screen.queryByRole('button', { name: 'Ver detalhes da solicitação 41' }), null)
+  await waitFor(() => assert.equal(document.activeElement, screen.getByRole('status')))
 })
 
 test('aprovação oferece atalho para agendar a solicitação aprovada', async () => {
