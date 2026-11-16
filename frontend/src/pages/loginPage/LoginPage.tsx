@@ -8,7 +8,7 @@ import { useAuth } from '../../auth/useAuth'
 import { validateLogin } from '../../auth/validation'
 import type { LoginErrors } from '../../auth/validation'
 import { SERVICE_UNAVAILABLE } from '../../auth/loginService'
-import logo from '../../assets/aratu-logo.png'
+import logo from '../../assets/aratu-logo-black-orange.png'
 import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
