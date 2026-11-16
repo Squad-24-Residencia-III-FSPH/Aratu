@@ -1,6 +1,6 @@
 import { AppBar, Toolbar, Typography, Box, Avatar, Badge, IconButton } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import logoAratu from '../assets/aratu-logo.png';
+import logoAratu from '../assets/aratu-logo-black-white.png';
 import { useAuth } from '../auth/useAuth';
 import { profileInitials, profileLabel } from '../auth/profiles';
 
