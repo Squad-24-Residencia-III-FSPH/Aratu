@@ -13,6 +13,12 @@ export const SVO_ORDER_TRANSITIONS: Record<SvoOrderStatus, readonly SvoOrderTran
   OPEN: ['IN_TRANSIT'], IN_TRANSIT: ['IN_SERVICE'], IN_SERVICE: [], IN_PROGRESS: [],
   COMPLETED: [], NOT_PERFORMED: [], CANCELED: [],
 }
+export const SVO_ORDER_RESULTS = ['COMPLETED', 'NOT_PERFORMED'] as const
+export type SvoOrderResult = typeof SVO_ORDER_RESULTS[number]
+export const SVO_ORDER_ALLOWED_RESULTS: Record<SvoOrderStatus, readonly SvoOrderResult[]> = {
+  OPEN: [], IN_TRANSIT: ['NOT_PERFORMED'], IN_SERVICE: ['COMPLETED', 'NOT_PERFORMED'],
+  IN_PROGRESS: [], COMPLETED: [], NOT_PERFORMED: [], CANCELED: [],
+}
 
 export interface SvoOrderState {
   id: string
@@ -20,36 +26,53 @@ export interface SvoOrderState {
   teamId: string
   vehicleId: string
   status: SvoOrderStatus
+  result: SvoOrderResult | null
+  failureReason: string | null
+  notes: string | null
   revision: number
   openedAt: Date
   departedAt: Date | null
   arrivedAt: Date | null
   collectedAt: Date | null
   closedAt: Date | null
+  closedBy: string | null
 }
-export interface SvoOrderSummary extends SvoOrderState {
+export interface SvoOrderSummary extends Omit<SvoOrderState, 'failureReason' | 'notes' | 'closedBy'> {
   dispatch: { location: string | null; teamName: string | null; vehicleLicensePlate: string | null }
   current: { location: string; teamName: string; vehicleLicensePlate: string }
   allowedTransitions: readonly SvoOrderTransition[]
+  allowedResults: readonly SvoOrderResult[]
 }
 export interface SvoOrderDetail extends SvoOrderSummary {
+  failureReason: string | null
+  notes: string | null
+  closedBy: string | null
   occurrenceSnapshot: SvoOrderOccurrenceSnapshot | null
   teamSnapshot: SvoTeamSnapshot | null
   vehicleSnapshot: SvoOrderVehicleSnapshot | null
 }
 /** Metadado interno de autorização; nunca integra a resposta HTTP. */
-export interface SvoOrderReadRow extends Omit<SvoOrderSummary, 'allowedTransitions'> { teamActive: boolean }
+export interface SvoOrderReadRow extends Omit<SvoOrderSummary, 'allowedTransitions' | 'allowedResults'> { teamActive: boolean }
 export interface SvoOrderDetailRow extends SvoOrderReadRow {
+  failureReason: string | null
+  notes: string | null
+  closedBy: string | null
   occurrenceSnapshot: SvoOrderOccurrenceSnapshot | null
   teamSnapshot: SvoTeamSnapshot | null
   vehicleSnapshot: SvoOrderVehicleSnapshot | null
 }
 export interface SvoOrderMembership { active: boolean; joinedAt: Date; leftAt: Date | null }
 export interface UpdateSvoOrderStatusInput { status: SvoOrderStatus; revision: number }
+export interface RecordSvoOrderResultInput {
+  result: SvoOrderResult
+  revision: number
+  failureReason: string | null
+  notes: string | null
+}
 export interface SvoOrderStatusEvent {
   before: SvoOrderState
   after: SvoOrderState
-  eventType: 'DEPARTED' | 'ARRIVED'
+  eventType: 'DEPARTED' | 'ARRIVED' | SvoOrderResult
   occurredAt: Date
   actor: SvoActorSnapshot
   reason: string

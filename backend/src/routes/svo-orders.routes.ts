@@ -24,6 +24,7 @@ export function createSvoOrdersRouter(service: SvoOrdersService, jwt: JwtConfig,
   router.get('/', authorizeRoles(SVO_ORDER_READ_ROLES), controller.list)
   router.get('/:id', authorizeRoles(SVO_ORDER_READ_ROLES), controller.detail)
   router.patch('/:id/status', authorizeRoles(SVO_ORDER_UPDATE_ROLES), controller.updateStatus)
+  router.post('/:id/result', authorizeRoles(SVO_ORDER_UPDATE_ROLES), controller.recordResult)
   router.post('/', authorizeRoles(SVO_WRITE_ROLES), controller.create)
   return router
 }
@@ -39,10 +40,13 @@ export function svoOrderErrorHandler(error: unknown, req: Request, res: Response
     res.status(400).json({ erro: 'O corpo da requisição deve conter JSON válido.' })
     return
   }
-  const operation = req.method === 'PATCH' ? 'UPDATE_STATUS' : req.method === 'GET' ? 'READ_ORDER' : 'CREATE_ORDER'
+  const operation = req.method === 'PATCH' ? 'UPDATE_STATUS'
+    : req.method === 'GET' ? 'READ_ORDER'
+      : /\/result\/?$/.test(req.path) ? 'RECORD_RESULT' : 'CREATE_ORDER'
   console.error({ code: 'SVO_ORDER_FAILED', operation, time: new Date().toISOString() })
   const message = operation === 'READ_ORDER' ? 'Não foi possível consultar as ordens. Tente novamente.'
     : operation === 'UPDATE_STATUS' ? 'Não foi possível confirmar a atualização da ordem. Consulte a situação antes de tentar novamente.'
-      : 'Não foi possível concluir a geração da ordem. Confirme o resultado com a central antes de tentar novamente.'
+      : operation === 'RECORD_RESULT' ? 'Não foi possível confirmar o encerramento da ordem. Consulte a situação antes de tentar novamente.'
+        : 'Não foi possível concluir a geração da ordem. Confirme o resultado com a central antes de tentar novamente.'
   res.status(500).json({ erro: message })
 }

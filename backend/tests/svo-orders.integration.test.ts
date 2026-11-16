@@ -259,6 +259,15 @@ test('TRACK-10: legado somente leitura, snapshots nulos e chegada sem inventar s
   }
 })
 
+function postResult(id: string, body: unknown, role: UserRole | null = 'EQUIPE_SVO', url = baseUrl, token?: string): Promise<Response> {
+  return fetch(`${url}/svo/orders/${id}/result`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(role ? { Authorization: `Bearer ${token ?? user(role).token}` } : {}) },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
+  })
+}
+
 function user(role: UserRole = 'ATENDENTE_SVO'): RbacTestUser { return users.get(role)! }
 
 function call(body: unknown, role: UserRole | null = 'ATENDENTE_SVO', token?: string, url = baseUrl): Promise<Response> {
@@ -294,7 +303,7 @@ async function eligible(bodyLimit = 1): Promise<CreateSvoOrderInput> {
 /** Projeções completas dos campos relevantes permitem comprovar ausência de escritas e efeitos laterais. */
 async function databaseState(): Promise<unknown> {
   const queries = [
-    'SELECT id, occurrence_id, team_id, vehicle_id, driver_id, driver_snapshot, status, opened_at, departed_at, arrived_at, updated_at, created_by, revision, occurrence_snapshot, team_snapshot, vehicle_snapshot FROM svo.execution_orders ORDER BY id',
+    'SELECT id, occurrence_id, team_id, vehicle_id, driver_id, driver_snapshot, status, result, failure_reason, notes, opened_at, departed_at, arrived_at, collected_at, closed_at, closed_by, updated_at, created_by, revision, occurrence_snapshot, team_snapshot, vehicle_snapshot FROM svo.execution_orders ORDER BY id',
     'SELECT id, execution_order_id, event_type, occurred_at, registered_at, reported_by, registered_by, actor_snapshot, reason, evidence_description, before_state, after_state FROM svo.execution_order_events ORDER BY id',
     'SELECT id, table_name, record_id, user_id, operation, "before", "after", actor_snapshot FROM audit.logs ORDER BY id',
     'SELECT id, status, revision, triaged_at, triaged_by, updated_at FROM svo.occurrences ORDER BY id',
@@ -319,7 +328,8 @@ async function rejectsWithoutWrite(operation: () => Promise<Response>, status: n
 async function history(id: string) {
   const order = await pool.query<JsonRecord>(
     `SELECT id::text, occurrence_id::text, team_id::text, vehicle_id::text, driver_id, driver_snapshot,
-            status, opened_at, created_by::text, revision, occurrence_snapshot, team_snapshot, vehicle_snapshot
+            status, result, failure_reason, notes, opened_at, departed_at, arrived_at, collected_at,
+            closed_at, closed_by::text, created_by::text, revision, occurrence_snapshot, team_snapshot, vehicle_snapshot
        FROM svo.execution_orders WHERE id = $1`, [id],
   )
   const events = await pool.query<JsonRecord>(
@@ -327,7 +337,7 @@ async function history(id: string) {
             reason, evidence_description, before_state, after_state FROM svo.execution_order_events WHERE execution_order_id = $1`, [id],
   )
   const audits = await pool.query<JsonRecord>(
-    `SELECT user_id::text, operation, "before", "after", actor_snapshot FROM audit.logs
+    `SELECT user_id::text, operation, "before", "after", actor_snapshot, reason FROM audit.logs
       WHERE table_name = 'svo.execution_orders' AND record_id = $1`, [id],
   )
   return { order: order.rows[0]!, events: events.rows, audits: audits.rows }
@@ -701,4 +711,131 @@ test('ORD-03: constraint real de unicidade é traduzida após rollback', async (
   await assert.rejects(service.createOrder(input, user().id), (error: unknown) =>
     error instanceof SvoOrderServiceError && error.code === 'ORDER_ALREADY_EXISTS')
   assert.deepEqual(await databaseState(), state)
+})
+
+test('RESULT-01: conclusão em IN_SERVICE grava horários iguais, evento, auditoria, detalhe e libera reserva', async () => {
+  const order = await trackedOrder()
+  const original = await history(order.id)
+  await json(await track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }), 200)
+  const inService = await json(await track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_SERVICE', revision: 2 }), 200)
+  assert.deepEqual(inService.allowedResults, ['COMPLETED', 'NOT_PERFORMED'])
+  const beforeCall = Date.now()
+  const completed = await json(await postResult(order.id, {
+    result: 'COMPLETED', revision: 3, notes: '  Observação sintética de encerramento QA.  ',
+  }), 200)
+  assert.equal(completed.status, 'COMPLETED'); assert.equal(completed.result, 'COMPLETED')
+  assert.equal(completed.revision, 4); assert.equal(completed.closedBy, user('EQUIPE_SVO').id)
+  assert.equal(completed.failureReason, null); assert.equal(completed.notes, 'Observação sintética de encerramento QA.')
+  assert.equal(completed.collectedAt, completed.closedAt)
+  assert.ok(Date.parse(completed.closedAt as string) >= beforeCall - 1000)
+  assert.deepEqual(completed.allowedTransitions, []); assert.deepEqual(completed.allowedResults, [])
+  const list = await (await track('', 'GESTOR')).json() as JsonRecord[]
+  assert.equal(list[0]!.result, 'COMPLETED'); assert.deepEqual(list[0]!.allowedResults, [])
+  assert.doesNotMatch(JSON.stringify(list), /failureReason|notes|closedBy|Observação sintética/)
+  const detail = await json(await track(`/${order.id}`, 'GESTOR'), 200)
+  assert.equal(detail.notes, 'Observação sintética de encerramento QA.'); assert.equal(detail.closedBy, user('EQUIPE_SVO').id)
+  const stored = await history(order.id)
+  const event = stored.events.find((row) => row.event_type === 'COMPLETED')!
+  assert.ok(event); assert.equal((event.occurred_at as Date).toISOString(), completed.closedAt)
+  assert.equal(event.registered_by, user('EQUIPE_SVO').id); assert.equal(event.reported_by, user('EQUIPE_SVO').name)
+  assert.equal((event.after_state as JsonRecord).collectedAt, completed.collectedAt)
+  assert.deepEqual(stored.order.occurrence_snapshot, original.order.occurrence_snapshot)
+  assert.equal(stored.audits.filter((row) => row.operation === 'UPDATE').length, 3)
+  assert.doesNotMatch(JSON.stringify(stored.audits), /SENTINELA|Observação sintética/)
+  await json(await call({ occurrenceId: await confirmedOccurrence(), teamId: order.teamId, vehicleId: order.vehicleId }), 201)
+})
+
+test('RESULT-02: não realização exige motivo em IN_TRANSIT/IN_SERVICE; contratos e FSM inválidos não gravam', async () => {
+  for (const targetStatus of ['IN_TRANSIT', 'IN_SERVICE'] as const) {
+    const order = await trackedOrder()
+    await json(await track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }), 200)
+    let revision = 2
+    if (targetStatus === 'IN_SERVICE') {
+      await json(await track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_SERVICE', revision: 2 }), 200)
+      revision = 3
+    } else {
+      await rejectsWithoutWrite(() => postResult(order.id, { result: 'COMPLETED', revision }), 409)
+    }
+    for (const reason of [undefined, null, '', '   ']) {
+      const err = await rejectsWithoutWrite(() => postResult(order.id, { result: 'NOT_PERFORMED', revision, failureReason: reason }), 400)
+      assert.equal(err.erro, 'Informe o motivo da não realização.')
+    }
+    const closed = await json(await postResult(order.id, {
+      result: 'NOT_PERFORMED', revision, failureReason: '  Local fictício inacessível QA.  ',
+    }), 200)
+    assert.equal(closed.status, 'NOT_PERFORMED'); assert.equal(closed.result, 'NOT_PERFORMED')
+    assert.equal(closed.collectedAt, null); assert.ok(closed.closedAt)
+    assert.equal(closed.failureReason, 'Local fictício inacessível QA.')
+    await rejectsWithoutWrite(() => postResult(order.id, { result: 'COMPLETED', revision: revision + 1 }), 409)
+  }
+  const openOrder = await trackedOrder()
+  await rejectsWithoutWrite(() => postResult(openOrder.id, { result: 'NOT_PERFORMED', revision: 1, failureReason: 'Motivo QA' }), 409)
+  await rejectsWithoutWrite(() => track(`/${openOrder.id}/status`, 'EQUIPE_SVO', { status: 'COMPLETED', revision: 1 }), 409)
+  for (const body of [
+    null, [], {}, { result: 'COMPLETED', revision: 1, failureReason: 'Contraditório' },
+    { result: 'COMPLETED', revision: 1, closedAt: '2026-11-15T12:00:00Z' }, { resultado: 'CONCLUIDA', revision: 1 },
+  ]) {
+    await rejectsWithoutWrite(() => postResult(openOrder.id, body), 400)
+  }
+})
+
+test('RESULT-03: RBAC, outra equipe, vínculo inativo e revogação concorrente impedem encerramento', async () => {
+  const order = await trackedOrder()
+  await json(await track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }), 200)
+  for (const role of ['ATENDENTE_SVO', 'GESTOR', 'ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA'] as const) {
+    await rejectsWithoutWrite(() => postResult(order.id, { result: 'NOT_PERFORMED', revision: 2, failureReason: 'Motivo QA' }, role), 403)
+  }
+  await rejectsWithoutWrite(() => postResult(order.id, { result: 'NOT_PERFORMED', revision: 2, failureReason: 'Motivo QA' }, null), 401)
+  const otherTeamOrder = await trackedOrder(false)
+  await rejectsWithoutWrite(() => postResult(otherTeamOrder.id, { result: 'NOT_PERFORMED', revision: 1, failureReason: 'Motivo QA' }), 403)
+  const holder = await holdLock('SELECT id FROM svo.teams WHERE id = $1 FOR UPDATE', order.teamId)
+  const pending = postResult(order.id, { result: 'NOT_PERFORMED', revision: 2, failureReason: 'Motivo QA' })
+  try {
+    await waitForBlocked(1)
+    await holder.query('UPDATE svo.teams SET active = false WHERE id = $1', [order.teamId])
+    await holder.query('COMMIT')
+    await rejectsWithoutWrite(() => pending, 403)
+  } finally { await holder.query('ROLLBACK'); holder.release(); await Promise.allSettled([pending]) }
+})
+
+test('RESULT-04: concorrência de encerramento produz 200/409, um único evento e libera exatamente uma vaga', async () => {
+  const firstOrder = await trackedOrder()
+  const secondOcc = await confirmedOccurrence()
+  await pool.query('UPDATE fleet.vehicles SET body_limit = 2 WHERE id = $1', [firstOrder.vehicleId])
+  const secondOrder = await json(await call({ occurrenceId: secondOcc, teamId: firstOrder.teamId, vehicleId: firstOrder.vehicleId }), 201)
+  await json(await track(`/${firstOrder.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }), 200)
+  await json(await track(`/${firstOrder.id}/status`, 'EQUIPE_SVO', { status: 'IN_SERVICE', revision: 2 }), 200)
+  const holder = await holdLock('SELECT id FROM svo.execution_orders WHERE id = $1 FOR UPDATE', firstOrder.id)
+  const a = postResult(firstOrder.id, { result: 'COMPLETED', revision: 3 })
+  const b = postResult(firstOrder.id, { result: 'NOT_PERFORMED', revision: 3, failureReason: 'Disputa fictícia QA' })
+  try {
+    await waitForBlocked(2); await holder.query('COMMIT')
+    assert.deepEqual((await Promise.all([a, b])).map((res) => res.status).sort(), [200, 409])
+    const stored = await history(firstOrder.id)
+    assert.equal(stored.events.filter((e) => e.event_type === 'COMPLETED' || e.event_type === 'NOT_PERFORMED').length, 1)
+    assert.equal((await pool.query<{ count: number }>(
+      'SELECT count(id)::integer AS count FROM svo.execution_orders WHERE vehicle_id = $1 AND status = ANY($2::text[])',
+      [firstOrder.vehicleId, SVO_ORDER_OCCUPYING_STATUSES])).rows[0]!.count, 1)
+    assert.ok(secondOrder.id)
+  } finally { await holder.query('ROLLBACK'); holder.release(); await Promise.allSettled([a, b]) }
+})
+
+test('RESULT-05: rollback de evento/auditoria, sanitização RECORD_RESULT e trigger append-only', async () => {
+  const order = await trackedOrder()
+  await json(await track(`/${order.id}/status`, 'EQUIPE_SVO', { status: 'IN_TRANSIT', revision: 1 }), 200)
+  const audits = new AuditRepository(pool)
+  const broken = await startServer({ async create(data, client) {
+    await audits.create(data, client); await client!.query('SELECT $1::integer', ['SENTINELA_LOCAL'])
+    throw new Error('Falha SQL esperada não ocorreu')
+  } })
+  const original = console.error; const logs: unknown[] = []; console.error = (...args: unknown[]) => { logs.push(args) }
+  try {
+    const err = await rejectsWithoutWrite(() => postResult(order.id, {
+      result: 'NOT_PERFORMED', revision: 2, failureReason: 'Motivo sintético QA',
+    }, 'EQUIPE_SVO', broken.url), 500)
+    assert.equal(err.erro, 'Não foi possível confirmar o encerramento da ordem. Consulte a situação antes de tentar novamente.')
+    assert.match(JSON.stringify(logs), /RECORD_RESULT/); assert.doesNotMatch(JSON.stringify(logs), /SENTINELA|22P02|stack/)
+  } finally { console.error = original; await closeServer(broken.instance) }
+  await json(await postResult(order.id, { result: 'NOT_PERFORMED', revision: 2, failureReason: 'Motivo sintético QA' }), 200)
+  await assert.rejects(pool.query('DELETE FROM svo.execution_order_events WHERE execution_order_id = $1', [order.id]))
 })

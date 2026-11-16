@@ -1,7 +1,7 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material'
 import { useId } from 'react'
 import type { SvoOrderDetail } from '../../svo/svoOrderTypes'
-import { formatDateTime, MISSING_DISPATCH } from '../../svo/svoOrderPresentation'
+import { formatDateTime, MISSING_DISPATCH, MISSING_RECORD, SVO_ORDER_LABELS } from '../../svo/svoOrderPresentation'
 import StateFeedback from '../ui/StateFeedback'
 
 /** Detalhe sob demanda; separa o contexto imutável do despacho do cadastro atual. */
@@ -17,6 +17,10 @@ interface SvoOrderDetailsProps {
 export default function SvoOrderDetails({ id, order, loading, error, onRetry, onClose }: SvoOrderDetailsProps) {
   const titleId = useId()
   const occurrence = order?.occurrenceSnapshot
+  const hasClosingInfo = Boolean(
+    order && (order.result !== null || order.closedAt !== null || order.status === 'COMPLETED'
+      || order.status === 'NOT_PERFORMED' || order.failureReason !== null || order.notes !== null || order.closedBy !== null),
+  )
   return <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby={titleId}
     sx={{ '& :focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 } }}>
     <DialogTitle id={titleId}>Detalhes da ordem #{id}</DialogTitle>
@@ -40,6 +44,21 @@ export default function SvoOrderDetails({ id, order, loading, error, onRetry, on
             <Typography>Local atual: {order.current.location}</Typography>
             <Typography>Equipe atual: {order.current.teamName}</Typography>
             <Typography>Veículo atual: {order.current.vehicleLicensePlate}</Typography>
+            <Typography component="h2" variant="h6" sx={{ mt: 2 }}>Andamento e resultado</Typography>
+            <Typography>Situação: {SVO_ORDER_LABELS[order.status]}</Typography>
+            <Typography>Aberta em: {formatDateTime(order.openedAt)}</Typography>
+            <Typography>Saída: {order.departedAt ? formatDateTime(order.departedAt) : MISSING_RECORD}</Typography>
+            <Typography>Chegada: {order.arrivedAt ? formatDateTime(order.arrivedAt) : MISSING_RECORD}</Typography>
+            <Typography>Coleta: {order.collectedAt ? formatDateTime(order.collectedAt) : MISSING_RECORD}</Typography>
+            <Typography>Encerrada em: {order.closedAt ? formatDateTime(order.closedAt) : MISSING_RECORD}</Typography>
+            {hasClosingInfo && <>
+              <Typography>Resultado: {order.result ? SVO_ORDER_LABELS[order.result] : MISSING_RECORD}</Typography>
+              {(order.result === 'NOT_PERFORMED' || order.status === 'NOT_PERFORMED' || order.failureReason !== null) && (
+                <Typography>Motivo da não realização: {order.failureReason ?? MISSING_RECORD}</Typography>
+              )}
+              <Typography>Observações do atendimento: {order.notes ?? MISSING_RECORD}</Typography>
+              <Typography>Encerrada por: {order.closedBy ? `Usuário #${order.closedBy}` : MISSING_RECORD}</Typography>
+            </>}
           </>}
     </DialogContent>
     <DialogActions><Button onClick={onClose} color="inherit">Fechar detalhes</Button></DialogActions>

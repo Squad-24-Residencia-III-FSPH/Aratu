@@ -214,6 +214,35 @@ Interface: `/svo/ordens` é a home exclusiva da equipe, com cards, filtro, detal
 
 Ver [SDD FROTA-118](docs/plans/frota-118-acompanhar-atendimento-svo.html) e [documentação e validação SVO](docs/modulos/SVO.html#tracking).
 
+## Registro de resultado e encerramento SVO (FROTA-122 / FROTA-123 / FROTA-124 / FROTA-125)
+
+Somente `EQUIPE_SVO`, com conta ativa, vínculo vigente na equipe da ordem e equipe ativa, executa `POST /svo/orders/:id/result` para encerrar o atendimento:
+
+- `IN_SERVICE → COMPLETED`: define `status = result = "COMPLETED"`, grava `collectedAt = closedAt` com o instante do servidor, `closedBy` com o usuário autenticado, `failureReason = null` e incrementa `revision`.
+- `IN_TRANSIT` ou `IN_SERVICE → NOT_PERFORMED`: exige `failureReason` não vazio (normalizado com `trim`), define `status = result = "NOT_PERFORMED"`, `collectedAt = null`, `closedAt` do servidor, `closedBy` e incrementa `revision`.
+- `notes` é opcional (vazio/omitido vira `null`). Informar `failureReason` não vazio para `COMPLETED` ou omiti-lo em `NOT_PERFORMED` retorna `400` (`"Informe o motivo da não realização."`).
+- `OPEN`, `IN_PROGRESS` (legado), `COMPLETED`, `NOT_PERFORMED` e `CANCELED`, bem como conclusão em `IN_TRANSIT` ou revisão divergente, retornam `409` sem escrita. `PATCH /svo/orders/:id/status` permanece restrito a saída/chegada.
+
+Exemplo sintético de requisição:
+
+```http
+POST /svo/orders/42/result
+Content-Type: application/json
+
+{
+  "result": "NOT_PERFORMED",
+  "revision": 2,
+  "failureReason": "Atendimento fictício impossibilitado no local.",
+  "notes": "Central informada pela equipe de teste."
+}
+```
+
+A listagem (`GET /svo/orders`) acrescenta `result` e `allowedResults` aos resumos; o detalhe (`GET /svo/orders/:id` e a resposta `200` do `POST /:id/result`) acrescenta `failureReason`, `notes` e `closedBy`. O encerramento grava evento imutável (`COMPLETED` ou `NOT_PERFORMED`) em `svo.execution_order_events`, auditoria `UPDATE` em `audit.logs` na mesma transação e libera imediatamente uma vaga na reserva derivada de capacidade do veículo.
+
+Na interface, `/svo/ordens` abre com o recorte inicial **Ativas** (filtrando localmente os estados ocupantes sem enviar `status=ACTIVE`), exibe **Encerrar** quando `allowedResults` possui opções e conduz preenchimento e revisão em dois passos no mesmo diálogo (`SvoOrderResultDialog`), preservando o rascunho ao acionar **Voltar ao formulário**. `/svo/acompanhamento` fica disponível em leitura para `ATENDENTE_SVO` e `GESTOR` (incluindo atalho no menu lateral do gestor). Em perda de resposta após o POST, o reenvio fica bloqueado até **Consultar situação** reconciliar via `GET /svo/orders/:id`.
+
+Ver [SDD FROTA-122](docs/plans/frota-122-registrar-resultado-svo.html) e [documentação SVO](docs/modulos/SVO.html#results).
+
 ## Padrão de commits
 
 Será utilizado um padrão inspirado em Conventional Commits.

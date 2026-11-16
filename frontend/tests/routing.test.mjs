@@ -20,9 +20,9 @@ const VEHICLES_PATH = '/veiculos'
 const DRIVERS_PATH = '/motoristas'
 const FUELINGS_PATH = '/abastecimentos'
 
-test('acompanhamento SVO é exclusivo do atendente e preserva home operacional da equipe', () => {
+test('acompanhamento SVO é restrito ao atendente e ao gestor, preservando as homes de cada perfil', () => {
   for (const [profile, home] of destinations) {
-    assert.deepEqual(resolveRoute(sessionFor(profile), '/svo/acompanhamento'), profile === 'ATENDENTE_SVO'
+    assert.deepEqual(resolveRoute(sessionFor(profile), '/svo/acompanhamento'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR'
       ? { kind: 'svo-orders', profile } : { kind: 'redirect', to: home })
   }
   assert.deepEqual(resolveRoute(null, '/svo/acompanhamento'), { kind: 'redirect', to: '/login' })
