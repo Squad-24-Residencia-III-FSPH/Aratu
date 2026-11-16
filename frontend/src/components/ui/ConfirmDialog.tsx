@@ -27,6 +27,8 @@ export interface ConfirmDialogProps {
   autoFocusCancel?: boolean
   /** Executado após a animação de abertura, quando o campo do domínio já pode receber foco. */
   onEntered?: () => void
+  /** Executado após a animação de fechamento, quando o foco já pode ir para o destino do fluxo. */
+  onExited?: () => void
   /** Estilos do diálogo, incluindo ajustes de controles dos fluxos que o reutilizam. */
   paperSx?: SxProps<Theme>
   actionsSx?: SxProps<Theme>
@@ -53,6 +55,7 @@ export default function ConfirmDialog({
   confirmColor,
   autoFocusCancel = false,
   onEntered,
+  onExited,
   sx,
   paperSx,
   actionsSx,
@@ -72,7 +75,7 @@ export default function ConfirmDialog({
       sx={sx}
       slotProps={{
         ...(paperSx ? { paper: { sx: paperSx } } : {}),
-        transition: { onEntered },
+        transition: { onEntered, ...(onExited ? { onExited } : {}) },
       }}
     >
       <DialogTitle id={`${baseId}-title`}>{title}</DialogTitle>

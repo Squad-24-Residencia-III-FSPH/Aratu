@@ -17,7 +17,7 @@ import {
 import type { MaintenanceFilters, MaintenanceOrder, MaintenanceStatus, MaintenanceType } from '../../../maintenance/maintenanceTypes'
 import MaintenanceFormDialog from './MaintenanceFormDialog'
 import MaintenanceDetailDialog from './MaintenanceDetailDialog'
-import { maintenanceControls } from './maintenanceStyles'
+import { accessibleControls } from '../../../components/ui/accessibleControls'
 
 const COLUMNS: readonly DataTableColumn<MaintenanceOrder>[] = [
   { key: 'plate', header: 'Placa', render: order => <strong>{order.vehicleSnapshot?.licensePlate ?? `Veículo ${order.vehicleId}`}</strong> },
@@ -85,7 +85,7 @@ export default function MaintenancePage() {
   }
 
   return (
-    <Box sx={{ minWidth: 0, ...maintenanceControls }}>
+    <Box sx={{ minWidth: 0, ...accessibleControls }}>
       <PageHeader 
         title="Manutenção da Frota" 
         breadcrumbs={['Início', 'Manutenção']}

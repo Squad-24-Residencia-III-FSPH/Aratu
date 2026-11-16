@@ -10,6 +10,7 @@ import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
 import { canManageServiceTypes, SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
 import { canScheduleTrips, TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
 import { SVO_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
+import { canAnalyzeRequests, REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 
 type RouteDecision =
   | { kind: 'login' }
@@ -24,6 +25,7 @@ type RouteDecision =
   | { kind: 'service-types'; profile: Profile }
   | { kind: 'trip-scheduling'; profile: Profile }
   | { kind: 'svo-orders'; profile: 'ATENDENTE_SVO' | 'GESTOR' }
+  | { kind: 'request-analysis'; profile: 'GESTOR' }
 
 export function resolveRoute(session: AuthSession | null, path: string, now = Date.now()): RouteDecision {
   const profile = session && resolveProfile(session.perfil)
@@ -72,6 +74,9 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
     return canScheduleTrips(profile)
       ? { kind: 'trip-scheduling', profile }
       : { kind: 'redirect', to: home }
+  }
+  if (path === REQUEST_ANALYSIS_PATH) {
+    return canAnalyzeRequests(profile) ? { kind: 'request-analysis', profile: 'GESTOR' } : { kind: 'redirect', to: home }
   }
   return path === home ? { kind: 'home', profile } : { kind: 'redirect', to: home }
 }

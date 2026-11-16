@@ -80,12 +80,16 @@ export function createRequestsController(service: RequestsService) {
         const status = queryText(req.query.status)
         const from = queryText(req.query.from)
         const to = queryText(req.query.to)
+        const requester = queryText(req.query.requester)
+        const serviceType = queryText(req.query.service)
         const page = queryNumber(req.query.page)
         const pageSize = queryNumber(req.query.pageSize)
         const filters: RequestListFilters = {
           ...(status !== undefined ? { status: status as RequestStatus } : {}),
           ...(from !== undefined ? { from } : {}),
           ...(to !== undefined ? { to } : {}),
+          ...(requester !== undefined ? { requester } : {}),
+          ...(serviceType !== undefined ? { service: serviceType } : {}),
           ...(page !== undefined ? { page } : {}),
           ...(pageSize !== undefined ? { pageSize } : {}),
         }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import EventAvailableIcon from '@mui/icons-material/EventAvailable'
+import { useSearchParams } from 'react-router-dom'
 import DataTable from '../../../components/ui/DataTable'
 import type { DataTableColumn } from '../../../components/ui/DataTable'
 import { FormField, FormSelect } from '../../../components/ui/FormField'
@@ -102,13 +103,15 @@ function fieldValue(label: string, value: string) {
 /** Agenda solicitações aprovadas com veículos e motoristas disponíveis no período escolhido. */
 export default function ScheduleTripPage() {
   const { api, session } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestIdFromUrl = searchParams.get('requestId')
+  const selectedRequestId = requestIdFromUrl ?? ''
   const profile = session ? resolveProfile(session.perfil) : null
   const allowed = canScheduleTrips(profile)
   const [requests, setRequests] = useState<ApprovedRequestSummary[] | null>(null)
   const [requestsLoading, setRequestsLoading] = useState(true)
   const [requestsError, setRequestsError] = useState('')
   const [requestRefresh, setRequestRefresh] = useState(0)
-  const [selectedRequestId, setSelectedRequestId] = useState('')
   const [period, setPeriod] = useState<PeriodValue>({ start: '', end: '' })
   const [vehicleAvailability, setVehicleAvailability] = useState<VehicleAvailability[] | null>(null)
   const [driverAvailability, setDriverAvailability] = useState<DriverAvailability[] | null>(null)
@@ -186,7 +189,7 @@ export default function ScheduleTripPage() {
     && selectedDriverIsAvailable && availabilityState === 'ready' && !submitting)
 
   function chooseRequest(request: ApprovedRequestSummary) {
-    setSelectedRequestId(request.id)
+    setSearchParams({ requestId: request.id })
     setPeriod({ start: '', end: '' })
     setVehicleId('')
     setDriverId('')
@@ -227,7 +230,7 @@ export default function ScheduleTripPage() {
         scheduledEnd,
       })
       setSuccessMessage(`Solicitação #${selectedRequest.id} agendada com sucesso como viagem #${trip.id}.`)
-      setSelectedRequestId('')
+      setSearchParams({})
       setPeriod({ start: '', end: '' })
       setVehicleId('')
       setDriverId('')

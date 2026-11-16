@@ -1,8 +1,8 @@
 import type { StatusTone } from '../components/ui/StatusChip.tsx'
+import { formatDateTime, OPERATIONAL_TIME_ZONE } from '../utils/dates.ts'
 import type { DriverTrip, DriverTripStatus, Trip, TripExecutionAction, TripFilter } from './tripTypes.ts'
 
-/** Fuso em que a FSPH opera; define o "dia" das viagens independentemente do aparelho. */
-export const OPERATIONAL_TIME_ZONE = 'America/Maceio'
+export { formatDateTime, OPERATIONAL_TIME_ZONE }
 
 export const TRIP_STATUS_LABELS: Readonly<Record<DriverTripStatus, string>> = {
   SCHEDULED: 'Agendada',
@@ -33,19 +33,11 @@ export const ACTION_LABELS: Readonly<Record<TripExecutionAction, string>> = {
 const DAY_FORMAT = new Intl.DateTimeFormat('en-CA', {
   timeZone: OPERATIONAL_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
 })
-const DATE_TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', {
-  timeZone: OPERATIONAL_TIME_ZONE, dateStyle: 'short', timeStyle: 'short',
-})
 const NUMBER_FORMAT = new Intl.NumberFormat('pt-BR')
 
 /** Dia civil (`AAAA-MM-DD`) de um instante no fuso operacional. */
 export function operationalDay(value: string | Date): string {
   return DAY_FORMAT.format(typeof value === 'string' ? new Date(value) : value)
-}
-
-/** Data e hora em pt-BR no fuso operacional, o mesmo usado no recorte "hoje". */
-export function formatDateTime(value: string): string {
-  return DATE_TIME_FORMAT.format(new Date(value))
 }
 
 export function formatKm(value: number): string {

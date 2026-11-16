@@ -211,10 +211,12 @@ test('aplica o escopo do solicitante e os defaults de paginação', async () => 
 
 test('não aplica escopo de solicitante para gestor e administrador', async () => {
   const { service, calls } = setup()
-  await service.listRequests({ status: 'APPROVED' }, { id: '4', role: 'GESTOR' })
+  await service.listRequests({ status: 'APPROVED', requester: '  Marta QA  ', service: '  Transporte  ' }, { id: '4', role: 'GESTOR' })
   await service.listRequests({}, { id: '1', role: 'ADMINISTRADOR' })
 
   assert.equal(calls[0]?.requesterId, undefined)
+  assert.equal(calls[0]?.requester, 'Marta QA')
+  assert.equal(calls[0]?.service, 'Transporte')
   assert.equal(calls[1]?.requesterId, undefined)
 })
 
