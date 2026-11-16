@@ -1,11 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getSidebarNavigation } from '../src/components/sidebarNavigation'
+import { getSidebarNavigation } from '../src/components/sidebarNavigation.ts'
 
-type Navigation = ReturnType<typeof getSidebarNavigation>
-type NavigationItem = Navigation['topItems'][number]
-
-function getAllItems(navigation: Navigation): NavigationItem[] {
+function getAllItems(navigation) {
   return [
     ...navigation.topItems,
     ...navigation.sections.flatMap((section) => section.items),
@@ -13,25 +10,16 @@ function getAllItems(navigation: Navigation): NavigationItem[] {
   ]
 }
 
-function getLabels(navigation: Navigation): string[] {
+function getLabels(navigation) {
   return getAllItems(navigation).map((item) => item.label)
 }
 
-function findByLabel(navigation: Navigation, label: string): NavigationItem | undefined {
+function findByLabel(navigation, label) {
   return getAllItems(navigation).find((item) => item.label === label)
 }
 
 test('links de ordens SVO aparecem somente para seus respectivos perfis', () => {
-  const profiles = [
-    'ADMINISTRADOR',
-    'GESTOR',
-    'SOLICITANTE',
-    'MOTORISTA',
-    'ATENDENTE_SVO',
-    'EQUIPE_SVO',
-  ] as const
-
-  for (const profile of profiles) {
+  for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO']) {
     const navigation = getSidebarNavigation(profile)
     const items = [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items)]
 
@@ -120,7 +108,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     ['OPERAÇÃO', 'FROTA', 'CONTROLE', 'GESTÃO'],
   )
 
-  const linkExpectations: Array<{ label: string; path: string }> = [
+  const linkExpectations = [
     { label: 'Veículos', path: '/veiculos' },
     { label: 'Motoristas', path: '/motoristas' },
     { label: 'Agendar viagem', path: '/agendar-viagem' },
@@ -155,14 +143,14 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
 })
 
 test('somente perfis com leitura de veículos recebem o atalho no menu', () => {
-  for (const profile of ['SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
+  for (const profile of ['SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO']) {
     assert.strictEqual(
       getLabels(getSidebarNavigation(profile)).includes('Veículos'),
       false,
       `perfil ${profile} não deveria ter "Veículos"`,
     )
   }
-  for (const profile of ['GESTOR', 'ATENDENTE_SVO', 'ADMINISTRADOR'] as const) {
+  for (const profile of ['GESTOR', 'ATENDENTE_SVO', 'ADMINISTRADOR']) {
     assert.strictEqual(
       getLabels(getSidebarNavigation(profile)).includes('Veículos'),
       true,
@@ -173,14 +161,14 @@ test('somente perfis com leitura de veículos recebem o atalho no menu', () => {
 })
 
 test('somente GESTOR e ADMINISTRADOR recebem o atalho de abastecimentos', () => {
-  for (const profile of ['SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO'] as const) {
+  for (const profile of ['SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO']) {
     assert.strictEqual(
       getLabels(getSidebarNavigation(profile)).includes('Abastecimentos'),
       false,
       `perfil ${profile} não deveria ter "Abastecimentos"`,
     )
   }
-  for (const profile of ['GESTOR', 'ADMINISTRADOR'] as const) {
+  for (const profile of ['GESTOR', 'ADMINISTRADOR']) {
     assert.strictEqual(
       getLabels(getSidebarNavigation(profile)).includes('Abastecimentos'),
       true,
@@ -190,7 +178,7 @@ test('somente GESTOR e ADMINISTRADOR recebem o atalho de abastecimentos', () => 
 })
 
 test('somente GESTOR recebe o atalho de análise de solicitações', () => {
-  for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null] as const) {
+  for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
     assert.strictEqual(
       getLabels(getSidebarNavigation(profile)).includes('Analisar solicitações'),
       false,
@@ -213,7 +201,7 @@ test('somente MOTORISTA recebe o atalho Minhas viagens apontando para a própria
     { behavior: 'link', path: '/viagens/minhas' },
   )
 
-  for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'ATENDENTE_SVO', 'EQUIPE_SVO', null] as const) {
+  for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
     assert.strictEqual(
       getLabels(getSidebarNavigation(profile)).includes('Minhas viagens'),
       false,
@@ -232,7 +220,7 @@ test('Confirmar viagens aponta para a página e fica restrito ao GESTOR', () => 
     { behavior: 'link', path: '/viagens/confirmacao' },
   )
 
-  for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null] as const) {
+  for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
     assert.strictEqual(
       getLabels(getSidebarNavigation(profile)).includes('Confirmar viagens'),
       false,
