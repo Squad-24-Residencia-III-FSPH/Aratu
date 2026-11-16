@@ -139,7 +139,7 @@
   <li>Período sobre <code>requested_date</code>, inclusivo, no formato <code>YYYY-MM-DD</code>; <code>from &gt; to</code> retorna 400.</li>
   <li>Listagem com resumo + nomes de solicitante/serviço e paginação <code>page</code>/<code>pageSize</code> (default 20, máximo 100).</li>
   <li><code>SOLICITANTE</code> vê apenas as próprias; <code>GESTOR</code>/<code>ADMINISTRADOR</code> veem todas; <code>MOTORISTA</code> recebe 403; detalhe de outra pessoa retorna 404; <code>SCHEDULED</code> sem linha em <code>trip.trips</code> retorna <code>trip: null</code>.</li>
-  <li>Snapshots históricos não são usados nesta entrega; os nomes vêm de JOIN com os dados atuais.</li>
+  <li>O detalhe agendado exibe placa, marca, modelo e nome do motorista dos snapshots históricos em <code>trip.trips</code>; para linhas antigas sem esses campos, usa os cadastros atuais como fallback.</li>
 </ol>
 
 <hr>
@@ -327,11 +327,11 @@
        t.scheduled_start AS "scheduledStart",
        t.scheduled_end AS "scheduledEnd",
        v.id::text AS "vehicleId",
-       v.license_plate AS "vehicleLicensePlate",
-       v.brand AS "vehicleBrand",
-       v.model AS "vehicleModel",
+       COALESCE(NULLIF(t.vehicle_snapshot -&gt;&gt; 'licensePlate', ''), v.license_plate) AS "vehicleLicensePlate",
+       COALESCE(NULLIF(t.vehicle_snapshot -&gt;&gt; 'brand', ''), v.brand) AS "vehicleBrand",
+       COALESCE(NULLIF(t.vehicle_snapshot -&gt;&gt; 'model', ''), v.model) AS "vehicleModel",
        d.id::text AS "driverId",
-       d.name AS "driverName"
+       COALESCE(NULLIF(t.driver_snapshot -&gt;&gt; 'name', ''), d.name) AS "driverName"
   FROM trip.requests r
   JOIN auth.users u ON u.id = r.requester_id
   JOIN fleet.services s ON s.id = r.service_id
@@ -343,7 +343,7 @@
    AND ($2::bigint IS NULL OR r.requester_id = $2::bigint)
  LIMIT 1;</code></pre>
 
-<blockquote>O detalhe usa um único <code>SELECT</code> com <code>LEFT JOIN</code> para evitar N+1. <code>requestedDate</code> sai como <code>YYYY-MM-DD</code>, <code>requestedTime</code> como <code>HH:MM</code> e os timestamps de viagem em ISO 8601 (UTC).</blockquote>
+<blockquote>O detalhe usa um único <code>SELECT</code> com <code>LEFT JOIN</code> para evitar N+1. Placa, marca, modelo e nome do motorista priorizam os snapshots do agendamento; quando o registro histórico não contém esses campos, a consulta usa os cadastros atuais. <code>requestedDate</code> sai como <code>YYYY-MM-DD</code>, <code>requestedTime</code> como <code>HH:MM</code> e os timestamps de viagem em ISO 8601 (UTC).</blockquote>
 
 <hr>
 
@@ -724,8 +724,8 @@ node ../docs/scripts/aratu-check.mjs</code></pre>
 <h2 id="s11">11. Atualização da Documentação do Módulo</h2>
 
 <p><strong>Arquivo de referência:</strong> <code>docs/modulos/VIAGENS.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
-<p><code>docs/modulos/VIAGENS.html</code> <strong>não existe</strong> hoje no repositório. Esta tarefa é backend e não cria a documentação do módulo.</p>
-<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do módulo <code>VIAGENS</code>. Após a implementação, criar/atualizar o arquivo com a skill <code>/documentar-modulo</code>, cobrindo: endpoints <code>GET /api/requests</code> e <code>GET /api/requests/:id</code>; matriz RBAC da consulta; contrato de status em inglês e tradução na UI; relação <code>trip.requests</code> → <code>trip.trips</code> → <code>fleet.vehicles</code>/<code>fleet.drivers</code>; filtros, paginação e códigos de erro.</blockquote>
+  <p><code>docs/modulos/VIAGENS.html</code> existe na <code>develop</code> atual e será atualizado nesta correção para documentar o uso dos snapshots históricos no detalhe.</p>
+  <blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do módulo <code>VIAGENS</code>. Manter os endpoints <code>GET /api/requests</code> e <code>GET /api/requests/:id</code>, matriz RBAC, filtros, paginação e códigos de erro; documentar que o detalhe prioriza <code>vehicle_snapshot</code>/<code>driver_snapshot</code> e usa os cadastros atuais como fallback quando os campos não existirem.</blockquote>
 
 <hr>
 

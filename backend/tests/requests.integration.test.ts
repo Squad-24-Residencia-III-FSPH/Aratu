@@ -462,6 +462,32 @@ describe('Solicitações de viagem — consulta (FROTA-82)', () => {
     assert.equal(body.trip.status, 'SCHEDULED')
     assert.equal(body.trip.scheduledStart, '2026-11-30T11:00:00.000Z')
     assert.equal(body.trip.scheduledEnd, '2026-11-30T15:00:00.000Z')
+    assert.equal(body.trip.vehicle.licensePlate, 'HIST1D23')
+    assert.equal(body.trip.vehicle.brand, 'Marca Histórica Fictícia')
+    assert.equal(body.trip.vehicle.model, 'Modelo Histórico Fictício')
+    assert.equal(body.trip.driver.name, 'Motorista Histórico Fictício QA')
+  })
+
+  test('IT-REQ-22: detalhe usa os cadastros atuais quando os snapshots históricos não existem', async () => {
+    await pool.query(
+      `UPDATE trip.trips
+          SET vehicle_snapshot = NULL,
+              driver_snapshot = NULL
+        WHERE request_id = $1`,
+      [fixtures.scheduledWithTrip],
+    )
+
+    const solicitante = getUser('SOLICITANTE')
+    const response = await request(`/requests/${fixtures.scheduledWithTrip}`, solicitante.token)
+
+    assert.equal(response.status, 200)
+    const body = await response.json() as {
+      trip: {
+        vehicle: { licensePlate: string; brand: string; model: string }
+        driver: { name: string }
+      } | null
+    }
+    assert.ok(body.trip)
     assert.equal(body.trip.vehicle.licensePlate, 'ABC1D23')
     assert.equal(body.trip.vehicle.brand, 'Chevrolet')
     assert.equal(body.trip.vehicle.model, 'S10')
@@ -672,9 +698,16 @@ async function seedRequestFixtures(
 
   await databasePool.query(
     `INSERT INTO trip.trips
-       (request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status)
-     VALUES ($1, $2, $3, '2026-11-30T11:00:00.000Z', '2026-11-30T15:00:00.000Z', 'SCHEDULED')`,
-    [scheduledWithTrip, vehicleId, driverId],
+       (request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status,
+        vehicle_snapshot, driver_snapshot)
+     VALUES ($1, $2, $3, '2026-11-30T11:00:00.000Z', '2026-11-30T15:00:00.000Z', 'SCHEDULED', $4::jsonb, $5::jsonb)`,
+    [
+      scheduledWithTrip,
+      vehicleId,
+      driverId,
+      JSON.stringify({ licensePlate: 'HIST1D23', brand: 'Marca Histórica Fictícia', model: 'Modelo Histórico Fictício' }),
+      JSON.stringify({ name: 'Motorista Histórico Fictício QA' }),
+    ],
   )
 
   return { pending, approved, scheduledWithTrip, scheduledWithoutTrip, otherRequester }

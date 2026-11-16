@@ -106,11 +106,11 @@ SELECT r.id::text AS id,
        t.scheduled_start AS "scheduledStart",
        t.scheduled_end AS "scheduledEnd",
        v.id::text AS "vehicleId",
-       v.license_plate AS "vehicleLicensePlate",
-       v.brand AS "vehicleBrand",
-       v.model AS "vehicleModel",
+       COALESCE(NULLIF(t.vehicle_snapshot ->> 'licensePlate', ''), v.license_plate) AS "vehicleLicensePlate",
+       COALESCE(NULLIF(t.vehicle_snapshot ->> 'brand', ''), v.brand) AS "vehicleBrand",
+       COALESCE(NULLIF(t.vehicle_snapshot ->> 'model', ''), v.model) AS "vehicleModel",
        d.id::text AS "driverId",
-       d.name AS "driverName"
+       COALESCE(NULLIF(t.driver_snapshot ->> 'name', ''), d.name) AS "driverName"
   FROM trip.requests r
   JOIN auth.users u ON u.id = r.requester_id
   JOIN fleet.services s ON s.id = r.service_id
@@ -286,6 +286,8 @@ export class RequestsRepository implements RequestsRepositoryContract {
    * Quando `requesterId` é informado, a consulta restringe a linha ao
    * solicitante logado. Para o `SOLICITANTE`, solicitações de terceiros
    * resultam em `null` e o service responde 404 sem revelar a existência.
+   * Dados de veículo e motorista usam os snapshots da viagem, com fallback
+   * aos cadastros atuais quando o snapshot histórico não contém o campo.
    */
   async findById(id: string, requesterId?: string): Promise<RequestDetail | null> {
     const result = await this.pool.query<RequestDetailRow>(DETAIL_SQL, [id, requesterId ?? null])

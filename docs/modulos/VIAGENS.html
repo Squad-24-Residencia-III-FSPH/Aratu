@@ -273,6 +273,20 @@
     </tr>
     <tr>
       <td><span class="badge-http">GET</span></td>
+      <td><code>/requests</code></td>
+      <td><code>RequestsController::list</code></td>
+      <td><span class="badge-rbac">SOLICITANTE</span>, <span class="badge-rbac">GESTOR</span>, <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Query opcional <code>?status=&amp;from=&amp;to=&amp;page=&amp;pageSize=</code> → <code>200 { requests, total, page, pageSize, totalPages }</code>. Solicitante vê apenas as próprias; período inclusivo em <code>requested_date</code>; filtros ou paginação inválidos retornam <code>400</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
+      <td><code>/requests/:id</code></td>
+      <td><code>RequestsController::getById</code></td>
+      <td><span class="badge-rbac">SOLICITANTE</span>, <span class="badge-rbac">GESTOR</span>, <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><code>200</code> com detalhe e viagem quando houver; solicitação alheia ao Solicitante retorna <code>404</code>. Placa, marca, modelo e motorista priorizam <code>vehicle_snapshot</code>/<code>driver_snapshot</code> do agendamento e recorrem aos cadastros atuais quando campos do snapshot estiverem ausentes.</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span></td>
       <td><code>/vehicles/available</code></td>
       <td><code>AvailabilityController::listVehicles</code></td>
       <td><span class="badge-rbac">GESTOR</span>, <span class="badge-rbac">ADMINISTRADOR</span></td>
