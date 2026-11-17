@@ -118,7 +118,7 @@ test('outras falhas preservam erro do backend e possuem fallback', async () => {
 
 test('sessão pode ser restaurada após recarregar; não contém senha e pode ser encerrada', () => {
   const data = new Map()
-  globalThis.window = { sessionStorage: {
+  globalThis.window = { localStorage: {
     getItem: (key) => data.get(key) ?? null,
     setItem: (key, value) => data.set(key, value),
     removeItem: (key) => data.delete(key),
@@ -136,7 +136,37 @@ test('sessão pode ser restaurada após recarregar; não contém senha e pode se
     assert.equal(readSession(), null)
     data.set(SESSION_KEY, JSON.stringify(sessionFor('GESTOR', -1)))
     assert.equal(readSession(), null)
+    assert.equal(data.has(SESSION_KEY), false)
+    data.set('unrelated', 'preservado')
+    saveSession({ ...session, senha: 'nunca persistir', extra: true })
+    assert.deepEqual(JSON.parse(data.get(SESSION_KEY)), session)
+    assert.equal(clearSession(sessionFor('MOTORISTA').token), false)
+    assert.deepEqual(readSession(), session)
+    assert.equal(clearSession(session.token), true)
+    assert.equal(data.get('unrelated'), 'preservado')
   } finally {
     delete globalThis.window
   }
+})
+
+test('sessão legada não é promovida e não pode ressuscitar depois de logout', () => {
+  let legacy = JSON.stringify(session)
+  globalThis.window = {
+    sessionStorage: { removeItem: () => { legacy = null } },
+    localStorage: { getItem: () => null },
+  }
+  try {
+    assert.equal(readSession(), null)
+    assert.equal(legacy, null)
+  } finally { delete globalThis.window }
+})
+
+test('armazenamento bloqueado não autentica e propaga falhas de escrita e remoção', () => {
+  const blocked = () => { throw new Error('Armazenamento bloqueado') }
+  globalThis.window = { localStorage: { getItem: blocked, setItem: blocked, removeItem: blocked } }
+  try {
+    assert.equal(readSession(), null)
+    assert.throws(() => saveSession(session), /bloqueado/)
+    assert.throws(() => clearSession(), /bloqueado/)
+  } finally { delete globalThis.window }
 })
