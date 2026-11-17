@@ -6,6 +6,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TableFooter,
   TableRow,
 } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
@@ -20,6 +21,8 @@ export interface DataTableColumn<T> {
 }
 
 export interface DataTableProps<T> {
+  /** Valores opcionais do rodapé, na mesma ordem das colunas visíveis. */
+  footerValues?: readonly ReactNode[]
   caption: string
   columns: readonly DataTableColumn<T>[]
   rows: readonly T[]
@@ -56,6 +59,7 @@ export default function DataTable<T>({
   paperSx,
   headerCellSx,
   cellSx,
+  footerValues,
 }: DataTableProps<T>) {
   const columnCount = columns.length + (renderActions ? 1 : 0)
 
@@ -80,6 +84,7 @@ export default function DataTable<T>({
         }}
       >
         <Table aria-label={caption} sx={{ minWidth, tableLayout }}>
+          <caption style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)' }}>{caption}</caption>
           <TableHead>
             <TableRow>
               {columns.map((column) => (
@@ -159,6 +164,10 @@ export default function DataTable<T>({
               ))
             )}
           </TableBody>
+          {footerValues && !busy && <TableFooter><TableRow>
+            {columns.map((column, index) => <TableCell key={column.key} align={column.align} sx={{ fontWeight: 700 }}>{footerValues[index]}</TableCell>)}
+            {renderActions && <TableCell />}
+          </TableRow></TableFooter>}
         </Table>
       </TableContainer>
     </Paper>

@@ -23,6 +23,8 @@ Este documento apresenta o índice dos módulos funcionais do **Aratu — Sistem
 
 ## 2. Documentação Detalhada por Módulo (`docs/modulos/`)
 
+Relatórios gerenciais (FROTA-132): a tela `/relatorios` integra onze definições de Frota, Motoristas, Viagens, Manutenções, Usuários e SVO. `GET /reports/catalog`, `GET /reports/:reportKey/preview` e `GET /reports/:reportKey/export` compartilham período, filtros e projeção de colunas; a prévia tem até 50 linhas e somas globais, CSV até 50.000 e impressão até 2.000. GESTOR e ADMINISTRADOR acessam relatórios operacionais/SVO, Usuários é exclusivo de ADMINISTRADOR e ATENDENTE_SVO acessa somente SVO. Exportações gravam `EXPORT` em `audit.logs`; CPF mascarado e projeções restritas do SVO protegem dados sensíveis. Metadados por módulo em `services/reports/definitions/`, SQL em `repositories/reports/` e estratégias CSV/Print permitem extensão sem endpoints ou telas novos. [Contrato completo de relatórios](../modulos/FROTA.html#reports).
+
 A documentação técnica e funcional aprofundada de cada módulo é mantida em formato HTML estático dentro do diretório `docs/modulos/`.
 
 Atualmente, o repositório dispõe de um **documento genérico de referência e template** que deve ser utilizado como base sempre que um módulo do Aratu for documentado:
