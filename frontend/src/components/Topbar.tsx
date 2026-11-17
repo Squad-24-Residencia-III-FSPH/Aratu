@@ -81,10 +81,12 @@ export default function Topbar() {
             anchorEl={menuAnchor}
             open={isMenuOpen}
             onClose={closeAccountMenu}
-            MenuListProps={{ 'aria-labelledby': 'account-menu-button' }}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            slotProps={{ paper: { sx: { minWidth: 240, mt: 1, borderRadius: 2 } } }}
+            slotProps={{
+              list: { 'aria-labelledby': 'account-menu-button' },
+              paper: { sx: { minWidth: 240, mt: 1, borderRadius: 2 } },
+            }}
           >
             <Box sx={{ px: 2, py: 1.5 }}>
               <Typography variant="body2" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{nome}</Typography>
