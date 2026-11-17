@@ -21,6 +21,7 @@ import ScheduleTripPage from './pages/gestor/schedulingPage/ScheduleTripPage';
 import SvoTeamOrdersPage from './pages/SvoTeamOrdersPage';
 import SvoOrdersPage from './pages/SvoOrdersPage';
 import RequestAnalysisPage from './pages/RequestAnalysisPage';
+import ReportsPage from './pages/ReportsPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -61,6 +62,7 @@ function PrivateRoute() {
     );
   }
   if (decision.kind === 'maintenance') return <Layout><MaintenancePage /></Layout>;
+  if (decision.kind === 'reports') return <Layout><ReportsPage /></Layout>;
   if (decision.kind === 'drivers') {
     return (
       <Layout>

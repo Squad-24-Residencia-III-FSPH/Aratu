@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-132 — US22 - Gerar relatórios (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-132: US22 - Gerar relatórios</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-132</code> — US22 - Gerar relatórios (motor extensível por módulo)</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/us22-gerar-relatorios</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-132-us22-gerar-relatorios.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>FROTA</code>, <code>MOTORISTAS</code>, <code>VIAGENS</code>, <code>MANUTENCOES</code>, <code>AUTENTICACAO_RBAC</code>, <code>SVO</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span> <span class="badge-rbac">ATENDENTE_SVO</span></p>
+  <p><strong>Data da Revisão:</strong> 2026-11-16</p>
+</div>
+
+<!-- PREENCHER_VEREDITO: Use class="verdict-approved" para APROVADO_PARA_REVISAO_HUMANA ou class="verdict-blocked" para BLOQUEADO_POR_PENDENCIAS -->
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA
+</div>
+
+<!-- PREENCHER_CONTADORES: Atualize os contadores de Bloqueantes, Atenção, OK e N/A -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">2</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">15</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">0</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<!-- PREENCHER_REVISAO_SECAO_1: Tabela de arquivos criados/alterados no diff contra develop -->
+<p><strong>Estatística consolidada:</strong> 48 arquivos em stage no Git (<code>+1.817 / -3 linhas</code>), além do plano técnico SDD em <code>docs/plans/frota-132-us22-gerar-relatorios.html</code> e do resumo de entrega <code>docs/tests/frota-132-implementacao.md</code>.</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/database/migrations/202611160001_add_reports_period_indexes.sql</code><br><code>backend/src/database/migrations/202611160001_add_reports_period_indexes.down.sql</code></td>
+      <td>Database / Migrations (PostgreSQL 18)</td>
+      <td>Novo</td>
+      <td>Cria (e faz rollback transacional de) 6 índices sargáveis iniciados pela coluna temporal para filtragem de período em toda a frota (<code>fleet.fuelings</code>, <code>fleet.fines</code>, <code>fleet.maintenance_orders</code>, <code>trip.requests</code>, <code>trip.trips</code> e <code>fleet.drivers</code>).</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/types/report.types.ts</code><br><code>backend/src/types/audit.types.ts</code></td>
+      <td>Backend — Types / DTOs</td>
+      <td>Novo / Modificado</td>
+      <td>Define contratos estritos do motor de relatórios (módulos, colunas, filtros, regras de período, limites <code>50 / 366d / 50.000 CSV / 2.000 Print</code>, payloads e <code>ReportServiceError</code>) e adiciona a operação <code>'EXPORT'</code> em <code>AuditOperation</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/reports.repository.ts</code><br><code>backend/src/repositories/reports/*.queries.ts</code><br><code>backend/src/repositories/reports/report-sql.ts</code></td>
+      <td>Backend — Repositories (PostgreSQL 18)</td>
+      <td>Novo</td>
+      <td>Isola todas as expressões SQL dos 11 relatórios nos schemas nativos (<code>fleet</code>, <code>trip</code>, <code>auth</code>, <code>svo</code>), constrói queries 100% parametrizadas (<code>$1, $2</code>) sem <code>SELECT *</code> e executa contagem/totais + linhas sob transação <code>BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY</code> com <code>client.release()</code> no <code>finally</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/reports.service.ts</code><br><code>backend/src/services/reports/report-registry.ts</code><br><code>backend/src/services/reports/definitions/*.ts</code><br><code>backend/src/services/reports/export/report-exporter.strategy.ts</code></td>
+      <td>Backend — Services &amp; Strategy</td>
+      <td>Novo</td>
+      <td>Implementa o registro imutável de 11 relatórios, validação estrita de RBAC por relatório (revalidando conta ativa), período civil em <code>America/Maceio</code>, projeção ordenada de colunas/totais, máscara de CPF, padrão <em>Strategy</em> para CSV (UTF-8 com BOM e proteção contra <em>CSV Formula Injection</em>) e Impressão, e auditoria obrigatória <code>EXPORT</code> em <code>audit.logs</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/reports.controller.ts</code><br><code>backend/src/routes/reports.routes.ts</code><br><code>backend/src/app.ts</code></td>
+      <td>Backend — Routes &amp; Controllers (Express 5)</td>
+      <td>Novo / Modificado</td>
+      <td>Expõe <code>GET /reports/catalog</code>, <code>GET /reports/:reportKey/preview</code> e <code>GET /reports/:reportKey/export</code> protegidos por JWT, revalidação de usuário ativo, RBAC e cabeçalho <code>Cache-Control: no-store</code>.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/reports/reportTypes.ts</code><br><code>frontend/src/reports/reportAccess.ts</code><br><code>frontend/src/reports/reportPresentation.ts</code><br><code>frontend/src/services/reportsService.ts</code><br><code>frontend/src/hooks/useReports.ts</code></td>
+      <td>Frontend — Types, Services &amp; Custom Hook</td>
+      <td>Novo</td>
+      <td>Cliente HTTP com validação de contrato JSON, formatação decimal exata (sem perda de precisão de ponto flutuante), persistência de preferências no <code>localStorage</code> por usuário/relatório e hook <code>useReports</code> com cancelamento de requisições concorrentes (<code>AbortController</code>).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/ReportsPage.tsx</code><br><code>frontend/src/pages/ReportsPage.module.css</code><br><code>frontend/src/pages/reportsPage/ReportColumnsSelector.tsx</code><br><code>frontend/src/pages/reportsPage/ReportPrintView.tsx</code><br><code>frontend/src/components/ui/DataTable.tsx</code><br><code>frontend/src/components/sidebarNavigation.ts</code><br><code>frontend/src/routing/routeDecision.ts</code><br><code>frontend/src/App.tsx</code></td>
+      <td>Frontend — UI &amp; Pages (React 19 + MUI)</td>
+      <td>Novo / Modificado</td>
+      <td>Tela <code>/relatorios</code> com seletor acessível de colunas (<code>fieldset/legend</code> + <code>useId</code>), suporte a rodapé de totalizadores (<code>TableFooter</code>) na <code>DataTable</code>, 5 estados visuais com <code>StateFeedback</code>, portal de impressão institucional (<code>@media print</code>) e ativação do menu para <code>GESTOR</code>, <code>ADMINISTRADOR</code> e <code>ATENDENTE_SVO</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/reports.service.test.ts</code><br><code>backend/tests/reports.integration.test.ts</code><br><code>backend/tests/database.integration.test.ts</code><br><code>frontend/tests/reportsService.test.mjs</code><br><code>frontend/tests/reportsPage.test.mjs</code><br><code>frontend/tests/reports.fixture.mjs</code><br><code>frontend/tests/sidebarNavigation.test.mjs</code></td>
+      <td>Testes Automatizados (Backend &amp; Frontend)</td>
+      <td>Novo / Modificado</td>
+      <td>Cobertura completa unitária e de integração (PostgreSQL 18 + JSDOM/RTL) validando os 11 relatórios, RBAC, retificações <code>supersedes_id</code>, snapshots históricos, máscara LGPD, neutralização de fórmulas CSV, limites de volume, 5 estados visuais e rollback da migration.</td>
+    </tr>
+    <tr>
+      <td><code>docs/manuais/modulos.md</code><br><code>docs/modulos/FROTA.html</code><br><code>docs/modulos/SVO.html</code></td>
+      <td>Documentação Técnica</td>
+      <td>Modificado</td>
+      <td>Documenta a arquitetura do motor extensível de relatórios, contratos REST, regras de negócio e cobertura dos relatórios operacionais e do SVO.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<!-- PREENCHER_REVISAO_SECAO_2: Status de cada critério C1 a C17 (badge-ok, badge-warn, badge-block, badge-na) -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>O diff possui <code>+1.817 / -3</code> linhas em 48 arquivos por englobar o motor completo (BE + FE + 11 definições + Fase 2 SVO + suíte de testes + docs). A exceção ao limite de 400 linhas foi explicitamente autorizada pelo usuário e registrada na Seção 1.4 do SDD. Verificar apenas se o arquivo auxiliar <code>docs/tests/frota-132-implementacao.md</code> (não listado no SDD) deve ser incluído no commit ou removido antes do PR.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Branch <code>feat/us22-gerar-relatorios</code> criada corretamente a partir de <code>develop</code> (<code>4e7d231</code>), porém as alterações encontram-se em <em>stage</em> / <em>untracked</em> na working tree (0 commits em <code>git log develop..HEAD</code>). Antes de abrir o Pull Request para <code>develop</code>, efetuar o commit seguindo Conventional Commits (ex.: <code>feat(frota): implementar motor extensivel de relatorios (FROTA-132)</code>).</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-ok">🟢 OK</span></td><td>100% dos requisitos e decisões D1–D10 (incluindo a Fase 2 SVO autorizada após o merge dos PRs #80, #82, #83 e #84) foram implementados sem dependências novas nem variáveis de ambiente especulativas.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td><code>reports.routes.ts</code> e <code>reports.controller.ts</code> tratam apenas HTTP/middlewares; <code>reports.service.ts</code> e as definições em <code>services/reports/</code> são agnósticos de Express e não contêm SQL cru; todas as expressões SQL residem em <code>repositories/reports/*.queries.ts</code> e <code>reports.repository.ts</code>.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td><code>ReportsPage.tsx</code> reutiliza <code>PageHeader</code>, <code>FilterBar</code>, <code>FormField</code>, <code>FormSelect</code>, <code>DataTable</code>, <code>StatusChip</code> e <code>StateFeedback</code>. Chamadas HTTP ficam isoladas em <code>frontend/src/services/reportsService.ts</code> via hook <code>useReports.ts</code>. Zero uso de <code>:global(.Mui...)</code> em <code>ReportsPage.module.css</code>.</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Grafo de importação unidirecional limpo e zero feature flags criadas.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Em <code>createReportDefinition</code> (<code>reports.repository.ts</code>), todo valor de entrada (<code>from</code>, <code>to</code>, filtros, <code>limit</code>, <code>offset</code>) é vinculado via placeholder posicional <code>$1..$N</code>. Nomes de colunas e filtros são validados contra listas fechadas congeladas (<code>Object.freeze</code>) e validados por teste dedicado com payload hostil.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero <code>SELECT *</code>. Filtros de período aplicam a conversão de fuso horário (<code>America/Maceio</code>) sobre os parâmetros (<code>$from::date::timestamp AT TIME ZONE 'America/Maceio'</code>) em intervalo semiaberto <code>&gt;= ... AND &lt; ...</code>, preservando a sargabilidade dos índices nas colunas das tabelas.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-ok">🟢 OK</span></td><td><code>ReportsRepository.withSnapshot</code> executa <code>executeCountAndTotals</code> e <code>executeRows</code> dentro de uma mesma transação <code>BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY ... COMMIT / ROLLBACK</code>, garantindo consistência entre somas globais e linhas paginadas e liberando <code>client.release()</code> no bloco <code>finally</code>.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (Schemas Nativos <code>auth</code>, <code>fleet</code>, etc., tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>A migration <code>202611160001_add_reports_period_indexes.sql</code> e seu <code>.down.sql</code> rodam em <code>BEGIN ... COMMIT</code>, qualificam os schemas nativos (<code>fleet</code>, <code>trip</code>) e nomeiam os 6 índices no padrão <code>&lt;schema&gt;_&lt;table&gt;_&lt;purpose&gt;</code> (sem prefixos <code>idx_</code>/<code>uq_</code>).</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Defesa em profundidade: <code>reports.routes.ts</code> aplica <code>createAuthMiddleware</code>, <code>createCurrentUserMiddleware</code> e <code>authorizeRoles(['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'])</code>, e <code>ReportsService</code> revalida a conta ativa no banco e checa <code>definition.allowedRoles</code> por relatório (bloqueando <code>auth-users</code> para não-administradores e restringindo <code>ATENDENTE_SVO</code> aos 2 relatórios do SVO).</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>CPF mascarado no servidor (<code>***.456.789-**</code>), omissão de <code>password_hash</code> em <code>auth-users</code>, omissão total de dados de falecidos/familiares/descrições clínicas nos relatórios do SVO, cabeçalho <code>Cache-Control: no-store</code> e gravação obrigatória de <code>EXPORT</code> em <code>audit.logs</code> antes de liberar a exportação. Dados de teste 100% fictícios.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Compilação estrita <code>tsc --noEmit</code> e <code>tsc -b</code> sem erros; zero uso de <code>any</code> ou supressões de tipo.</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Identificadores TypeScript, endpoints REST, classes CSS Modules (<code>.pageContainer</code>, <code>.printRoot</code>) e códigos literais em inglês; TSDoc semântico em português nos serviços, repositórios, estratégias, rotas, hooks e componentes; zero <code>console.log</code> ou código morto.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-ok">🟢 OK</span></td><td>Todos os 5 estados implementados com <code>StateFeedback</code> em <code>ReportsPage.tsx</code> e exercitados em <code>frontend/tests/reportsPage.test.mjs</code> (incluindo estado parcial de aviso quando a exportação/impressão falha mantendo a prévia carregada).</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários e Controles Acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-ok">🟢 OK</span></td><td>Filtros usam <code>FormField</code>/<code>FormSelect</code>; <code>ReportColumnsSelector.tsx</code> agrupa checkboxes em <code>&lt;fieldset&gt;</code> + <code>&lt;legend&gt;</code> com IDs gerados via <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e alerta <code>role="alert"</code> quando nenhuma coluna está marcada.</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-ok">🟢 OK</span></td><td><code>:focus-visible</code> explícito (contorno <code>2px solid</code>), alvos de toque de no mínimo <code>44px</code> nos botões e checkboxes (<code>minHeight: 44</code>), <code>StatusChip</code> com rótulo textual traduzido em português e folha <code>@media print</code> de alto contraste.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<!-- PREENCHER_REVISAO_SECAO_3: Detalhar bloqueantes e pontos de atenção (arquivo:linha, impacto e como corrigir) -->
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado.</em></p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<ol>
+  <li>
+    <strong>[<code>C1</code> — Tamanho do Diff e Arquivo Auxiliar de Notas de Implementação]</strong>
+    <ul>
+      <li><strong>Onde:</strong> Diff global (48 arquivos, <code>+1.817 / -3</code> linhas) e arquivo não rastreado <code>docs/tests/frota-132-implementacao.md</code>.</li>
+      <li><strong>Contexto / Impacto:</strong> O volume acima de 400 linhas e a inclusão simultânea da Fase 2 do SVO foram expressamente autorizados pelo usuário durante a implementação (conforme documentado na Seção 1.4 de <code>docs/plans/frota-132-us22-gerar-relatorios.html</code>). Contudo, o arquivo <code>docs/tests/frota-132-implementacao.md</code> está na working tree como untracked (<code>??</code>) e referencia logs temporários locais em <code>.tmp/</code> (ignorados pelo Git).</li>
+      <li><strong>Recomendação antes do PR:</strong> Confirmar se <code>docs/tests/frota-132-implementacao.md</code> deve permanecer apenas localmente (sendo removido antes do commit) ou ser versionado sem links quebrados para <code>.tmp/</code>.</li>
+    </ul>
+  </li>
+  <li>
+    <strong>[<code>C2</code> — Consolidação dos Commits na Branch antes do Pull Request]</strong>
+    <ul>
+      <li><strong>Onde:</strong> Repositório Git local na branch <code>feat/us22-gerar-relatorios</code> (<code>git status --short</code> / <code>git log develop..HEAD</code>).</li>
+      <li><strong>Contexto / Impacto:</strong> Todas as alterações auditadas estão adicionadas ao índice (<em>staged</em>) ou <em>untracked</em> (<code>docs/plans/frota-132-us22-gerar-relatorios.html</code> e <code>docs/reviews/frota-132-us22-gerar-relatorios.html</code>), ainda sem commit gravado na branch.</li>
+      <li><strong>Recomendação antes do PR:</strong> Realizar o commit seguindo estritamente o padrão Conventional Commits (ex.: <code>feat(frota): implementar motor extensivel de relatorios (FROTA-132)</code>) antes do <code>git push</code> e da abertura do Pull Request para <code>develop</code>.</li>
+    </ul>
+  </li>
+</ol>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<!-- PREENCHER_REVISAO_SECAO_4: Resultado de aratu-check.mjs, tsc, lint, build e testes -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática e Regras Aratu (45 arquivos de código)</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 bloqueantes, 0 alertas estáticos)</span></td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript Estrita — Backend (Host &amp; Docker)</td>
+      <td><code>docker compose exec -T backend npx tsc --noEmit</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 erros)</span></td>
+    </tr>
+    <tr>
+      <td>Testes Unitários e de Integração do Motor de Relatórios (PostgreSQL 18)</td>
+      <td><code>docker compose exec -T backend npx tsx --test tests/reports.service.test.ts tests/reports.integration.test.ts</code></td>
+      <td><span class="badge-ok">🟢 Passou (44 passaram, 0 falharam)</span></td>
+    </tr>
+    <tr>
+      <td>Linter ESLint — Frontend (Docker)</td>
+      <td><code>docker compose exec -T frontend npm run lint</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 erros / 0 warnings)</span></td>
+    </tr>
+    <tr>
+      <td>Compilação TypeScript e Build de Produção Vite — Frontend (Docker)</td>
+      <td><code>docker compose exec -T frontend npm run build</code></td>
+      <td><span class="badge-ok">🟢 Passou (build concluído em 1.88s)</span></td>
+    </tr>
+    <tr>
+      <td>Suíte Completa de Testes Automatizados — Frontend</td>
+      <td><code>node --test tests/*.test.mjs</code></td>
+      <td><span class="badge-ok">🟢 Passou (209 passaram, 0 falharam)</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<!-- PREENCHER_REVISAO_SECAO_5: Pontos específicos que o par humano da Squad 24 deve validar -->
+<ul class="check">
+  <li><input type="checkbox"> Conferir na interface (<code>http://localhost:5173/#/relatorios</code>) a geração de prévia, a troca de módulos e o desligamento dinâmico de colunas com os perfis <code>GESTOR</code>, <code>ADMINISTRADOR</code> e <code>ATENDENTE_SVO</code>.</li>
+  <li><input type="checkbox"> Validar um arquivo exportado via <strong>Exportar CSV</strong> no Excel/LibreOffice Calc, confirmando acentuação UTF-8 (BOM), separador <code>;</code>, máscara de CPF (<code>***.456.789-**</code>) e linha final <code>TOTAL</code>.</li>
+  <li><input type="checkbox"> Acionar <strong>Imprimir relatório</strong> e inspecionar a visualização de impressão do navegador (cabeçalho institucional FSPH/SVO, ocultação dos filtros/menus interativos via <code>@media print</code> e legibilidade da tabela).</li>
+  <li><input type="checkbox"> Confirmar a realização do commit em Conventional Commits (<code>feat(frota): implementar motor extensivel de relatorios (FROTA-132)</code>) e se o arquivo <code>docs/tests/frota-132-implementacao.md</code> deve ou não compor o PR para <code>develop</code>.</li>
+</ul>
+
+</body>
+</html>

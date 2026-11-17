@@ -32,6 +32,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     'Abastecimentos',
     'Motoristas',
     'Auditoria',
+    'Relatórios',
     'Configurações',
     'Ajuda',
   ])
@@ -47,6 +48,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
       { label: 'Manutenção', path: '/maintenance-orders' },
       { label: 'Abastecimentos', path: '/abastecimentos' },
       { label: 'Motoristas', path: '/motoristas' },
+      { label: 'Relatórios', path: '/relatorios' },
     ],
   )
   assert.equal(navigation.topItems[0].behavior, 'static')
@@ -55,7 +57,8 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
   assert.equal(navigation.topItems[6].behavior, 'link')
   assert.equal(navigation.topItems[7].behavior, 'link')
   assert.equal(navigation.topItems[8].behavior, 'static')
-  assert.equal(navigation.topItems[9].behavior, 'static')
+  assert.equal(navigation.topItems[9].behavior, 'link')
+  assert.equal(navigation.topItems[10].behavior, 'static')
   assert.equal(navigation.footerItems[0].behavior, 'static')
   assert.equal(navigation.showDividerAfterTop, false)
 })
@@ -110,6 +113,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   assert.deepEqual({ behavior: svoTracking.behavior, path: svoTracking.path }, { behavior: 'link', path: '/svo/acompanhamento' })
 
   const linkLabels = new Set([
+    'Relatórios',
     'Acompanhamento de ordens',
     'Confirmar viagens',
     'Veículos',

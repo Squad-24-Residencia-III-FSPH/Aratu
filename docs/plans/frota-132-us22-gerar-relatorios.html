@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-132 — US22 - Gerar relatórios (motor extensível por módulo) (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-132: US22 - Gerar relatórios (motor extensível por módulo)</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-132</code> — US22 - Gerar relatórios (motor extensível por módulo)</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/us22-gerar-relatorios</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>FROTA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR, ATENDENTE_SVO (fase 2)</code></p>
+  <p><strong>Data:</strong> 2026-11-16</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<h3>1.1 Objetivo operacional</h3>
+<p>O <strong>Gestor de Frota</strong> e o <strong>Administrador</strong> da FSPH passam a escolher um relatório do módulo desejado, definir o <strong>período</strong> e os filtros, <strong>ligar e desligar colunas</strong>, conferir uma prévia paginada com totais e <strong>exportar em CSV</strong> ou <strong>imprimir</strong>. Assim podem prestar contas (abastecimentos, multas, manutenções, viagens) sem pedir extrações manuais à equipe técnica.</p>
+<p>A entrega cria um <strong>motor genérico de relatórios</strong>, em que cada módulo declara seus relatórios em um arquivo de definição. Um relatório novo pedido pelo cliente = <strong>1 definição nova</strong>, sem endpoint, tela ou componente novo.</p>
+
+<h3>1.2 Subtarefas do Jira atendidas</h3>
+<table>
+  <thead><tr><th>Subtarefa</th><th>Coberta por</th></tr></thead>
+  <tbody>
+    <tr><td><code>FROTA-133</code> [AN] Definir tipos de relatório</td><td>Catálogo da seção 2.1 (confirmado com o usuário)</td></tr>
+    <tr><td><code>FROTA-135</code> [BE] API de relatórios (consultas e filtros)</td><td>Seção 5: catálogo, prévia, definições, repository e service</td></tr>
+    <tr><td><code>FROTA-136</code> [BE] Implementar exportação</td><td>Seção 5.6: Strategy <code>CSV</code> e <code>PRINT</code> com auditoria</td></tr>
+    <tr><td><code>FROTA-134</code> [FE] Tela de relatórios (filtros e exportação)</td><td>Seção 6</td></tr>
+    <tr><td><code>FROTA-137</code> [QA] Validar resultados</td><td>Seção 9</td></tr>
+  </tbody>
+</table>
+
+<h3>1.3 Decisões confirmadas pela Regra da Dúvida (16/11/2026)</h3>
+<table>
+  <thead><tr><th>#</th><th>Tema</th><th>Decisão</th></tr></thead>
+  <tbody>
+    <tr><td>D1</td><td>Catálogo inicial</td><td>FROTA (Veículos, Abastecimentos, Documentos, Multas), MOTORISTAS (Motoristas), VIAGENS (Solicitações, Viagens), MANUTENCOES (Ordens de manutenção), AUTENTICACAO_RBAC (Usuários) e SVO (Ocorrências e Ordens de atendimento, na <strong>fase 2</strong>).</td></tr>
+    <tr><td>D2</td><td>SVO e PRs em análise</td><td>Branch a partir de <code>develop</code>. Os relatórios SVO ficam na <strong>fase 2</strong>, implementada somente após o merge dos PRs #80, #82, #83 e #84 (o PR #78 não afeta este plano).</td></tr>
+    <tr><td>D3</td><td>RBAC</td><td>Permissão <strong>por relatório</strong>: <code>GESTOR</code> e <code>ADMINISTRADOR</code> em todos; SVO também para <code>ATENDENTE_SVO</code>; <strong>Usuários somente para <code>ADMINISTRADOR</code></strong>, alinhado à API <code>/users</code> atual.</td></tr>
+    <tr><td>D4</td><td>Formatos</td><td><strong>CSV</strong> (UTF-8 com BOM, separador <code>;</code>) e <strong>Impressão</strong> pelo navegador (<code>window.print</code>). Sem dependência nova; XLSX e PDF ficam fora.</td></tr>
+    <tr><td>D5</td><td>Escalabilidade</td><td><strong>Registro de definições no código</strong>, um arquivo por módulo, com colunas permitidas, filtros, campo de período, perfis e SQL parametrizado. O motor genérico executa, e a exportação usa o padrão Strategy.</td></tr>
+    <tr><td>D6</td><td>Persistência da seleção</td><td>Nada é salvo no servidor. A última seleção (colunas, filtros e período) fica no <code>localStorage</code>, por usuário e por relatório.</td></tr>
+    <tr><td>D7</td><td>Limites</td><td>Período obrigatório nos relatórios de fatos (máx. <strong>366 dias</strong>), prévia paginada de <strong>50 linhas</strong>, CSV limitado a <strong>50.000 linhas</strong> (acima disso, pede para reduzir o período).</td></tr>
+    <tr><td>D8</td><td>LGPD</td><td>CPF sempre mascarado (<code>***.456.789-**</code>), nenhum dado de falecidos ou familiares do SVO e <strong>cada exportação registrada em <code>audit.logs</code></strong> (quem, relatório, filtros, colunas e quantidade de linhas).</td></tr>
+    <tr><td>D9</td><td>Impressão</td><td>"Imprimir" busca o resultado completo até <strong>2.000 linhas</strong> e abre uma versão com cabeçalho (relatório, período, filtros, gerado por e em). Acima disso, orienta a exportar em CSV.</td></tr>
+    <tr><td>D10</td><td>Totais</td><td>Linha de totais (soma) nas colunas de quantidade e valor <strong>visíveis</strong>, calculada sobre <strong>todo o resultado filtrado</strong> (não só a página), além do total de registros.</td></tr>
+  </tbody>
+</table>
+
+<h3>1.4 Escopo (YAGNI)</h3>
+<div class="notice-block"><strong>Decisões confirmadas durante a implementação (16/11/2026):</strong> os PRs #80/#82/#83/#84 foram mesclados em <code>develop</code> e o usuário autorizou incluir a fase 2 SVO nesta entrega, após conferência dos contratos. Autorizou também ultrapassar 400 linhas para manter a entrega completa e separar os metadados em <code>services/reports/definitions/</code> dos construtores SQL em <code>repositories/reports/</code>, conforme a skill canônica. O catálogo final tem onze relatórios; GESTOR vê dez, ADMINISTRADOR onze e ATENDENTE_SVO dois.</div>
+<p><strong>Entra:</strong> motor de relatórios (catálogo, validação, prévia, totais, exportação CSV e impressão), 9 definições da fase 1, tela <code>/relatorios</code>, item "Relatórios" do menu GESTÃO ativado, auditoria de exportação e índices de período.</p>
+<p><strong>Fica fora:</strong></p>
+<ul>
+  <li>XLSX e PDF gerados no servidor (basta uma nova Strategy no futuro, sem mexer no motor);</li>
+  <li>modelos de relatório salvos no servidor, compartilhamento, agendamento e envio por e-mail;</li>
+  <li>gráficos e dashboard (o item "Dashboard" do menu continua estático);</li>
+  <li>ordenação por coluna escolhida pelo usuário (vale a ordem padrão de cada definição);</li>
+  <li>agrupamentos e subtotais por veículo ou motorista;</li>
+  <li>editor de relatórios pela interface;</li>
+  <li>filtros por seleção de entidade com lista dinâmica (placa entra como texto de prefixo).</li>
+</ul>
+<div class="notice-block"><strong>Fase 2 (após merge dos PRs SVO):</strong> definições <code>svo-occurrences</code> e <code>svo-orders</code> em <code>svo.reports.ts</code>, inclusão de <code>ATENDENTE_SVO</code> no roteador e na tela, e a confirmação final das colunas SVO contra o código mesclado. As tabelas <code>svo.*</code> já existem no <code>develop</code>, mas as regras de status e resultado vêm dos PRs em análise.</div>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+
+<h3>2.1 Catálogo Inicial de Relatórios por Módulo</h3>
+<p>Cada definição de relatório pertence a um módulo funcional do Aratu e declara suas colunas permitidas (com flag <code>defaultSelected</code> e <code>totalizable</code>), filtros específicos, regra de período, perfis RBAC autorizados e consulta SQL parametrizada sobre os schemas nativos do PostgreSQL 18:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Chave (<code>reportKey</code>)</th>
+      <th>Módulo</th>
+      <th>Perfis RBAC</th>
+      <th>Regra de Período</th>
+      <th>Filtros Específicos</th>
+      <th>Colunas Disponíveis (<strong>negrito</strong> = ligada por padrão; <code>[Σ]</code> = totalizável)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>fleet-vehicles</code></td>
+      <td><code>FROTA</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Opcional (<code>created_at</code>)</td>
+      <td><code>status</code>, <code>operationType</code>, <code>ownership</code>, <code>licensePlatePrefix</code></td>
+      <td><strong><code>licensePlate</code></strong>, <strong><code>vehicleDescription</code></strong> (marca/modelo/ano), <strong><code>status</code></strong>, <strong><code>operationType</code></strong>, <strong><code>ownership</code></strong>, <strong><code>seats</code></strong> <code>[Σ]</code>, <code>bodyLimit</code> <code>[Σ]</code>, <code>weightLimitKg</code>, <code>categories</code>, <code>createdAt</code></td>
+    </tr>
+    <tr>
+      <td><code>fleet-fuelings</code></td>
+      <td><code>FROTA</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><strong>Obrigatório</strong> (<code>fueled_at</code>, máx. 366d)</td>
+      <td><code>fuelType</code>, <code>licensePlatePrefix</code></td>
+      <td><strong><code>fueledAt</code></strong>, <strong><code>licensePlate</code></strong> (snapshot/atual), <strong><code>driverName</code></strong> (snapshot/atual), <strong><code>fuelType</code></strong>, <strong><code>liters</code></strong> <code>[Σ]</code>, <strong><code>totalValue</code></strong> <code>[Σ]</code>, <strong><code>odometerKm</code></strong>, <code>station</code>, <code>reportedBy</code>, <code>isRectified</code> (<code>supersedes_id IS NOT NULL</code>)</td>
+    </tr>
+    <tr>
+      <td><code>fleet-vehicle-documents</code></td>
+      <td><code>FROTA</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Opcional (<code>expires_at</code>)</td>
+      <td><code>documentType</code>, <code>status</code> (calculado: <code>VALID</code>, <code>EXPIRING</code>, <code>EXPIRED</code>, <code>RENEWED</code>, <code>ANNULLED</code>), <code>licensePlatePrefix</code></td>
+      <td><strong><code>licensePlate</code></strong>, <strong><code>documentType</code></strong>, <strong><code>documentNumber</code></strong>, <strong><code>issuedAt</code></strong>, <strong><code>expiresAt</code></strong>, <strong><code>status</code></strong>, <strong><code>daysToExpire</code></strong>, <code>notes</code></td>
+    </tr>
+    <tr>
+      <td><code>fleet-fines</code></td>
+      <td><code>FROTA</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><strong>Obrigatório</strong> (<code>infraction_at</code>, máx. 366d)</td>
+      <td><code>status</code> (<code>PENDING</code>, <code>PAID</code>, <code>CANCELED</code>), <code>licensePlatePrefix</code></td>
+      <td><strong><code>infractionAt</code></strong>, <strong><code>licensePlate</code></strong> (snapshot/atual), <strong><code>driverName</code></strong> (snapshot/atual), <strong><code>infractionCode</code></strong>, <strong><code>description</code></strong>, <strong><code>amount</code></strong> <code>[Σ]</code>, <strong><code>status</code></strong>, <strong><code>dueAt</code></strong>, <code>paidAt</code>, <code>location</code></td>
+    </tr>
+    <tr>
+      <td><code>drivers-roster</code></td>
+      <td><code>MOTORISTAS</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Opcional (<code>cnh_expires_at</code>)</td>
+      <td><code>status</code> (<code>ACTIVE</code>, <code>AWAY</code>, <code>INACTIVE</code>), <code>cnhCategory</code>, <code>cnhValidity</code> (<code>VALID</code>, <code>EXPIRING</code>, <code>EXPIRED</code>)</td>
+      <td><strong><code>name</code></strong>, <strong><code>maskedCpf</code></strong> (<code>***.456.789-**</code>), <strong><code>cnhNumber</code></strong>, <strong><code>cnhCategory</code></strong>, <strong><code>cnhExpiresAt</code></strong>, <strong><code>cnhValidity</code></strong>, <strong><code>status</code></strong>, <code>phone</code>, <code>createdAt</code></td>
+    </tr>
+    <tr>
+      <td><code>trips-requests</code></td>
+      <td><code>VIAGENS</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><strong>Obrigatório</strong> (<code>requested_date</code>, máx. 366d)</td>
+      <td><code>status</code> (<code>PENDING</code>, <code>APPROVED</code>, <code>REJECTED</code>, <code>SCHEDULED</code>, <code>CANCELED</code>)</td>
+      <td><strong><code>id</code></strong>, <strong><code>requestedDate</code></strong>, <strong><code>requesterName</code></strong> (snapshot/atual), <strong><code>serviceName</code></strong> (snapshot/atual), <strong><code>origin</code></strong>, <strong><code>destination</code></strong>, <strong><code>passengers</code></strong> <code>[Σ]</code>, <strong><code>status</code></strong>, <code>purpose</code>, <code>decidedAt</code>, <code>decisionReason</code></td>
+    </tr>
+    <tr>
+      <td><code>trips-executions</code></td>
+      <td><code>VIAGENS</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><strong>Obrigatório</strong> (<code>scheduled_start</code>, máx. 366d)</td>
+      <td><code>status</code> (<code>SCHEDULED</code>, <code>IN_PROGRESS</code>, <code>FINISHED</code>, <code>CONFIRMED</code>, <code>CANCELED</code>), <code>licensePlatePrefix</code></td>
+      <td><strong><code>id</code></strong>, <strong><code>scheduledStart</code></strong>, <strong><code>scheduledEnd</code></strong>, <strong><code>licensePlate</code></strong> (snapshot/atual), <strong><code>driverName</code></strong> (snapshot/atual), <strong><code>origin</code></strong>, <strong><code>destination</code></strong>, <strong><code>status</code></strong>, <strong><code>distanceKm</code></strong> (<code>end_km - start_km</code>) <code>[Σ]</code>, <code>startKm</code>, <code>endKm</code>, <code>startedAt</code>, <code>finishedAt</code>, <code>confirmedAt</code></td>
+    </tr>
+    <tr>
+      <td><code>maintenance-orders</code></td>
+      <td><code>MANUTENCOES</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td><strong>Obrigatório</strong> (<code>opened_at</code>, máx. 366d)</td>
+      <td><code>type</code> (<code>PREVENTIVE</code>, <code>CORRECTIVE</code>), <code>status</code> (<code>OPEN</code>, <code>IN_PROGRESS</code>, <code>DONE</code>, <code>CANCELED</code>), <code>licensePlatePrefix</code></td>
+      <td><strong><code>id</code></strong>, <strong><code>openedAt</code></strong>, <strong><code>licensePlate</code></strong> (snapshot/atual), <strong><code>type</code></strong>, <strong><code>status</code></strong>, <strong><code>blocksVehicle</code></strong>, <strong><code>workshop</code></strong>, <strong><code>estimatedTotal</code></strong> <code>[Σ]</code>, <strong><code>finalCost</code></strong> <code>[Σ]</code>, <code>odometerKm</code>, <code>expectedCompletionDate</code>, <code>closedAt</code>, <code>description</code></td>
+    </tr>
+    <tr>
+      <td><code>auth-users</code></td>
+      <td><code>AUTENTICACAO_RBAC</code></td>
+      <td><span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Opcional (<code>created_at</code>)</td>
+      <td><code>role</code>, <code>active</code> (<code>true</code>/<code>false</code>)</td>
+      <td><strong><code>id</code></strong>, <strong><code>name</code></strong>, <strong><code>email</code></strong>, <strong><code>role</code></strong>, <strong><code>active</code></strong>, <strong><code>createdAt</code></strong>, <code>updatedAt</code></td>
+    </tr>
+    <tr>
+      <td><code>svo-occurrences</code> <em>(Fase 2)</em></td>
+      <td><code>SVO</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span> <span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td><strong>Obrigatório</strong> (<code>received_at</code>, máx. 366d)</td>
+      <td><code>status</code>, <code>requesterType</code></td>
+      <td><strong><code>id</code></strong>, <strong><code>receivedAt</code></strong>, <strong><code>requesterType</code></strong>, <strong><code>location</code></strong>, <strong><code>status</code></strong>, <strong><code>attendantName</code></strong> (snapshot/atual), <code>triagedAt</code> <em>(sem nome/telefone de familiar ou dados de falecido — LGPD)</em></td>
+    </tr>
+    <tr>
+      <td><code>svo-orders</code> <em>(Fase 2)</em></td>
+      <td><code>SVO</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span> <span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td><strong>Obrigatório</strong> (<code>opened_at</code>, máx. 366d)</td>
+      <td><code>status</code>, <code>result</code> (<code>COMPLETED</code>, <code>NOT_PERFORMED</code>), <code>licensePlatePrefix</code></td>
+      <td><strong><code>id</code></strong>, <strong><code>occurrenceId</code></strong>, <strong><code>openedAt</code></strong>, <strong><code>teamName</code></strong> (snapshot/atual), <strong><code>licensePlate</code></strong> (snapshot/atual), <strong><code>status</code></strong>, <strong><code>result</code></strong>, <code>departedAt</code>, <code>arrivedAt</code>, <code>closedAt</code>, <code>failureReason</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>2.2 Regras de Domínio e Invariantes</h3>
+<ol>
+  <li><strong>Fuso Horário Operacional (<code>America/Maceio</code>, UTC-3):</strong> Todos os filtros de data (<code>from</code> e <code>to</code> no formato <code>YYYY-MM-DD</code>) são interpretados no fuso civil de Aracaju/Maceió. Em colunas <code>TIMESTAMPTZ</code>, o intervalo é convertido em cláusula sargável semiaberta:
+    <code>col &gt;= ($from::date::timestamp AT TIME ZONE 'America/Maceio') AND col &lt; (($to::date + 1)::timestamp AT TIME ZONE 'America/Maceio')</code>.</li>
+  <li><strong>Validação de Período:</strong>
+    <ul>
+      <li>Relatórios de fatos (<code>requiresPeriod: true</code>) exigem <code>from</code> e <code>to</code> preenchidos (ausência → <code>400 INVALID_PERIOD</code>).</li>
+      <li>Em qualquer relatório, se <code>from &gt; to</code> → <code>422 INVALID_DATE_RANGE</code> (<em>"A data inicial não pode ser posterior à data final."</em>).</li>
+      <li>Se o intervalo entre <code>from</code> e <code>to</code> ultrapassar <strong>366 dias corridos</strong> → <code>422 PERIOD_TOO_LARGE</code> (<em>"O intervalo máximo permitido para geração de relatórios é de 366 dias."</em>).</li>
+    </ul>
+  </li>
+  <li><strong>Parametrização de Colunas (Ligar / Desligar):</strong>
+    <ul>
+      <li>O parâmetro <code>columns</code> aceita lista de chaves separadas por vírgula (ex.: <code>columns=fueledAt,licensePlate,liters,totalValue</code>).</li>
+      <li>Se omitido na requisição, o motor utiliza as colunas com <code>defaultSelected: true</code> da definição.</li>
+      <li>Se o usuário desmarcar todas as colunas ou enviar <code>columns=</code> vazio → <code>400 NO_COLUMNS_SELECTED</code> (<em>"Selecione ao menos uma coluna para gerar ou exportar o relatório."</em>).</li>
+      <li>Se qualquer chave não pertencer à lista <code>allowedColumns</code> da definição → <code>400 INVALID_COLUMN</code>.</li>
+      <li>A resposta da prévia, os totalizadores, o CSV e a visão de impressão projetam e retornam <strong>estritamente as colunas selecionadas, na ordem escolhida</strong>.</li>
+    </ul>
+  </li>
+  <li><strong>Preservação Histórica, Retificações e Snapshots:</strong>
+    <ul>
+      <li>Em <code>fleet.fuelings</code>, o relatório consulta apenas a versão vigente ativa: <code>WHERE NOT f.is_annulled AND NOT EXISTS (SELECT 1 FROM fleet.fuelings n WHERE n.supersedes_id = f.id)</code>, sinalizando se houve retificação anterior via <code>f.supersedes_id IS NOT NULL AS "isRectified"</code>.</li>
+      <li>Em tabelas com snapshot histórico (<code>trip.trips</code>, <code>trip.requests</code>, <code>fleet.fuelings</code>, <code>fleet.fines</code>, <code>fleet.maintenance_orders</code>, <code>svo.execution_orders</code>), os dados de veículo, motorista, solicitante e serviço são lidos prioritariamente do snapshot congelado na época do fato (<code>COALESCE(NULLIF(t.vehicle_snapshot-&gt;&gt;'licensePlate', ''), v.license_plate)</code>).</li>
+    </ul>
+  </li>
+  <li><strong>Totalizadores Globais sobre o Conjunto Filtrado:</strong>
+    <ul>
+      <li>Na prévia e na impressão, o motor calcula os totais (<code>SUM</code>) sobre <strong>todas as linhas que atendem aos filtros</strong> (e não apenas sobre as 50 linhas da página atual), mas retorna no objeto <code>totals</code> apenas as chaves das colunas totalizáveis que estiverem <strong>ligadas (selecionadas)</strong> pelo usuário.</li>
+      <li>Em <code>maintenance-orders</code>, <code>estimatedTotal</code> soma os itens de <code>estimate_items</code> e <code>finalCost</code> soma <code>cost</code> das ordens encerradas (<code>status = 'DONE'</code>).</li>
+    </ul>
+  </li>
+  <li><strong>Limites de Volume e Exportação (Strategy Pattern):</strong>
+    <ul>
+      <li><strong>Prévia na tela (<code>GET /reports/:reportKey/preview</code>):</strong> paginação com <code>page</code> (padrão <code>1</code>) e <code>pageSize</code> fixo/máximo de <code>50</code> linhas.</li>
+      <li><strong>Exportação CSV (<code>GET /reports/:reportKey/export?format=csv</code>):</strong> limite máximo de <strong>50.000 linhas</strong>. Antes de serializar, se <code>totalCount &gt; 50000</code> → retorna <code>422 EXPORT_LIMIT_EXCEEDED</code> orientando a estreitar o período ou filtros. Gera buffer UTF-8 com BOM (<code>\uFEFF</code>), separador <code>;</code>, cabeçalhos em português das colunas selecionadas, linha final de totais (quando houver coluna totalizável selecionada) e proteção contra <em>CSV Formula Injection</em> (valores iniciados por <code>=</code>, <code>+</code>, <code>-</code> ou <code>@</code> recebem apóstrofo <code>'</code>).</li>
+      <li><strong>Exportação para Impressão (<code>GET /reports/:reportKey/export?format=print</code>):</strong> limite máximo de <strong>2.000 linhas</strong>. Se <code>totalCount &gt; 2000</code> → retorna <code>422 PRINT_LIMIT_EXCEEDED</code> (<em>"A impressão em tela suporta até 2.000 registros. Reduza o período ou utilize a exportação em CSV."</em>).</li>
+    </ul>
+  </li>
+  <li><strong>LGPD, Sigilo SVO e Auditoria Obrigatória:</strong>
+    <ul>
+      <li>O CPF de motoristas nunca trafega completo no relatório: é formatado no servidor como <code>***.456.789-**</code>.</li>
+      <li>Nos relatórios do SVO (Fase 2), são estritamente proibidas colunas contendo nome de falecido, nome/documento/telefone de familiar declarante ou descrição clínica livre do óbito.</li>
+      <li>Cada chamada bem-sucedida a <code>/reports/:reportKey/export</code> grava um registro em <code>audit.logs</code> via <code>AuditService::recordAudit</code> com <code>table: 'reports.<reportKey>'</code>, <code>operation: 'EXPORT'</code>, <code>recordId: reportKey</code>, <code>actorSnapshot</code> e <code>after: { format, filters, selectedColumns, rowCount }</code>.</li>
+    </ul>
+  </li>
+</ol>
+
+<h3>2.3 Cenários de Comportamento (Dado / Quando / Então)</h3>
+<ul>
+  <li><strong>Cenário 1 — Prévia parametrizada com desligamento de colunas e totalizadores:</strong><br>
+    <em>Dado</em> que uma usuária autenticada com perfil <code>GESTOR</code> seleciona o relatório <code>fleet-fuelings</code> no período de <code>2026-11-01</code> a <code>2026-11-15</code> e desmarca as colunas <code>station</code> e <code>totalValue</code>, mantendo <code>liters</code> marcada,<br>
+    <em>Quando</em> aciona <em>"Gerar prévia"</em>,<br>
+    <em>Então</em> a API retorna HTTP <code>200</code> com até 50 linhas contendo apenas as colunas selecionadas, <code>totalCount</code> total do período e <code>totals: { liters: "1240.500" }</code> (sem <code>totalValue</code>, pois foi desligada).</li>
+  <li><strong>Cenário 2 — Bloqueio de período inválido ou superior a 366 dias:</strong><br>
+    <em>Dado</em> que o gestor seleciona <code>trips-executions</code> e informa <code>from=2025-01-01</code> e <code>to=2026-06-01</code> (mais de 366 dias),<br>
+    <em>Quando</em> solicita a prévia ou exportação,<br>
+    <em>Então</em> a API rejeita com HTTP <code>422</code> e mensagem orientadora informando o limite de 366 dias.</li>
+  <li><strong>Cenário 3 — Exportação CSV com BOM UTF-8 e registro em <code>audit.logs</code>:</strong><br>
+    <em>Dado</em> que o gestor parametrizou o relatório <code>fleet-fines</code> com filtro <code>status=PENDING</code> e 3 colunas visíveis,<br>
+    <em>Quando</em> clica em <em>"Exportar CSV"</em>,<br>
+    <em>Então</em> a API retorna HTTP <code>200</code> com <code>Content-Type: text/csv; charset=utf-8</code>, cabeçalho <code>Content-Disposition: attachment; filename="relatorio-fleet-fines-2026-11-01-a-2026-11-15.csv"</code>, conteúdo iniciado por <code>\uFEFF</code> com apenas as 3 colunas e grava em <code>audit.logs</code> a operação <code>EXPORT</code> com o snapshot do ator e contagem de linhas.</li>
+  <li><strong>Cenário 4 — Volume acima do limite de impressão (2.000 linhas):</strong><br>
+    <em>Dado</em> que uma consulta possui 3.500 registros no período selecionado,<br>
+    <em>Quando</em> o gestor aciona <em>"Imprimir relatório"</em>,<br>
+    <em>Então</em> a API retorna HTTP <code>422</code> (<code>PRINT_LIMIT_EXCEEDED</code>) e a tela exibe alerta orientando a reduzir o período ou exportar em CSV.</li>
+  <li><strong>Cenário 5 — Segregação RBAC por relatório (Relatório de Usuários):</strong><br>
+    <em>Dado</em> que um usuário com perfil <code>GESTOR</code> consulta <code>GET /reports/catalog</code> ou tenta acessar <code>GET /reports/auth-users/preview</code>,<br>
+    <em>Quando</em> a requisição é processada,<br>
+    <em>Então</em> <code>auth-users</code> não aparece no catálogo do <code>GESTOR</code> e o acesso direto a <code>/reports/auth-users/*</code> retorna HTTP <code>403 Forbidden</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+
+<h3>3.1 Novos Arquivos — Backend (<code>backend/src/</code> e <code>backend/tests/</code>)</h3>
+<ul>
+  <li><code>backend/src/database/migrations/202611160001_add_reports_period_indexes.sql</code> — Índices sargáveis para filtros de período em relatórios.</li>
+  <li><code>backend/src/database/migrations/202611160001_add_reports_period_indexes.down.sql</code> — Rollback dos índices.</li>
+  <li><code>backend/src/types/report.types.ts</code> — Contratos tipados do motor de relatórios, colunas, filtros, totalizadores, formatos e erros de domínio (<code>ReportServiceError</code>).</li>
+  <li><code>backend/src/services/reports/report-registry.ts</code> — Registro central e imutável de definições de relatórios com busca por chave e filtragem por perfil RBAC.</li>
+  <li><code>backend/src/services/reports/definitions/fleet.reports.ts</code> — Definições do módulo <code>FROTA</code> (<code>fleet-vehicles</code>, <code>fleet-fuelings</code>, <code>fleet-vehicle-documents</code>, <code>fleet-fines</code>).</li>
+  <li><code>backend/src/services/reports/definitions/drivers.reports.ts</code> — Definição do módulo <code>MOTORISTAS</code> (<code>drivers-roster</code>, com máscara de CPF).</li>
+  <li><code>backend/src/services/reports/definitions/trips.reports.ts</code> — Definições do módulo <code>VIAGENS</code> (<code>trips-requests</code>, <code>trips-executions</code>).</li>
+  <li><code>backend/src/services/reports/definitions/maintenance.reports.ts</code> — Definição do módulo <code>MANUTENCOES</code> (<code>maintenance-orders</code>).</li>
+  <li><code>backend/src/services/reports/definitions/auth.reports.ts</code> — Definição do módulo <code>AUTENTICACAO_RBAC</code> (<code>auth-users</code>, restrita a <code>ADMINISTRADOR</code>).</li>
+  <li><code>backend/src/services/reports/definitions/svo.reports.ts</code> — <em>(Fase 2, pós-merge dos PRs #80/#82/#83/#84)</em> Definições do módulo <code>SVO</code> (<code>svo-occurrences</code>, <code>svo-orders</code>).</li>
+  <li><code>backend/src/services/reports/export/report-exporter.strategy.ts</code> — Padrão <em>Strategy</em> (<code>ReportExportStrategy</code>, <code>CsvReportExportStrategy</code>, <code>PrintReportExportStrategy</code>, <code>ReportExporterContext</code>).</li>
+  <li><code>backend/src/repositories/reports.repository.ts</code> — Executor SQL parametrizado (<code>$1, $2</code>) para prévia paginada, contagem/totais e leitura limitada para exportação.</li>
+  <li><code>backend/src/services/reports.service.ts</code> — Validação de RBAC por relatório, período, filtros e colunas, orquestração de prévia/exportação e auditoria em <code>audit.logs</code>.</li>
+  <li><code>backend/src/controllers/reports.controller.ts</code> — Tradução HTTP para catálogo, prévia e exportação (CSV binário ou JSON de impressão).</li>
+  <li><code>backend/src/routes/reports.routes.ts</code> — Rotas autenticadas sob <code>/reports</code>.</li>
+  <li><code>backend/tests/reports.service.test.ts</code> — Testes unitários do motor, validações de período/colunas, máscara LGPD, Strategy CSV/Print e auditoria.</li>
+  <li><code>backend/tests/reports.integration.test.ts</code> — Testes de integração com PostgreSQL 18 para todos os relatórios da Fase 1, paginação, totais e RBAC.</li>
+</ul>
+
+<h3>3.2 Arquivos Modificados — Backend</h3>
+<ul>
+  <li><code>backend/src/types/audit.types.ts</code> — Inclusão do literal <code>'EXPORT'</code> na união <code>AuditOperation</code>.</li>
+  <li><code>backend/src/app.ts</code> — Registro de <code>app.use('/reports', createReportsRouter(reportsService, jwtConfig))</code>.</li>
+</ul>
+
+<h3>3.3 Novos Arquivos — Frontend (<code>frontend/src/</code> e <code>frontend/tests/</code>)</h3>
+<ul>
+  <li><code>frontend/src/reports/reportTypes.ts</code> — Tipos do catálogo, colunas, filtros, resposta de prévia, payload de impressão e constantes de rota (<code>REPORTS_PATH = '/relatorios'</code>).</li>
+  <li><code>frontend/src/reports/reportAccess.ts</code> — Helpers RBAC (<code>canAccessReports</code>) e persistência local de seleção de colunas/filtros no <code>localStorage</code> por usuário e relatório.</li>
+  <li><code>frontend/src/services/reportsService.ts</code> — Cliente HTTP tipado (<code>listReportCatalog</code>, <code>fetchReportPreview</code>, <code>exportReportCsv</code>, <code>fetchReportPrintData</code>).</li>
+  <li><code>frontend/src/hooks/useReports.ts</code> — Hook customizado gerenciando seleção de módulo/relatório, filtros, toggle de colunas, paginação, exportação CSV e modo de impressão.</li>
+  <li><code>frontend/src/pages/reportsPage/ReportColumnsSelector.tsx</code> — Seletor acessível de colunas (checkboxes com <code>useId()</code>, ações <em>"Marcar todas"</em> e <em>"Restaurar padrão"</em>).</li>
+  <li><code>frontend/src/pages/reportsPage/ReportPrintView.tsx</code> — Cabeçalho institucional FSPH/SVO e tabela otimizada para <code>window.print()</code> (oculta controles interativos via <code>@media print</code>).</li>
+  <li><code>frontend/src/pages/ReportsPage.module.css</code> — Layout estrutural responsivo e regras <code>@media print</code> com classes em inglês <code>camelCase</code> (sem <code>:global(.Mui...)</code>).</li>
+  <li><code>frontend/src/pages/ReportsPage.tsx</code> — Tela principal de geração, parametrização, prévia com linha de totais e exportação de relatórios.</li>
+  <li><code>frontend/tests/reportsService.test.mjs</code> — Testes do cliente de API e serialização de query string/download CSV.</li>
+  <li><code>frontend/tests/reportsPage.test.mjs</code> — Testes de renderização, seleção de módulo/relatório, ligar/desligar colunas, 5 estados visuais e impressão.</li>
+</ul>
+
+<h3>3.4 Arquivos Modificados — Frontend</h3>
+<ul>
+  <li><code>frontend/src/components/sidebarNavigation.ts</code> — Ativação do item <em>"Relatórios"</em> na seção <code>GESTÃO</code> (de <code>behavior: 'button'</code> para <code>behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR']</code>) e inclusão na sidebar do <code>ADMINISTRADOR</code>.</li>
+  <li><code>frontend/src/routing/routeDecision.ts</code> — Adição da decisão <code>{ kind: 'reports'; profile: Profile }</code> para <code>REPORTS_PATH</code>.</li>
+  <li><code>frontend/src/App.tsx</code> — Renderização de <code>&lt;ReportsPage /&gt;</code> quando <code>decision.kind === 'reports'</code>.</li>
+</ul>
+
+<h3>3.5 Arquivos de referência no projeto (padrão a seguir)</h3>
+<ul>
+  <li><strong>Camadas Backend e Frontend:</strong> <code>.agents/skills/principios/references/camadas.md</code> e <code>.agents/skills/principios/references/ui-componentes.md</code>.</li>
+  <li><strong>Padrões de Projeto (Design Patterns):</strong> <code>docs/manuais/padroes-projeto.md</code> (Seção 5 — <em>Strategy Pattern</em> para exportadores de relatórios).</li>
+  <li><strong>Componentes UI Acessíveis:</strong> <code>frontend/src/components/ui/</code> (<code>PageHeader</code>, <code>FilterBar</code>, <code>FormField</code>, <code>FormSelect</code>, <code>DataTable</code>, <code>StatusChip</code>, <code>StateFeedback</code>).</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+
+<h3>4.1 Modelagem e Tabelas Existentes</h3>
+<p>Seguindo <strong>YAGNI</strong> e as decisões confirmadas (D5, D6 e D8), <strong>não há criação de novas tabelas</strong>:</p>
+<ul>
+  <li>As definições dos relatórios residem no código versionado por módulo;</li>
+  <li>A preferência de colunas/filtros do usuário é persistida no navegador (<code>localStorage</code>);</li>
+  <li>A trilha de auditoria de exportações utiliza a tabela existente <span class="badge-tabela">audit.logs</span> (cuja coluna <code>operation</code> já aceita qualquer string não vazia via <code>CHECK (btrim(operation) &lt;&gt; '')</code>);</li>
+  <li>As consultas leem diretamente as tabelas vigentes nos schemas nativos (<span class="badge-tabela">fleet.vehicles</span>, <span class="badge-tabela">fleet.fuelings</span>, <span class="badge-tabela">fleet.vehicle_documents</span>, <span class="badge-tabela">fleet.fines</span>, <span class="badge-tabela">fleet.drivers</span>, <span class="badge-tabela">trip.requests</span>, <span class="badge-tabela">trip.trips</span>, <span class="badge-tabela">fleet.maintenance_orders</span>, <span class="badge-tabela">auth.users</span>, <span class="badge-tabela">auth.roles</span> e, na Fase 2, <span class="badge-tabela">svo.occurrences</span> e <span class="badge-tabela">svo.execution_orders</span>).</li>
+</ul>
+
+<h3>4.2 Migração de Índices Sargáveis por Período (<code>202611160001_add_reports_period_indexes.sql</code>)</h3>
+<p>Os índices existentes em <code>fleet.fuelings</code>, <code>fleet.fines</code>, <code>fleet.maintenance_orders</code>, <code>trip.requests</code> e <code>trip.trips</code> têm <code>vehicle_id</code> ou <code>status</code> como primeira coluna. Como os relatórios gerenciais filtram prioritariamente por <strong>intervalo de datas em toda a frota</strong> (mesmo sem filtrar veículo ou status), criamos índices iniciados pela coluna temporal no padrão <code>&lt;schema&gt;_&lt;table&gt;_&lt;purpose&gt;</code> (sem prefixos <code>idx_</code>/<code>uq_</code>):</p>
+
+<pre><code>-- backend/src/database/migrations/202611160001_add_reports_period_indexes.sql
+BEGIN;
+
+CREATE INDEX IF NOT EXISTS fleet_fuelings_by_fueled_at
+  ON fleet.fuelings (fueled_at DESC, id DESC)
+  WHERE NOT is_annulled;
+
+CREATE INDEX IF NOT EXISTS fleet_fines_by_infraction_at
+  ON fleet.fines (infraction_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS fleet_maintenance_orders_by_opened_at
+  ON fleet.maintenance_orders (opened_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS trip_requests_by_requested_date
+  ON trip.requests (requested_date DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS trip_trips_by_scheduled_start
+  ON trip.trips (scheduled_start DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS fleet_drivers_by_cnh_expires_at
+  ON fleet.drivers (cnh_expires_at ASC, id ASC);
+
+COMMIT;</code></pre>
+
+<h3>4.3 Plano de Rollback Obrigatório (<code>202611160001_add_reports_period_indexes.down.sql</code>)</h3>
+<pre><code>-- backend/src/database/migrations/202611160001_add_reports_period_indexes.down.sql
+BEGIN;
+
+DROP INDEX IF EXISTS fleet.fleet_drivers_by_cnh_expires_at;
+DROP INDEX IF EXISTS trip.trip_trips_by_scheduled_start;
+DROP INDEX IF EXISTS trip.trip_requests_by_requested_date;
+DROP INDEX IF EXISTS fleet.fleet_maintenance_orders_by_opened_at;
+DROP INDEX IF EXISTS fleet.fleet_fines_by_infraction_at;
+DROP INDEX IF EXISTS fleet.fleet_fuelings_by_fueled_at;
+
+COMMIT;</code></pre>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+
+<h3>5.1 Mapeamento de Endpoints REST (<code>/reports</code>)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Método e Rota</th>
+      <th>Perfis RBAC</th>
+      <th>Query Params</th>
+      <th>Sucesso</th>
+      <th>Erros Esperados</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-http">GET</span> <code>/reports/catalog</code></td>
+      <td><span class="badge-rbac">GESTOR</span> <span class="badge-rbac">ADMINISTRADOR</span> <em>(+ <span class="badge-rbac">ATENDENTE_SVO</span> na Fase 2)</em></td>
+      <td>—</td>
+      <td><code>200 OK</code> — Lista de módulos e definições de relatórios visíveis ao perfil autenticado (colunas, filtros e regras de período).</td>
+      <td><code>401</code> (token inválido/ausente), <code>403</code> (perfil sem acesso a relatórios).</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span> <code>/reports/:reportKey/preview</code></td>
+      <td>Validado por relatório (ex.: <code>auth-users</code> exige <span class="badge-rbac">ADMINISTRADOR</span>)</td>
+      <td><code>from?</code>, <code>to?</code>, <code>columns?</code> (CSV de chaves), <code>page?</code> (padrão <code>1</code>), <code>pageSize?</code> (máx. <code>50</code>), mais filtros específicos do relatório</td>
+      <td><code>200 OK</code> — <code>{ reportKey, columns, rows, page, pageSize, totalCount, totalPages, totals }</code>.</td>
+      <td><code>400</code> (filtro/coluna inválida, sem colunas ou período obrigatório ausente), <code>401</code>, <code>403</code> (perfil não autorizado para este relatório), <code>404</code> (relatório inexistente), <code>422</code> (<code>from &gt; to</code> ou intervalo &gt; 366 dias).</td>
+    </tr>
+    <tr>
+      <td><span class="badge-http">GET</span> <code>/reports/:reportKey/export</code></td>
+      <td>Validado por relatório</td>
+      <td><code>format</code> (<code>csv</code> | <code>print</code>), <code>from?</code>, <code>to?</code>, <code>columns?</code>, mais filtros específicos do relatório</td>
+      <td><code>200 OK</code> — Para <code>format=csv</code>: stream/buffer <code>text/csv; charset=utf-8</code> com BOM e <code>Content-Disposition: attachment</code>. Para <code>format=print</code>: JSON estruturado com até 2.000 linhas, cabeçalho institucional e totais. Grava <code>EXPORT</code> em <code>audit.logs</code>.</td>
+      <td><code>400</code>, <code>401</code>, <code>403</code>, <code>404</code>, <code>422</code> (período &gt; 366d, <code>totalCount &gt; 50000</code> no CSV ou <code>totalCount &gt; 2000</code> na impressão).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>5.2 Contratos e Tipagens (<code>backend/src/types/report.types.ts</code>)</h3>
+<pre><code>import type { UserRole } from './auth'
+
+export const REPORT_MODULES = [
+  'FROTA',
+  'MOTORISTAS',
+  'VIAGENS',
+  'MANUTENCOES',
+  'AUTENTICACAO_RBAC',
+  'SVO',
+] as const
+
+export type ReportModule = typeof REPORT_MODULES[number]
+
+export const REPORT_EXPORT_FORMATS = ['csv', 'print'] as const
+export type ReportExportFormat = typeof REPORT_EXPORT_FORMATS[number]
+
+export const REPORT_PREVIEW_DEFAULT_PAGE_SIZE = 50
+export const REPORT_PREVIEW_MAX_PAGE_SIZE = 50
+export const REPORT_MAX_PERIOD_DAYS = 366
+export const REPORT_CSV_MAX_ROWS = 50_000
+export const REPORT_PRINT_MAX_ROWS = 2_000
+
+export type ReportColumnType = 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'boolean' | 'status'
+
+export interface ReportColumnDefinition {
+  readonly key: string
+  readonly label: string
+  readonly type: ReportColumnType
+  readonly defaultSelected: boolean
+  readonly totalizable?: boolean
+  readonly align?: 'left' | 'right' | 'center'
+}
+
+export interface ReportFilterOption {
+  readonly value: string
+  readonly label: string
+}
+
+export interface ReportFilterDefinition {
+  readonly key: string
+  readonly label: string
+  readonly type: 'select' | 'text' | 'boolean'
+  readonly options?: readonly ReportFilterOption[]
+  readonly placeholder?: string
+}
+
+export interface ReportPeriodRule {
+  readonly required: boolean
+  readonly label: string
+  readonly maxDays: number
+}
+
+export interface BuiltReportQuery {
+  readonly dataSql: string
+  readonly countAndTotalsSql: string
+  readonly values: readonly unknown[]
+}
+
+export interface ReportDefinition {
+  readonly key: string
+  readonly module: ReportModule
+  readonly title: string
+  readonly description: string
+  readonly allowedRoles: readonly UserRole[]
+  readonly period: ReportPeriodRule
+  readonly filters: readonly ReportFilterDefinition[]
+  readonly columns: readonly ReportColumnDefinition[]
+  buildQuery(params: ValidatedReportQueryInput): BuiltReportQuery
+  formatRow(rawRow: Record&lt;string, unknown&gt;): Record&lt;string, string | number | boolean | null&gt;
+}
+
+export interface ValidatedReportQueryInput {
+  readonly from: string | null
+  readonly to: string | null
+  readonly filters: Readonly&lt;Record&lt;string, string&gt;&gt;
+  readonly selectedColumns: readonly ReportColumnDefinition[]
+  readonly limit: number
+  readonly offset: number
+}
+
+export interface ReportPreviewResult {
+  readonly reportKey: string
+  readonly title: string
+  readonly module: ReportModule
+  readonly period: { readonly from: string | null; readonly to: string | null }
+  readonly columns: readonly ReportColumnDefinition[]
+  readonly rows: readonly Record&lt;string, string | number | boolean | null&gt;[]
+  readonly page: number
+  readonly pageSize: number
+  readonly totalCount: number
+  readonly totalPages: number
+  readonly totals: Readonly&lt;Record&lt;string, string&gt;&gt;
+}
+
+export interface ReportPrintPayload {
+  readonly reportKey: string
+  readonly title: string
+  readonly module: ReportModule
+  readonly generatedAt: string
+  readonly generatedBy: { readonly id: string; readonly name: string; readonly role: UserRole }
+  readonly period: { readonly from: string | null; readonly to: string | null }
+  readonly appliedFilters: readonly { readonly label: string; readonly value: string }[]
+  readonly columns: readonly ReportColumnDefinition[]
+  readonly rows: readonly Record&lt;string, string | number | boolean | null&gt;[]
+  readonly totalCount: number
+  readonly totals: Readonly&lt;Record&lt;string, string&gt;&gt;
+}
+
+export type ReportErrorCode =
+  | 'REPORT_NOT_FOUND'
+  | 'FORBIDDEN_REPORT'
+  | 'INVALID_INPUT'
+  | 'INVALID_PERIOD'
+  | 'INVALID_DATE_RANGE'
+  | 'PERIOD_TOO_LARGE'
+  | 'NO_COLUMNS_SELECTED'
+  | 'INVALID_COLUMN'
+  | 'INVALID_FILTER'
+  | ' INVALID_EXPORT_FORMAT'
+  | 'EXPORT_LIMIT_EXCEEDED'
+  | 'PRINT_LIMIT_EXCEEDED'
+
+export class ReportServiceError extends Error {
+  constructor(
+    public readonly code: ReportErrorCode,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'ReportServiceError'
+  }
+}</code></pre>
+
+<h3>5.3 Registro Modular e Definições SQL Parametrizadas (<code>backend/src/services/reports/</code>)</h3>
+<p>Cada módulo possui seu próprio arquivo em <code>backend/src/services/reports/definitions/</code> exportando um array de <code>ReportDefinition</code>. O arquivo <code>report-registry.ts</code> agrega as definições sem qualquer <code>switch/case</code> acoplado (Princípio Aberto-Fechado — <strong>SOLID / OCP</strong>):</p>
+<ul>
+  <li><strong>Projeção explícita e zero <code>SELECT *</code>:</strong> Todas as queries listam explicitamente as colunas com alias <code>camelCase</code> e parâmetros posicionais <code>$1, $2, ...</code>.</li>
+  <li><strong>Segurança na seleção de colunas:</strong> Os parâmetros <code>columns</code> da query string nunca são concatenados no SQL. O SQL base projeta os campos da definição e o método <code>projectSelectedColumns(formattedRow, selectedColumns)</code> no <code>ReportsService</code> retém no objeto de saída apenas as chaves em <code>selectedColumns</code>.</li>
+  <li><strong>Máscara de CPF no servidor (LGPD):</strong> Em <code>drivers.reports.ts</code>, o CPF é mascarado pela função pura <code>maskCpfForReport(cpf: string): string</code> que transforma <code>12345678901</code> em <code>***.456.789-**</code> antes de qualquer serialização.</li>
+</ul>
+
+<h4>Exemplo de Query Parametrizada — <code>fleet-fuelings</code> (<code>fleet.reports.ts</code>)</h4>
+<pre><code>// Intervalo sargável em America/Maceio ($1 = from, $2 = to, $3 = fuelType | null, $4 = licensePlatePrefix | null)
+const WHERE_CLAUSE = `
+  WHERE NOT f.is_annulled
+    AND NOT EXISTS (SELECT 1 FROM fleet.fuelings n WHERE n.supersedes_id = f.id)
+    AND f.fueled_at &gt;= ($1::date::timestamp AT TIME ZONE 'America/Maceio')
+    AND f.fueled_at &lt; (($2::date + 1)::timestamp AT TIME ZONE 'America/Maceio')
+    AND ($3::text IS NULL OR f.fuel_type = $3)
+    AND ($4::text IS NULL OR COALESCE(NULLIF(f.vehicle_snapshot-&gt;&gt;'licensePlate', ''), v.license_plate) LIKE $4 || '%')
+`;
+
+const DATA_SQL = `
+  SELECT f.id::text AS id,
+         to_char(f.fueled_at AT TIME ZONE 'America/Maceio', 'YYYY-MM-DD"T"HH24:MI:SS') AS "fueledAt",
+         COALESCE(NULLIF(f.vehicle_snapshot-&gt;&gt;'licensePlate', ''), v.license_plate) AS "licensePlate",
+         COALESCE(NULLIF(f.driver_snapshot-&gt;&gt;'name', ''), d.name, 'Não informado') AS "driverName",
+         f.fuel_type AS "fuelType",
+         f.liters::text AS liters,
+         f.total_value::text AS "totalValue",
+         f.odometer_km AS "odometerKm",
+         COALESCE(f.station, '—') AS station,
+         f.reported_by AS "reportedBy",
+         (f.supersedes_id IS NOT NULL) AS "isRectified"
+    FROM fleet.fuelings f
+    JOIN fleet.vehicles v ON v.id = f.vehicle_id
+    LEFT JOIN fleet.drivers d ON d.id = f.driver_id
+  ${WHERE_CLAUSE}
+   ORDER BY f.fueled_at DESC, f.id DESC
+   LIMIT $5 OFFSET $6;
+`;
+
+const COUNT_AND_TOTALS_SQL = `
+  SELECT COUNT(*)::int AS "totalCount",
+         COALESCE(SUM(f.liters), 0)::numeric(14, 3)::text AS "liters",
+         COALESCE(SUM(f.total_value), 0)::numeric(14, 2)::text AS "totalValue"
+    FROM fleet.fuelings f
+    JOIN fleet.vehicles v ON v.id = f.vehicle_id
+  ${WHERE_CLAUSE};
+`;</code></pre>
+
+<h3>5.4 Camada de Persistência (<code>backend/src/repositories/reports.repository.ts</code>)</h3>
+<p>Implementa o contrato <code>ReportsRepositoryContract</code> recebendo <code>Pool</code> (driver <code>pg</code>) via construtor:</p>
+<ul>
+  <li><code>executeCountAndTotals(sql: string, values: readonly unknown[]): Promise&lt;{ totalCount: number; rawTotals: Record&lt;string, string&gt; }&gt;</code> — Executa a query de agregação parametrizada e extrai <code>totalCount</code> e as somas numéricas.</li>
+  <li><code>executeRows(sql: string, values: readonly unknown[]): Promise&lt;Record&lt;string, unknown&gt;[]&gt;</code> — Executa a query de linhas com <code>LIMIT</code> e <code>OFFSET</code> parametrizados.</li>
+</ul>
+
+<h3>5.5 Padrão Strategy para Exportação (<code>backend/src/services/reports/export/report-exporter.strategy.ts</code>)</h3>
+<p>Segue fielmente a Seção 5 de <code>docs/manuais/padroes-projeto.md</code>:</p>
+<ul>
+  <li><code>CsvReportExportStrategy</code>:
+    <ul>
+      <li>Gera conteúdo iniciado com BOM UTF-8 (<code>\uFEFF</code>) e delimitador <code>;</code> para abertura direta no Microsoft Excel e LibreOffice Calc com acentuação preservada;</li>
+      <li>Escapa aspas duplas internas (<code>"</code> → <code>""</code>) e envolve todos os valores entre aspas;</li>
+      <li>Neutraliza injeção de fórmulas em planilhas prefixando com <code>'</code> células cujo texto comece com <code>=</code>, <code>+</code>, <code>-</code> ou <code>@</code>;</li>
+      <li>Adiciona ao final a linha <code>"TOTAL";...</code> caso alguma coluna selecionada tenha <code>totalizable: true</code>.</li>
+    </ul>
+  </li>
+  <li><code>PrintReportExportStrategy</code>:
+    <ul>
+      <li>Empacota o resultado (até 2.000 linhas) em JSON estruturado (<code>ReportPrintPayload</code>) contendo cabeçalho institucional, metadados do emissor, filtros legíveis em português, colunas selecionadas e linha de totalizadores.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>5.6 Camada de Serviço e Auditoria (<code>backend/src/services/reports.service.ts</code>)</h3>
+<p>Serviço puro (sem <code>Request</code>/<code>Response</code> do Express), recebendo <code>ReportsRepositoryContract</code>, <code>ReportRegistry</code>, <code>UsersRepositoryContract</code> e <code>AuditLogger</code>:</p>
+<ol>
+  <li><code>getCatalogForRole(role: UserRole)</code>: filtra as definições do registro cujo <code>allowedRoles</code> inclui <code>role</code>, agrupadas por módulo.</li>
+  <li><code>previewReport(reportKey, rawQuery, actor)</code>: valida permissão do perfil na definição, valida <code>from</code>/<code>to</code> (máx. 366 dias), valida filtros e <code>columns</code>, executa <code>executeCountAndTotals</code> + <code>executeRows</code>, aplica <code>formatRow</code>, filtra <code>rows</code> e <code>totals</code> para conter apenas as colunas selecionadas e retorna <code>ReportPreviewResult</code>.</li>
+  <li><code>exportReport(reportKey, rawQuery, actor)</code>:
+    <ul>
+      <li>Executa primeiro <code>executeCountAndTotals</code>;</li>
+      <li>Se <code>format === 'csv'</code> e <code>totalCount &gt; 50_000</code> → lança <code>ReportServiceError('EXPORT_LIMIT_EXCEEDED', ...)</code>;</li>
+      <li>Se <code>format === 'print'</code> e <code>totalCount &gt; 2_000</code> → lança <code>ReportServiceError('PRINT_LIMIT_EXCEEDED', ...)</code>;</li>
+      <li>Busca as linhas com <code>limit = maxRows</code> e <code>offset = 0</code>, projeta apenas as colunas selecionadas, invoca o <code>ReportExporterContext</code> (Strategy) e registra a operação em <code>audit.logs</code>:
+        <pre><code>await this.auditService.recordAudit({
+  userId: actor.id,
+  table: `reports.${definition.key}`,
+  recordId: definition.key,
+  operation: 'EXPORT',
+  actorSnapshot: { id: actor.id, name: actor.name, email: actor.email, role: actor.role },
+  after: {
+    module: definition.module,
+    format,
+    period: { from: input.from, to: input.to },
+    filters: input.filters,
+    selectedColumns: input.selectedColumns.map((c) =&gt; c.key),
+    rowCount: rows.length,
+  },
+  reason: `Exportação de relatório (${format.toUpperCase()}) pelo painel gerencial`,
+})</code></pre>
+      </li>
+    </ul>
+  </li>
+</ol>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+
+<h3>6.1 Fluxo Operacional e Componentes Reutilizados (<code>frontend/src/pages/ReportsPage.tsx</code>)</h3>
+<p>A página é acessível na rota <code>/relatorios</code> (<code>REPORTS_PATH</code>) dentro do <code>Layout</code> autenticado, reutilizando integralmente os componentes de <code>frontend/src/components/ui/</code>:</p>
+<ol>
+  <li><strong>Cabeçalho (<code>PageHeader</code>):</strong> Título <em>"Relatórios Operacionais"</em>, subtítulo orientador e botões de ação primária (<em>"Exportar CSV"</em> e <em>"Imprimir relatório"</em>, habilitados quando houver ao menos 1 coluna selecionada e período válido).</li>
+  <li><strong>Seleção de Módulo e Tipo de Relatório (<code>FilterBar</code> + <code>FormSelect</code>):</strong>
+    <ul>
+      <li>Seletor de <strong>Módulo</strong> (<code>FROTA</code>, <code>MOTORISTAS</code>, <code>VIAGENS</code>, <code>MANUTENCOES</code> e, para <code>ADMINISTRADOR</code>, <code>AUTENTICACAO_RBAC</code>; <code>SVO</code> na Fase 2);</li>
+      <li>Seletor de <strong>Tipo de Relatório</strong> filtrado pelo módulo escolhido;</li>
+      <li>Ao selecionar um relatório, o hook <code>useReports</code> restaura do <code>localStorage</code> (chave <code>aratu.reports.prefs.&lt;userId&gt;.&lt;reportKey&gt;</code>) as colunas marcadas e o último período válido, ou aplica o padrão da definição (para relatórios com <code>period.required = true</code>, sugere os últimos 30 dias em <code>America/Maceio</code>).</li>
+    </ul>
+  </li>
+  <li><strong>Parametrização de Período e Filtros Específicos (<code>FormField</code> + <code>FormSelect</code>):</strong>
+    <ul>
+      <li>Campos de data <em>"Data inicial"</em> (<code>from</code>) e <em>"Data final"</em> (<code>to</code>) com <code>useId()</code> e indicação de obrigatoriedade conforme <code>report.period.required</code>;</li>
+      <li>Renderização dinâmica dos filtros declarados em <code>report.filters</code> (ex.: situação, tipo de combustível, tipo de manutenção, prefixo de placa);</li>
+      <li>Botões <em>"Gerar prévia"</em> e <em>"Limpar filtros"</em> com altura mínima de <code>44px</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Parametrização de Colunas Visíveis (<code>ReportColumnsSelector.tsx</code>):</strong>
+    <ul>
+      <li>Agrupador acessível (<code>&lt;fieldset&gt;</code> + <code>&lt;legend&gt;</code> <em>"Colunas visíveis no relatório"</em>) exibindo todas as colunas disponíveis do relatório como checkboxes acessíveis (alvo mínimo <code>44×44px</code>);</li>
+      <li>Botões rápidos <em>"Marcar todas"</em> e <em>"Restaurar padrão"</em>;</li>
+      <li>Impede ou alerta imediatamente (<code>role="alert"</code>) caso o usuário desmarque todas as colunas.</li>
+    </ul>
+  </li>
+  <li><strong>Tabela de Prévia Paginada + Linha de Totalizadores (<code>DataTable</code> + rodapé de somas):</strong>
+    <ul>
+      <li>Exibe até 50 linhas por página apenas com as colunas ligadas pelo usuário;</li>
+      <li>Valores de status utilizam <code>StatusChip</code> (nunca dependendo apenas de cor);</li>
+      <li>Acima e abaixo da tabela, exibe o resumo do conjunto filtrado: total de registros encontrados e os somatórios globais (ex.: <em>"Total de litros no período: 1.240,500 L · Valor total: R$ 7.430,20"</em>) para as colunas totalizáveis que estiverem visíveis;</li>
+      <li>Controles de paginação (<em>"Página anterior"</em> / <em>"Próxima página"</em>) com <code>aria-label</code> explícito.</li>
+    </ul>
+  </li>
+  <li><strong>Visão de Impressão (<code>ReportPrintView.tsx</code> + <code>ReportsPage.module.css</code>):</strong>
+    <ul>
+      <li>Ao acionar <em>"Imprimir relatório"</em>, o frontend consulta <code>GET /reports/:reportKey/export?format=print&amp;...</code> (até 2.000 linhas), renderiza o bloco institucional de impressão (logotipo/nome FSPH &amp; SVO, título do relatório, período, filtros aplicados, usuário emissor, data/hora de geração, tabela completa com colunas selecionadas e linha de totais) e invoca <code>window.print()</code>.</li>
+    </ul>
+  </li>
+</ol>
+
+<h3>6.2 Tratamento Explícito dos 5 Estados Visuais</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Estado Visual</th>
+      <th>Condição de Disparo</th>
+      <th>Componente e Comportamento na Interface</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Ideal</strong></td>
+      <td>Catálogo e prévia carregados com registros (<code>rows.length &gt; 0</code>)</td>
+      <td>Renderiza <code>DataTable</code> com as colunas ativas, chips de status com rótulo + cor, cards/faixa de totalizadores globais das colunas numéricas visíveis e paginação ativa.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Carregando (Loading)</strong></td>
+      <td>Carregamento inicial do catálogo, busca de prévia ou exportação em andamento</td>
+      <td><code>DataTable</code> com <code>busy={true}</code> e <code>StateFeedback kind="loading"</code> com <code>aria-busy="true"</code> (<em>"Carregando dados do relatório..."</em>). Botões de exportação exibem estado ocupado para evitar cliques duplicados.</td>
+    </tr>
+    <tr>
+      <td><strong>3. Vazio (Empty State)</strong></td>
+      <td>Prévia concluída com <code>totalCount === 0</code> para o período/filtros informados</td>
+      <td><code>StateFeedback kind="empty"</code> dentro da <code>DataTable</code>: <em>"Nenhum registro encontrado para o período e os filtros selecionados. Amplie o intervalo de datas ou limpe os filtros para tentar novamente."</em> com botão <em>"Limpar filtros"</em>.</td>
+    </tr>
+    <tr>
+      <td><strong>4. Erro</strong></td>
+      <td>Falha de rede, erro HTTP (<code>400</code>, <code>403</code>, <code>422</code>, <code>500</code>) na prévia ou no catálogo</td>
+      <td><code>StateFeedback kind="error"</code> com <code>role="alert"</code> exibindo a mensagem orientadora do backend (ex.: intervalo &gt; 366 dias ou data inicial maior que final) e botão <em>"Tentar novamente"</em>.</td>
+    </tr>
+    <tr>
+      <td><strong>5. Parcial / Limite de Exportação</strong></td>
+      <td>Prévia carregada na tela, mas falha ao exportar CSV (&gt; 50.000 linhas) ou imprimir (&gt; 2.000 linhas), ou restauração parcial do <code>localStorage</code></td>
+      <td>Preserva a prévia já carregada na tela e exibe <code>Alert severity="warning"</code> (<code>role="alert"</code>) orientando a ação corretiva: <em>"O volume de dados excede o limite de impressão em tela (2.000 linhas). Reduza o período filtrado ou utilize o botão Exportar CSV."</em></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<ul class="check">
+  <li><input type="checkbox"> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Todos os seletores de módulo/relatório, campos de período (<code>from</code>, <code>to</code>), filtros e checkboxes de colunas usam <code>useId()</code> conectando <code>&lt;label htmlFor&gt;</code> ao <code>&lt;input id&gt;</code>, <code>aria-invalid</code> e mensagem de erro com <code>role="alert"</code>.</li>
+  <li><input type="checkbox"> <strong>Agrupamento Semântico de Colunas (1.3.1):</strong> O seletor de ligar/desligar colunas utiliza <code>&lt;fieldset&gt;</code> e <code>&lt;legend&gt;</code> para que leitores de tela anunciem o contexto do grupo.</li>
+  <li><input type="checkbox"> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Operável integralmente via <code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Espaço</code> e <code>Esc</code>, com <code>:focus-visible</code> nítido e sem obstrução por cabeçalhos fixos.</li>
+  <li><input type="checkbox"> <strong>Tamanho do Alvo (2.5.8):</strong> Todos os botões (<em>"Gerar prévia"</em>, <em>"Exportar CSV"</em>, <em>"Imprimir relatório"</em>, paginação) e rótulos de checkboxes de colunas possuem área mínima de toque de <strong>44×44px</strong>.</li>
+  <li><input type="checkbox"> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste de texto &gt;= 4.5:1 na tela e na folha de estilo de impressão (<code>@media print</code> com fundo branco, bordas nítidas e texto escuro <code>#0f172a</code>); situações acompanhadas de texto explícito em português.</li>
+  <li><input type="checkbox"> <strong>Tabelas Acessíveis (1.3.1):</strong> <code>DataTable</code> com <code>&lt;caption&gt;</code> descritivo do relatório/período, cabeçalhos <code>&lt;th scope="col"&gt;</code> dinâmicos conforme as colunas ligadas e contêiner de rolagem horizontal focável por teclado.</li>
+  <li><input type="checkbox"> <strong>Mensagens de Status (4.1.3):</strong> Atualização de contagem de registros, colunas visíveis e conclusão de download CSV anunciadas via região com <code>role="status"</code> e <code>aria-live="polite"</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+
+<h3>8.1 Matriz de Acesso por Perfil RBAC</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Perfil RBAC</th>
+      <th>Menu "Relatórios" (<code>/relatorios</code>)</th>
+      <th>Relatórios Operacionais (Frota, Motoristas, Viagens, Manutenções)</th>
+      <th>Relatório de Usuários (<code>auth-users</code>)</th>
+      <th>Relatórios SVO (<code>svo-occurrences</code>, <code>svo-orders</code> — Fase 2)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge-rbac">ADMINISTRADOR</span></td>
+      <td>Visível e habilitado</td>
+      <td>Permitido (prévia, CSV e impressão)</td>
+      <td><strong>Permitido</strong> (exclusivo)</td>
+      <td>Permitido (Fase 2)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">GESTOR</span></td>
+      <td>Visível e habilitado</td>
+      <td>Permitido (prévia, CSV e impressão)</td>
+      <td>Bloqueado (<code>403 Forbidden</code> / oculto no catálogo)</td>
+      <td>Permitido (Fase 2)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">ATENDENTE_SVO</span></td>
+      <td>Habilitado na Fase 2</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+      <td>Permitido (Fase 2)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">SOLICITANTE</span></td>
+      <td>Oculto (redireciona para home)</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">MOTORISTA</span></td>
+      <td>Oculto (redireciona para home)</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+    </tr>
+    <tr>
+      <td><span class="badge-rbac">EQUIPE_SVO</span></td>
+      <td>Oculto (redireciona para home)</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+      <td>Bloqueado (<code>403 Forbidden</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>8.2 Configurações e Variáveis de Ambiente</h3>
+<ul>
+  <li><strong>Zero variáveis de ambiente novas e zero dependências externas novas:</strong> Os limites operacionais confirmados (<code>REPORT_PREVIEW_MAX_PAGE_SIZE = 50</code>, <code>REPORT_MAX_PERIOD_DAYS = 366</code>, <code>REPORT_CSV_MAX_ROWS = 50_000</code>, <code>REPORT_PRINT_MAX_ROWS = 2_000</code>) são constantes nomeadas em <code>backend/src/types/report.types.ts</code>.</li>
+  <li>O cálculo de situação de documentos em <code>fleet-vehicle-documents</code> reutiliza a configuração existente <code>vehicleDocumentAlertDays</code> (padrão <code>30</code> dias via <code>DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS</code>) já injetada em <code>createApp</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<h3>9.1 Testes Unitários — Backend (<code>backend/tests/reports.service.test.ts</code>)</h3>
+<ol>
+  <li><strong>Catálogo filtrado por RBAC:</strong> Verifica que <code>GESTOR</code> recebe os 8 relatórios operacionais da Fase 1 (sem <code>auth-users</code>), <code>ADMINISTRADOR</code> recebe todos os 9 relatórios e <code>SOLICITANTE</code>/<code>MOTORISTA</code> são barrados com <code>403</code>.</li>
+  <li><strong>Parametrização de colunas (ligar/desligar):</strong> Verifica que enviar <code>columns=licensePlate,liters</code> projeta exclusivamente essas duas chaves em cada linha de <code>rows</code> e omite <code>totalValue</code> de <code>totals</code>.</li>
+  <li><strong>Rejeição de colunas inválidas ou vazias:</strong> Verifica que <code>columns=</code> vazio lança <code>NO_COLUMNS_SELECTED</code> (<code>400</code>) e coluna inexistente lança <code>INVALID_COLUMN</code> (<code>400</code>).</li>
+  <li><strong>Validação de intervalo de datas:</strong> Verifica que relatório com <code>period.required = true</code> sem <code>from</code>/<code>to</code> retorna <code>400</code>; <code>from &gt; to</code> retorna <code>422 INVALID_DATE_RANGE</code>; e intervalo de 367 dias retorna <code>422 PERIOD_TOO_LARGE</code>.</li>
+  <li><strong>Máscara de CPF (LGPD):</strong> Verifica que <code>drivers-roster</code> transforma qualquer CPF fictício de teste (ex.: <code>11122233396</code>) em <code>***.222.333-**</code> tanto na prévia quanto no CSV e na impressão.</li>
+  <li><strong>Strategy de Exportação CSV e Fórmula Injection:</strong> Verifica presença do BOM UTF-8 (<code>\uFEFF</code>), separador <code>;</code>, linha final de totalizadores e escape de células iniciadas por <code>=</code>, <code>+</code>, <code>-</code> ou <code>@</code>.</li>
+  <li><strong>Limites de volume (50.000 CSV / 2.000 Impressão) e Auditoria:</strong> Verifica bloqueio com <code>422</code> quando <code>totalCount</code> supera o limite do formato e confirma chamada a <code>auditService.recordAudit</code> com <code>operation: 'EXPORT'</code> nos casos de sucesso.</li>
+</ol>
+
+<h3>9.2 Testes de Integração — Backend + PostgreSQL 18 (<code>backend/tests/reports.integration.test.ts</code>)</h3>
+<ol>
+  <li><strong>Execução real dos 9 relatórios da Fase 1 no PostgreSQL 18:</strong> Insere dados 100% sintéticos (veículos, motoristas com CPFs fictícios de <code>scheduling.fixture.ts</code>, abastecimentos com retificação <code>supersedes_id</code>, documentos, multas, solicitações, viagens concluidas com km inicial/final, manutenções e usuários) e valida <code>GET /reports/:reportKey/preview</code> e <code>GET /reports/:reportKey/export</code>.</li>
+  <li><strong>Fidelidade histórica (retificações e snapshots):</strong> Confirma que um abastecimento substituído via <code>supersedes_id</code> ou anulado (<code>is_annulled = true</code>) não duplica litros nem valor no totalizador de <code>fleet-fuelings</code>, e que a placa exibida na viagem reflete o <code>vehicle_snapshot</code> da época.</li>
+  <li><strong>Gravação em <code>audit.logs</code>:</strong> Confirma que após <code>GET /reports/fleet-fuelings/export?format=csv&amp;from=2026-11-01&amp;to=2026-11-15</code> existe registro em <code>audit.logs</code> com <code>table_name = 'reports.fleet-fuelings'</code>, <code>operation = 'EXPORT'</code> e <code>after-&gt;&gt;'rowCount'</code> esperado.</li>
+</ol>
+
+<h3>9.3 Testes Automatizados — Frontend (<code>frontend/tests/reportsService.test.mjs</code> e <code>frontend/tests/reportsPage.test.mjs</code>)</h3>
+<ol>
+  <li><strong>Navegação e RBAC:</strong> Verifica que <code>getSidebarNavigation('GESTOR')</code> e <code>getSidebarNavigation('ADMINISTRADOR')</code> expõem o link <em>"Relatórios"</em> para <code>/relatorios</code> e que <code>resolveRoute</code> redireciona perfis não autorizados.</li>
+  <li><strong>Interação de ligar/desligar colunas e persistência local:</strong> Verifica que desmarcar uma coluna no <code>ReportColumnsSelector</code> atualiza os cabeçalhos da <code>DataTable</code>, salva a preferência no <code>localStorage</code> e envia o parâmetro <code>columns</code> atualizado para a API.</li>
+  <li><strong>5 Estados Visuais e Acessibilidade:</strong> Verifica renderização dos estados <em>Carregando</em> (<code>aria-busy="true"</code>), <em>Vazio</em>, <em>Erro</em> (<code>role="alert"</code>), <em>Parcial</em> (alerta de limite de impressão) e <em>Ideal</em> (com linha de totalizadores).</li>
+</ol>
+
+<h3>9.4 Roteiro de Validação Manual (Dados 100% Fictícios — LGPD)</h3>
+<ol>
+  <li>Autenticar na aplicação web (<code>http://localhost:5173</code>) como <code>GESTOR</code> e acessar no menu lateral <strong>GESTÃO → Relatórios</strong> (<code>/relatorios</code>).</li>
+  <li>Selecionar o módulo <strong>Frota</strong> e o relatório <strong>Abastecimentos por período</strong>, informar o período dos últimos 30 dias e clicar em <strong>Gerar prévia</strong>. Conferir a tabela paginada e os totais de litros e valor.</li>
+  <li>Desligar as colunas <em>Posto</em> e <em>Valor total</em> no seletor de colunas e gerar novamente: confirmar que ambas somem da tabela, da linha de totais e do arquivo baixado em <strong>Exportar CSV</strong>.</li>
+  <li>Selecionar o módulo <strong>Motoristas</strong> e confirmar que a coluna de CPF exibe apenas o formato mascarado <code>***.456.789-**</code>.</li>
+  <li>Clicar em <strong>Imprimir relatório</strong> e verificar o cabeçalho institucional e a tabela formatada para impressão.</li>
+</ol>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-132)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivos de referência:</strong> <code>docs/manuais/modulos.md</code> e <code>docs/modulos/FROTA.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<blockquote>Esta tarefa <strong>impacta</strong> a documentação técnica e funcional do sistema. Antes de abrir o Pull Request, atualize <code>docs/modulos/FROTA.html</code> e <code>docs/manuais/modulos.md</code> documentando os endpoints <code>GET /reports/catalog</code>, <code>GET /reports/:reportKey/preview</code> e <code>GET /reports/:reportKey/export</code>, o motor extensível de definições por módulo, a tela <code>/relatorios</code> e a auditoria de exportações em <code>audit.logs</code>.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMIN</code>, <code>MANAGER</code>, <code>OPERATOR</code>, <code>REQUESTER</code>, <code>TRIAGE</code>, <code>DRIVER</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>
