@@ -55,6 +55,10 @@ import { createSvoOccurrencesRouter, svoErrorHandler } from './routes/svo-occurr
 import { SvoOrdersRepository } from './repositories/svo-orders.repository'
 import { SvoOrdersService } from './services/svo-orders.service'
 import { createSvoOrdersRouter, svoOrderErrorHandler } from './routes/svo-orders.routes'
+import { ReportsRepository } from './repositories/reports.repository'
+import { ReportsService } from './services/reports.service'
+import { ReportRegistry } from './services/reports/report-registry'
+import { createReportsRouter } from './routes/reports.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -138,6 +142,8 @@ export function createApp({
     const currentUsersRepository = userRepository instanceof UsersRepository
       ? userRepository
       : new UsersRepository(pool)
+    const reportsService = new ReportsService(new ReportsRepository(pool), new ReportRegistry(vehicleDocumentAlertDays), currentUsersRepository, auditService)
+    app.use('/reports', createReportsRouter(reportsService, jwtConfig, currentUsersRepository))
     app.use('/fines', createFinesRouter(finesService, jwtConfig, currentUsersRepository))
     app.use('/vehicle-documents', createVehicleDocumentsRouter(vehicleDocumentsService, jwtConfig, currentUsersRepository))
     const requestDecisionsService = new RequestDecisionsService(new RequestDecisionsRepository(pool), auditService)
