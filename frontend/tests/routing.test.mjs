@@ -2,7 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { resolveRoute } from '../src/routing/routeDecision.ts'
 import { PROFILE_PERMISSIONS_PATH, resolveProfile } from '../src/auth/profiles.ts'
+import { REQUEST_ANALYSIS_PATH } from '../src/requests/requestAccess.ts'
 import { sessionFor } from './fixtures.mjs'
+import { TRIP_CONFIRMATION_PATH } from '../src/trips/tripConfirmationTypes.ts'
 
 const destinations = [
   ['ADMINISTRADOR', '/administracao/usuarios'],
@@ -17,6 +19,14 @@ const vehicleReaders = new Set(['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'])
 const VEHICLES_PATH = '/veiculos'
 const DRIVERS_PATH = '/motoristas'
 const FUELINGS_PATH = '/abastecimentos'
+
+test('acompanhamento SVO é restrito ao atendente e ao gestor, preservando as homes de cada perfil', () => {
+  for (const [profile, home] of destinations) {
+    assert.deepEqual(resolveRoute(sessionFor(profile), '/svo/acompanhamento'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR'
+      ? { kind: 'svo-orders', profile } : { kind: 'redirect', to: home })
+  }
+  assert.deepEqual(resolveRoute(null, '/svo/acompanhamento'), { kind: 'redirect', to: '/login' })
+})
 
 for (const [profile, path] of destinations) {
   test(profile + ' vai para a própria tela e não pode abrir as demais', () => {
@@ -50,6 +60,9 @@ for (const [profile, path] of destinations) {
         ? { kind: 'fuelings', profile }
         : { kind: 'redirect', to: path },
     )
+    assert.deepEqual(resolveRoute(session, REQUEST_ANALYSIS_PATH), profile === 'GESTOR'
+      ? { kind: 'request-analysis', profile: 'GESTOR' }
+      : { kind: 'redirect', to: path })
   })
 }
 
@@ -75,4 +88,29 @@ test('nomes de perfis informados por Lucas são reconhecidos sem ampliar acesso'
   assert.equal(resolveProfile('motorista'), 'MOTORISTA')
   assert.equal(resolveProfile('Gestor de Frota'), 'GESTOR')
   assert.equal(resolveProfile('desconhecido'), null)
+})
+
+test('somente MOTORISTA abre /viagens/minhas; demais perfis voltam à própria home', () => {
+  assert.deepEqual(resolveRoute(sessionFor('MOTORISTA'), '/viagens/minhas'), {
+    kind: 'home',
+    profile: 'MOTORISTA',
+  })
+  for (const [profile, home] of destinations) {
+    if (profile === 'MOTORISTA') continue
+    assert.deepEqual(resolveRoute(sessionFor(profile), '/viagens/minhas'), {
+      kind: 'redirect',
+      to: home,
+    })
+  }
+})
+
+test('somente GESTOR abre a tela de confirmação de viagens', () => {
+  assert.deepEqual(resolveRoute(sessionFor('GESTOR'), TRIP_CONFIRMATION_PATH), {
+    kind: 'trip-confirmation', profile: 'GESTOR',
+  })
+  for (const [profile, home] of destinations) {
+    if (profile === 'GESTOR') continue
+    assert.deepEqual(resolveRoute(sessionFor(profile), TRIP_CONFIRMATION_PATH), { kind: 'redirect', to: home })
+  }
+  assert.deepEqual(resolveRoute(null, TRIP_CONFIRMATION_PATH), { kind: 'redirect', to: '/login' })
 })

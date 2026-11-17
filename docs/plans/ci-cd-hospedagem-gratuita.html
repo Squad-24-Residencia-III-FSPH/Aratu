@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — CI-CD — Diagnóstico e recuperação da entrega gratuita (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+    .tableWrap { overflow-x: auto; }
+    td, th { overflow-wrap: anywhere; }
+    @media (max-width: 640px) { body { padding: 16px; } }
+  </style>
+</head>
+<body>
+<main id="content">
+
+<h1>SDD — CI-CD: Diagnóstico e recuperação da entrega gratuita</h1>
+
+<div class="notice-block"><strong>Estado:</strong> implementação local preparada e validada; configuração dos serviços e integração Git pendentes. Atualização de 17/11/2026: o administrador solicitou implementação guiada e remoção de staging. Fluxo aprovado: feature/fix → develop → main; uma única homologação gratuita.</div>
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>CI-CD</code> (identificador local, sem issue Jira vinculada) — Diagnóstico e recuperação da entrega gratuita</p>
+  <p><strong>Branch (Gitflow):</strong> <code>fix/ci-cd-free-hosting</code> (proposta; criar a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>INFRAESTRUTURA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ADMINISTRADOR, GESTOR, SOLICITANTE, MOTORISTA, ATENDENTE_SVO, EQUIPE_SVO</code></p>
+  <p><strong>Data:</strong> 2026-11-16</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p><strong>Objetivo:</strong> entregar uma URL HTTPS gratuita e estável para homologação do Aratu, com contas distintas para os seis perfis existentes e publicação rastreável da <code>main</code>, sem depender do antigo VPS.</p>
+<p><strong>Contexto confirmado em 16/11/2026:</strong> o responsável anterior não está disponível; o usuário não conhece a hospedagem atual e solicitou substituí-la. O orçamento é zero e a finalidade é o cliente testar o sistema com todos os tipos de usuário. Este plano não pressupõe acesso ao servidor antigo.</p>
+<h3>Diagnóstico original comprovado — 16/11/2026</h3>
+<div class="tableWrap"><table><thead><tr><th scope="col">Evidência</th><th scope="col">Resultado e implicação</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/Squad-24-Residencia-III-FSPH/Aratu/actions/runs/43889507319">Execução #130 / PR #85 — 16/11/2026</a></td><td>frontend-ci, backend-ci e docker-ci aprovados; create-release-pr e deploy-production pulados. Esses dois skips são esperados em PR, pelas condições das linhas 110 e 147 de ci-cd.yml.</td></tr>
+<tr><td><a href="https://github.com/Squad-24-Residencia-III-FSPH/Aratu/actions/runs/43883855855">Execução #128 / PR #84 — 16/11/2026</a></td><td>frontend-ci falhou, backend-ci passou; docker-ci foi pulado pela dependência needs. A anotação aponta saída 1 no frontend; sem login não foi possível ler o erro detalhado dos testes.</td></tr>
+<tr><td><a href="https://github.com/Squad-24-Residencia-III-FSPH/Aratu/actions/runs/42890346062">Último push da main visível: #95 — 10/11/2026, 16:56, Fortaleza</a></td><td>Commit b81129b: frontend, backend e Docker aprovados; deploy-production falhou em 18 segundos, saída 255 na etapa que executa SSH. A entrega chegou ao CD. Não há evidência suficiente para atribuir o erro a chave, host, firewall ou comando remoto específico.</td></tr>
+<tr><td>Workflows locais e referências origin/main e origin/staging</td><td>O mesmo workflow existe nas três referências examinadas. O CD usa SSH e Docker Compose num VPS; não publica em plataforma gerenciada. O Environment production não cria um servidor.</td></tr>
+<tr><td>Inspeção de backend/tests e frontend/tests</td><td>Não encontrados .skip(), skip: ou .todo() explícitos nas suítes atuais. Não foi possível obter contagens TAP dos logs remotos sem autenticação; jobs pulados não equivalem a casos de teste pulados.</td></tr>
+<tr><td>Compilação isolada do backend em /tmp/aratu-ci-audit-dist</td><td>TypeScript compilou; executor de migrations existe no dist, mas a pasta SQL não existe. Há 20 migrations de subida em src. O Dockerfile copia somente dist no runtime e remove tsx; npm run db:migrate aponta para tsx e src. A imagem atual precisa de um caminho executável de migração.</td></tr>
+<tr><td>app.ts, docker-compose.prod.yml e ci-cd.yml</td><td>GET / retorna mensagem fixa sem consultar banco. O CD não aplica migrations; os smoke checks atuais só validam as raízes da SPA/API. Um deploy pode parecer saudável com schema ausente.</td></tr>
+<tr><td>Referências Git locais, sem fetch</td><td>origin/main...origin/develop contém 1 commit exclusivo da main e 65 exclusivos da develop; origin/staging...origin/develop, 0 e 193. A main local c9899b8 está atrás de origin/main b81129b. Atualizar referências antes de promover; essas contagens não medem funcionalidades nem o servidor publicado.</td></tr>
+</tbody></table></div>
+<h3>Hospedagem recomendada</h3>
+<p><strong>Cloudflare Pages Free + Render Web Service Free + Neon Free (PostgreSQL 18).</strong> É uma recomendação técnica para a homologação solicitada; não foi provisionado nenhum serviço.</p>
+<pre><code>Cliente no navegador
+  ├── HTTPS → Cloudflare Pages: arquivos React/Vite
+  └── HTTPS → Render: API Express/Node 24
+                  └── TLS → Neon: PostgreSQL 18
+GitHub Actions → CI → migrations → API → frontend → smoke checks</code></pre>
+<div class="tableWrap"><table><thead><tr><th scope="col">Serviço</th><th scope="col">Papel e limite relevante</th></tr></thead><tbody>
+<tr><td>Cloudflare Pages Free</td><td>Hospeda frontend estático em subdomínio pages.dev, sem comprar domínio. Até 500 builds/mês na integração de build; publicação por Direct Upload permite enviar o dist já validado no Actions. <a href="https://developers.cloudflare.com/pages/platform/limits/">Limites</a>; <a href="https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/">CI e Direct Upload</a>.</td></tr>
+<tr><td>Render Free</td><td>Uma API, 750 horas gratuitas por workspace/mês; dorme após 15 minutos sem tráfego e a retomada leva cerca de um minuto. Disco é efêmero. Não há pre-deploy command, shell ou one-off jobs gratuitos; executar migrations pelo Actions. O Render alerta também para suspensão por volume incomum de tráfego iniciado pelo serviço, inclusive banco externo. <a href="https://render.com/docs/free">Condições Free</a>; <a href="https://render.com/docs/deploys#pre-deploy-command">Pre-deploy</a>.</td></tr>
+<tr><td>Neon Free</td><td>Postgres 18 suportado; na consulta atual: 1 GB por projeto, 100 CU-horas/mês/projeto, 5 GB de transferência/mês e suspensão após 5 minutos de inatividade. Não é quota de 100 horas corridas: a 0,25 CU são 400 horas ativas. <a href="https://neon.com/docs/introduction/plans">Plano atual</a>; <a href="https://neon.com/docs/reference/compatibility">Compatibilidade</a>.</td></tr>
+</tbody></table></div>
+<p>O custo alvo é R$ 0 usando os subdomínios dos serviços e respeitando as franquias. Não habilitar plano pago ou adicionais. Conferir no cadastro qualquer exigência de cartão/verificação e as cotas efetivas da conta; se uma etapa exigir cobrança, interromper essa contratação. Não prometer disponibilidade contínua nem tempo de resposta de serviço pago.</p>
+<p><strong>Alternativas:</strong> Render Static Site Free + API Render Free + Neon Free reduz os provedores de três para dois e também serve ao objetivo. Cloudflare atende à opção sugerida pelo usuário e oferece hospedagem estática dedicada. Vercel pode servir o Vite, mas o plano Hobby tem limitações de colaboração; não traz vantagem necessária aqui. Railway não foi selecionado: seus planos e consumo não oferecem a mesma previsibilidade para este orçamento estritamente zero. Não usar Render Postgres Free, que expira em 30 dias. Não migrar o Express para Workers ou funções serverless nesta recuperação.</p>
+<p><strong>Escopo:</strong> recuperar CI/CD, homologação e acesso da equipe; preservar stack, API e RBAC. Não inclui recuperar dados antigos sem acesso ao banco, criar infraestrutura operacional para dados reais ou alterar regras de frota/SVO. Dados de seed e de homologação serão fictícios, conforme as diretrizes do projeto.</p>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<h3>Plano de execução em ordem</h3>
+<ol>
+<li><strong>P0 — Recuperar governança e simplificar Gitflow.</strong> Remover promoção via staging. Após atualizar referências remotas, confirmar ancestralidade e PRs abertos; retirar dependências dos workflows e só então excluir staging. Em 17/11/2026, staging não tem commits exclusivos frente a develop (0/213). O usuário confirmou ser administrador.  Confirmar um administrador e um substituto com acesso ao repositório e às contas Cloudflare, Render e Neon. Registrar projetos, URLs, responsáveis e recuperação de acesso, sem senhas na documentação. Inventariar o que ainda existe no GitHub: Environment production, nomes de secrets/vars, regras de branches e integrações. Não excluir recursos antigos nem presumir perda ou inexistência de dados.</li>
+<li><strong>P1 — Tornar o CI verificável.</strong> Separar validação, promoção e publicação; adicionar gate final que falhe se qualquer check obrigatório falhar, for cancelado ou pulado. Registrar contagem de testes executados/falhos/pulados e salvar relatórios mesmo com falha. Manter banco descartável PostgreSQL 18 no runner. Atualizar actions que emitem avisos de Node 20 para versões suportadas por Node 24 e fixar versões verificadas; escolher uma imagem Ubuntu explícita validada para evitar migração silenciosa de ubuntu-latest.</li>
+<li><strong>P2 — Preparar pacote e banco.</strong> Copiar SQL para dist e disponibilizar comandos Node compilados. Validar imagem real com PostgreSQL limpo, migrations e autenticação sintética. Criar Neon PG18 novo e aplicar migrations do SHA aprovado, com URL direta e TLS. Provisionar contas fictícias por perfil sem reset automático.</li>
+<li><strong>P3 — Publicar API no Render Free.</strong> Vincular repositório/branch main, runtime Node 24 via Dockerfile.prod e porta PORT. Desativar autodeploy independente: Actions será a autoridade de publicação. Acionar a API de deploy com commitId do SHA aprovado e acompanhar até ficar live; não considerar HTTP 201/202 como deploy concluído.</li>
+<li><strong>P4 — Publicar frontend no Pages Free.</strong> Compilar com VITE_API_BASE_URL apontando para a origem HTTPS da API, sem sufixo /api; enviar dist pelo Actions após API saudável. Configurar navegação SPA, validar recarga em rota autenticada e CORS.</li>
+<li><strong>P5 — Homologar e entregar acesso.</strong> Testar login e operações permitidas/proibidas dos seis perfis, retomada após inatividade, persistência após redeploy e rollback. Entregar URL e credenciais por canal privado autorizado, com roteiro de teste e dois responsáveis documentados.</li>
+</ol>
+<h3>Critérios de aceite</h3>
+<ul>
+<li>Dado um PR para develop/main, quando CI executa, então as suítes obrigatórias rodam; nenhum deploy é iniciado e o PR mostra somente checks de validação.</li>
+<li>Dado lint ou teste falhando, então o gate final falha, o log identifica a etapa raiz e o merge fica bloqueado pelas regras configuradas.</li>
+<li>Dado um push aprovado em main, então migrations e serviços publicados correspondem ao mesmo SHA. Se migrations falharem, a API nova e o frontend novo não são publicados.</li>
+<li>Dado um serviço adormecido, quando o usuário entra ou retoma a sessão, então recebe feedback acessível de preparação e uma espera limitada; senhas inválidas continuam retornando erro de credenciais.</li>
+<li>Dado cada perfil, então há uma conta independente e as permissões reais continuam sendo verificadas pelo backend; acesso aos seis perfis não significa permissões irrestritas numa única conta.</li>
+<li>Dado um redeploy, então os registros persistem no Neon. Nenhum job de CI ou fixture aponta para a base de homologação.</li>
+</ul>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<div class="tableWrap"><table><thead><tr><th scope="col">Arquivo</th><th scope="col">Alteração planejada</th></tr></thead><tbody>
+<tr><td>.github/workflows/ci-cd.yml</td><td>Substituir gradualmente pelos dois workflows abaixo, removendo a dependência de SSH. Migrar regras de checks junto com a mudança para não bloquear PRs com nomes inexistentes.</td></tr>
+<tr><td>.github/workflows/ci.yml (novo)</td><td>Validação reutilizável com workflow_call, execução em PR e push de develop; jobs frontend-ci, backend-ci, docker-ci e ci-required. Instalação, lint, testes e build com relatórios claros.</td></tr>
+<tr><td>Promoção de versão</td><td>PR manual develop → main; nenhum workflow de abertura automática de PR e nenhuma branch staging.</td></tr>
+<tr><td>.github/workflows/deploy-homologation.yml (novo)</td><td>Push main e reexecução manual restrita à main: CI reutilizável → migrations → Render → Pages → smoke checks; Environment homologation e exclusão mútua por ambiente.</td></tr>
+<tr><td>backend/package.json; backend/scripts/copy-migrations.mjs (novo); backend/Dockerfile.prod</td><td>Copiar SQL no build sem biblioteca extra; adicionar start e db:migrate:prod compilados; runtime continua sem tsx. Evitar executar migrations no build da imagem.</td></tr>
+<tr><td>backend/src/app.ts; backend/src/index.ts; backend/src/database/pool.ts</td><td>Integrar healthchecks e configuração CORS da origem de homologação; validar configuração sem imprimir secrets; verificar TLS fornecido pela URL Neon sem desativar validação de certificado.</td></tr>
+<tr><td>backend/src/repositories/health.repository.ts; backend/src/services/health.service.ts; backend/src/controllers/health.controller.ts; backend/src/routes/health.routes.ts (novos)</td><td>Readiness pela cadeia de camadas do projeto, sem SQL no controller. Rotas pequenas e sem informações sensíveis.</td></tr>
+<tr><td>frontend/src/auth/loginService.ts; frontend/src/auth/AuthProvider.tsx; frontend/src/api/client.ts; frontend/src/pages/loginPage/LoginPage.tsx</td><td>Preparar disponibilidade antes de autenticar/retomar e feedback durante cold start, reaproveitando contrato e componentes. Não repetir escritas automaticamente.</td></tr>
+<tr><td>backend/src/database/scripts/seed-demo.ts (novo); testes relacionados</td><td>Provisionamento manual idempotente de contas e cenários fictícios por perfil, reaproveitando os seeds existentes. Passwords vindos de secret; sem credenciais no bundle nem nos logs.</td></tr>
+<tr><td>.env.example; docs/manuais/deploy.md; README.md</td><td>Documentar configuração, responsáveis, franquias, publicação, backup e recuperação. Variáveis reais somente nos painéis protegidos.</td></tr>
+</tbody></table></div>
+<p>Os Dockerfiles e Compose continuam úteis para desenvolvimento e verificação do pacote, sem provisionar banco Docker no Render. Não alterar fluxos de domínio nesta tarefa.</p>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p><strong>Não há novo schema de negócio proposto.</strong> Aplicar as migrations existentes no commit aprovado numa base Neon PostgreSQL 18 nova (21 na develop atualizada em 17/11/2026); manter auth, audit, fleet, trip e svo. O passado do banco antigo não é reconstruído a partir de seeds.</p>
+<ol>
+<li>Na conta controlada pela equipe, criar projeto Neon Free de homologação; preferir região próxima da API entre as opções disponíveis. Usar conexão TLS gerada pelo Neon e banco exclusivo.</li>
+<li>Preparar dist/database/migrations com todos os SQL e validar que a quantidade corresponde à origem. Hoje loadFiles() retorna lista vazia quando não encontra a pasta; para a execução de produção, ausência de migrations deve ser erro explícito.</li>
+<li>No job protegido, executar <code>node dist/database/scripts/migrate.js</code>, com <code>DATABASE_URL</code> apontando à conexão direta de migração. Serializar releases do mesmo ambiente; não executar um migrador por réplica nem no arranque a cada cold start.</li>
+<li>Usar o DatabaseMigrator existente: transação por migration e controle em schema_migrations. Aplicações novas exigem migrations compatíveis com a versão anterior, pois a API antiga ainda pode estar ativa durante a atualização.</li>
+<li>Provisionar matriz RBAC e contas fictícias por comando manual idempotente, reaproveitando funções existentes. O seed atual inclui frota/equipe SVO além do administrador; não assumir que ele já cria os seis logins de homologação.</li>
+</ol>
+<p>Para uma API única, começar com conexão direta TLS e pool pg limitado; medir conexões e latência antes de adotar pooling externo. Não usar os helpers destrutivos de testes no Neon. O CI permanece no PostgreSQL descartável do GitHub, com DATABASE_URL_TEST explícita e distinta da base compartilhada.</p>
+<h3>Backup e rollback</h3>
+<p>Antes de migrations futuras, gerar exportação lógica e conferir restauração numa base de verificação autorizada. A janela gratuita de restore do Neon é curta; não substitui um procedimento de backup testado. Guardar exportação fora do repositório e de artefatos públicos.</p>
+<p>Se a API nova falhar, não publicar frontend novo; restaurar o último deploy estável no Render e a publicação correspondente no Pages. Reverter aplicação não reverte schema. Não executar .down.sql automaticamente nem apagar registros; avaliar reversão conforme dados gravados. Banco antigo só será migrado após obter acesso, inventário e decisão explícita sobre o que preservar.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<h3>Contratos adicionais, sem alteração nas APIs de domínio</h3>
+<div class="tableWrap"><table><thead><tr><th scope="col">Rota</th><th scope="col">Resposta</th><th scope="col">Uso</th></tr></thead><tbody>
+<tr><td>GET /health/live</td><td>200, {"status":"alive"}</td><td>Processo HTTP ativo; configurar como healthcheck periódico do Render. Não consulta banco.</td></tr>
+<tr><td>GET /health/ready</td><td>200, {"status":"ready"}; 503, {"status":"unavailable"}</td><td>Conexão ao banco e schema esperado disponíveis; usar no deploy e ao preparar sessão, com timeout. Não retornar URL, SQL ou detalhes internos.</td></tr>
+</tbody></table></div>
+<p>Repository concentra consultas; Service interpreta disponibilidade; Controller traduz para HTTP; Router registra rotas. Preservar GET / existente e todos os contratos de autenticação. O endpoint de prontidão não exige login para permitir a retomada inicial.</p>
+<p><strong>Evitar consumo contínuo do Neon:</strong> o healthcheck periódico não consulta o banco. Sondagens permanentes de readiness podem manter o compute ativo e consumir a franquia de 100 CU-horas. Não criar pings artificiais para impedir a suspensão gratuita.</p>
+<h3>Execução no Render</h3>
+<p>Usar a imagem baseada em Node 24 já existente, corrigida para conter SQL. Manter bind 0.0.0.0 e PORT fornecido pelo serviço, já suportados em index.ts. Build sem acesso ao banco; inicialização por node dist/index.js. O runner protegido aplica migrations antes do disparo de deploy.</p>
+<p>CORS hoje usa cors() global. Introduzir configuração de infraestrutura com origem HTTPS exata do Pages, permitindo Authorization e Content-Type e preflight OPTIONS; preservar desenvolvimento local. Não usar credenciais de banco no navegador e não desabilitar validação TLS. JWT_SECRET novo e estável entre redeploys fica somente no servidor.</p>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p>O frontend já suporta <code>VITE_API_BASE_URL</code> em AuthProvider.tsx. Na build de homologação, apontar para <code>https://&lt;servico&gt;.onrender.com</code>, sem /api: as rotas Express são /auth, /vehicles etc. O prefixo /api é removido pelo Nginx atual e pelo proxy Vite; esse proxy de desenvolvimento não existe no Pages.</p>
+<p>Gerar <code>frontend/dist</code> com Node 24, lockfile e URL HTTPS definidos no build. VITE_* é conteúdo público; nunca colocar secrets nessas variáveis. Publicar por Direct Upload em projeto Pages com branch de publicação main e fallback SPA verificado em rota profunda. O npm da raiz não substitui os dois projetos independentes.</p>
+<h3>Retomada após suspensão</h3>
+<p>Hoje loginService e api/client usam timeout de 15 segundos. Acrescentar preparação de disponibilidade com GET /health/ready antes do POST de login e quando a sessão for retomada após inatividade. A espera terá orçamento total de até 120 segundos, tentativa cancelável e feedback; não classificar cold start como credencial inválida. Limitar retries a sondagens GET: não repetir automaticamente POST/PATCH de operações de negócio.</p>
+<div class="tableWrap"><table><thead><tr><th scope="col">Estado</th><th scope="col">Comportamento</th></tr></thead><tbody>
+<tr><td>Ideal</td><td>API pronta; login e navegação seguem o fluxo existente.</td></tr>
+<tr><td>Carregando</td><td>Feedback: “Preparando o acesso. Isso pode levar cerca de um minuto.” Status anunciado; impedir submissões duplicadas e permitir cancelar a espera.</td></tr>
+<tr><td>Vazio</td><td>Listagens sem registros continuam oferecendo os estados vazios existentes, sem tratar isso como falha de deploy.</td></tr>
+<tr><td>Erro</td><td>Ao esgotar a espera, mensagem orientadora e “Tentar novamente”, preservando campos; 401 mantém a mensagem de credenciais inválidas.</td></tr>
+<tr><td>Parcial</td><td>Frontend disponível com API indisponível: manter contexto e informar indisponibilidade; nenhuma operação é exibida como salva sem confirmação do backend.</td></tr>
+</tbody></table></div>
+<p>Reutilizar StateFeedback, Alert e componentes existentes; não refatorar todo o login nem introduzir seletor de perfil que burle autenticação. O usuário recebe seis contas separadas.</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<ul>
+<li>Texto de preparação anunciado por role="status"/aria-live="polite"; erro por role="alert", sem anúncios repetidos a cada sondagem.</li>
+<li>Botões “Cancelar espera” e “Tentar novamente” operáveis por teclado, foco visível e área de toque de 44×44 px.</li>
+<li>Não apagar preenchimento durante retomada nem bloquear colar senha. Gerenciar foco após cancelamento ou erro sem deslocamento automático repetido.</li>
+<li>Preservar navegação, contraste, tema e comportamento existente; verificar mobile, zoom de 200% e leitor de tela nos estados de espera/erro.</li>
+<li>O relatório usa títulos semânticos, idioma pt-BR e tabelas com cabeçalhos; acessibilidade não depende apenas de cores.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<h3>Separar branch, Environment e hospedagem</h3>
+<p><strong>Branch main:</strong> origem da versão publicada. <strong>Environment homologation:</strong> proteção e escopo de credenciais no GitHub. <strong>Render/Pages/Neon:</strong> hospedagem e banco. A opção “Production branch” do Pages pode ser main mesmo que o uso do sistema seja homologação; esse nome do provedor não transforma o ambiente em produção operacional.</p>
+<p>Criar homologation restrito à main. Manter histórico do antigo production enquanto se inventariam integrações; sua remoção não é necessária. NODE_ENV=production continua correto no runtime Node de homologação para executar o build otimizado e as validações de segurança.</p>
+<div class="tableWrap"><table><thead><tr><th scope="col">Local</th><th scope="col">Configuração proposta</th></tr></thead><tbody>
+<tr><td>GitHub Environment homologation — secrets</td><td>NEON_DATABASE_URL para migrations, RENDER_API_KEY, CLOUDFLARE_API_TOKEN e credenciais fictícias de bootstrap/smoke quando necessárias. Token Cloudflare restrito à conta/projeto e permissões Pages pertinentes; nenhuma credencial desses serviços em PR.</td></tr>
+<tr><td>GitHub Environment — variables</td><td>RENDER_SERVICE_ID, API_BASE_URL, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_PAGES_PROJECT. IDs de recursos e URLs serão registrados após provisionamento.</td></tr>
+<tr><td>Render — secrets e runtime</td><td>DATABASE_URL Neon TLS, JWT_SECRET exclusivo, JWT_EXPIRES_IN; NODE_ENV=production; CORS_ALLOWED_ORIGIN como parâmetro de infraestrutura proposto. PORT fornecido pelo serviço.</td></tr>
+<tr><td>Frontend — build</td><td>VITE_API_BASE_URL=origem HTTPS do Render, sem /api. Sem senha, JWT_SECRET ou DATABASE_URL.</td></tr>
+<tr><td>CI — somente runner</td><td>Postgres 18 efêmero, DATABASE_URL e DATABASE_URL_TEST explicitamente distintos, JWT fictício. Não acessar Neon compartilhado nem secrets do ambiente.</td></tr>
+</tbody></table></div>
+<p>Os nomes novos acima são parâmetros de infraestrutura necessários à hospedagem pedida, não feature flags de negócio.</p>
+<h3>Gitflow e gates</h3>
+<p>Adotar o fluxo solicitado feature/fix → develop → main. Promover por PR manual e remover staging após retirar dependências e verificar PRs abertos. Usar uma única homologação gratuita publicada pela main, sem outro servidor de testes. Atualizar referências e reconciliar divergências por PR; não resetar/forçar branches.</p>
+<p>ci-required usa condição always() e exige success de frontend-ci, backend-ci e docker-ci; skipped e cancelled não aprovam. Preservar checks obrigatórios atuais durante a migração e exigir o gate em develop e main. Publicação chama a mesma validação por workflow_call, dispensando eventos privilegiados de PR ou dependência circular entre plataformas.</p>
+<p>Serializar o CD por ambiente com cancel-in-progress=false, incluindo migrations e publicação dos dois serviços. Cancelar execuções obsoletas de PR é aceitável; não cancelar deploy durante migração. Conferir head da main antes de iniciar uma release enfileirada e registrar SHA, IDs de deploy e URLs no resumo.</p>
+<p>Consultar o deploy Render por ID até live/failed/cancelled; confirmar commitId e readiness antes de publicar Pages. Desativar autodeploy separado nas plataformas. Render aceita commitId específico; Cloudflare recebe o dist do mesmo SHA. HTTP de aceitação do pedido não basta.</p>
+<h3>Perfis e propriedade</h3>
+<p>Perfis existentes no código: ADMINISTRADOR, GESTOR, SOLICITANTE, MOTORISTA, ATENDENTE_SVO e EQUIPE_SVO. Cada conta fictícia respeita sua role e permissões atuais; nenhum bypass RBAC. Compartilhar acessos de teste somente por canal privado autorizado. Documentar administrador titular e substituto das três plataformas; não repetir a dependência de uma única pessoa.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<h3>Verificações já realizadas nesta análise</h3>
+<ul><li>Leitura dos workflows, Dockerfiles, Compose, manual de deploy, configuração de autenticação, migração e testes.</li><li>Consulta pública das execuções #130, #128 e #95 e dos pushes em main. Logs detalhados exigem login; Settings, secrets, VPS e URL antiga não foram acessados.</li><li>TypeScript backend compilado com sucesso em diretório /tmp isolado. Verificada ausência de SQL no resultado. Node local 22.22.2; runner do projeto usa Node 24. Esta compilação não substitui verificação na imagem final.</li><li>Consulta das condições oficiais gratuitas de Cloudflare, Render e Neon em 16/11/2026. Análise inicial em 16/11/2026 sem deploy. Implementação local em 17/11/2026: 483 testes backend e 248 frontend aprovados, sem skips, imagem Node 24 validada com banco PostgreSQL 18 descartável, 21 migrations aplicadas e reaplicadas com idempotência, seis logins/RBAC e CORS aprovados. Login de gestor validado no navegador local. Nenhuma conta de serviço externo ou banco operacional foi alterado.</li></ul>
+<h3>Validação exigida na implementação</h3>
+<div class="tableWrap"><table><thead><tr><th scope="col">Teste</th><th scope="col">Resultado esperado</th></tr></thead><tbody>
+<tr><td>PR aprovado / PR com erro proposital isolado</td><td>CI passa no primeiro; no segundo falha no check correto e gate final. Deploy ausente em ambos os PRs.</td></tr>
+<tr><td>Relatórios dos testes</td><td>Contagens de aprovados, falhos, cancelados e pulados visíveis; toda a suíte descoberta. test:unit atual roda somente auth.test.ts: não usá-lo como substituto da suíte unitária completa sem corrigir a descoberta.</td></tr>
+<tr><td>Lint falha e testes</td><td>Mostrar claramente se testes não chegaram a executar porque lint anterior falhou; preferir etapas independentes de diagnóstico sem mascarar exit code. Não usar continue-on-error para aprovar checks obrigatórios.</td></tr>
+<tr><td>PostgreSQL runner</td><td>PG18 descartável; provisionamento explícito do banco de testes. Reexecutar migration não duplica nem limpa registros de homologação.</td></tr>
+<tr><td>Imagem de produção em base vazia</td><td>Contém SQL e runner executável sem tsx; migrations criam schema. Diretório SQL ausente produz falha, nunca falso sucesso.</td></tr>
+<tr><td>Readiness negativo</td><td>Banco/schema indisponível retorna 503; liveness continua representando somente processo. Healthcheck periódico não gera consultas no Neon.</td></tr>
+<tr><td>Login cruzando origens</td><td>OPTIONS, Authorization e JSON aceitos somente conforme CORS configurado. URL HTTPS correta no bundle; nenhuma chamada indevida a /api/auth no host estático.</td></tr>
+<tr><td>Cold start</td><td>Depois de mais de 15 minutos sem tráfego, simular retomada; feedback acessível, espera limitada, POST de login único e ausência de duplicação de operações de negócio.</td></tr>
+<tr><td>Seis perfis</td><td>Login individual, menus corretos, uma operação permitida por perfil e uma negada com 403; permissões verificadas também pela API.</td></tr>
+<tr><td>SPA e persistência</td><td>Abrir/recarregar rota profunda funciona; dado sintético cadastrado permanece após redeploy da API e do frontend.</td></tr>
+<tr><td>Falha de migration/deploy</td><td>Não publica frontend novo; registro de falha e procedimento de rollback preservam dados. Detectar SHA diferente do aprovado.</td></tr>
+<tr><td>Backup/restauração</td><td>Exportação protegida pode ser restaurada num banco autorizado e a versão estável volta sem rollback SQL destrutivo.</td></tr>
+<tr><td>Franquias</td><td>Confirmar consumo no painel após uma sessão de homologação e revisar limites antes da abertura ao cliente. Nenhuma função depende de plano pago.</td></tr>
+</tbody></table></div>
+<p>Testes de integração mantêm concorrência 1 enquanto compartilham banco e TRUNCATE. Paralelização só com isolamento real de bancos/schemas; não acelerar criando interferência entre suítes.</p>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+<ul>
+<li>Branch proposta fix/ci-cd-free-hosting, baseada em develop atualizada; commits e PR seguem Gitflow. Este plano foi criado no checkout atual, sem trocar branch nem criar commit.</li>
+<li>Actions atualizadas e versões verificadas, Node 24 validado; suites completas, typecheck, lint, build e imagem de produção aprovados.</li>
+<li>Nomes de checks e proteções de branches conciliados na migração; ci-required não aprova skips de validação.</li>
+<li>Migrations e smoke checks da imagem completos; nenhuma fixture ou helper destrutivo apontando à base de homologação.</li>
+<li>Secrets somente em seus ambientes; autodeploy independente desativado; SHA e conclusão real do deploy registrados.</li>
+<li>Contas dos seis perfis e cenários 100% fictícios; requisitos de acessibilidade e cold start verificados.</li>
+<li>Backup e rollback testados; responsáveis titular e substituto registrados; credenciais de teste entregues de forma privada.</li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+<p>A tarefa é transversal de infraestrutura; não inventar módulo funcional INFRAESTRUTURA em docs/modulos. Atualizar principalmente <code>docs/manuais/deploy.md</code> e <code>README.md</code>, com URLs públicas após provisionamento, matriz de variáveis, responsáveis, publicação, franquias e diagnóstico.</p>
+<p>Ajustar a parte de CI em <code>docs/modulos/AUTENTICACAO_RBAC.html</code> e documentar os estados de preparação da autenticação. Incluir roteiro de acesso por perfil e procedimento de recuperação independente do antigo responsável.</p>
+<h3>Fontes para implementação</h3>
+<ul>
+<li><a href="https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax">GitHub: dependências e condições de jobs</a>; <a href="https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments">Environments e proteções</a>; <a href="https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow">Eventos criados pelo GITHUB_TOKEN</a>.</li>
+<li><a href="https://api-docs.render.com/reference/create-deploy">Render: deploy por commitId e acompanhamento por API</a>; <a href="https://render.com/docs/free">Limitações gratuitas</a>.</li>
+<li><a href="https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/">Pages: publicação pelo CI</a>; <a href="https://developers.cloudflare.com/pages/configuration/serving-pages/">Navegação SPA</a>.</li>
+<li><a href="https://neon.com/docs/introduction/plans">Neon: franquias e scale to zero</a>; <a href="https://neon.com/docs/reference/compatibility">PostgreSQL 18 e privilégios</a>.</li>
+</ul>
+<h3>Pontos a preencher ao provisionar</h3>
+<ol><li>Contas, administrador e substituto, IDs dos serviços e URLs finais.</li><li>Existência de dados antigos a recuperar: desconhecida. Não sobrescrever nem encerrar o ambiente anterior sem inventário; recuperar histórico é tarefa separada se necessário.</li><li>Acesso autenticado aos logs antigos, caso se queira fechar a causa exata do erro SSH 255. Não é dependência para substituir a hospedagem.</li></ol>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> preservar os perfis reais ADMINISTRADOR, GESTOR, SOLICITANTE, MOTORISTA, ATENDENTE_SVO e EQUIPE_SVO, conforme o código atual.</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</main>
+</body>
+</html>

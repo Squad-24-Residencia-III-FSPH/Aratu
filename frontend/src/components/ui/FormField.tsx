@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { MenuItem, TextField } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
 
@@ -19,6 +19,8 @@ export interface FormFieldProps {
   inputMode?: 'text' | 'numeric'
   maxLength?: number
   autoFocus?: boolean
+  /** Permite ao fluxo focar o controle nativo após a abertura do diálogo ou uma validação. */
+  inputRef?: Ref<HTMLInputElement | HTMLTextAreaElement>
   sx?: SxProps<Theme>
   hideLabel?: boolean
   startAdornment?: ReactNode
@@ -75,6 +77,7 @@ export function FormField({
   inputMode,
   maxLength,
   autoFocus,
+  inputRef,
   sx,
   hideLabel = false,
   startAdornment,
@@ -100,6 +103,7 @@ export function FormField({
       autoComplete={autoComplete}
       placeholder={placeholder}
       autoFocus={autoFocus}
+      inputRef={inputRef}
       sx={sx}
       slotProps={{
         ...(startAdornment ? { input: { startAdornment } } : {}),

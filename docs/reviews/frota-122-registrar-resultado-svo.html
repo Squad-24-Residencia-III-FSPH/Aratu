@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-122 — Registrar resultado SVO (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-122: Registrar resultado SVO</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-122</code> — Registrar resultado SVO</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/svo-order-result</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-122-registrar-resultado-svo.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>SVO</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>EQUIPE_SVO, ATENDENTE_SVO, GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-11-16</p>
+</div>
+
+<!-- PREENCHER_VEREDITO: Use class="verdict-approved" para APROVADO_PARA_REVISAO_HUMANA ou class="verdict-blocked" para BLOQUEADO_POR_PENDENCIAS -->
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA
+</div>
+
+<!-- PREENCHER_CONTADORES: Atualize os contadores de Bloqueantes, Atenção, OK e N/A -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">2</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">14</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">1</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<!-- PREENCHER_REVISAO_SECAO_1: Tabela de arquivos criados/alterados no diff contra develop -->
+<p>Esta revisão técnica e funcional audita a implementação da história <a href="https://squad24.atlassian.net/browse/FROTA-122">FROTA-122 — US20: Registrar resultado SVO</a> e suas três subtarefas (<a href="https://squad24.atlassian.net/browse/FROTA-123">FROTA-123 FE</a>, <a href="https://squad24.atlassian.net/browse/FROTA-124">FROTA-124 BE</a> e <a href="https://squad24.atlassian.net/browse/FROTA-125">FROTA-125 QA</a>) conforme o <a href="../plans/frota-122-registrar-resultado-svo.html">Plano Técnico SDD aprovado</a>.</p>
+<p><strong>Composição do Diff:</strong> A branch <code>feat/svo-order-result</code> descende da linha de integração do módulo SVO (HEAD <code>3269a5b</code>, contendo os 7 commits de dependência das entregas <a href="frota-111-112-registro-solicitacao-svo.html">FROTA-111/112</a>, <a href="frota-115-117-geracao-ordens-svo.html">FROTA-115/117</a> e <a href="frota-118-acompanhar-atendimento-svo.html">FROTA-118</a>). O incremento exclusivo da <code>FROTA-122</code> na working tree compreende <strong>27 arquivos</strong> (25 modificados com <code>+912 / -91</code> linhas e 2 novos: <code>SvoOrderResultDialog.tsx</code> com 171 linhas e o SDD <code>frota-122-registrar-resultado-svo.html</code> com 228 linhas). O diff acumulado contra <code>develop</code> soma 47 arquivos (incluindo os artefatos das dependências ainda não mescladas em <code>develop</code>).</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Arquivo</th>
+      <th scope="col">Camada</th>
+      <th scope="col">Tipo de Alteração</th>
+      <th scope="col">Resumo do que Mudou (Escopo FROTA-122)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>backend/src/types/svo-order.types.ts</code></td>
+      <td>Backend (Types)</td>
+      <td>Modificado</td>
+      <td>Adiciona <code>SVO_ORDER_RESULTS</code>, <code>SvoOrderResult</code>, matriz <code>SVO_ORDER_ALLOWED_RESULTS</code>, <code>RecordSvoOrderResultInput</code> e amplia <code>SvoOrderState</code>, <code>SvoOrderSummary</code> e <code>SvoOrderDetail</code> com <code>result</code>, <code>allowedResults</code>, <code>failureReason</code>, <code>notes</code> e <code>closedBy</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/repositories/svo-orders.repository.ts</code></td>
+      <td>Backend (Repository)</td>
+      <td>Modificado</td>
+      <td>Projeta <code>result</code> na listagem e <code>failureReason</code>, <code>notes</code> e <code>closedBy</code> no detalhe e no lock <code>FOR UPDATE</code>; adiciona <code>updateResult</code> parametrizado com controle otimista de <code>revision</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/services/svo-orders.service.ts</code></td>
+      <td>Backend (Service)</td>
+      <td>Modificado</td>
+      <td>Implementa <code>recordResult</code> transacional sob trava pessimista, validação estrita de payload (<code>parseResultInput</code>), checagem de encerramento prévio (<code>hasPriorClosing</code>), cálculo de <code>allowedResults</code>, gravação de evento imutável e auditoria <code>UPDATE</code> sanitizada.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/controllers/svo-orders.controller.ts</code></td>
+      <td>Backend (Controller)</td>
+      <td>Modificado</td>
+      <td>Adiciona handler <code>recordResult</code> fino delegando para <code>service.recordResult(req.params.id, req.body, req.usuario!.id)</code>.</td>
+    </tr>
+    <tr>
+      <td><code>backend/src/routes/svo-orders.routes.ts</code></td>
+      <td>Backend (Routes)</td>
+      <td>Modificado</td>
+      <td>Registra <code>POST /:id/result</code> protegido por <code>authorizeRoles(SVO_ORDER_UPDATE_ROLES)</code> e classifica falhas inesperadas como <code>RECORD_RESULT</code> no error handler sanitizado.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/svo/svoOrderTypes.ts</code></td>
+      <td>Frontend (Types)</td>
+      <td>Modificado</td>
+      <td>Amplia contratos TypeScript com <code>SvoOrderResult</code>, <code>SvoOrderFilter</code> (incluindo <code>'ACTIVE'</code>), <code>RecordSvoOrderResultInput</code>, <code>allowedResults</code> e campos de encerramento no detalhe.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/svo/svoOrderPresentation.ts</code></td>
+      <td>Frontend (Presentation)</td>
+      <td>Modificado</td>
+      <td>Adiciona <code>isActiveSvoOrder</code> e <code>orderClosedAnnouncement</code> para anúncios acessíveis em português.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/services/svoOrdersService.ts</code></td>
+      <td>Frontend (Service API)</td>
+      <td>Modificado</td>
+      <td>Amplia validação de schema JSON (<code>parseSummary</code>/<code>parseDetail</code>) e implementa <code>recordSvoOrderResult</code> verificando coerência de <code>collectedAt</code>, <code>closedAt</code>, <code>closedBy</code> e <code>revision + 1</code>.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/hooks/useSvoOrders.ts</code></td>
+      <td>Frontend (Hook)</td>
+      <td>Modificado</td>
+      <td>Adiciona recorte inicial <code>ACTIVE</code> para a equipe, estado de formulário/revisão em 2 passos (<code>resultDraft</code>), submissão protegida contra duplo clique e reconciliação via <code>GET /:id</code> após falha incerta.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/svo/SvoOrderResultDialog.tsx</code></td>
+      <td>Frontend (UI SVO)</td>
+      <td>Novo</td>
+      <td>Componente acessível de encerramento em dois passos (formulário com motivo condicional + revisão em <code>ConfirmDialog</code>) preservando rascunho ao voltar.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/svo/SvoOrderList.tsx</code></td>
+      <td>Frontend (UI SVO)</td>
+      <td>Modificado</td>
+      <td>Integra filtro <code>Ativas</code>, botão <code>Encerrar</code> condicionado por <code>allowedResults</code>, exibição de resultado no card, diálogo <code>SvoOrderResultDialog</code> e gestão de foco pós-remoção do card.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/components/svo/SvoOrderDetails.tsx</code></td>
+      <td>Frontend (UI SVO)</td>
+      <td>Modificado</td>
+      <td>Exibe <code>Resultado</code>, <code>Motivo da não realização</code>, <code>Observações do atendimento</code> e <code>Encerrada por</code> no modal de detalhes.</td>
+    </tr>
+    <tr>
+      <td><code>frontend/src/pages/SvoOrdersPage.tsx</code><br><code>frontend/src/routing/routeDecision.ts</code><br><code>frontend/src/components/sidebarNavigation.ts</code></td>
+      <td>Frontend (Pages / Routing)</td>
+      <td>Modificado</td>
+      <td>Habilita acesso somente leitura a <code>/svo/acompanhamento</code> e item de menu lateral para o perfil <code>GESTOR</code>, preservando a home de cada perfil.</td>
+    </tr>
+    <tr>
+      <td><code>backend/tests/svo-orders.service.test.ts</code><br><code>backend/tests/svo-orders.integration.test.ts</code></td>
+      <td>Testes Backend</td>
+      <td>Modificado</td>
+      <td>Adiciona testes unitários da matriz total de resultado e testes de integração HTTP/PostgreSQL (<code>RESULT-01</code> a <code>RESULT-05</code>: conclusão, não realização, RBAC/revogação sob lock, concorrência, liberação de vaga, rollback e trigger append-only).</td>
+    </tr>
+    <tr>
+      <td><code>frontend/tests/svoOrdersService.test.mjs</code><br><code>frontend/tests/svoOrdersPage.test.mjs</code><br><code>frontend/tests/svoOrderPresentation.test.mjs</code><br><code>frontend/tests/svo-orders.fixture.mjs</code><br><code>frontend/tests/routing.test.mjs</code><br><code>frontend/tests/sidebarNavigation.test.mjs</code></td>
+      <td>Testes Frontend</td>
+      <td>Modificado</td>
+      <td>Cobre validação do cliente HTTP, fluxo de formulário/revisão/retorno em JSDOM, retirada de <code>Ativas</code>, consulta por gestor/atendente, reconciliação de resultado incerto e rotas/menus RBAC.</td>
+    </tr>
+    <tr>
+      <td><code>docs/plans/frota-122-registrar-resultado-svo.html</code><br><code>docs/modulos/SVO.html</code><br><code>docs/manuais/modulos.md</code><br><code>README.md</code></td>
+      <td>Documentação</td>
+      <td>Novo / Modificado</td>
+      <td>Plano SDD da FROTA-122 e atualização completa dos contratos REST, matriz RBAC e evidências na documentação do módulo SVO e manuais.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<!-- PREENCHER_REVISAO_SECAO_2: Status de cada critério C1 a C17 (badge-ok, badge-warn, badge-block, badge-na) -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>O escopo é coeso (exclusivo da US20/FROTA-122, sem refatoração paralela), mas o incremento líquido supera 400 linhas (~1.083 linhas somando backend, frontend, suítes de testes e documentação) e a branch carrega os commits predecessores do SVO (FROTA-111/112, 115/117 e 118) ainda não mesclados na <code>develop</code>. Ver detalhamento e justificativa em <strong>A1</strong>.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>Branch <code>feat/svo-order-result</code> válida no Gitflow; todos os 7 commits existentes na branch seguem Conventional Commits. As alterações da FROTA-122 encontram-se prontas na working tree para commit padronizado (<code>feat(svo): registrar resultado do atendimento (FROTA-122)</code>).</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-ok">🟢 OK</span></td><td>Atende integralmente ao SDD e às subtarefas FROTA-123/124/125: <code>POST /svo/orders/:id/result</code>, conclusão a partir de <code>IN_SERVICE</code> (<code>collectedAt = closedAt</code>), não realização a partir de <code>IN_TRANSIT</code>/<code>IN_SERVICE</code> com motivo obrigatório, liberação da reserva derivada, recorte <code>Ativas</code>, diálogo em 2 passos e leitura para <code>GESTOR</code>.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Controller <code>createSvoOrdersController</code> tem apenas 22 linhas e delega ao <code>SvoOrdersService</code>. Zero objetos HTTP no Service e zero SQL fora de <code>SvoOrdersRepository</code>.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Reutiliza <code>ConfirmDialog</code>, <code>FormField</code>, <code>FormSelect</code>, <code>EntityCard</code>, <code>StatusChip</code>, <code>StateFeedback</code> e <code>PageHeader</code>. Chamadas HTTP isoladas em <code>svoOrdersService.ts</code> e estado em <code>useSvoOrders.ts</code>. Zero uso de <code>:global(.Mui...)</code>.</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Grafo de importação unidirecional e limpo; nenhuma feature flag, variável de ambiente de produção ou biblioteca externa foi adicionada.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>100% das queries em <code>svo-orders.repository.ts</code> (incluindo <code>updateResult</code> e <code>createStatusEvent</code>) utilizam parâmetros posicionais <code>$1..$10</code> sem interpolação de strings.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td><td><span class="badge-ok">🟢 OK</span></td><td>Projeções explícitas com aliases <code>camelCase</code> (<code>failure_reason AS "failureReason"</code>, <code>closed_by::text AS "closedBy"</code>), <code>JOIN</code> direto e <code>EXISTS</code> sargável para vínculos de equipe.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-ok">🟢 OK</span></td><td><code>recordResult</code> executa em <code>withTransaction</code> (<code>BEGIN...COMMIT/ROLLBACK</code> com <code>client.release()</code> no <code>finally</code>), travando conta, ordem (<code>FOR UPDATE</code>), equipe e vínculo (<code>FOR SHARE</code>) antes de ler o relógio e atualizar com verificação de <code>revision</code>.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (Schemas Nativos <code>auth</code>, <code>fleet</code>, etc., tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>A FROTA-122 não adiciona novas migrations, reutilizando integralmente a estrutura canônica de <code>202610280008_create_svo_execution_orders.sql</code> (<code>svo.execution_orders</code> e <code>svo.execution_order_events</code>).</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-ok">🟢 OK</span></td><td><code>POST /:id/result</code> valida <code>authorizeRoles(['EQUIPE_SVO'])</code> sobre o perfil cadastral atual no Express e revalida conta ativa, vínculo vigente e equipe ativa sob trava no Service antes de inspecionar a ordem.</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>Fixtures 100% fictícias. A listagem omite <code>failureReason</code>, <code>notes</code>, <code>closedBy</code> e snapshots; a auditoria transversal (<code>auditState</code>) exclui textos livres e dados pessoais do chamado; logs de erro 500 são sanitizados e a UI não persiste dados em <code>localStorage</code>.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Zero ocorrências de <code>any</code> ou diretivas de supressão; compilação estrita <code>tsc --noEmit</code> (backend) e <code>tsc -b</code> (frontend) com zero erros.</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Contrato e código em inglês (<code>COMPLETED</code>, <code>NOT_PERFORMED</code>, <code>failureReason</code>, <code>notes</code>, <code>recordResult</code>), TSDoc semântico em português nas camadas de negócio/UI e zero <code>console.log</code> de depuração.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-ok">🟢 OK</span></td><td>Trata os 5 estados via <code>StateFeedback</code> e no diálogo de encerramento, incluindo retorno ao formulário em erro <code>400</code> preservando o rascunho e bloqueio com reconciliação <code>GET /:id</code> em falha de rede/5xx.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-ok">🟢 OK</span></td><td><code>SvoOrderResultDialog</code> utiliza <code>FormSelect</code> e <code>FormField</code> com vínculo programático via <code>useId()</code>, botões de ação nos cards identificam a ordem por <code>aria-label</code> e anúncios usam <code>role="status"</code> / <code>Alert</code>.</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Código e testes JSDOM validam <code>Escape</code>, foco inicial no formulário, devolução de foco para <code>role="status"</code> quando o card sai de <code>Ativas</code>, contorno <code>:focus-visible</code> e altura mínima de <code>44px</code>. Homologação com leitor de tela dedicado e zoom real de 200% no navegador permanece recomendada antes do aceite final (ver <strong>A2</strong>).</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<!-- PREENCHER_REVISAO_SECAO_3: Detalhar bloqueantes e pontos de atenção (arquivo:linha, impacto e como corrigir) -->
+<h3>3.1 🔴 Itens Bloqueantes (Impedem o Merge)</h3>
+<p><em>Nenhum item bloqueante identificado.</em></p>
+
+<h3>3.2 🟡 Itens de Atenção / Sugestões de Melhoria</h3>
+<h4>A1 — Tamanho do PR (&gt; 400 linhas), cadeia de dependências SVO e alterações na working tree (<code>C1</code> / <code>C2</code>)</h4>
+<ul>
+  <li><strong>Contexto:</strong> O incremento exclusivo da <code>FROTA-122</code> soma 27 arquivos (~1.083 linhas líquidas) por entregar conjuntamente o endpoint <code>POST /svo/orders/:id/result</code> (FROTA-124), a experiência de encerramento em dois passos e consulta do gestor (FROTA-123), a bateria completa de testes unitários/integração/JSDOM (FROTA-125) e a documentação técnica sob um único SDD, sem misturar refatoração estrutural alheia. Além disso, a branch <code>feat/svo-order-result</code> inclui os 7 commits das tarefas predecessoras (FROTA-111/112, FROTA-115/117 e FROTA-118) e mantém as alterações da FROTA-122 na working tree local.</li>
+  <li><strong>Recomendação para o Merge:</strong> Consolidar os arquivos modificados e novos da FROTA-122 (incluindo <code>SvoOrderResultDialog.tsx</code>, o SDD e este relatório) em commit seguindo Conventional Commits (<code>feat(svo): registrar resultado do atendimento (FROTA-122)</code>) e, ao abrir o Pull Request para <code>develop</code>, referenciar explicitamente a justificativa de tamanho e a ordem de merge das branches predecessoras do SVO.</li>
+</ul>
+
+<h4>A2 — Verificação complementar de zoom real (200%) e leitor de tela em navegador (<code>C17</code>)</h4>
+<ul>
+  <li><strong>Arquivos:</strong> <code>frontend/src/components/svo/SvoOrderResultDialog.tsx</code> e <code>frontend/src/components/svo/SvoOrderList.tsx</code>.</li>
+  <li><strong>Contexto:</strong> A implementação aplica corretamente <code>FormSelect</code>/<code>FormField</code> com <code>useId()</code>, gerenciamento explícito de foco ao abrir o formulário e ao remover o card do recorte <code>Ativas</code>, <code>outline</code> em <code>:focus-visible</code> e alvos de toque de no mínimo <code>44px</code>, todos validados na suíte automatizada <code>frontend/tests/svoOrdersPage.test.mjs</code>. Como os testes automatizados rodam sobre JSDOM, a validação visual de reflow sob zoom óptico real de 200% do navegador e leitura por tecnologia assistiva dedicada (NVDA/TalkBack) deve ser conferida na homologação humana.</li>
+</ul>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<!-- PREENCHER_REVISAO_SECAO_4: Resultado de aratu-check.mjs, tsc, lint, build e testes -->
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Verificação Executada</th>
+      <th scope="col">Comando</th>
+      <th scope="col">Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pré-Auditoria Estática, Gitflow, TypeScript e Testes Frontend</td>
+      <td><code>node docs/scripts/aratu-check.mjs</code></td>
+      <td><span class="badge-ok">🟢 Passou (0 bloqueios, 0 alertas, 187 testes FE passando)</span></td>
+    </tr>
+    <tr>
+      <td>Suíte Unitária e Integração HTTP/PostgreSQL 18 de Ordens SVO (Container)</td>
+      <td><code>docker compose exec -T -e POSTGRES_DB_TEST=frota122_svo_result_test backend npx tsx --test --test-concurrency=1 tests/svo-orders.service.test.ts tests/svo-orders.integration.test.ts</code></td>
+      <td><span class="badge-ok">🟢 Passou (48/48: 15 unitários + 33 integrações)</span></td>
+    </tr>
+    <tr>
+      <td>Regressão Completa do Backend em Banco Isolado (Container)</td>
+      <td><code>docker compose exec -T -e DATABASE_URL_TEST= -e POSTGRES_DB_TEST=frota122_review_20261116_test backend npm test</code></td>
+      <td><span class="badge-ok">🟢 Passou (430/430 testes aprovados, 0 falhas)</span></td>
+    </tr>
+    <tr>
+      <td>Compilação e Build de Produção do Backend (Container)</td>
+      <td><code>docker compose exec -T backend npm run build</code></td>
+      <td><span class="badge-ok">🟢 Passou (zero erros)</span></td>
+    </tr>
+    <tr>
+      <td>Linter ESLint e Build de Produção do Frontend (Container)</td>
+      <td><code>docker compose exec -T frontend npm run lint &amp;&amp; docker compose exec -T frontend npm run build</code></td>
+      <td><span class="badge-ok">🟢 Passou (zero erros de lint e compilação)</span></td>
+    </tr>
+    <tr>
+      <td>Integridade de Formatação e Whitespace no Git</td>
+      <td><code>git diff --check</code></td>
+      <td><span class="badge-ok">🟢 Passou (sem erros de whitespace)</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<!-- PREENCHER_REVISAO_SECAO_5: Pontos específicos que o par humano da Squad 24 deve validar -->
+<ul class="check">
+  <li><input type="checkbox"> Consolidar as alterações locais e os arquivos novos (<code>SvoOrderResultDialog.tsx</code>, SDD e este relatório de revisão) em commit Conventional Commits e incluir a justificativa de tamanho/dependências (<strong>A1</strong>) na descrição do Pull Request para <code>develop</code>.</li>
+  <li><input type="checkbox"> Validar no navegador (<code>http://localhost:5173</code>) com perfil <code>EQUIPE_SVO</code> o recorte inicial <strong>Ativas</strong> em <code>/svo/ordens</code>, o encerramento em dois passos (<strong>Concluída</strong> em <code>IN_SERVICE</code> e <strong>Não realizada</strong> com motivo obrigatório em <code>IN_TRANSIT</code>/<code>IN_SERVICE</code>), a preservação do rascunho ao clicar em <strong>Voltar ao formulário</strong> e a saída automática do card da lista de ativas.</li>
+  <li><input type="checkbox"> Validar com os perfis <code>ATENDENTE_SVO</code> e <code>GESTOR</code> o acesso somente leitura em <code>/svo/acompanhamento</code> e a exibição de resultado, motivo da não realização, observações e usuário responsável no diálogo <strong>Ver detalhes</strong>, sem exibição de botões de escrita.</li>
+  <li><input type="checkbox"> Conferir navegação por teclado (<code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Esc</code>), transferência de foco para o alerta de sucesso após o card sair de <strong>Ativas</strong> e legibilidade com zoom real de 200% (<strong>A2</strong>).</li>
+</ul>
+
+<p><strong>Princípios aplicados:</strong> padrões do projeto (camadas estritas Express 5 / React 19 e reuso de <code>components/ui/</code>), atomicidade transacional com <code>FOR UPDATE</code> e liberação derivada de capacidade, preservação histórica append-only, sigilo SVO/LGPD e acessibilidade WCAG 2.2 AA.</p>
+<p><code>revisão → padrões do projeto, atomicidade e acessibilidade · dúvidas: nenhuma</code></p>
+
+</body>
+</html>

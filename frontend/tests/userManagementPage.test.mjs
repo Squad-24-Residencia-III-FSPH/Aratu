@@ -1,11 +1,18 @@
 import test, { after, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { createElement } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { sessionFor } from './fixtures.mjs'
+
+// O cache precisa ficar fora de `node_modules`, que pode ser somente leitura
+// quando as dependências foram instaladas por outro usuário (ex: container).
+const viteCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aratu-vite-test-'))
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'http://localhost/',
@@ -38,6 +45,7 @@ const userEvent = (await import('@testing-library/user-event')).default
 const vite = await createServer({
   configFile: false,
   root: fileURLToPath(new URL('..', import.meta.url)),
+  cacheDir: viteCacheDir,
   plugins: [react()],
   server: { middlewareMode: true, hmr: false },
   appType: 'custom',
@@ -50,6 +58,7 @@ const [{ default: UserManagementPage }, { AuthContext }] = await Promise.all([
 afterEach(() => cleanup())
 after(async () => {
   await vite.close()
+  fs.rmSync(viteCacheDir, { recursive: true, force: true })
   dom.window.close()
 })
 

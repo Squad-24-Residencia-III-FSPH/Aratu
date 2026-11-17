@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-115 — FROTA-115 e FROTA-117 - Geração de ordens SVO (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+
+    code, td, th { overflow-wrap: anywhere; }
+    .check label { display: block; min-height: 44px; cursor: pointer; }
+    a:focus-visible, input:focus-visible { outline: 3px solid #7c3aed; outline-offset: 3px; }
+    @media (max-width: 600px) { body { margin: 16px auto; padding: 0 12px 32px; } table { font-size: .8rem; } th, td { padding: 6px; } .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-115: FROTA-115 e FROTA-117 - Geração de ordens SVO</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-115 + FROTA-117</code> — FROTA-115 e FROTA-117 - Geração de ordens SVO</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/svo-orders</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-115-117-geracao-ordens-svo.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>SVO</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ATENDENTE_SVO, ADMINISTRADOR</code></p>
+  <p><strong>Data da Revisão:</strong> 15/11/2026 · America/Sao_Paulo</p>
+</div>
+
+
+<div class="verdict-approved">
+  Veredito da Revisão: APROVADO_PARA_REVISAO_HUMANA
+</div>
+
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">0</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">2</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">10</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">5</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+
+<p>Revisão conjunta da <a href="https://squad24.atlassian.net/browse/FROTA-115">API FROTA-115</a> e dos <a href="https://squad24.atlassian.net/browse/FROTA-117">testes FROTA-117</a>, confrontada com o <a href="../plans/frota-115-117-geracao-ordens-svo.html">SDD conjunto</a> e com a base develop. Inclui arquivos não rastreados e a correção de R1 solicitada após a revisão inicial. Código, regressões e documentação foram ajustados; nenhum stage, commit ou push foi realizado.</p>
+<p><strong>Contexto:</strong> subtarefas Em andamento; API para ATENDENTE_SVO e ADMINISTRADOR; ordem única de ocorrência CONFIRMED. O SDD registra a confirmação de camelCase/IDs string/OPEN, uma vaga por ordem ativa, equipe ativa sem exigir membros e ausência de verificação de conflitos com viagens nesta entrega. Não há dúvida pendente sobre essas decisões documentadas.</p>
+<p><strong>Base:</strong> develop = origin/develop = <code>a30222953077c638219848f229910e018d0e24b7</code>; HEAD = <code>2c7fb580849bfb3c585d26442f191336077b83ed</code>. Diff de commits: 16 files changed, 2206 insertions(+), 1 deletion(-). Medição inicial do recorte FROTA-115/117, antes da correção R1: 1357 adições e 5 remoções, contando arquivos novos e SDD. O relatório gerado não integra essa medição.</p>
+<table><thead><tr><th scope="col">Arquivo</th><th scope="col">Situação</th><th scope="col">Responsabilidade / origem</th></tr></thead><tbody><tr><td><a href="../../README.md"><code>README.md</code></a></td><td>Alterado</td><td>Contrato REST, regras e comandos de validação.</td></tr>
+<tr><td><a href="../../backend/src/app.ts"><code>backend/src/app.ts</code></a></td><td>Alterado</td><td>Composição do serviço, router e handler sanitizado.</td></tr>
+<tr><td><a href="../../backend/src/controllers/svo-occurrences.controller.ts"><code>backend/src/controllers/svo-occurrences.controller.ts</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../backend/src/controllers/svo-orders.controller.ts"><code>backend/src/controllers/svo-orders.controller.ts</code></a></td><td>Novo, não rastreado</td><td>Implementação da FROTA-115 na camada indicada.</td></tr>
+<tr><td><a href="../../backend/src/repositories/svo-occurrences.repository.ts"><code>backend/src/repositories/svo-occurrences.repository.ts</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../backend/src/repositories/svo-orders.repository.ts"><code>backend/src/repositories/svo-orders.repository.ts</code></a></td><td>Novo, não rastreado</td><td>Implementação da FROTA-115 na camada indicada.</td></tr>
+<tr><td><a href="../../backend/src/routes/svo-occurrences.routes.ts"><code>backend/src/routes/svo-occurrences.routes.ts</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../backend/src/routes/svo-orders.routes.ts"><code>backend/src/routes/svo-orders.routes.ts</code></a></td><td>Novo, não rastreado</td><td>Implementação da FROTA-115 na camada indicada.</td></tr>
+<tr><td><a href="../../backend/src/services/svo-occurrences.service.ts"><code>backend/src/services/svo-occurrences.service.ts</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../backend/src/services/svo-orders.service.ts"><code>backend/src/services/svo-orders.service.ts</code></a></td><td>Novo, não rastreado</td><td>Implementação da FROTA-115 na camada indicada.</td></tr>
+<tr><td><a href="../../backend/src/types/svo-occurrence.types.ts"><code>backend/src/types/svo-occurrence.types.ts</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../backend/src/types/svo-order.types.ts"><code>backend/src/types/svo-order.types.ts</code></a></td><td>Novo, não rastreado</td><td>Implementação da FROTA-115 na camada indicada.</td></tr>
+<tr><td><a href="../../backend/tests/fixtures/svo-occurrences.fixture.ts"><code>backend/tests/fixtures/svo-occurrences.fixture.ts</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../backend/tests/fixtures/svo-orders.fixture.ts"><code>backend/tests/fixtures/svo-orders.fixture.ts</code></a></td><td>Novo, não rastreado</td><td>Cobertura e dados sintéticos da FROTA-117.</td></tr>
+<tr><td><a href="../../backend/tests/svo-occurrences.integration.test.ts"><code>backend/tests/svo-occurrences.integration.test.ts</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../backend/tests/svo-occurrences.service.test.ts"><code>backend/tests/svo-occurrences.service.test.ts</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../backend/tests/svo-orders.integration.test.ts"><code>backend/tests/svo-orders.integration.test.ts</code></a></td><td>Novo, não rastreado</td><td>Cobertura e dados sintéticos da FROTA-117.</td></tr>
+<tr><td><a href="../../backend/tests/svo-orders.service.test.ts"><code>backend/tests/svo-orders.service.test.ts</code></a></td><td>Novo, não rastreado</td><td>Cobertura e dados sintéticos da FROTA-117.</td></tr>
+<tr><td><a href="../../docs/manuais/modulos.md"><code>docs/manuais/modulos.md</code></a></td><td>Alterado</td><td>Índice do módulo e perfis autorizados.</td></tr>
+<tr><td><a href="../../docs/modulos/SVO.html"><code>docs/modulos/SVO.html</code></a></td><td>Alterado</td><td>Documentação técnica e funcional das ordens.</td></tr>
+<tr><td><a href="../../docs/plans/frota-111-testes-registro-solicitacao-svo.html"><code>docs/plans/frota-111-testes-registro-solicitacao-svo.html</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../docs/plans/frota-112-api-registro-solicitacao-svo.html"><code>docs/plans/frota-112-api-registro-solicitacao-svo.html</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../docs/plans/frota-115-117-geracao-ordens-svo.html"><code>docs/plans/frota-115-117-geracao-ordens-svo.html</code></a></td><td>Novo, não rastreado</td><td>SDD conjunto com decisões confirmadas.</td></tr>
+<tr><td><a href="../../docs/reviews/frota-111-112-registro-solicitacao-svo.html"><code>docs/reviews/frota-111-112-registro-solicitacao-svo.html</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr>
+<tr><td><a href="../../docs/tests/frota-111-112.md"><code>docs/tests/frota-111-112.md</code></a></td><td>Dependência já commitada</td><td>FROTA-111/112: registro e confirmação de ocorrências; visível no diff contra develop e consultado como dependência.</td></tr></tbody></table>
+<p>O relatório anterior da dependência está em <a href="frota-111-112-registro-solicitacao-svo.html">FROTA-111/112</a>. Não foram criados commits, PRs nem mensagens externas nesta revisão.</p>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+
+<p>Os contadores classificam os <strong>17 critérios</strong>, e não a quantidade de defeitos: 0 bloqueantes, 2 de atenção, 10 OK e 5 N/A. O defeito funcional R1 foi corrigido e validado; as observações de tamanho e preparação do PR permanecem.</p>
+<table><thead><tr><th scope="col">Código</th><th scope="col">Critério</th><th scope="col">Status</th><th scope="col">Evidência</th></tr></thead><tbody><tr><td><code>C1</code></td><td>Escopo e tamanho do diff</td><td><span class="badge-warn">🟡 Atenção</span></td><td>A medição inicial do recorte soma 1357 linhas adicionadas e 5 removidas, incluindo testes e SDD; excede 400 linhas. O diff de commits também traz a dependência FROTA-111/112. Documentar a composição e organizar commits revisáveis.</td></tr>
+<tr><td><code>C2</code></td><td>Gitflow e Conventional Commits</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Branch feat/svo-orders válida. develop e origin/develop = a302229; HEAD = 2c7fb58. Fetch executado em 15/11/2026. Os dois commits divergentes seguem a convenção, mas pertencem à dependência de ocorrências; ordens e testes continuam sem commit e com arquivos não rastreados. Validar inclusão completa e destino develop no PR.</td></tr>
+<tr><td><code>C3</code></td><td>Requisito, SDD e YAGNI</td><td><span class="badge-ok">🟢 OK</span></td><td>R1 corrigido: após FOR UPDATE na viatura, hasActiveMaintenanceBlock usa o mesmo cliente e recusa manutenção impeditiva OPEN/IN_PROGRESS, inclusive AVAILABLE. SDD atualizado; regressões cobrem casos negativos, permissivos e espera real pelo lock. As demais regras permanecem no escopo confirmado.</td></tr>
+<tr><td><code>C4</code></td><td>Camadas backend</td><td><span class="badge-ok">🟢 OK</span></td><td>Controller delega, serviço não importa Express e o SQL permanece nos repositories. Composição concentrada em app.ts. Reuso dos contratos existentes de ocorrências, veículos e auditoria.</td></tr>
+<tr><td><code>C5</code></td><td>Camadas frontend e Material UI</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhum arquivo frontend alterado. A tela de ordens pertence à FROTA-116.</td></tr>
+<tr><td><code>C6</code></td><td>Ciclos e feature flags</td><td><span class="badge-ok">🟢 OK</span></td><td>Imports novos seguem types → repositories/services → controllers/routes → app, sem retorno para camadas externas. Não foram adicionadas flags, bibliotecas ou configurações.</td></tr>
+<tr><td><code>C7</code></td><td>SQL parametrizado</td><td><span class="badge-ok">🟢 OK</span></td><td>Valores de entrada e snapshots usam …0; nenhum valor recebido é interpolado em SQL das ordens.</td></tr>
+<tr><td><code>C8</code></td><td>Projeção, filtros e índices</td><td><span class="badge-ok">🟢 OK</span></td><td>Projeções explícitas, contagem no PostgreSQL por vehicle_id/status e índices existentes. Sem SELECT * ou consultas por registro de uma listagem nova.</td></tr>
+<tr><td><code>C9</code></td><td>Atomicidade e concorrência</td><td><span class="badge-ok">🟢 OK</span></td><td>Conta/perfil FOR SHARE → ocorrência FOR UPDATE → equipe FOR SHARE → veículo FOR UPDATE. Contagem em instrução posterior ao lock. withTransaction faz rollback e release no finally; testes cobrem disputa por ocorrência/vaga e falhas reais de evento/auditoria.</td></tr>
+<tr><td><code>C10</code></td><td>Migrações PostgreSQL 18</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhuma migration nova. Schemas, FKs RESTRICT, UNIQUE occurrence_id e evento append-only são reutilizados das dependências existentes.</td></tr>
+<tr><td><code>C11</code></td><td>Autorização backend</td><td><span class="badge-ok">🟢 OK</span></td><td>JWT, conta atual, authorizeRoles(SVO_WRITE_ROLES) e revalidação transacional. Só ATENDENTE_SVO/ADMINISTRADOR criam; quatro outros perfis recebem 403 e conta/token inválido recebe 401.</td></tr>
+<tr><td><code>C12</code></td><td>LGPD e sigilo SVO</td><td><span class="badge-ok">🟢 OK</span></td><td>Fixtures sintéticas. Resposta mínima; auditoria transversal com allowlist e autoria. Conteúdo do chamado fica nos snapshots do domínio SVO. Handler registra somente código/operação/instante e testes verificam sentinelas.</td></tr>
+<tr><td><code>C13</code></td><td>TypeScript estrito</td><td><span class="badge-ok">🟢 OK</span></td><td>Compilação estrita aprovada. Novos DTOs e snapshots explícitos, entrada unknown validada; sem any, ts-ignore ou ts-nocheck no código novo.</td></tr>
+<tr><td><code>C14</code></td><td>Nomenclatura e TSDoc</td><td><span class="badge-ok">🟢 OK</span></td><td>Identificadores novos em inglês, estados OPEN e demais valores canônicos em inglês. Método público createOrder e handlers documentados em português. Papéis em português preservam o contrato real, conforme SDD.</td></tr>
+<tr><td><code>C15</code></td><td>Cinco estados visuais</td><td><span class="badge-na">⚪ N/A</span></td><td>Backend sem tela; nenhum estado visual da aplicação pode ser atestado por esta revisão.</td></tr>
+<tr><td><code>C16</code></td><td>Formulários e controles acessíveis</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem formulário novo. Mensagens da API em português, sem SQL ou conteúdo pessoal ecoado.</td></tr>
+<tr><td><code>C17</code></td><td>Teclado, foco e alvos de toque</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem mudança de interface operacional. HTML do relatório possui idioma, títulos, tabelas semânticas e foco visível.</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+
+<h3>R1 · 🟢 Corrigido — manutenção impeditiva em veículo AVAILABLE</h3>
+<p><strong>Correção aplicada em 15/11/2026:</strong> <a href="../../backend/src/services/svo-orders.service.ts">SvoOrdersService.createOrder</a> consulta <code>VehiclesRepository.hasActiveMaintenanceBlock(vehicle.id, client)</code> após travar e validar a viatura, antes de reservar capacidade. Manutenção impeditiva OPEN/IN_PROGRESS resulta em VEHICLE_UNAVAILABLE/409, com orientação para escolher outro veículo. A consulta reutiliza SQL e regra existentes na mesma transação; não foram criadas migrations nem alterados contratos ou registros históricos.</p>
+<p><strong>Regressão comprovada:</strong> os testes novos foram executados antes da correção: falharam a recusa HTTP, a criação após manutenção concorrente e a rejeição unitária. Após a correção, passaram os 26 testes de ordens (8 unitários e 18 de integração), além dos 408 testes do backend completo.</p>
+<ul><li>ORD-04a: manutenção impeditiva OPEN e IN_PROGRESS com veículo AVAILABLE → 409 sem ordem, OPENED ou auditoria.</li>
+<li>ORD-04b: manutenção ativa não impeditiva, DONE/CANCELED ou de outra viatura preserva a elegibilidade.</li>
+<li>ORD-10: manutenção confirmada enquanto a criação aguarda FOR UPDATE é lida após liberar a trava; a requisição é recusada sem novas escritas.</li>
+<li>Teste unitário verifica ordem de consultas, mesmo cliente e rollback antes de capacidade, evento e auditoria.</li></ul>
+<p><strong>Arquivos:</strong> serviço de ordens; fixture de manutenção legada em <a href="../../backend/tests/fixtures/svo-orders.fixture.ts">svo-orders.fixture.ts</a>; <a href="../../backend/tests/svo-orders.service.test.ts">unitários</a>; <a href="../../backend/tests/svo-orders.integration.test.ts">integrações</a>; README, SDD e documentação SVO.</p>
+<p><strong>Histórico da revisão inicial:</strong> a reprodução em base sintética havia retornado 201/OPEN com uma ordem persistida apesar do impedimento ativo. Esse resultado foi preservado como evidência inicial em <code>.tmp/review-115-117/reproduction.log</code>; não representa o comportamento atual corrigido. O passado da revisão permanece documentado.</p>
+<h3>🟡 A1 · Tamanho e composição do diff (C1)</h3>
+<p>O recorte excede 400 linhas e o diff contra develop ainda contém a entrega FROTA-111/112. Apresentar no PR a dependência e a justificativa do tamanho; organizar API, testes e documentação em commits revisáveis. Não remover a cobertura necessária apenas para reduzir linhas.</p>
+<h3>🟡 A2 · Empacotamento da entrega antes do PR (C2)</h3>
+<p>Ordens, fixtures, testes e SDD estão sem commit. O diff de commits sozinho não os contém. Antes do PR para develop, incluir todos os arquivos da entrega e confirmar como FROTA-111/112 será integrada. Os dois commits existentes têm mensagens válidas. Esta é uma pendência de fluxo, distinta do defeito R1.</p>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+
+<p>Histórico dos checks da revisão inicial em 15/11/2026. Os logs iniciais ficam em <code>.tmp/review-115-117/</code>. O quadro de revalidação após a correção aparece abaixo; R1 agora possui cobertura e está resolvido.</p>
+<table><thead><tr><th scope="col">Verificação</th><th scope="col">Comando / ambiente</th><th scope="col">Resultado observado</th></tr></thead><tbody>
+<tr><td>Pré-auditoria</td><td><code>node docs/scripts/aratu-check.mjs</code></td><td>0 bloqueios e 0 alertas estáticos; tipos backend/frontend aprovados; 165 testes frontend aprovados, 0 falhas. O script também incluiu os arquivos novos de ordens.</td></tr>
+<tr><td>TypeScript backend</td><td><code>docker compose exec -T backend npx tsc --noEmit</code></td><td>Aprovado, exit 0.</td></tr>
+<tr><td>Suíte backend em base nova</td><td><code>docker compose exec -T -e POSTGRES_DB_TEST=aratu_review_115_117_clean_test backend npm test</code></td><td>405 aprovados, 0 falhas. Inclui 23 testes de ordens (7 unitários e 16 integrações). Base sintética nova com migrations atuais; verificações de nome e current_database no teste de ordens.</td></tr>
+<tr><td>Execução inicial no banco de testes existente</td><td><code>docker compose exec -T backend npm test</code></td><td>373 aprovados, 32 falhas. Erros 42703 em request_key/request_payload e falhas de rollback/abastecimentos. Os 23 testes de ordens passaram nessa execução. A repetição acima em base nova distingue o estado preexistente da base de uma regressão do código avaliado; log inicial preservado em backend-test.log.</td></tr>
+<tr><td>Build backend</td><td><code>docker compose exec -T backend npm run build</code></td><td>Aprovado, exit 0.</td></tr>
+<tr><td>ESLint frontend</td><td><code>docker compose exec -T frontend npm run lint</code></td><td>Aprovado, exit 0.</td></tr>
+<tr><td>Build frontend</td><td><code>docker compose exec -T frontend npm run build</code></td><td>Aprovado, exit 0; aviso de bundle maior que 500 kB. Nenhum arquivo frontend faz parte deste diff.</td></tr>
+<tr><td>Whitespace do diff</td><td><code>git diff --check</code></td><td>Aprovado.</td></tr>
+<tr><td>Reprodução adicional de R1</td><td>HTTP + PostgreSQL 18 em <code>aratu_review_115_117_test</code></td><td>Falha confirmada: manutenção impeditiva ativa e situação AVAILABLE resultam em 201, com ordem persistida.</td></tr>
+</tbody></table>
+<h3>Revalidação após correção — 15/11/2026</h3>
+<p>Logs atuais em <code>.tmp/fix-115-117/</code>. Comandos de backend executados no container, usando banco sintético exclusivo. A reprodução negativa antes da mudança confirma que os testes detectam a falha corrigida.</p>
+<table><thead><tr><th scope="col">Check após ajuste</th><th scope="col">Resultado</th></tr></thead><tbody>
+<tr><td>Suíte específica de ordens</td><td>26 aprovados, 0 falhas (8 unitários e 18 integrações).</td></tr>
+<tr><td>Backend completo: npm test com POSTGRES_DB_TEST=aratu_svo_115_117_fix_suite_test</td><td>408 aprovados, 0 falhas, nenhum teste ignorado.</td></tr>
+<tr><td>Backend tsc --noEmit e npm run build</td><td>Aprovados, exit 0.</td></tr>
+<tr><td>aratu-check.mjs</td><td>0 bloqueios e 0 alertas; tipos backend/frontend aprovados; 165 testes frontend aprovados.</td></tr>
+<tr><td>git diff --check</td><td>Aprovado.</td></tr>
+</tbody></table>
+<p>Lint e build frontend aprovados na revisão inicial; nenhum arquivo de frontend mudou neste ajuste. Não foram repetidos esses checks sem alteração correspondente.</p>
+
+<p><strong>Limites:</strong> sem teste visual de tela operacional, pois FROTA-116 está fora do escopo; sem atestado de WCAG visual da aplicação, sem teste de carga nem EXPLAIN em volume de produção. A revisão inicial não alterou código; a correção posterior de R1 está descrita e validada acima.</p>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+
+<ul class="check">
+<li><label><input type="checkbox" checked> R1 corrigido; regressões para manutenção impeditiva OPEN/IN_PROGRESS com veículo AVAILABLE aprovadas.</label></li>
+<li><label><input type="checkbox" checked> Ausência de ordem, evento e auditoria nas recusas verificada; atomicidade, trava da viatura e sigilo preservados.</label></li>
+<li><label><input type="checkbox"> Conferir no PR o contrato do SDD: IDs string/camelCase, OPEN, uma vaga por ordem ativa, equipe sem exigência de membros e sem consulta de agenda nesta entrega.</label></li>
+<li><label><input type="checkbox"> Revisar composição com a dependência FROTA-111/112, justificar tamanho, incluir arquivos não rastreados e direcionar o PR para develop.</label></li>
+<li><label><input type="checkbox" checked> Suíte completa reexecutada após a correção; mensagens e RBAC validados em ambiente sintético.</label></li>
+</ul>
+<p><strong>Conclusão:</strong> APROVADO_PARA_REVISAO_HUMANA após correção de R1; permanecem duas observações de preparação do PR. Revisão → padrões do projeto, DRY e integridade operacional · dúvidas: nenhuma pendente.</p>
+
+</body>
+</html>

@@ -10,6 +10,15 @@ function getLabels(navigation) {
   ].map((item) => item.label)
 }
 
+test('links de ordens SVO aparecem somente para seus respectivos perfis', () => {
+  for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO']) {
+    const navigation = getSidebarNavigation(profile)
+    const items = [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items)]
+    assert.equal(items.some((item) => item.path === '/svo/ordens'), profile === 'EQUIPE_SVO')
+    assert.equal(items.some((item) => item.path === '/svo/acompanhamento'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR')
+  }
+})
+
 test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
   const navigation = getSidebarNavigation('ADMINISTRADOR')
 
@@ -17,11 +26,13 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     'Início',
     'Usuários',
     'Perfis e Permissões',
+    'Tipos de serviço',
     'Veículos',
     'Manutenção',
     'Abastecimentos',
     'Motoristas',
     'Auditoria',
+    'Relatórios',
     'Configurações',
     'Ajuda',
   ])
@@ -32,18 +43,22 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     [
       { label: 'Usuários', path: '/administracao/usuarios' },
       { label: 'Perfis e Permissões', path: '/administracao/perfis' },
+      { label: 'Tipos de serviço', path: '/tipos-de-servico' },
       { label: 'Veículos', path: '/veiculos' },
       { label: 'Manutenção', path: '/maintenance-orders' },
       { label: 'Abastecimentos', path: '/abastecimentos' },
       { label: 'Motoristas', path: '/motoristas' },
+      { label: 'Relatórios', path: '/relatorios' },
     ],
   )
   assert.equal(navigation.topItems[0].behavior, 'static')
   assert.equal(navigation.topItems[4].behavior, 'link')
   assert.equal(navigation.topItems[5].behavior, 'link')
   assert.equal(navigation.topItems[6].behavior, 'link')
-  assert.equal(navigation.topItems[7].behavior, 'static')
+  assert.equal(navigation.topItems[7].behavior, 'link')
   assert.equal(navigation.topItems[8].behavior, 'static')
+  assert.equal(navigation.topItems[9].behavior, 'link')
+  assert.equal(navigation.topItems[10].behavior, 'static')
   assert.equal(navigation.footerItems[0].behavior, 'static')
   assert.equal(navigation.showDividerAfterTop, false)
 })
@@ -54,11 +69,14 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   assert.deepEqual(getLabels(navigation), [
     'Início',
     'Solicitações',
+    'Analisar solicitações',
     'Viagens',
+    'Acompanhamento de ordens',
     'Confirmar viagens',
     'Veículos',
     'Motoristas',
     'Tipos de serviço',
+    'Agendar viagem',
     'Manutenção',
     'Abastecimentos',
     'Documentos',
@@ -83,15 +101,35 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   )
   const drivers = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Motoristas')
   assert.deepEqual({ behavior: drivers.behavior, path: drivers.path }, { behavior: 'link', path: '/motoristas' })
+  const scheduling = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Agendar viagem')
+  assert.deepEqual({ behavior: scheduling.behavior, path: scheduling.path }, { behavior: 'link', path: '/agendar-viagem' })
+  const analysis = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Analisar solicitações')
+  assert.deepEqual({ behavior: analysis.behavior, path: analysis.path }, { behavior: 'link', path: '/frota/solicitacoes/analise' })
   const maintenance = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Manutenção')
   assert.deepEqual({ behavior: maintenance.behavior, path: maintenance.path }, { behavior: 'link', path: '/maintenance-orders' })
   const fuelings = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Abastecimentos')
   assert.deepEqual({ behavior: fuelings.behavior, path: fuelings.path }, { behavior: 'link', path: '/abastecimentos' })
+  const svoTracking = navigation.sections.flatMap((section) => section.items).find((item) => item.label === 'Acompanhamento de ordens')
+  assert.deepEqual({ behavior: svoTracking.behavior, path: svoTracking.path }, { behavior: 'link', path: '/svo/acompanhamento' })
+
+  const linkLabels = new Set([
+    'Relatórios',
+    'Acompanhamento de ordens',
+    'Confirmar viagens',
+    'Veículos',
+    'Motoristas',
+    'Tipos de serviço',
+    'Agendar viagem',
+    'Manutenção',
+    'Abastecimentos',
+    'Analisar solicitações',
+  ])
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]
-      .filter((item) => !['Veículos', 'Motoristas', 'Manutenção', 'Abastecimentos'].includes(item.label))
+      .filter((item) => !linkLabels.has(item.label))
       .every((item) => item.behavior === 'button'),
   )
+
   assert.equal(navigation.showDividerAfterTop, true)
 })
 
@@ -111,5 +149,37 @@ test('somente GESTOR e ADMINISTRADOR recebem o atalho de abastecimentos', () => 
   }
   for (const profile of ['GESTOR', 'ADMINISTRADOR']) {
     assert.equal(getLabels(getSidebarNavigation(profile)).includes('Abastecimentos'), true)
+  }
+})
+
+test('somente GESTOR recebe o atalho de análise de solicitações', () => {
+  for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Analisar solicitações'), false)
+  }
+  assert.equal(getLabels(getSidebarNavigation('GESTOR')).includes('Analisar solicitações'), true)
+})
+
+test('somente MOTORISTA recebe o atalho Minhas viagens apontando para a própria home', () => {
+  const driverNav = getSidebarNavigation('MOTORISTA')
+  const myTrips = driverNav.sections
+    .flatMap((section) => section.items)
+    .find((item) => item.label === 'Minhas viagens')
+  assert.deepEqual(
+    { behavior: myTrips?.behavior, path: myTrips?.path },
+    { behavior: 'link', path: '/viagens/minhas' },
+  )
+  for (const profile of ['ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Minhas viagens'), false)
+  }
+})
+
+test('Confirmar viagens aponta para a página e fica restrito ao GESTOR', () => {
+  const gestorNav = getSidebarNavigation('GESTOR')
+  const confirmation = gestorNav.sections.flatMap((section) => section.items).find((item) => item.label === 'Confirmar viagens')
+  assert.deepEqual({ behavior: confirmation?.behavior, path: confirmation?.path }, {
+    behavior: 'link', path: '/viagens/confirmacao',
+  })
+  for (const profile of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Confirmar viagens'), false)
   }
 })

@@ -1,4 +1,8 @@
 import express from 'express'
+import { DatabaseMigrator } from './database/migrator'
+import { HealthRepository } from './repositories/health.repository'
+import { HealthService } from './services/health.service'
+import { createHealthRouter } from './routes/health.routes'
 import cors from 'cors'
 import { error as logError } from 'node:console'
 import type { Pool } from 'pg'
@@ -24,6 +28,9 @@ import { MaintenanceOrdersService } from './services/maintenance-orders.service'
 import { createMaintenanceOrdersRouter } from './routes/maintenance-orders.routes'
 import { UsersService } from './services/users.service'
 import { createUsersRouter } from './routes/users.routes'
+import { RequestsRepository } from './repositories/requests.repository'
+import { RequestsService } from './services/requests.service'
+import { createRequestsRouter } from './routes/requests.routes'
 import { DriversRepository } from './repositories/drivers.repository'
 import { DriversService } from './services/drivers.service'
 import { createDriversRouter } from './routes/drivers.routes'
@@ -46,11 +53,23 @@ import { createTripsRouter } from './routes/trips.routes'
 import { RequestDecisionsRepository } from './repositories/request-decisions.repository'
 import { RequestDecisionsService } from './services/request-decisions.service'
 import { createRequestDecisionsRouter } from './routes/request-decisions.routes'
+import { SvoOccurrencesRepository } from './repositories/svo-occurrences.repository'
+import { SvoOccurrencesService } from './services/svo-occurrences.service'
+import { createSvoOccurrencesRouter, svoErrorHandler } from './routes/svo-occurrences.routes'
+import { SvoOrdersRepository } from './repositories/svo-orders.repository'
+import { SvoOrdersService } from './services/svo-orders.service'
+import { createSvoOrdersRouter, svoOrderErrorHandler } from './routes/svo-orders.routes'
+import { ReportsRepository } from './repositories/reports.repository'
+import { ReportsService } from './services/reports.service'
+import { ReportRegistry } from './services/reports/report-registry'
+import { createReportsRouter } from './routes/reports.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
  */
 export interface AppDependencies {
+  /** Origem pública autorizada para clientes que acessam a API entre domínios. */
+  corsOrigin?: string
   /** Configurações de autenticação e expiração de tokens JWT. */
   jwtConfig: JwtConfig
   /** Repositório de usuários customizado (utilizado primariamente em testes unitários). */
@@ -76,6 +95,7 @@ export interface AppDependencies {
  * @throws {Error} Se nem o repositório de usuários nem o pool PostgreSQL forem informados.
  */
 export function createApp({
+  corsOrigin,
   jwtConfig,
   users,
   roles,
@@ -91,8 +111,13 @@ export function createApp({
   const auditService = auditRepository ? new AuditService(auditRepository) : undefined
 
   const app = express()
-  app.use(cors())
+  app.use(cors(corsOrigin ? { origin: corsOrigin } : {}))
   app.use(express.json())
+  const health = pool ? new HealthService(new HealthRepository(pool), async () => {
+    const files = await new DatabaseMigrator().loadFiles()
+    return files.map(file => file.version)
+  }) : undefined
+  app.use('/health', createHealthRouter(health))
   app.get('/', (_req, res) => {
     res.json({ mensagem: 'Servidor Express rodando com sucesso no Docker!' })
   })
@@ -129,15 +154,27 @@ export function createApp({
     const currentUsersRepository = userRepository instanceof UsersRepository
       ? userRepository
       : new UsersRepository(pool)
+    const reportsService = new ReportsService(new ReportsRepository(pool), new ReportRegistry(vehicleDocumentAlertDays), currentUsersRepository, auditService)
+    app.use('/reports', createReportsRouter(reportsService, jwtConfig, currentUsersRepository))
     app.use('/fines', createFinesRouter(finesService, jwtConfig, currentUsersRepository))
     app.use('/vehicle-documents', createVehicleDocumentsRouter(vehicleDocumentsService, jwtConfig, currentUsersRepository))
     const requestDecisionsService = new RequestDecisionsService(new RequestDecisionsRepository(pool), auditService)
     app.use('/requests', createRequestDecisionsRouter(requestDecisionsService, jwtConfig))
+    const requestsService = new RequestsService(new RequestsRepository(pool), auditService)
+    app.use('/requests', createRequestsRouter(requestsService, jwtConfig, currentUsersRepository))
+    const svoService = new SvoOccurrencesService(new SvoOccurrencesRepository(pool), auditService)
+    app.use('/svo/occurrences', createSvoOccurrencesRouter(svoService, jwtConfig, currentUsersRepository))
+    const svoOrdersService = new SvoOrdersService(
+      new SvoOccurrencesRepository(pool), new SvoOrdersRepository(), vehiclesRepository, auditService,
+    )
+    app.use('/svo/orders', createSvoOrdersRouter(svoOrdersService, jwtConfig, currentUsersRepository))
   }
   if (rolesRepository && auditService && userRepository instanceof UsersRepository) {
     const usersService = new UsersService(userRepository, rolesRepository, auditService)
     app.use('/users', createUsersRouter(usersService, jwtConfig))
   }
+  app.use('/svo/occurrences', svoErrorHandler)
+  app.use('/svo/orders', svoOrderErrorHandler)
   app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (res.headersSent) {
       next(error)

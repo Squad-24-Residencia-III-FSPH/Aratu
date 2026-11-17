@@ -4,6 +4,7 @@ import type { PoolClient } from 'pg'
  * Operações auditáveis padronizadas no Sistema Aratu.
  */
 export type AuditOperation =
+  | 'EXPORT'
   | 'CREATE'
   | 'UPDATE'
   | 'DELETE'

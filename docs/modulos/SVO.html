@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SVO — Solicitações, ordens e acompanhamento | Aratu</title>
+  <style>
+    :root {
+      --brand-strong: #075985;
+      --brand: #0369a1;
+      --brand-surface: #f0f9ff;
+      --brand-border: #bae6fd;
+      --brand-hover: #e0f2fe;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  code, td, th { overflow-wrap: anywhere; }
+    @media (max-width: 600px) { body { padding: 0 14px 32px; margin: 16px auto; } table { font-size: .8rem; } th, td { padding: 7px; } }
+  </style>
+</head>
+<body>
+<h1>SVO — Solicitações, ordens e acompanhamento</h1>
+<div class="meta-block">
+<p><strong>Atualização atual:</strong> FROTA-122 (FROTA-123 FE, FROTA-124 BE, FROTA-125 QA) — registro de resultado e encerramento do atendimento · 15/11/2026 · America/Sao_Paulo.</p>
+<p><strong>Branch:</strong> <code>feat/svo-order-result</code>, criada sobre a cadeia SVO validada (<code>feat/svo-order-tracking</code>, <code>3269a5b</code>).</p>
+<p><strong>Camadas:</strong> Express 5 / TypeScript → Services → Repositories; React 19 / Material UI; PostgreSQL 18, sem nova migration. <strong>Perfis:</strong> EQUIPE_SVO, ATENDENTE_SVO, GESTOR e ADMINISTRADOR.</p>
+<p><a href="../plans/frota-122-registrar-resultado-svo.html">SDD FROTA-122</a> · <a href="#results">Entrega e validação atuais</a>. Os registros de entregas anteriores abaixo permanecem como evidência histórica.</p>
+</div>
+<div class="meta-block">
+<p><strong>Entrega anterior:</strong> FROTA-118 — acompanhamento do atendimento · 15/11/2026 · America/Sao_Paulo.</p>
+<p><strong>Branch:</strong> <code>feat/svo-order-tracking</code>, criada de <code>feat/svo-orders</code> (<code>813e8ef</code>) por confirmação expressa do usuário, enquanto a dependência FROTA-115/117 aguarda integração na develop.</p>
+<p><strong>Camadas:</strong> Express 5 / TypeScript → Services → Repositories; React 19 / Material UI; PostgreSQL 18, sem nova migration. <strong>Perfis:</strong> EQUIPE_SVO, ATENDENTE_SVO, GESTOR e ADMINISTRADOR.</p>
+<p><a href="../plans/frota-118-acompanhar-atendimento-svo.html">SDD FROTA-118</a> · <a href="#tracking">Entrega e validação atuais</a>. Os registros de entregas anteriores abaixo permanecem como evidência histórica.</p>
+</div>
+<div class="meta-block">
+<p><strong>Entrega:</strong> FROTA-112 (API) e FROTA-111 (testes) · 13/11/2026 · America/Sao_Paulo.</p>
+<p><strong>Base:</strong> develop, <code>f18f363</code>. Implementação na árvore de trabalho de <code>feat/svo-occurrences</code>, ainda sem commit.</p>
+<p>O usuário autorizou reunir API e testes na mesma branch, substituindo a sequência de duas branches proposta nos planos.</p>
+<p><strong>Referências:</strong> <a href="../plans/frota-112-api-registro-solicitacao-svo.html">Plano da API</a>, <a href="../plans/frota-111-testes-registro-solicitacao-svo.html">Plano de integração</a> e <a href="../manuais/modulos.md">índice de módulos</a>.</p>
+</div>
+<ol class="toc">
+<li><a href="#overview">Visão geral</a></li><li><a href="#rules">Regras e estados</a></li>
+<li><a href="#access">Matriz de acesso</a></li><li><a href="#data">Banco e histórico</a></li>
+<li><a href="#api">Contratos da API</a></li><li><a href="#layers">Camadas</a></li>
+<li><a href="#ui">Interface e acessibilidade</a></li><li><a href="#files">Arquivos</a></li>
+<li><a href="#privacy">Dependências e proteção de dados</a></li><li><a href="#tests">Verificação e evidências</a></li>
+<li><a href="#orders">Geração de ordens SVO — FROTA-115 / FROTA-117</a></li>
+<li><a href="#tracking">Acompanhamento do atendimento — FROTA-118</a></li>
+<li><a href="#results">Registro de resultado e encerramento — FROTA-122</a></li>
+</ol>
+<h2 id="overview">1. Visão geral</h2>
+<p>Registra chamados recebidos externamente pela central SVO, a qualquer hora. Permite informar quando o recebimento aconteceu, consultar solicitações e confirmar a conferência dos campos de triagem. A entrega inicial FROTA-111/FROTA-112 compreende quatro endpoints de ocorrências. A FROTA-115/FROTA-117 acrescenta a geração de ordem para uma solicitação confirmada, descrita na <a href="#orders">seção de ordens</a>. A <a href="#tracking">FROTA-118</a> acrescenta consultas e confirmação de saída/chegada pela equipe, com duas telas. A <a href="#results">FROTA-122</a> acrescenta o registro do resultado final (concluída ou não realizada), liberação da reserva derivada, recorte inicial de ordens ativas para a equipe e acesso de leitura do gestor em <code>/svo/acompanhamento</code>. Telas de registro/geração (FROTA-109/FROTA-116), CRUD de equipes, cancelamento, retificação, reabertura, dados clínicos adicionais e anexos permanecem fora dessas entregas.</p>
+<h2 id="rules">2. Regras de negócio e transições de estado</h2>
+<ul>
+<li><code>SvoOccurrencesService.createOccurrence</code>: nome, telefone, tipo de solicitante, local, descrição e evidência do canal/meio obrigatórios. Textos usam trim. Telefone não exige máscara. Observações vazias/omitidas viram null.</li>
+<li><code>requesterType</code>: FAMILY, HOSPITAL, UBS, UPA, PUBLIC_AGENCY ou OTHER.</li>
+<li><code>receivedAt</code>: ISO 8601 com fuso, válido e não futuro em relação ao relógio do banco; omitido usa esse relógio. Não há restrição de expediente.</li>
+<li>Estado inicial PENDING e revisão 1. Autoria, revisão e carimbos são controlados pelo servidor. Propriedades fora do contrato retornam 400.</li>
+<li><code>confirmOccurrence</code>: PENDING → CONFIRMED, após conferir os campos obrigatórios armazenados. CONFIRMED/CANCELED retornam 409. Não há questionário clínico adicional.</li>
+<li>Trava a conta/perfil com FOR SHARE e a ocorrência com FOR UPDATE, nessa ordem. Confirmação incrementa revisão e usa o mesmo instante em triagedAt e no evento CONFIRMED.</li>
+<li>Ocorrência, evento e auditoria usam o mesmo PoolClient. Falha em qualquer etapa provoca rollback; sucesso só retorna após commit e a conexão é liberada em finally.</li>
+</ul>
+<div class="notice-block"><strong>Resultado incerto:</strong> criação não tem chave de idempotência nem deduplicação por nome/telefone/local. Não reenviar automaticamente após timeout. Consultar auxilia a conferência, mas não comprova qual POST criou um registro.</div>
+<h2 id="access">3. Escopo de impacto e matriz de acesso às ocorrências (RBAC)</h2>
+<table><thead><tr><th scope="col">Conta atual</th><th scope="col">Criar / confirmar</th><th scope="col">Listar / detalhar</th></tr></thead><tbody>
+<tr><td>ATENDENTE_SVO / ADMINISTRADOR</td><td>Permitido</td><td>Permitido</td></tr>
+<tr><td>GESTOR</td><td>403</td><td>Permitido</td></tr>
+<tr><td>SOLICITANTE / MOTORISTA / EQUIPE_SVO</td><td>403</td><td>403</td></tr>
+<tr><td>Token ausente/inválido/expirado ou conta inativa</td><td>401</td><td>401</td></tr>
+</tbody></table>
+<p>Autenticação → revalidação da conta atual → RBAC → controller. Nas escritas, o serviço revalida o ator dentro da transação. A autorização precede a consulta da ocorrência; um token antigo não preserva privilégios removidos.</p>
+<h2 id="data">4. Tabelas do banco de dados e histórico</h2>
+<p>Reutiliza a migration <code>202610280006_create_svo_occurrences.sql</code>, sem nova migration ou alteração de dados legados.</p>
+<table><thead><tr><th scope="col">Tabela</th><th scope="col">Grão e conteúdo</th><th scope="col">Integridade</th></tr></thead><tbody>
+<tr><td>svo.occurrences</td><td>Estado atual de um chamado; dados do solicitante, received_at, attendant_id/snapshot, status, revisão, triaged_at/by e carimbos de cadastro.</td><td>BIGINT IDENTITY; FKs ON DELETE RESTRICT; CHECKs de campos, tipos, status e coerência de triagem. Índice por status, recebimento e id.</td></tr>
+<tr><td>svo.occurrence_events</td><td>Um acontecimento: RECEIVED ou CONFIRMED, before_state/after_state, occurred_at, registered_at, reported_by, registered_by, actor_snapshot, motivo e evidência.</td><td>Trigger rejeita UPDATE/DELETE. Evento e autoria ficam imutáveis; FK para ocorrência e usuário.</td></tr>
+<tr><td>audit.logs</td><td>CREATE ou STATUS_CHANGE com projeção mínima e ator autenticado.</td><td>Mesma transação do evento e ocorrência; conteúdo do chamado não é copiado.</td></tr>
+</tbody></table>
+<p><strong>Bi-temporalidade:</strong> RECEIVED.occurred_at preserva o recebimento informado; registered_at e created_at são automáticos. O primeiro RECEIVED, ordenado por registered_at e id, fornece a evidência do detalhe. Legado sem evento retorna null, sem preencher snapshots ou inventar autoria passada.</p>
+<p><strong>Rollback da entrega:</strong> reverter código/rotas; preservar tabelas e histórico. Não executar a migration down da FROTA-110. A limpeza de testes usa exclusivamente bases sintéticas identificadas como teste e distintas do banco da aplicação.</p>
+<h2 id="api">5. Contratos de API REST</h2>
+<p>Base <code>/svo/occurrences</code>, JWT Bearer. IDs e FKs são strings decimais positivas até 9223372036854775807; revisão inteira; datas JSON em ISO 8601.</p>
+<table><thead><tr><th scope="col">Método / caminho</th><th scope="col">Entrada</th><th scope="col">Saída</th></tr></thead><tbody>
+<tr><td>POST /</td><td>Objeto de criação abaixo</td><td>201: id, status PENDING, receivedAt, createdAt, revision 1</td></tr>
+<tr><td>GET /</td><td>status?, from?, to?</td><td>200: array de resumos; [] quando vazio</td></tr>
+<tr><td>GET /:id</td><td>Identificador</td><td>200: detalhe; 404 se inexistente</td></tr>
+<tr><td>POST /:id/confirm</td><td>Sem corpo ou {}</td><td>200: id, status CONFIRMED, triagedAt, triagedBy, revision</td></tr>
+</tbody></table>
+<pre><code>{
+  "requesterName": "Solicitante Fictício QA",
+  "requesterPhone": "00000000000",
+  "requesterType": "FAMILY",
+  "location": "Local Fictício de Teste",
+  "description": "Chamado sintético sem dados reais.",
+  "notes": null,
+  "receivedAt": "2020-01-04T02:15:00-03:00",
+  "evidenceDescription": "Contato telefônico fictício recebido pela central."
+}</code></pre>
+<p><strong>Resumo:</strong> id, requesterType, location, status, receivedAt, createdAt, revision. <strong>Detalhe:</strong> resumo + requesterName, requesterPhone, description, notes, attendantId, triagedAt, triagedBy, updatedAt, evidenceDescription (nullable). Nenhum DTO expõe snapshots ou eventos brutos.</p>
+<p>Filtros from/to são datas AAAA-MM-DD inclusivas em America/Maceio, sobre receivedAt. O serviço converte para instantes; SQL usa ≥ início e &lt; dia seguinte ao fim. Status: PENDING, CONFIRMED, CANCELED. Ordenação receivedAt DESC, id DESC. Sem paginação. Rejeita datas impossíveis, intervalo invertido e query repetida/objeto.</p>
+<p>Erros: <code>{ "erro": "mensagem orientadora" }</code>. 400 entrada/JSON inválido; 401 sessão/conta indisponível; 403 acesso negado; 404 inexistência; 409 confirmação repetida/cancelada; 500 inesperado: “Não foi possível concluir a operação. Consulte as solicitações antes de tentar novamente.”</p>
+<h2 id="layers">6. Camadas de negócio e persistência</h2>
+<p>Routes compõem autenticação e RBAC; controller adapta HTTP; SvoOccurrencesService concentra validação, FSM e coordenação transacional; SvoOccurrencesRepository concentra SQL parametrizado, projeções e locks. AuditService é reutilizado com allowlist local de campos. O handler sanitizado é montado por caminho em app.ts depois das rotas e antes do handler global, cobrindo inclusive erros do parser JSON anterior ao router.</p>
+<h2 id="ui">7. Interface e acessibilidade</h2>
+<p>As FROTA-111/FROTA-112 não implementaram tela. As mensagens da API identificam o problema e a correção em português, sem repetir valores enviados ou jargão SQL. O formulário de ocorrências continua previsto na FROTA-109. A FROTA-118 implementa a interface de acompanhamento de ordens, detalhada <a href="#tracking-ui">abaixo</a>; não amplia o acesso geral da equipe às ocorrências.</p>
+<h2 id="files">8. Arquivos principais</h2>
+<ul>
+<li><a href="../../backend/src/types/svo-occurrence.types.ts">Contratos, estados e erros</a></li>
+<li><a href="../../backend/src/repositories/svo-occurrences.repository.ts">Repositório</a> e <a href="../../backend/src/services/svo-occurrences.service.ts">serviço</a></li>
+<li><a href="../../backend/src/controllers/svo-occurrences.controller.ts">Controller</a>, <a href="../../backend/src/routes/svo-occurrences.routes.ts">rotas e handler</a> e <a href="../../backend/src/app.ts">composição da aplicação</a></li>
+<li><a href="../../backend/tests/svo-occurrences.service.test.ts">Testes unitários</a>, <a href="../../backend/tests/svo-occurrences.integration.test.ts">integração</a> e <a href="../../backend/tests/fixtures/svo-occurrences.fixture.ts">fixtures fictícias</a></li>
+<li><a href="../../README.md">README e exemplos</a></li>
+</ul>
+<h2 id="privacy">9. Dependências, integrações e proteção de dados</h2>
+<p>Express 5, pg/PostgreSQL 18 e infraestrutura existente de JWT/RBAC. Sem biblioteca, variável de ambiente ou flag nova. Testes usam node:test, fetch e porta efêmera, com configuração JWT sintética e banco dedicado validado antes da limpeza.</p>
+<p>Dados do chamado ficam no domínio restrito SVO. A auditoria recebe somente id, status, revision, receivedAt, triagedAt e triagedBy em before/after; o ator autenticado contém id, nome, email e perfil. Nome/telefone do solicitante, local, descrição, observações e evidência não entram na auditoria transversal. Diagnóstico de falha contém apenas código controlado, operação e instante, sem erro bruto, SQL, corpo, token ou stack.</p>
+<h2 id="tests">10. Verificação e evidências</h2>
+<p>Execução em 13/11/2026 sobre a árvore de trabalho descrita acima. PostgreSQL 18 via Docker. A validação específica inicial usou <code>aratu_test</code>; a suíte completa foi validada em <code>aratu_svo_validation_test</code>, criada pelas migrations atuais, com <code>DATABASE_URL_TEST</code> direcionada a essa base apenas no processo de testes. Integração real, sem substituir banco ou HTTP por mocks. Instrumentação de falhas é exclusiva do teste e removida em finally; triggers de produção não são desativados.</p>
+<pre><code>cd backend
+npx tsc --noEmit
+npm run build
+npx tsx --test tests/svo-occurrences.service.test.ts
+npx tsx --test --test-concurrency=1 tests/svo-occurrences.integration.test.ts
+npm test
+# Na raiz:
+node docs/scripts/aratu-check.mjs</code></pre>
+<p id="qa-results"><strong>Resultado final:</strong> 355 testes do backend passaram, zero falhas, incluindo 11 testes unitários SVO e os 24 casos de integração abaixo. Typecheck e builds do backend e frontend passaram; 158 testes frontend passaram. Aratu-check: zero bloqueantes/avisos nos nove arquivos de código alterados. O build frontend emite aviso de bundle acima de 500 kB, sem falhar. O backend não possui script separado de lint; a análise estática foi executada pelo aratu-check.</p>
+<p><strong>Diagnóstico do ambiente anterior:</strong> a primeira execução geral em <code>aratu_test</code> teve 322 aprovações e 32 falhas. A migration <code>202611050001</code> estava registrada, mas as colunas <code>fleet.fuelings.request_key</code> e <code>request_payload</code> não existiam. Os 31 testes originais de banco passaram em <code>aratu_svo_baseline_test</code>, criada separadamente, e a suíte completa passou na base nova de validação. O schema inconsistente da base antiga e o banco operacional não foram reconstruídos. Para reproduzir o resultado final, use DATABASE_URL_TEST apontando para uma base dedicada criada com as migrations atuais. Nenhuma connection string é publicada neste documento.</p>
+<table><thead><tr><th scope="col">Caso</th><th scope="col">Evidência verificada</th><th scope="col">Resultado</th></tr></thead><tbody>
+<tr><td>SVO-01</td><td>atendente e administrador criam PENDING, RECEIVED e CREATE atomicamente</td><td>Passou</td></tr>
+<tr><td>SVO-02</td><td>cada campo obrigatório inválido e corpos incompatíveis retornam 400 sem escrita</td><td>Passou</td></tr>
+<tr><td>SVO-03</td><td>todos os seis tipos são aceitos e desconhecido é rejeitado</td><td>Passou</td></tr>
+<tr><td>SVO-04</td><td>recebimento anterior, noturno e no fim de semana preserva o instante fático</td><td>Passou</td></tr>
+<tr><td>SVO-05</td><td>recebimento omitido usa relógio do banco; inválido, sem fuso ou futuro não escreve</td><td>Passou</td></tr>
+<tr><td>SVO-06</td><td>confirmação conserva RECEIVED e incrementa revisão com autoria e horário únicos</td><td>Passou</td></tr>
+<tr><td>SVO-07</td><td>CONFIRMED e CANCELED retornam 409 sem alterar trilhas ou revisão</td><td>Passou</td></tr>
+<tr><td>SVO-08</td><td>duas confirmações simultâneas retornam 200/409 e gravam um único efeito</td><td>Passou</td></tr>
+<tr><td>SVO-09</td><td>todas as rotas exigem token válido e não revelam registros</td><td>Passou</td></tr>
+<tr><td>SVO-10</td><td>matriz completa de seis perfis nas quatro rotas</td><td>Passou</td></tr>
+<tr><td>SVO-11</td><td>token antigo não mantém acesso após desativação ou perda de perfil</td><td>Passou</td></tr>
+<tr><td>SVO-12</td><td>detalhe, inexistência e IDs malformados respeitam BIGINT sem escrita</td><td>Passou</td></tr>
+<tr><td>SVO-13</td><td>filtro combinado inclui início e último instante do dia em America/Maceio</td><td>Passou</td></tr>
+<tr><td>SVO-14</td><td>consultas inválidas não escrevem; vazio e desempate são estáveis</td><td>Passou</td></tr>
+<tr><td>SVO-15</td><td>falha de auditoria durante criação e confirmação desfaz toda a transação</td><td>Passou</td></tr>
+<tr><td>SVO-16</td><td>auditoria e logs excluem todos os textos sensíveis; histórico mantém evidência</td><td>Passou</td></tr>
+<tr><td>SVO-17</td><td>evento é imutável por UPDATE e DELETE</td><td>Passou</td></tr>
+<tr><td>SVO-18</td><td>propriedades controladas pelo servidor são recusadas na criação e confirmação</td><td>Passou</td></tr>
+<tr><td>SVO-19</td><td>legado sem RECEIVED/snapshot permanece sem passado inventado</td><td>Passou</td></tr>
+<tr><td>SVO-20</td><td>mudanças posteriores no operador não alteram autoria histórica</td><td>Passou</td></tr>
+<tr><td>SVO-21</td><td>falha SQL no evento com detalhe sensível faz rollback sem vazar diagnóstico</td><td>Passou</td></tr>
+<tr><td>SVO-22</td><td>JSON malformado é interceptado no app sem vazar o corpo recebido</td><td>Passou</td></tr>
+<tr><td>SVO-23</td><td>notes vazias persistem null e tipos incompatíveis não escrevem</td><td>Passou</td></tr>
+<tr><td>SVO-24</td><td>lista e detalhe expõem apenas DTOs explícitos, sem snapshots/eventos brutos</td><td>Passou</td></tr>
+</tbody></table>
+<p>O caso SVO-24 aplica o contrato explícito da FROTA-112: a lista inclui location, mas exclui nome, telefone, descrição, notas e evidência. Não há mudança de contrato ou acesso por esse caso.</p>
+<p>Limitações da execução anterior: sem homologação clínica, interface ou teste manual de tela; sem commit/push/PR.</p>
+<h3 id="qa-revalidation-20261113">Revalidação das FROTA-111 e FROTA-112 — 13/11/2026</h3>
+<p><strong>Backend aprovado na base isolada; fluxo no navegador bloqueado.</strong> Na branch <code>feat/svo-occurrences</code>, HEAD <code>f18f363</code> com alterações locais, <code>npm test</code> passou com 355 testes backend (incluindo 11 unitários e 24 integrações SVO). Os 158 testes frontend, os tipos, o build backend e o aratu-check também passaram. A execução inicial de integração em <code>aratu_test</code> teve 196 aprovações e 32 falhas pelo schema de abastecimentos incompleto; a suíte completa passou em <code>aratu_svo_111_112_20261113_test</code>, criada pelas migrations atuais.</p>
+<p>O navegador real foi utilizado com contas existentes. O Atendente SVO autenticou, acionou Solicitações e encontrou <code>/#/svo/solicitacoes</code> com a mensagem de área em construção, sem formulário de registro ou confirmação. A dependência concreta é a FROTA-109. Foram observados os tamanhos 1024×768, 1280×800, 800×600, 375×667 e 320×568 sobre essa página provisória. O ensaio 1920×1080 ficou não conclusivo. Acessibilidade completa, cinco estados e persistência pela interface continuam pendentes.</p>
+<p>O <a href="../tests/frota-111-112.md">relatório detalhado desta revalidação</a> distingue testes únicos, repetições, API publicada, PostgreSQL, restrição visual por perfil e capturas locais. Nenhuma aprovação de ponta a ponta é declarada.</p>
+<h2 id="orders">11. Geração de ordens SVO — FROTA-115 / FROTA-117</h2>
+<div class="meta-block">
+<p><strong>Data:</strong> 15/11/2026 · America/Sao_Paulo. Branch <code>feat/svo-orders</code>, criada da develop atualizada (<code>a302229</code>) e avançada por fast-forward até <code>2c7fb58</code> para incorporar a dependência FROTA-112. Sem novo commit nesta implementação.</p>
+<p><strong>Referência:</strong> <a href="../plans/frota-115-117-geracao-ordens-svo.html">SDD conjunto da API e integração</a>.</p>
+</div>
+<h3>Contrato, fluxo e acesso</h3>
+<p><code>POST /svo/orders</code> recebe JWT Bearer e exatamente <code>occurrenceId</code>, <code>teamId</code>, <code>vehicleId</code>, strings decimais positivas canônicas até 9223372036854775807. Não aceita nomes antigos do Jira, números JSON, espaços, zeros iniciais ou propriedades extras. O servidor define OPEN, revisão 1, abertura e autoria.</p>
+<pre><code>// Entrada sintética
+{ "occurrenceId": "101", "teamId": "12", "vehicleId": "30" }
+// 201
+{ "id": "55", "status": "OPEN" }</code></pre>
+<p>Somente ATENDENTE_SVO e ADMINISTRADOR geram ordens. GESTOR, SOLICITANTE, MOTORISTA e EQUIPE_SVO recebem 403 antes da consulta de domínio. Conta inativa/removida, token ausente/inválido/expirado recebem 401. O cadastro atual determina o perfil, revalidado também dentro da transação.</p>
+<table><thead><tr><th scope="col">Código</th><th scope="col">Situação / orientação</th></tr></thead><tbody>
+<tr><td>400</td><td>Contrato/JSON/ID inválido ou solicitação não confirmada. “A solicitação precisa estar confirmada para gerar uma ordem.”</td></tr>
+<tr><td>404</td><td>Referência inexistente: solicitação SVO, equipe SVO ou veículo, com mensagem específica.</td></tr>
+<tr><td>409</td><td>Solicitação já possui ordem, equipe inativa, veículo inelegível ou sem vaga. Escolher uma equipe ativa ou outro veículo conforme o impedimento.</td></tr>
+<tr><td>500</td><td>“Não foi possível concluir a geração da ordem. Confirme o resultado com a central antes de tentar novamente.”</td></tr>
+</tbody></table>
+<p>Todos os erros usam <code>{ "erro": "mensagem" }</code>. Mensagens identificam o impedimento em português e não repetem conteúdo enviado, SQL ou stack. Não há tela nesta entrega; teclado, foco, estados visuais e WCAG visual continuam sob responsabilidade da FROTA-116.</p>
+<h3>Elegibilidade e reserva de capacidade</h3>
+<ul>
+<li>A ocorrência deve existir e estar CONFIRMED. A unicidade é histórica: uma ordem anterior, mesmo encerrada ou cancelada, impede nova criação com 409. A verificação de duplicidade precede a confirmação.</li>
+<li>A equipe deve existir e estar ativa; equipe sem membros é elegível. Equipe e veículo podem ser compartilhados por ordens diferentes até o limite.</li>
+<li>O veículo deve existir, estar AVAILABLE, operar SVO e incluir BODY. Exigir <code>ocupação atual + 1 ≤ bodyLimit vigente</code>; zero ou redução abaixo da ocupação recusa novas criações.</li>
+<li>Recusar com 409 se houver manutenção impeditiva OPEN/IN_PROGRESS, inclusive no legado AVAILABLE. Reutilizar <code>VehiclesRepository.hasActiveMaintenanceBlock</code> no mesmo cliente após travar a viatura. Manutenções não impeditivas, DONE/CANCELED ou de outro veículo não bloqueiam por si só. Recusas não persistem ordem, OPENED ou auditoria.</li>
+<li>Reservam vaga: OPEN, IN_TRANSIT, IN_SERVICE, IN_PROGRESS. Liberam reserva: COMPLETED, NOT_PERFORMED, CANCELED. Contar todas as equipes e os registros legados sem snapshots; ignorar outros veículos.</li>
+<li>Reserva é derivada das ordens; não mede corpos coletados nem altera status/revisão do veículo. A ocorrência mantém status/revisão/triagem. Não há alocação de motorista, exclusividade de equipe, consulta de conflitos de viagem ou transições posteriores nesta entrega.</li>
+</ul>
+<h3>Persistência, concorrência e história</h3>
+<p>Sem nova migration: reutiliza <code>202610280006</code> (ocorrências), <code>202610280007</code> (equipes) e <code>202610280008</code> (ordens). <code>svo.execution_orders</code> tem UNIQUE occurrence_id histórico, FKs ON DELETE RESTRICT e snapshots. <code>svo.execution_order_events</code> é append-only. <code>audit.logs</code> recebe CREATE na mesma transação.</p>
+<p>Ordem fixa de travas: conta/perfil FOR SHARE → ocorrência FOR UPDATE → equipe FOR SHARE → veículo FOR UPDATE. A contagem usa instrução posterior à trava do veículo em READ COMMITTED, lendo ordens já confirmadas pelo concorrente. Índice existente por vehicle_id/status e constraint única são reutilizados. Apenas SQLSTATE 23505 da constraint <code>svo.execution_orders.execution_orders_occurrence_id_key</code> é traduzido para duplicidade, depois do rollback.</p>
+<p>O relógio do banco fornece openedAt após as validações; esse instante também é OPENED.occurred_at. registered_at é automático. O evento preserva before_state null, after_state com contexto, ator autenticado e reported_by igual ao nome do ator. Motivo: “Ordem gerada a partir de solicitação SVO confirmada.” Evidência: “Alocação de equipe e veículo registrada pelo operador na sessão autenticada.”</p>
+<p>Snapshots explícitos: ocorrência (estado, revisão, solicitante, contato, local, descrição, notas, recebimento, triagem, atendente e evidência); equipe (id, name, active, revision); veículo (id, licensePlate, categories, operationType, status, bodyLimit, revision). Mudanças cadastrais posteriores não alteram esses snapshots. driver_id/driver_snapshot permanecem null. Legado permanece sem backfill.</p>
+<p>A auditoria transversal usa allowlist: id, occurrenceId, teamId, vehicleId, status, openedAt, revision e autoria id/name/email/role, sem snapshots operacionais ou conteúdo pessoal do chamado. Logs de falha contêm apenas código controlado, operação CREATE_ORDER e instante. Falha na ordem, no evento ou na auditoria reverte as três escritas; o cliente é liberado em finally.</p>
+<div class="notice-block"><strong>Reenvio e reversão:</strong> reenvio retorna 409, sem replay de 201 e sem duplicar histórico. Timeout após commit pode deixar resultado incerto; confirmar com a central. Não há GET de ordens nesta entrega. Reversão retira código/rotas preservando dados, eventos e auditoria, sem executar migrations down das dependências.</div>
+<h3>Arquivos e verificação</h3>
+<ul>
+<li><a href="../../backend/src/types/svo-order.types.ts">Contratos e snapshots de ordens</a>, <a href="../../backend/src/repositories/svo-orders.repository.ts">repositório</a> e <a href="../../backend/src/services/svo-orders.service.ts">serviço de criação</a>.</li>
+<li><a href="../../backend/src/controllers/svo-orders.controller.ts">Controller</a> e <a href="../../backend/src/routes/svo-orders.routes.ts">rotas e handler sanitizado</a>, compostos em app.ts.</li>
+<li><a href="../../backend/tests/svo-orders.service.test.ts">Testes unitários</a>, <a href="../../backend/tests/svo-orders.integration.test.ts">integração real HTTP/PostgreSQL</a> e <a href="../../backend/tests/fixtures/svo-orders.fixture.ts">fixtures sintéticas</a>.</li>
+</ul>
+<p>Os testes cobrem ORD-01 a ORD-15 do SDD: sucesso e efeitos laterais, estado, unicidade histórica, elegibilidade, capacidade e legado, contrato, RBAC, concorrência observada em pg_stat_activity, estabilidade sob locks, rollback de auditoria/evento, snapshots e sigilo. Antes da limpeza, validam banco terminado em _test, distinto da aplicação e correspondente a current_database(). O helper oficial aplica migrations e encerra o pool ao final.</p>
+<pre><code># Na raiz; banco sintético exclusivo (DATABASE_URL_TEST, se definida, tem precedência).
+docker compose exec -T -e POSTGRES_DB_TEST=aratu_svo_115_117_20261115_test backend npx tsx --test --test-concurrency=1 tests/svo-orders.service.test.ts tests/svo-orders.integration.test.ts
+docker compose exec -T -e POSTGRES_DB_TEST=aratu_svo_115_117_20261115_test backend npm test
+docker compose exec -T backend npx tsc --noEmit
+docker compose exec -T backend npm run build
+node docs/scripts/aratu-check.mjs</code></pre>
+<p id="orders-validation">Validação em 15/11/2026 com PostgreSQL real na base exclusiva <code>aratu_svo_115_117_20261115_test</code>. A tentativa inicial pelo host encontrou Docker Desktop pausado; as execuções no container ocorreram após o motor voltar a executar. Nenhum teste limpou a base operacional.</p>
+<table><thead><tr><th scope="col">Verificação executada</th><th scope="col">Resultado observado</th></tr></thead><tbody>
+<tr><td>Suíte específica final de ordens</td><td>23 aprovados, 0 falhas: 7 unitários e 16 integrações, incluindo a tradução da constraint real após rollback.</td></tr>
+<tr><td>npm test completo do backend</td><td>404 aprovados, 0 falhas, sem testes ignorados. Essa execução antecedeu a inclusão do caso adicional da constraint, validado na suíte específica final; os números não são somados.</td></tr>
+<tr><td>aratu-check completo</td><td>0 bloqueios e 0 alertas; tipos backend/frontend aprovados; 165 testes frontend aprovados, 0 falhas. A auditoria estática foi repetida após o último ajuste e permaneceu sem achados.</td></tr>
+<tr><td>Builds e tipos nos containers</td><td>Backend tsc --noEmit e npm run build aprovados, repetidos após o último ajuste. Frontend npm run build aprovado, com aviso do Vite sobre bundle maior que 500 kB.</td></tr>
+<tr><td>Revisão do diff</td><td>git diff --check aprovado; escopo restrito a API, testes e documentação; nenhuma migration ou tela nova.</td></tr>
+</tbody></table>
+<p>SQL parametrizado, RBAC atual, concorrência, rollback, snapshots e sigilo verificados. Mensagens da API foram conferidas em português; acessibilidade visual e operação por tela não são atestadas por esta entrega sem frontend. Próximas etapas recomendadas: /testar para validação operacional e /revisar antes do PR para develop. Nenhum commit ou push realizado nesta implementação.</p>
+<h3 id="orders-review-fix">Correção após revisão — 15/11/2026</h3>
+<p>Corrigida a disponibilidade de viatura legada AVAILABLE com manutenção impeditiva OPEN/IN_PROGRESS. A consulta canônica da frota ocorre no mesmo cliente após FOR UPDATE e recusa com 409 sem novas escritas. A matriz inclui manutenções não impeditivas, encerradas/canceladas, de outra viatura e manutenção confirmada enquanto a criação aguarda o lock.</p>
+<p>Validação após a correção: 26 testes de ordens aprovados (8 unitários e 18 integrações); suíte completa do backend com 408 aprovados, 0 falhas e nenhum ignorado na base sintética <code>aratu_svo_115_117_fix_suite_test</code>. TypeScript e build backend aprovados; aratu-check sem bloqueios/alertas, tipos backend/frontend e 165 testes frontend aprovados. Resultados anteriores acima são históricos. Ver <a href="../reviews/frota-115-117-geracao-ordens-svo.html">relatório atualizado</a>.</p>
+<h2 id="tracking">12. Acompanhamento do atendimento — FROTA-118</h2>
+<p>Entrega conjunta das subtarefas FROTA-119 (API), FROTA-121 (interface) e FROTA-120 (QA), conforme <a href="../plans/frota-118-acompanhar-atendimento-svo.html">SDD aprovado</a>. Sem novas dependências, configurações de produção ou migrations.</p>
+<h3>Regras, vínculos e preservação histórica</h3>
+<ol>
+<li><code>SvoOrdersService.listOrders</code>: lista autorizada, com filtro opcional por um dos sete estados, ordenada por <code>openedAt DESC, id DESC</code>, sem paginação ou truncamento. Lista vazia não é falha HTTP.</li>
+<li><code>getOrder</code>: autentica a conta/perfil atual e autoriza metadados antes de projetar os snapshots restritos. Ordem inexistente retorna 404; ordem existente fora do escopo retorna 403 sem conteúdo operacional.</li>
+<li><code>updateStatus</code>: somente <code>OPEN → IN_TRANSIT → IN_SERVICE</code>. A matriz total <code>SVO_ORDER_TRANSITIONS</code> determina tanto a validação do comando quanto <code>allowedTransitions</code> da consulta.</li>
+<li>O integrante consulta todas as equipes com vínculo vigente: <code>active = true</code>, início até o instante atual, fim nulo ou futuro. Equipe inativa mantém leitura para membro vigente e bloqueia atualização. Vínculos futuros/inativos/encerrados não autorizam acesso.</li>
+<li>Atualização trava conta/perfil, ordem, equipe e vínculo, nessa ordem. Obtém o relógio do banco após as travas; confere autorização antes de estado/revisão, sem depender de IDs fornecidos pelo cliente.</li>
+<li>Revisão esperada e destino explícito impedem duplo avanço. Concorrência/reenvio da mesma revisão resulta em uma transição e um evento/auditoria; a chamada seguinte recebe 409. Não há retry automático.</li>
+<li>Saída registra <code>departed_at</code>/DEPARTED; chegada registra <code>arrived_at</code>/ARRIVED. Ambas incrementam revisão e atualizam <code>updated_at</code>. Carimbo do destino já preenchido, saída anterior à abertura ou chegada anterior à saída são recusados com 409.</li>
+<li>Atualização, evento e auditoria UPDATE compartilham o mesmo PoolClient. Falha de evento/auditoria desfaz todos os efeitos; conexão liberada em finally. Autoria e evidência da confirmação derivam da sessão autenticada.</li>
+<li>Antes/depois em evento e auditoria guardam somente IDs, estado, revisão e horários; <code>actor_snapshot</code>, motivo e evidência identificam o registro, sem copiar contato/local/descrição/notas do chamado para a auditoria transversal.</li>
+<li>IN_PROGRESS legado, estados encerrados e IN_SERVICE não avançam nesta entrega. Snapshots e carimbos ausentes não são inventados. A chegada de um IN_TRANSIT legado sem saída mantém <code>departedAt = null</code>.</li>
+<li>Reserva, ocorrência, veículo e snapshots de despacho permanecem preservados. Não revalida disponibilidade cadastral de veículo como requisito novo para saída/chegada. Encerramento pertence à FROTA-124.</li>
+</ol>
+<table><thead><tr><th scope="col">Perfil atual</th><th scope="col">Consulta de ordens</th><th scope="col">PATCH status</th><th scope="col">Tela</th></tr></thead><tbody>
+<tr><td>EQUIPE_SVO</td><td>União das equipes com vínculo vigente</td><td>Próprias, vínculo vigente e equipe ativa</td><td>/svo/ordens</td></tr>
+<tr><td>ATENDENTE_SVO</td><td>Global</td><td>403</td><td>/svo/acompanhamento</td></tr>
+<tr><td>GESTOR / ADMINISTRADOR</td><td>Global</td><td>403</td><td>API; sem nova tela</td></tr>
+<tr><td>SOLICITANTE / MOTORISTA</td><td>403</td><td>403</td><td>Sem links ou acesso direto</td></tr>
+<tr><td>Sem autenticação / conta indisponível</td><td>401</td><td>401</td><td>Fluxo de login existente</td></tr>
+</tbody></table>
+<h3>Contratos e estruturas existentes</h3>
+<table><thead><tr><th scope="col">Método / rota</th><th scope="col">Entrada</th><th scope="col">Resposta</th></tr></thead><tbody>
+<tr><td>GET /svo/orders</td><td>status opcional: OPEN, IN_TRANSIT, IN_SERVICE, IN_PROGRESS, COMPLETED, NOT_PERFORMED, CANCELED</td><td>200, SvoOrderSummary[]; [] sem ordens/vínculo</td></tr>
+<tr><td>GET /svo/orders/:id</td><td>ID decimal canônico até BIGINT</td><td>200, SvoOrderDetail; 403 fora do escopo; 404 se ausente</td></tr>
+<tr><td>PATCH /svo/orders/:id/status</td><td>Exatamente status e revision inteira positiva</td><td>200, SvoOrderSummary atualizado; 403 por acesso; 409 por revisão/estado/data</td></tr>
+</tbody></table>
+<pre><code>{ "status": "IN_TRANSIT", "revision": 1 }
+// Após a confirmação, nova decisão explícita com revisão atual:
+{ "status": "IN_SERVICE", "revision": 2 }</code></pre>
+<p>Resumos contêm id/occurrenceId/teamId/vehicleId, status, revision, openedAt/departedAt/arrivedAt/collectedAt/closedAt, <code>dispatch</code>, <code>current</code> e <code>allowedTransitions</code>. As datas internas Date são serializadas em ISO 8601. <code>dispatch</code> contém local, equipe e placa exclusivamente dos snapshots; <code>current</code> projeta cadastros atuais por JOINs. Detalhe acrescenta occurrenceSnapshot/teamSnapshot/vehicleSnapshot anuláveis; não devolve driver_snapshot ou objetos crus das tabelas. Filtros inválidos/repetidos/adicionais e payload inválido retornam 400; falha inesperada retorna 500 sanitizado com orientação de consulta antes de reenviar.</p>
+<p>Tabelas: <code>svo.execution_orders</code> guarda estado/revisão/horários e contexto; <code>svo.execution_order_events</code> guarda DEPARTED/ARRIVED append-only; <code>svo.teams</code> e <code>svo.team_members</code> controlam autorização; <code>audit.logs</code> registra a mutação. As migrations 202610280006/7/8 já fornecem as colunas, CHECKs, FKs RESTRICT e índices por equipe/status/membros. Não há alteração de schema ou conversão de legado.</p>
+<h3 id="tracking-ui">Interface, recuperação e acessibilidade</h3>
+<p><code>SvoTeamOrdersPage</code> substitui a home provisória da equipe. <code>SvoOrdersPage</code> acrescenta a consulta mínima do atendente, preservando sua home de solicitações. Ambas compartilham <code>SvoOrderList</code>, <code>SvoOrderDetails</code>, <code>useSvoOrders</code> e <code>svoOrdersService</code>. A operação de escrita existe somente na tela da equipe e somente para ações retornadas pelo servidor.</p>
+<p>Reuso de Layout, PageHeader, EntityCard composto, FormSelect, StatusChip, StateFeedback e ConfirmDialog. Cards mostram despacho e, quando diferentes/ausentes, cadastros atuais com rótulos distintos. Filtro de situação e Atualizar chamam o backend; detalhe é carregado sob demanda. Cinco estados: ideal, carregamento com aria-busy, vazio orientador, erro com nova tentativa e parcial com contexto preservado. Falha no detalhe não apaga a lista; snapshot ausente é identificado explicitamente.</p>
+<p>Confirmações identificam ordem/local e usam hora do servidor, sem pedir horário retroativo ou autoria. Guarda síncrona impede duplo toque. Resposta válida confirma card e anúncio; falha posterior da recarga mantém sucesso conhecido e alerta de lista desatualizada, bloqueando novos avanços. 403/409 exigem consulta e nova escolha. Rede/5xx/resposta inválida após PATCH deixam o resultado incerto: envio bloqueado até GET de reconciliação, sem atribuir a si ação feita por outra pessoa. Filtro ou fechamento do diálogo não libera esse bloqueio.</p>
+<p>Dados, detalhe e diálogo ficam em memória e são descartados ao mudar token/perfil ou perder sessão. Respostas antigas de filtro, detalhe e mutação não reaparecem após troca de sessão. Cliente autenticado existente trata 401. Datas são apresentadas em America/Maceio, sem regravar o fuso do aparelho.</p>
+<p>Rótulos associados por useId nos wrappers, títulos semânticos, status com texto/marcador, botões de pelo menos 44 px, contraste de botões de detalhe herdado do tema e foco visível. Enter/Espaço confirmam; Esc fecha e devolve foco ao acionador. Quando a etapa/acionador desaparece, a mensagem de resultado recebe foco. Não há captura persistente de conteúdo SVO.</p>
+<h3>Arquivos da entrega</h3>
+<ul>
+<li>Backend: <a href="../../backend/src/types/svo-order.types.ts">tipos/FSM</a>, <a href="../../backend/src/repositories/svo-orders.repository.ts">repositório</a>, <a href="../../backend/src/services/svo-orders.service.ts">serviço</a>, <a href="../../backend/src/controllers/svo-orders.controller.ts">controller</a> e <a href="../../backend/src/routes/svo-orders.routes.ts">rotas</a>.</li>
+<li>Frontend: <a href="../../frontend/src/pages/SvoTeamOrdersPage.tsx">equipe</a>, <a href="../../frontend/src/pages/SvoOrdersPage.tsx">atendente</a>, <a href="../../frontend/src/components/svo/SvoOrderList.tsx">lista/cards/diálogos</a>, <a href="../../frontend/src/components/svo/SvoOrderDetails.tsx">detalhe</a>, <a href="../../frontend/src/hooks/useSvoOrders.ts">hook</a>, <a href="../../frontend/src/services/svoOrdersService.ts">cliente</a>, <a href="../../frontend/src/svo/svoOrderTypes.ts">contratos</a> e <a href="../../frontend/src/svo/svoOrderPresentation.ts">apresentação</a>. App, routeDecision e sidebarNavigation compõem acesso/menu.</li>
+<li>Testes: suítes existentes de ordens e fixture de vínculos, <a href="../../frontend/tests/svoOrdersService.test.mjs">cliente</a>, <a href="../../frontend/tests/svoOrdersPage.test.mjs">interação</a>, <a href="../../frontend/tests/svoOrderPresentation.test.mjs">apresentação</a>, routing e sidebarNavigation.</li>
+</ul>
+<h3 id="tracking-validation">Verificações executadas em 15/11/2026</h3>
+<p>A regressão completa do backend passou em <code>frota118_regression_test</code>, criada pelas migrations atuais, distinta da base operacional. A tentativa anterior na base antiga <code>aratu_test</code> registrou 391 aprovações e 32 falhas por colunas de abastecimento ausentes, descompasso já documentado na seção histórica. Essa base antiga não foi reconstruída. A conferência visual usou <code>frota118_ui_test</code>, API local em 4302 e frontend em 5174, somente contas, endereços e chamados sintéticos.</p>
+<table><thead><tr><th scope="col">Verificação</th><th scope="col">Resultado / limite</th></tr></thead><tbody>
+<tr><td>Backend, regressão completa</td><td>423 aprovados, 0 falhas, 0 ignorados. Abrange transições, isolamento, RBAC, revisão, datas, revogação concorrente antes/depois das travas, rollback, eventos/auditoria e reserva.</td></tr>
+<tr><td>Ordens, após ajustes finais</td><td>41 aprovados, 0 falhas: 13 unitários e 28 integrações HTTP/PostgreSQL, preservando os casos da criação FROTA-115/117.</td></tr>
+<tr><td>Frontend e aratu-check final</td><td>183 aprovados, 0 falhas; inclui onze cenários de interação SVO, quatro de cliente, apresentação, rotas e menus. Auditoria sobre 34 arquivos, incluindo arquivos novos ainda não rastreados, com 0 bloqueios e 0 alertas; TypeScript backend/frontend aprovado.</td></tr>
+<tr><td>Compilação e lint</td><td>TypeScript backend/frontend e lint aprovados. Builds dos containers aprovados; Vite mantém o aviso de bundle maior que 500 kB.</td></tr>
+<tr><td>Navegador real</td><td>Login da equipe; lista, legado, filtro e confirmação de saída/chegada; operação por Enter/Espaço/Esc e retorno de foco conferidos. Atendente consultou a ordem em atendimento com saída/chegada, filtro e Atualizar, sem comandos de escrita. Larguras 320, 375, 768, 800, 1024, 1280 e 1920 px e paisagem 667×375 sem rolagem horizontal nas medições. Botões operacionais medidos com 44 px de altura. Leitor de tela dedicado e zoom real de 200% não foram validados; os atalhos de zoom do navegador disponível não alteraram a escala. Conformidade WCAG completa não é declarada somente por essas verificações.</td></tr>
+</tbody></table>
+<p>Logs locais: <a href="../../.tmp/frota-118-backend-clean-tests.log">backend completo</a>, <a href="../../.tmp/frota-118-orders-final.log">ordens após ajustes finais</a> e <a href="../../.tmp/frota-118-aratu-check-final.log">auditoria/tipos/frontend final</a>. Evidências: <a href="../../.tmp/frota-118-evidence/atendente-1280.jpg">consulta desktop</a>, <a href="../../.tmp/frota-118-evidence/atendente-375.jpg">consulta móvel</a> e <a href="../../.tmp/frota-118-evidence/viewports.json">medições de reflow</a>. Esses artefatos são locais e ignorados pelo Git. Não há commit ou push nesta entrega. Próximos passos: /testar e /revisar antes do PR para develop; integrar a dependência da base antes do merge.</p>
+<h3>Revalidação complementar no navegador integrado — FROTA-118</h3>
+<p>Após o bloqueio específico do controle do Firefox, a execução foi retomada no navegador integrado do ChatGPT, com API em 4302, frontend em 5174 e base sintética exclusiva <code>frota118_attention_ui_test</code>. A equipe confirmou saída e chegada da ordem fictícia #2; Enter/Espaço, Esc, retorno de foco e mensagem de sucesso em role=status foram observados. O atendente consultou a mesma ordem Em atendimento com saída/chegada, Atualizar e detalhe, sem comandos de alteração. Não foram capturados erros de console nessas abas.</p>
+<p>Medições DOM após conferir a largura efetiva: 320, 375, 800, 1024, 1280 e 1920 px sem scrollWidth superior ao viewport, com botões operacionais de 44 px. O ensaio não atesta zoom real de 200%: os atalhos não alteraram escala nem devicePixelRatio. Leitor de tela dedicado permanece pendente. Capturas recortadas dessa execução não foram utilizadas para atestar a composição visual. Ver o <a href="../reviews/frota-118-acompanhar-atendimento-svo.html">relatório de revisão atualizado</a> para evidências e limites.</p>
+<h2 id="results">13. Registro de resultado e encerramento — FROTA-122</h2>
+<p>Entrega conjunta das subtarefas FROTA-123 (interface), FROTA-124 (API) e FROTA-125 (QA), conforme <a href="../plans/frota-122-registrar-resultado-svo.html">SDD aprovado</a>. Reutiliza integralmente a migration <code>202610280008_create_svo_execution_orders.sql</code>, sem DDL adicional.</p>
+<h3>Regras de negócio, horários e liberação da reserva</h3>
+<ul>
+<li><code>SvoOrdersService.recordResult</code>: exclusivo para <code>EQUIPE_SVO</code> com conta ativa, vínculo vigente na equipe da ordem e equipe ativa.</li>
+<li>Máquina de estados de encerramento (<code>SVO_ORDER_ALLOWED_RESULTS</code>):
+  <ul>
+    <li><code>IN_SERVICE → COMPLETED</code>: <code>status = result = 'COMPLETED'</code>, <code>collected_at = closed_at = instante do servidor</code>, <code>closed_by = actor.id</code>, <code>failure_reason = null</code>, <code>revision + 1</code>.</li>
+    <li><code>IN_TRANSIT | IN_SERVICE → NOT_PERFORMED</code>: <code>status = result = 'NOT_PERFORMED'</code>, <code>failure_reason</code> obrigatório (normalizado com <code>trim</code>), <code>collected_at = null</code>, <code>closed_at = instante do servidor</code>, <code>closed_by = actor.id</code>, <code>revision + 1</code>.</li>
+    <li><code>OPEN</code>, <code>IN_PROGRESS</code> (legado), <code>COMPLETED</code>, <code>NOT_PERFORMED</code> e <code>CANCELED</code> não permitem encerramento (<code>409</code>). O endpoint <code>PATCH /svo/orders/:id/status</code> permanece restrito a saída/chegada e não aceita estados finais.</li>
+  </ul>
+</li>
+<li><code>notes</code> é opcional e normalizado com <code>trim</code> (vazio vira <code>null</code>). Informar <code>failureReason</code> não vazio para <code>COMPLETED</code> ou omitir/enviar em branco para <code>NOT_PERFORMED</code> retorna <code>400</code> sem escrita.</li>
+<li>Ao transitar para <code>COMPLETED</code> ou <code>NOT_PERFORMED</code>, a ordem deixa o conjunto ocupante (<code>OPEN, IN_TRANSIT, IN_SERVICE, IN_PROGRESS</code>), liberando imediatamente uma vaga na contagem derivada de capacidade da viatura (<code>countOccupyingOrders</code>), sem alterar o status cadastral de <code>fleet.vehicles</code> ou de <code>svo.occurrences</code>.</li>
+<li>Evento imutável (<code>COMPLETED</code> ou <code>NOT_PERFORMED</code>) em <code>svo.execution_order_events</code> com <code>before_state</code> e <code>after_state</code> completos, e registro <code>UPDATE</code> em <code>audit.logs</code> na mesma transação (<code>before</code>/<code>after</code> estruturais sem copiar textos livres de observações ou dados pessoais do chamado).</li>
+</ul>
+<h3>Contratos REST e matriz RBAC</h3>
+<table><thead><tr><th scope="col">Endpoint</th><th scope="col">Entrada</th><th scope="col">Saída</th></tr></thead><tbody>
+<tr><td>POST /svo/orders/:id/result</td><td><code>{ result: 'COMPLETED' | 'NOT_PERFORMED', revision: number, failureReason?: string | null, notes?: string | null }</code></td><td><code>200</code> com <code>SvoOrderDetail</code> atualizado (<code>result</code>, <code>allowedResults: []</code>, <code>failureReason</code>, <code>notes</code>, <code>closedBy</code>, <code>collectedAt</code>, <code>closedAt</code>)</td></tr>
+<tr><td>GET /svo/orders</td><td><code>status?</code> opcional</td><td><code>200</code> com <code>SvoOrderSummary[]</code> incluindo <code>result</code> e <code>allowedResults</code> (sem <code>failureReason</code>, <code>notes</code> ou <code>closedBy</code> na listagem)</td></tr>
+<tr><td>GET /svo/orders/:id</td><td>ID decimal canônico até BIGINT</td><td><code>200</code> com <code>SvoOrderDetail</code> acrescentando <code>failureReason</code>, <code>notes</code> e <code>closedBy</code></td></tr>
+</tbody></table>
+<table><thead><tr><th scope="col">Perfil</th><th scope="col">Consultar</th><th scope="col">POST /:id/result</th><th scope="col">Interface</th></tr></thead><tbody>
+<tr><td>EQUIPE_SVO</td><td>União de equipes com vínculo vigente</td><td>Somente próprias; vínculo vigente e equipe ativa</td><td><code>/svo/ordens</code> (recorte inicial <strong>Ativas</strong>)</td></tr>
+<tr><td>ATENDENTE_SVO</td><td>Todas</td><td>403</td><td><code>/svo/acompanhamento</code> (leitura)</td></tr>
+<tr><td>GESTOR</td><td>Todas</td><td>403</td><td><code>/svo/acompanhamento</code> (leitura, liberado no menu e rota)</td></tr>
+<tr><td>ADMINISTRADOR</td><td>Todas na API</td><td>403</td><td>API</td></tr>
+<tr><td>SOLICITANTE / MOTORISTA</td><td>403</td><td>403</td><td>Sem acesso</td></tr>
+</tbody></table>
+<h3>Interface, estados visuais e verificação</h3>
+<p>Em <code>/svo/ordens</code>, a equipe visualiza inicialmente o recorte <strong>Ativas</strong> (filtrando localmente os estados ocupantes sobre a lista autorizada da API, sem enviar <code>status=ACTIVE</code>). O card exibe <strong>Encerrar</strong> apenas quando <code>allowedResults</code> possui opções. O componente <code>SvoOrderResultDialog</code> conduz o preenchimento e a revisão em dois passos no mesmo diálogo, sem pré-selecionar conclusão, exigindo motivo apenas em <code>Não realizada</code> e preservando o rascunho ao acionar <strong>Voltar ao formulário</strong>. Após confirmação, anuncia <code>“Ordem #N encerrada como Concluída.”</code> ou <code>“Não realizada.”</code> em <code>role="status"</code>, retira o card de <strong>Ativas</strong> e mantém o registro consultável em <strong>Todas</strong> e nos filtros finais. Em perda de resposta após o POST, bloqueia reenvio e reconcilia via <code>GET /svo/orders/:id</code> exibindo a situação observada sem atribuir autoria ao usuário local.</p>
+<p>Verificações automatizadas executadas em 15/11/2026 na base isolada <code>frota122_svo_result_test</code>: 48 testes de ordens SVO no backend (15 unitários em <code>svo-orders.service.test.ts</code> e 33 integrações HTTP/PostgreSQL em <code>svo-orders.integration.test.ts</code>), 187 testes de frontend, compilação TypeScript, ESLint, builds de produção e auditoria estática <code>aratu-check.mjs</code> com 0 bloqueios e 0 alertas.</p>
+<h2 id="reports">14. Relatórios operacionais — FROTA-132</h2>
+<p>Após a integração dos PRs #80, #82, #83 e #84, a fase 2 disponibiliza <code>svo-occurrences</code> e <code>svo-orders</code> no motor <code>/reports</code> e na tela <code>/relatorios</code>. ATENDENTE_SVO acessa somente estes dois relatórios; GESTOR e ADMINISTRADOR também os acessam. EQUIPE_SVO, MOTORISTA e SOLICITANTE permanecem sem acesso ao motor.</p>
+<p>Ocorrências: identificação operacional, recebimento, tipo de solicitante, local, situação, nome do atendente histórico/atual e triagem opcional. Ordens: identificação da ordem e ocorrência, abertura, equipe e placa históricas/atuais, situação e resultado; saída, chegada, encerramento e motivo de não realização opcionais. Não são projetados nomes de falecidos, nomes/documentos/telefones de familiares, descrição clínica, observações livres ou snapshots completos.</p>
+<p>Filtros de situação/tipo/resultado usam os contratos mesclados. Período obrigatório de até 366 dias civis de Maceió; 50 linhas por página, somas globais quando aplicáveis, CSV até 50.000 e impressão completa até 2.000. Cada exportação exige registro <code>EXPORT</code> em <code>audit.logs</code>. Consulte o <a href="FROTA.html#reports">contrato completo do motor de relatórios</a>.</p>
+</body></html>

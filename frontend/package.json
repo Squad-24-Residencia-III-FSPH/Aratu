@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "test:ci": "node --test --test-concurrency=1 --test-reporter=tap tests/*.test.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -1,11 +1,16 @@
 import type { ReactNode } from 'react';
 import { Box } from '@mui/material';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../auth/useAuth';
 import Topbar from './Topbar';
 import Sidebar from './Sidebar'; 
 
-export default function Layout({ children }: { children: ReactNode }) {
+/** Protege também as entradas legadas e descarta dados visuais ao trocar a sessão. */
+export default function Layout({ children }: { children: ReactNode }): ReactNode {
+  const { session } = useAuth();
+  if (!session) return <Navigate to="/login" replace />;
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#f4f6f8' }}>
+    <Box key={session.token} sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#f4f6f8' }}>
       
       {/* Barra Superior */}
       <Topbar />

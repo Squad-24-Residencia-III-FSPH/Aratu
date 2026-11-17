@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-100 — Tela do motorista para execução da viagem (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-100: Tela do motorista para execução da viagem</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-100</code> — Tela do motorista para execução da viagem</p>
+  <p><strong>Branch da implementação (Gitflow):</strong> <code>feat/frota-100-execucao-viagem-mobile</code>, baseada em <code>develop</code>; destino previsto do PR: <code>develop</code>.</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>VIAGENS</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>MOTORISTA</code></p>
+  <p><strong>Data:</strong> 2026-11-10</p>
+  <p><strong>Situação:</strong> implementação realizada, achado R1 da revisão corrigido e fluxo principal validado de ponta a ponta; foco pós-término, zoom de 200%, árvore de acessibilidade e matriz visual conferidos no navegador.</p>
+  <p><strong>Registro de entrega:</strong> documentação atualizada, 459 testes distintos aprovados (147 frontend + 312 backend) e validação consolidada na seção 9.</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p>Entregar a tela inicial <strong>Minhas viagens</strong> do perfil <code>MOTORISTA</code>, em <code>/viagens/minhas</code>, para consultar as próprias viagens e registrar início e término com hodômetro, usando a API já integrada. História: <a href="https://squad24.atlassian.net/browse/FROTA-98">FROTA-98 — US15</a>; entrega: <a href="https://squad24.atlassian.net/browse/FROTA-100">FROTA-100</a>.</p>
+<h3>Verificação da base em 10/11/2026</h3>
+<table><thead><tr><th scope="col">Item</th><th scope="col">Evidência</th><th scope="col">Consequência</th></tr></thead><tbody>
+<tr><td>develop</td><td><code>e70ecca</code>, igual a <code>origin/develop</code> após fetch/pull.</td><td>Base deste plano.</td></tr>
+<tr><td>FROTA-99</td><td><code>cdc049d</code> (API), <code>ebaa1c1</code> (testes); integrados no <a href="https://github.com/Squad-24-Residencia-III-FSPH/Aratu/pull/67">PR #67</a>, merge <code>254f0aa</code>.</td><td>Reutilizar início, término e listagem; status no Jira ainda “Em análise”.</td></tr>
+<tr><td>FROTA-101</td><td><code>f56cf33</code> (QA), <code>7e5243e</code> (documentação), mesmo PR #67.</td><td>Testes de execução já integrados; status no Jira ainda “Em análise”.</td></tr>
+<tr><td>FROTA-102</td><td>Jira: “[DESCARTAR] … (mesclada em FROTA-99)”. <code>finishTrip</code> e <code>saveFinish</code> já persistem <code>FINISHED</code>.</td><td>Usuário confirmou que não é necessária entrega separada se o comportamento já está na 99. Condição verificada; não reimplementar.</td></tr>
+<tr><td>FROTA-155</td><td>Concluída no Jira (162/163 também); tema MUI, cliente HTTP, rotas, layout e componentes básicos presentes em develop.</td><td>Base suficiente; <code>EntityCard</code> ainda não existe e deverá ser criado conforme o padrão do projeto.</td></tr>
+</tbody></table>
+<h3>Decisões confirmadas</h3><ul>
+<li>Exibir viagens de hoje e todas as em andamento, com acesso às demais viagens pendentes.</li>
+<li>Toda mudança operacional confirmada deve permanecer no histórico. O estado atual pode evoluir; leituras anteriores, eventos, autoria e auditoria não podem ser apagados ou sobrescritos.</li>
+<li>A branch local <code>feat/us16-confirmar-viagem</code> e sua implementação não integrada foram descartadas por solicitação explícita. Este plano parte de develop, sem reutilizar aquela implementação.</li>
+</ul>
+<p><strong>Escopo:</strong> tela, componentes necessários, cliente tipado, hook, integração na home do motorista, validação e testes. <strong>Fora:</strong> nova API de finalização, confirmação pelo gestor, cancelamento, reabertura, retificação, fila offline, fotos do odômetro e tela de consulta histórica. Fotos dependem de definição de armazenamento já pendente no Jira; não criar upload fictício. Preservar os históricos existentes independe de disponibilizar uma nova tela de histórico.</p>
+
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<table><thead><tr><th scope="col">Dado</th><th scope="col">Quando</th><th scope="col">Então</th></tr></thead><tbody>
+<tr><td>Motorista autenticado</td><td>Abre a home</td><td>Carregar <code>GET /trips/mine</code>; mostrar apenas viagens autorizadas pela API.</td></tr>
+<tr><td>Viagens de datas diferentes</td><td>Usa “Hoje e em andamento”</td><td>Mostrar <code>SCHEDULED</code> cujo início agendado cai hoje e todas as <code>IN_PROGRESS</code>, sem duplicar. Oferecer “Todas as pendentes”.</td></tr>
+<tr><td>Viagem iniciada ontem</td><td>O dia muda</td><td>Continuar exibindo-a até a finalização; recalcular o dia na virada e ao retomar o foco da página.</td></tr>
+<tr><td>Viagem agendada</td><td>Confirma “Iniciar viagem” com inteiro ≥ 0</td><td>Enviar <code>{ startKm }</code>; mostrar “Em andamento” somente após resposta válida da API.</td></tr>
+<tr><td>Viagem em andamento</td><td>Confirma “Finalizar viagem”</td><td>Enviar <code>{ endKm }</code>; API exige km final ≥ inicial e devolve <code>FINISHED</code>; anunciar conclusão com horário/km retornados, retirar da lista de pendentes e atualizar a listagem.</td></tr>
+<tr><td>Km inválido ou abaixo do permitido</td><td>API responde 400/422</td><td>Exibir <code>erro</code>, preservar valor e contexto do formulário, permitir correção.</td></tr>
+<tr><td>Viagem alterada em outra sessão</td><td>API responde 409</td><td>Exibir motivo, preservar a digitação e consultar a lista novamente antes de oferecer ação compatível com o estado atual.</td></tr>
+<tr><td>Duplo toque</td><td>Há envio em andamento</td><td>Bloquear nova submissão por guarda síncrona além de desabilitar o botão.</td></tr>
+<tr><td>Resposta perdida, timeout ou conexão ruim</td><td>Não há confirmação válida do POST</td><td>Não anunciar sucesso nem reenviar automaticamente; manter valor, informar resultado não confirmado e oferecer atualização/consulta da situação.</td></tr>
+<tr><td>A viagem desaparece da lista após erro de rede</td><td>A consulta é refeita</td><td>Ausência da lista não comprova finalização: ela também pode decorrer de cancelamento ou mudança de vínculo. Informar que não está mais entre as pendentes e orientar conferência com o gestor.</td></tr>
+<tr><td>POST bem-sucedido</td><td>A atualização da lista falha</td><td>Manter o resultado confirmado do POST e informar separadamente que a lista não pôde ser atualizada.</td></tr>
+<tr><td>Histórico anterior</td><td>Uma transição é concluída</td><td>Acrescentar leitura/evento/auditoria, conservar registros anteriores e incrementar a revisão da viagem; rejeições não geram eventos de sucesso.</td></tr>
+</tbody></table>
+<p>O recorte “hoje” usa a data de <code>scheduledStart</code> no fuso operacional <code>America/Maceio</code>, já adotado no módulo de viagens, e não o fuso configurado no aparelho. “Todas as pendentes” inclui agendadas antigas e futuras e viagens em andamento. O filtro é apresentação do conjunto autorizado retornado pela API, sem alterar permissões nem criar restrição de início por data que a API não possui.</p>
+<p>Km deve ser inteiro seguro, não negativo; vazio não vira zero. Campo textual com teclado numérico, sem aceitar frações, notação exponencial ou sinais. A API permanece responsável por comparar a última leitura do veículo. Datas reais e autoria vêm do servidor/token, nunca de campos editáveis do celular.</p>
+
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<table><thead><tr><th scope="col">Arquivo</th><th scope="col">Trabalho previsto</th></tr></thead><tbody>
+<tr><td><code>frontend/src/pages/MyTripsPage.tsx</code> (novo)</td><td>Home operacional com filtro, cards e feedback; apenas composição de apresentação e hook.</td></tr>
+<tr><td><code>frontend/src/pages/myTripsPage/TripExecutionDialog.tsx</code> (novo)</td><td>Um diálogo para início/término, reaproveitando ConfirmDialog e FormField, com identificação da viagem e km informado.</td></tr>
+<tr><td><code>frontend/src/components/ui/ConfirmDialog.tsx</code> e <code>FormField.tsx</code></td><td>Extensões opcionais <code>onEntered</code> e <code>inputRef</code> para focar o campo nativo após a animação de abertura. Outros consumidores mantêm seus comportamentos padrão.</td></tr>
+<tr><td><code>frontend/src/components/ui/EntityCard.tsx</code> (novo)</td><td>Card composto acessível: Header, Status, Body e Actions; useId; sem I/O ou regra de viagem.</td></tr>
+<tr><td><code>frontend/src/hooks/useMyTrips.ts</code> (novo)</td><td>Consulta, envio, rascunho em memória, estado parcial, concorrência de respostas e recuperação de erros.</td></tr>
+<tr><td><code>frontend/src/services/tripsService.ts</code> (novo)</td><td>Listar próprias viagens, iniciar e finalizar com ApiRequest, validação das respostas e erros tipados.</td></tr>
+<tr><td><code>frontend/src/trips/tripTypes.ts</code> e <code>tripPresentation.ts</code> (novos)</td><td>DTOs, estados/erros, rótulos, filtro por dia e formatação de data/km. Seguir a organização por domínio já existente em drivers/vehicles.</td></tr>
+<tr><td><code>frontend/src/App.tsx</code></td><td>Renderizar MyTripsPage na home MOTORISTA, dentro do Layout existente.</td></tr>
+<tr><td><code>frontend/src/components/sidebarNavigation.ts</code></td><td>Usar o destino existente da home para “Minhas viagens” do motorista; preservar navegação dos outros perfis.</td></tr>
+<tr><td><code>frontend/tests/tripsService.test.mjs</code>, <code>tripPresentation.test.mjs</code>, <code>myTripsPage.test.mjs</code>, <code>my-trips.fixture.mjs</code> (novos)</td><td>Contratos, recorte temporal, interações, falhas e fixtures fictícias; seguir Node test, jsdom e Testing Library existentes.</td></tr>
+<tr><td><code>frontend/tests/routing.test.mjs</code>, <code>sidebarNavigation.test.mjs</code></td><td>Regressão de home e acesso por perfil.</td></tr>
+<tr><td><code>backend/tests/trips-execution.integration.test.ts</code></td><td>Complementar apenas as asserções de preservação integral do histórico, atomicidade e repetição que faltam; reutilizar os cenários existentes.</td></tr>
+<tr><td><code>docs/modulos/VIAGENS.html</code> e <code>docs/manuais/modulos.md</code></td><td>Documentar a interface, contrato efetivo, histórico e limitações.</td></tr>
+</tbody></table>
+<p><strong>Referências para reuso:</strong> <code>components/layout.tsx</code>, <code>components/ui/PageHeader.tsx</code>, FormField, ConfirmDialog, StateFeedback, StatusChip, <code>theme.ts</code>, <code>auth/useAuth.ts</code>, <code>api/client.ts</code>, <code>auth/profiles.ts</code> e <code>routing/routeDecision.ts</code>. A base real usa Layout e PageHeader nesses caminhos; não criar um AppShell paralelo nem mover componentes para ajustar nomes de documentação.</p>
+
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p><strong>Sem migração de banco nesta entrega.</strong> A FROTA-99 já implementa persistência e transições. Não criar coluna, índice, tabela ou endpoint para repetir a FROTA-102.</p>
+<table><thead><tr><th scope="col">Estrutura existente</th><th scope="col">Invariante obrigatório</th></tr></thead><tbody>
+<tr><td><code>trip.trips</code></td><td>Estado atual e revisão evoluem sob transação e trava. Snapshots do agendamento e registros anteriores permanecem preservados.</td></tr>
+<tr><td><code>trip.odometer_readings</code></td><td>Acrescentar START/END; início não é substituído pelo término. Manter identificação da viagem/veículo, horário, informante, usuário autenticado, snapshot de autoria e motivo.</td></tr>
+<tr><td><code>trip.trip_events</code></td><td>Acrescentar STARTED/FINISHED com before_state/after_state; não atualizar eventos anteriores.</td></tr>
+<tr><td><code>audit.logs</code></td><td>Registrar STATUS_CHANGE com antes/depois, autoria e motivo na mesma transação.</td></tr>
+</tbody></table>
+<p><code>TripsService.recordExecution</code> recebe o mesmo cliente transacional das mudanças de estado. Falha em leitura, evento ou auditoria deve reverter toda a operação. <code>FOR UPDATE</code> e UPDATE condicionado ao status impedem duplicação da transição por repetição; repetição pode retornar 409, não precisa repetir 200 para ser segura.</p>
+<p><strong>Histórico:</strong> proibidos DELETE físico e sobrescrita de fatos confirmados. Futuras retificações exigirão novo registro referenciando o anterior, justificativa e evidência; não introduzir edição de km já confirmado nesta tela. Retirar FINISHED da lista de pendentes é apenas filtragem de apresentação, não exclusão do banco.</p>
+<p><strong>Rollback:</strong> reverter os arquivos de frontend desta entrega e restaurar a home anterior, mantendo dados e eventos já registrados pela API. Não executar migrações down nem apagar histórico como parte do rollback da interface.</p>
+
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<p>O Jira usa nomes antigos em português; o contrato efetivo aprovado no SDD da FROTA-99 e presente em develop é em inglês. Consumir esse contrato sem alterá-lo.</p>
+<table><thead><tr><th scope="col">Endpoint</th><th scope="col">Entrada</th><th scope="col">Sucesso</th></tr></thead><tbody>
+<tr><td>GET /trips/mine</td><td>Token MOTORISTA, sem parâmetros</td><td>200 array de DriverTrip; somente SCHEDULED e IN_PROGRESS do motorista vinculado. Sem vínculo: lista vazia.</td></tr>
+<tr><td>POST /trips/:id/start</td><td><code>{ "startKm": 1500 }</code></td><td>200 Trip com <code>status: "IN_PROGRESS"</code>, startKm e startedAt.</td></tr>
+<tr><td>POST /trips/:id/finish</td><td><code>{ "endKm": 1580 }</code></td><td>200 Trip com <code>status: "FINISHED"</code>, endKm e finishedAt.</td></tr>
+</tbody></table>
+<p><code>DriverTrip</code>: id, status, scheduledStart, scheduledEnd, startKm, startedAt, origin, destination, purpose, vehicleLicensePlate. <code>Trip</code>: id, requestId, vehicleId, driverId, scheduledStart, scheduledEnd, status, startKm, endKm, startedAt, finishedAt, revision, createdAt. IDs são strings; datas chegam como strings ISO; km/horários ainda não registrados podem ser null. Validar JSON em runtime e verificar id/status coerentes com a ação antes de declarar sucesso.</p>
+<p>Os POSTs também aceitam <code>reason?</code>; a tela envia somente km e usa os motivos operacionais já definidos no servidor (“Início da viagem” / “Término da viagem”). A autoria não é enviada pelo cliente.</p>
+<table><thead><tr><th scope="col">Resposta</th><th scope="col">Tratamento</th></tr></thead><tbody>
+<tr><td>400</td><td>Identificador ou km malformado; mostrar erro.</td></tr><tr><td>401</td><td>Reutilizar expiração de sessão do cliente central; não anunciar sucesso nem reenviar após novo login.</td></tr>
+<tr><td>403</td><td>Perfil ou motorista não autorizado; retirar ação e explicar acesso negado.</td></tr><tr><td>404</td><td>Viagem não encontrada; atualizar a lista.</td></tr>
+<tr><td>409</td><td>Estado incompatível, conflito de execução ou histórico inconsistente; não forçar mudança.</td></tr><tr><td>422</td><td>Km abaixo do permitido; erro associado ao campo sem perda do valor.</td></tr>
+<tr><td>5xx / rede / timeout / resposta inválida</td><td>Erro ou resultado incerto; preservar rascunho na tela, permitir consulta e nova tentativa consciente, nunca sucesso presumido.</td></tr>
+</tbody></table>
+<p>Camadas existentes: <code>routes/trips.routes.ts</code> → <code>controllers/trips.controller.ts</code> → <code>services/trips.service.ts</code> → <code>repositories/trips.repository.ts</code>. Usar <code>useAuth().api</code> e seu timeout de 15 s, token e tratamento de 401. Sem SQL ou regra de autorização no frontend; sem mudanças em código de produção do backend previstas.</p>
+
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<h3>Fluxo operacional</h3><ol>
+<li>Login de MOTORISTA abre a home existente <code>/viagens/minhas</code> pelo HashRouter, sem nova rota concorrente.</li>
+<li>PageHeader “Minhas viagens”, seletor “Hoje e em andamento” / “Todas as pendentes” e botão “Atualizar”. Lista ordenada pelo início agendado, mantendo a ordem estável recebida da API.</li>
+<li>EntityCard apresenta destino, origem, data/horário, placa e StatusChip com “Agendada” ou “Em andamento”; mostrar km inicial quando disponível. Textos longos quebram linha.</li>
+<li>Ação contextual abre TripExecutionDialog: identificação da viagem, campo “Quilometragem inicial (km)” ou “Quilometragem final (km)”, resumo da consequência, “Voltar” e “Confirmar início” / “Confirmar término”. Um único diálogo permite revisar e confirmar sem passos repetidos.</li>
+<li>Após resposta válida, anunciar “Viagem #… iniciada/finalizada”, atualizar o card ou removê-lo da lista de pendentes, usando os valores confirmados pelo servidor.</li>
+</ol>
+<table><thead><tr><th scope="col">Estado visual</th><th scope="col">Comportamento</th></tr></thead><tbody>
+<tr><td>Ideal</td><td>Cards e ações compatíveis com o status; sem controles de gestor.</td></tr>
+<tr><td>Carregando</td><td>StateFeedback com mensagem de viagens e aria-busy; no envio, rótulo “Registrando…” e guarda contra duplo toque.</td></tr>
+<tr><td>Vazio</td><td>“Nenhuma viagem para hoje ou em andamento”; oferecer “Ver todas as pendentes”. Se todas vazias, informar e oferecer atualização. Sem criar solicitação ou agendamento pelo motorista.</td></tr>
+<tr><td>Erro</td><td>Mensagem orientadora, valor preservado em falhas recuperáveis e “Tentar novamente”/“Atualizar situação”. Erro do campo vem de erro da API.</td></tr>
+<tr><td>Parcial</td><td>Manter dados anteriores identificados como possivelmente desatualizados; distinguir envio confirmado + falha de atualização de envio sem confirmação. Bloquear ações incompatíveis/sem situação confiável até reconciliar.</td></tr>
+</tbody></table>
+<p>Hook mantém separadamente carregamento da lista, envio, erro de campo, aviso parcial e resultado confirmado. Descartar respostas atrasadas de consultas iniciadas antes de uma mutação; limpar contexto ao mudar usuário; abortar/ignorar consultas desmontadas. A lista vazia não prova finalização. Sem fila de envio em background, persistência offline ou repetição automática de POST.</p>
+<p>Reusar Layout, tema e componentes. MUI sx responsivo, uma coluna em celular, botões que quebram linha sem reduzir alvo de toque, sem largura mínima rígida. O Layout atual já reserva 72 px de menu compacto e padding; verificar a largura útil de 320 px e não presumir que o card ocupa toda a viewport. Nenhum redesenho global do shell está previsto.</p>
+
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>Aplicar WCAG 2.2 AA. FormField com rótulo persistente e erro associado; EntityCard com título ligado por useId; ações identificam a viagem. No diálogo, foco inicial no campo e retorno ao acionador; após finalização que remove o card, mover foco para título/aviso de resultado. Anunciar sucesso e erro sem depender de cor. Manter Esc disponível fora do envio e devolver controle após sucesso/falha/timeout.</p><p>Testar leitura em 320 px e zoom 200%, datas e números em pt-BR, toque de 44×44, contraste e cabeçalho sem encobrir foco. Não retirar outline. Título de documento “Minhas viagens — Aratu”.</p>
+<p><strong>Correções implementadas:</strong> o campo recebe foco em <code>ConfirmDialog.onEntered</code>; a confirmação mantém o foco no único campo e erros recebidos da API voltam a focá-lo via <code>inputRef</code>. Após <code>FINISH</code>, <code>MyTripsPage</code> agenda o foco no aviso com <code>requestAnimationFrame</code>, depois da restauração de foco do diálogo desmontado, cancelando o agendamento se o efeito for limpo. Os botões “Atualizar” e “Atualizar situação” do diálogo usam <code>color="inherit"</code>, herdando o texto do tema sem alterar a paleta global.</p>
+<ul class="check">
+  <li><label><input type="checkbox" checked> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Campo de km com <code>useId()</code>, rótulo conectado, <code>aria-describedby</code>, <code>aria-invalid</code> e erro com <code>role="alert"</code>, conferidos no navegador.</label></li>
+  <li><label><input type="checkbox" checked> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Operável integralmente via <code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Espaço</code> e <code>Esc</code>, com <code>:focus-visible</code> nítido e foco movido ao aviso <code>role="status"</code> após finalizar no navegador.</label></li>
+  <li><label><input type="checkbox" checked> <strong>Tamanho do Alvo (2.5.8):</strong> Botões de ação e caixa externa do seletor medidos com pelo menos <strong>44×44px</strong>. O elemento interno do seletor mede cerca de 40 px de altura; essa medida interna isolada não foi classificada como falha.</label></li>
+  <li><label><input type="checkbox" checked> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste de texto &gt;= 4.5:1 nos controles do fluxo e status acompanhado de rótulo textual além da cor.</label></li>
+  <li><label><input type="checkbox" checked> <strong>Mensagens de Status (4.1.3):</strong> Feedbacks dinâmicos anunciados via <code>role="status"</code> ou <code>aria-live="polite"</code> e verificados na árvore de acessibilidade do navegador.</label></li>
+</ul>
+<p><strong>Validação consolidada:</strong> foco após finalização (viagem #34 com 1.620 km), fechamento por <code>Esc</code> com retorno ao acionador, zoom de 200% sem overflow horizontal e árvore de acessibilidade exposta pelo navegador foram comprovados. A conferência com leitor de tela físico externo (NVDA/TalkBack) permanece recomendada na homologação humana.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<table><thead><tr><th scope="col">Perfil real</th><th scope="col">Tela/ação</th><th scope="col">Garantia</th></tr></thead><tbody>
+<tr><td>MOTORISTA</td><td>Ver próprias viagens e registrar início/término</td><td>Home existente e filtro por usuário no servidor; outra viagem retorna 403.</td></tr>
+<tr><td>GESTOR</td><td>Sem acesso à nova home operacional do motorista</td><td>Preservar agendamento/conferência existentes.</td></tr>
+<tr><td>ADMINISTRADOR, SOLICITANTE, ATENDENTE_SVO, EQUIPE_SVO</td><td>Sem novo acesso à execução</td><td>Manter redirecionamento para a própria home; servidor exige MOTORISTA.</td></tr>
+</tbody></table>
+<p>Manter os identificadores reais em português definidos em <code>auth/profiles.ts</code> e no RBAC da API. Não renomeá-los para DRIVER/ADMIN apenas por exemplos genéricos da documentação. Sem feature flags, novas permissões ou variáveis de ambiente; reutilizar VITE_API_BASE_URL.</p>
+<p><strong>Limites da base e da entrega:</strong> EntityCard foi criado como componente composto reutilizável. A sessão central encerra no 401/expiração; a digitação é preservada enquanto o formulário está montado, sem recuperação prometida após logout. O mecanismo global de renovação de sessão permanece fora deste plano. As extensões opcionais de FormField/ConfirmDialog atendem ao fluxo da viagem; a mudança de contraste foi limitada aos botões do fluxo, sem sobrescrever o tema ou o comportamento de outros perfis.</p>
+
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<h3>Histórico do planejamento inicial</h3><p>Na elaboração inicial, foram conferidos o histórico Git e arquivos de develop, e executados 7 testes de serviço de execução, todos aprovados. Naquele momento ainda não havia implementação da tela nem ensaio no navegador. O registro de implementação e testes efetivamente realizados está abaixo; os casos seguintes continuam como roteiro de cobertura.</p>
+<h3>Testes da implementação</h3><table><thead><tr><th scope="col">Grupo</th><th scope="col">Cenários e evidência esperada</th></tr></thead><tbody>
+<tr><td>Cliente HTTP</td><td>GET/POST e payloads corretos; erro textual da API; 400/401/403/404/409/422/500; timeout, JSON inválido, status/id divergentes; nenhuma resposta inválida vira sucesso.</td></tr>
+<tr><td>Calendário</td><td>Hoje no fuso operacional com dispositivo em outro fuso; viagem de ontem em andamento; futuras/agendadas antigas em “Todas”; meia-noite; mesmo item sem duplicação.</td></tr>
+<tr><td>Interface</td><td>Home do MOTORISTA, cards, filtro e 5 estados; campos vazios/zero/negativo/fração/texto; preservar digitação após erro; confirmação; duplo toque gera um envio; finalizar remove somente da lista pendente.</td></tr>
+<tr><td>Rede e concorrência</td><td>POST confirmado seguido de GET falho; resposta de GET antiga após POST; POST executado mas resposta perdida; item ausente na consulta sem anúncio falso de sucesso; cancelar diálogo e reabrir; troca de sessão sem dados do usuário anterior.</td></tr>
+<tr><td>RBAC</td><td>Todos os seis perfis, acesso por URL direta, menu e respostas 403 da API; outro motorista não altera a viagem.</td></tr>
+<tr><td>Histórico cumulativo</td><td>Com uma viagem fictícia já agendada e histórico anterior, iniciar e finalizar. Comparar registros anteriores integralmente; novas leituras START/END, eventos STARTED/FINISHED e auditorias devem existir com valores antes/depois corretos, autoria, motivo e horários. Confirmar que a viagem continua no banco após sumir de /mine.</td></tr>
+<tr><td>Repetição</td><td>Repetir início e término e testar envios concorrentes: apenas uma transição efetiva, uma leitura e um evento/auditoria por ato; nenhum valor anterior alterado.</td></tr>
+<tr><td>Atomicidade</td><td>Simular falha na auditoria/evento em ambiente isolado de teste: rollback do estado, revisão, leitura e evento, preservando todo o histórico anterior. Rejeições 403/409/422 deixam contagens e conteúdo intactos.</td></tr>
+</tbody></table>
+<p>Reutilizar fixtures e infraestrutura de <code>backend/tests/trips-execution.integration.test.ts</code>; não duplicar a suíte da 101. Dados estritamente fictícios, por exemplo viagem para “Unidade fictícia”, placa EXE1A00, km 1500 → 1580. Usar banco de testes isolado; nunca truncar base operacional.</p>
+<h3>Roteiro manual e responsividade</h3><p>Validar fluxo completo pelo navegador em 320×568, 360×800, 390×844, 768×1024, 1024×768 (4:3), 1280×800 (16:10) e 1440×900, com zoom 200%, teclado e leitor de tela. Conferir alvo 44×44, contraste, foco, conteúdo sem corte, destino longo, placar de estado, lentidão e desconexão durante POST.</p>
+<p>Na implementação: frontend <code>npm test</code>, <code>npm run lint</code>, <code>npm run build</code>; backend <code>npm test</code> em banco isolado e <code>npm run build</code>; executar <code>node docs/scripts/aratu-check.mjs</code> conforme o escopo. Registrar resultado real e limitações, distinguindo verificações realizadas das apenas planejadas.</p>
+
+<h3 id="execution-record">Registro da implementação e da validação — 10/11/2026</h3>
+<p><strong>Resultado funcional:</strong> o caminho principal foi percorrido no navegador integrado, em <code>http://localhost:5173/#/viagens/minhas</code>, com o perfil <code>MOTORISTA</code>. Foram acionados os controles da interface para iniciar e finalizar a viagem fictícia #1 com <strong>1.500 → 1.580 km</strong>. O início persistiu após recarregar a página; após o término, a viagem saiu da lista pendente e permaneceu no banco como <code>FINISHED</code>, revisão 3. <strong>Isso não significa aprovação integral WCAG 2.2 AA.</strong></p>
+<p><strong>Implementação entregue:</strong> MyTripsPage na home e no menu do MOTORISTA, EntityCard composto, diálogo único, hook useMyTrips, DTOs e cliente HTTP validado em runtime, filtros por dia no fuso operacional, cinco estados visuais, erros da API com rascunho preservado, prevenção de duplo envio, descarte de respostas antigas e limpeza de dados na troca de sessão. A API e os contratos de produção do backend foram preservados; o arquivo de integração recebeu os cenários IT-EXECUTION-08 a 10 para histórico, concorrência e atomicidade.</p>
+
+<h3>Suítes e verificações automatizadas</h3>
+<table><thead><tr><th scope="col">Verificação</th><th scope="col">Resultado real</th><th scope="col">Evidência local</th></tr></thead><tbody>
+<tr><td>Frontend completo, após correção de R1</td><td><strong>147 passaram; 0 falharam.</strong></td><td><code>node docs/scripts/aratu-check.mjs</code></td></tr>
+<tr><td>Componentes da página, após correção de R1</td><td>17 passaram; 0 falharam. Inclui foco após abertura, erro vazio/repetido, erro 422, aviso de término e os 2 cenários de bloqueio pós-409 (GET pendente e GET falho no clique e no Enter). Subconjunto dos 147, não adicionar à contagem.</td><td><code>frontend/tests/myTripsPage.test.mjs</code></td></tr>
+<tr><td>Backend completo, em banco isolado com PostgreSQL 18 ativo</td><td><strong>312 passaram; 0 falharam.</strong> Executado em <code>aratu_test_review_frota100_20261110</code> com os containers ativos.</td><td><code>.tmp/frota-100-review-backend-tests.log</code></td></tr>
+<tr><td>Integração backend, incluída na suíte completa</td><td>199 passaram; 0 falharam. Subconjunto dos 312; inclui os 10 cenários IT-EXECUTION (histórico cumulativo, concorrência e rollback).</td><td><code>.tmp/frota-100-review-backend-tests.log</code></td></tr>
+<tr><td>Auditoria estática e tipos</td><td>aratu-check: zero achados estáticos; tipos frontend/backend sem erros e 147 testes frontend aprovados.</td><td><code>node docs/scripts/aratu-check.mjs</code></td></tr>
+<tr><td>Lint e builds (local e containers)</td><td>Lint e build frontend passaram local e no container; build/tsc backend aprovado. O build frontend mantém aviso não impeditivo de pacote de 719,49 kB (217,74 kB gzip).</td><td><code>docker compose exec frontend npm run lint/build</code></td></tr>
+</tbody></table>
+<p><strong>Contagem sem duplicação: 459 testes distintos aprovados (147 frontend + 312 backend).</strong> As execuções de 17 componentes e 199 integrações são subconjuntos/repetições, assim como os 7 testes do planejamento original.</p>
+<p><strong>Divergência do banco antigo:</strong> a primeira execução de integração em <code>aratu_test</code> teve 167 sucessos e 32 falhas; a migração de abastecimentos estava registrada como aplicada, mas faltava <code>fleet.fuelings.request_payload</code>. O schema antigo não foi reparado neste trabalho. Para verificar o código com as migrações atuais, foi criado <code>aratu_test_frota100_20261110</code>, distinto de <code>meubanco</code>; nele as duas suítes passaram. A falha inicial foi preservada em <code>.playwright-mcp/frota-100-backend-integration.log</code>. Não houve truncamento do banco da aplicação pelas suítes.</p>
+
+<h3>API, interface, RBAC e preservação histórica</h3>
+<table><thead><tr><th scope="col">Camada / cenário</th><th scope="col">Resultado observado</th></tr></thead><tbody>
+<tr><td>API local</td><td>GET /trips/mine: 200 para MOTORISTA; 401 sem token; 403 para ADMINISTRADOR. POST de execução: 401/403 conforme acesso; km final menor retorna 422; campos ausentes, texto, negativo, fração, valor acima do limite e id malformado retornam 400; repetição de início/término retorna 409. Login com trim/caixa alta: 200. Usuário inexistente e senha incorreta: 401 com mensagem genérica idêntica. Evidência: <code>.playwright-mcp/frota-100-live-api.json</code>.</td></tr>
+<tr><td>Entrada no navegador</td><td>Vazio, espaços, negativo, fração, notação exponencial e texto recusados. Término com 1499 após início com 1500: mensagem da API no campo, valor preservado, aria-invalid e alerta associado. Confirmação de término com duplo clique produziu uma única transição efetiva no banco.</td></tr>
+<tr><td>Indisponibilidade e cinco estados</td><td>Ideal, carregando com aria-busy/role=status, vazio, erro com Tentar novamente e parcial com lista anterior/aviso/ações bloqueadas foram observados. A API foi interrompida temporariamente: POST sem serviço preservou 1580 e não anunciou sucesso. Foi restabelecida antes da conclusão funcional.</td></tr>
+<tr><td>Filtros e acesso visual</td><td>Viagem futura #34 ausente do recorte de hoje e exibida por Ver todas as pendentes. URL de motorista sem sessão redirecionou ao login. ADMINISTRADOR foi redirecionado à própria home, sem atalho de execução. MOTORISTA e ADMINISTRADOR foram operados no navegador; os seis perfis e outro motorista foram cobertos por automação.</td></tr>
+<tr><td>Banco / viagem #1</td><td>FINISHED, km 1500/1580, revisão 3; duas leituras, três eventos incluindo agendamento e três auditorias. Conteúdo integral dos registros anteriores e snapshots de veículo/motorista preservados; campos temporais inspecionados como TIMESTAMPTZ. Evidências: <code>.playwright-mcp/frota-100-after-start-db.json</code> e <code>frota-100-after-finish-db.json</code>.</td></tr>
+<tr><td>Cenários adicionais automatizados</td><td>Resposta perdida/resultado incerto, POST confirmado seguido de GET falho, consultas atrasadas, troca de sessão, calendário/fuso, outro motorista, concorrência e rollback cobertos nas suítes. Nem todos foram reproduzidos no navegador conectado ao banco da aplicação.</td></tr>
+</tbody></table>
+
+<h3>Situação dos itens 13 a 17 após os ajustes autorizados</h3>
+<table><thead><tr><th scope="col">Item</th><th scope="col">Correção / verificação</th><th scope="col">Situação final e evidência</th></tr></thead><tbody>
+<tr><td>13 — foco inicial e campo inválido</td><td>Adicionados inputRef opcional ao FormField e onEntered ao ConfirmDialog; TripExecutionDialog foca após a animação, na confirmação e em erros recebidos. Preserva foco também na repetição da mesma entrada inválida.</td><td><strong>Corrigido e confirmado no navegador.</strong> Após abertura e erro vazio: INPUT; erro 422 com 1579 abaixo do último km 1580: INPUT com aria-invalid e valor preservado. Campo focado dentro da janela em 320×568. Capturas: <code>.playwright-mcp/frota-100-fixed-focus-375.jpg</code> e <code>frota-100-fixed-dialog-320.jpg</code>.</td></tr>
+<tr><td>14 — foco após finalizar</td><td>Agendamento de foco no aviso por requestAnimationFrame, com cancelamento na limpeza do efeito, para ocorrer após a restauração do diálogo desmontado.</td><td><strong>Corrigido e confirmado no navegador e na suíte automatizada.</strong> Ao finalizar a viagem #34 com 1.620 km em 390×844, o diálogo fechou, o card saiu da lista de pendentes e <code>document.activeElement</code> moveu para <code>DIV[role="status"][aria-live="polite"]</code>. Captura: <code>.playwright-mcp/frota-100-fixed-finish-focus-390x844.jpg</code>.</td></tr>
+<tr><td>15 — contraste de Atualizar</td><td>Botões de atualização do fluxo usam color=inherit; mantida a paleta global e os padrões de outros consumidores.</td><td><strong>Corrigido e observado no navegador:</strong> texto rgb(100,44,4) substituiu rgb(255,107,0). O achado inicial media 2,64:1 sobre rgb(244,246,248). Ver <code>.playwright-mcp/frota-100-fixed-360x800.jpg</code>; teste visual de contraste restrito aos controles observados, sem certificação de todas as cores do sistema.</td></tr>
+<tr><td>16 — árvore de acessibilidade e zoom de 200%</td><td>Inspeção completa da árvore de acessibilidade (<code>browser_snapshot</code> com <code>role</code>, <code>name</code>, <code>box</code>, <code>status [active]</code> e <code>alert</code>) e aplicação de zoom 200% em Chromium (1280×800 → 640×400 CSS px).</td><td><strong>Comprovado no navegador:</strong> sob zoom 200%, <code>scrollWidth === clientWidth === 1265</code> (zero overflow horizontal) e botões com 88 px de altura (44×2 px). Captura: <code>.playwright-mcp/frota-100-zoom200-1280x800.jpg</code>. Leitor de tela físico externo (NVDA/TalkBack) permanece recomendado na homologação humana.</td></tr>
+<tr><td>17 — matriz visual complementar</td><td>Capturas refeitas sequencialmente, após o redesenho de cada viewport, evitando as áreas incompletas da primeira rodada.</td><td><strong>Concluído.</strong> Inspeção visual em 320×568, 360×800, 375×667, 390×844, 768×1024, 800×600, 1024×768, 1280×800, 1440×900 e 1920×1080; sem overflow horizontal do documento, com quebra de texto e botões/caixa externa do seletor de 44 px. Métricas: <code>.playwright-mcp/frota-100-fixed-responsive.json</code>; capturas: <code>.playwright-mcp/frota-100-fixed-&lt;largura&gt;x&lt;altura&gt;.jpg</code>.</td></tr>
+<tr><td>R1 (Code Review) — bloqueio até reconciliar conflito</td><td>Centralizada em <code>useMyTrips</code> a condição <code>confirmBlocked</code> (incluindo <code>reconciling</code> e <code>stale</code>) com guarda síncrona <code>reconcilingRef</code>; aplicada no botão, em <code>confirmExecution</code> e em <code>submitExecution</code>, oferecendo “Atualizar situação” no diálogo quando o GET falha.</td><td><strong>Corrigido e coberto por 2 testes de regressão em <code>myTripsPage.test.mjs</code>.</strong> Um único POST é enviado tanto com GET pendente quanto com GET falho, por clique ou Enter, preservando a quilometragem digitada.</td></tr>
+</tbody></table>
+
+<h3>Ambiente, evidências e pendências de entrega</h3>
+<ul>
+<li>Os dados do ensaio são fictícios. A conta local de teste teve a senha alterada no banco por autorização expressa; nenhuma credencial é registrada neste documento ou no commit. Foram preparados motorista vinculado, serviço sintético, veículo QAT1A00 e as viagens #1 e #34; os dados/históricos não foram fisicamente excluídos.</li>
+<li>A viagem #1 terminou em 1580 km e a viagem #34 foi iniciada com 1580 km e finalizada no navegador com 1620 km, comprovando o foco pós-término no aviso <code>role="status"</code>.</li>
+<li>Foram aplicadas no ambiente local quatro migrações oficiais já existentes e pendentes: manutenção, abastecimentos, chave de criação de multas e atividade/revisão de vínculo veículo-serviço. Esta entrega não cria migrações nem altera código de produção do backend. Serviços foram iniciados/restabelecidos; o frontend precisou ser reiniciado para invalidar a versão em cache durante a conferência das correções.</li>
+<li>Evidências locais permanecem em <code>.playwright-mcp/</code>, pasta ignorada pelo Git. O relatório inicial <code>frota-100-relatorio.md</code> descreve a primeira rodada, anterior às correções; esta seção registra o estado consolidado posterior. Capturas são JPEG conforme o formato retornado pela ferramenta. Os resultados essenciais constam neste HTML para que a leitura não dependa desses arquivos locais.</li>
+<li>A leitura de console disponível retornou lista vazia; a ferramenta não forneceu captura completa de rede. Não foi declarada ausência geral de requisições quebradas.</li>
+<li><strong>Escopo futuro:</strong> upload de foto permanece fora do escopo, condicionado à definição de armazenamento no Jira.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><label><input type="checkbox" checked> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></label></li>
+  <li><label><input type="checkbox" checked> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-100)</code>)</label></li>
+  <li><label><input type="checkbox" checked> Diff focado na entrega da home do motorista, testes de execução, correções de acessibilidade e documentação, sem refatoração em massa</label></li>
+  <li><label><input type="checkbox" checked> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</label></li>
+  <li><label><input type="checkbox" checked> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></label></li>
+  <li><label><input type="checkbox" checked> Tipos backend aprovados no auditor; lint e build frontend e build backend executados sem erros, com evidências registradas na seção 9</label></li>
+  <li><label><input type="checkbox" checked> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</label></li>
+  <li><label><input type="checkbox" checked> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></label></li>
+  <li><label><input type="checkbox" checked> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</label></li>
+  <li><label><input type="checkbox" checked> Dados fictícios nos cenários de teste; nenhuma credencial ou evidência local sensível incluída na entrega (LGPD)</label></li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+<p><strong>Impacta o módulo VIAGENS.</strong> Criar <code>docs/modulos/VIAGENS.html</code> a partir de <code>docs/modulos/EXEMPLO_MODULO.html</code> (a documentação HTML do módulo está ausente em develop). Atualizar a linha correspondente em <code>docs/manuais/modulos.md</code>, sem refatorar trechos de outros módulos.</p>
+<p><strong>Realizado:</strong> criados o documento HTML de VIAGENS e sua referência no catálogo de módulos, incluindo a home do motorista, contratos existentes, histórico e limitações. As pendências de validação descritas na seção 9 continuam válidas para a entrega.</p>
+<p>Documentar home do motorista, recorte de hoje/em andamento, acesso às demais pendentes, início/término, RBAC, contratos em inglês, erros e resultado incerto, garantia de histórico cumulativo e falta de upload de foto. Registrar a FROTA-102 como escopo já entregue pela 99; não alterar status ou conteúdo de issues do Jira sem pedido específico.</p>
+<h3>Sequência de implementação</h3><ol><li>Criar branch <code>feat/frota-100-execucao-viagem-mobile</code> a partir de develop atualizada e reconferir contratos.</li><li>Definir DTOs, cliente HTTP e testes de contrato.</li><li>Criar EntityCard, hook e diálogo; montar MyTripsPage com o recorte confirmado.</li><li>Ligar home/menu e validar acesso por perfil.</li><li>Completar testes de rede, acessibilidade e preservação histórica, atualizar documentação e preparar PR para develop.</li></ol>
+<p>Este artefato preserva o planejamento original e passa a registrar a implementação e a validação efetivamente realizadas. O checkout atual é a branch FROTA-100 indicada no cabeçalho. O usuário autorizou o commit local da implementação, correções, testes e documentação; a aprovação integral permanece condicionada às pendências da seção 9.</p>
+
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (identificadores reais do projeto; nesta tela, <code>MOTORISTA</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+<p><strong>Plano → padrões do projeto, preservação histórica, compatibilidade, DRY e YAGNI · dúvidas de escopo: nenhuma pendente.</strong></p>
+</body>
+</html>

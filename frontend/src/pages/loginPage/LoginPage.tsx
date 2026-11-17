@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   Alert, Box, Button, CircularProgress, FormControl, FormHelperText,
@@ -8,20 +8,30 @@ import { useAuth } from '../../auth/useAuth'
 import { validateLogin } from '../../auth/validation'
 import type { LoginErrors } from '../../auth/validation'
 import { SERVICE_UNAVAILABLE } from '../../auth/loginService'
-import logo from '../../assets/aratu-logo.png'
+import logo from '../../assets/aratu-logo-black-orange.png'
 import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
   const { signIn, notice } = useAuth()
+  const emailId = useId()
+  const passwordId = useId()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [errors, setErrors] = useState<LoginErrors>({})
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [preparing, setPreparing] = useState(false)
+  const signInController = useRef<AbortController | null>(null)
+  useEffect(() => () => signInController.current?.abort(), [])
   const [recoveryInfo, setRecoveryInfo] = useState(false)
   const submitting = useRef(false)
   const emailInput = useRef<HTMLInputElement>(null)
   const passwordInput = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    document.title = 'Entrar — Aratu'
+    emailInput.current?.focus()
+  }, [])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -36,13 +46,15 @@ export default function LoginPage() {
     }
     submitting.current = true
     setLoading(true)
+    signInController.current = new AbortController()
     try {
-      await signIn({ email, senha })
+      await signIn({ email, senha }, { signal: signInController.current.signal, onPreparing: setPreparing })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : SERVICE_UNAVAILABLE)
     } finally {
       submitting.current = false
       setLoading(false)
+      setPreparing(false)
     }
   }
 
@@ -63,32 +75,36 @@ export default function LoginPage() {
           </header>
           <Box component="form" className={styles['formulario-login']} onSubmit={handleSubmit} noValidate aria-busy={loading}>
             <FormControl fullWidth required error={Boolean(errors.email)} className={styles['grupo-campo']}>
-              <FormLabel htmlFor="email">E-mail institucional</FormLabel>
+              <FormLabel htmlFor={emailId}>E-mail institucional</FormLabel>
               <OutlinedInput
-                id="email" name="email" type="email" autoComplete="username"
+                id={emailId} name="email" type="email" autoComplete="username"
                 placeholder="usuario@fsph.gov.br" value={email} inputRef={emailInput}
-                disabled={loading} inputProps={{ 'aria-describedby': errors.email ? 'email-erro' : undefined }}
+                disabled={loading} inputProps={{ 'aria-describedby': errors.email ? `${emailId}-error` : undefined, 'aria-invalid': Boolean(errors.email) }}
                 onChange={(event) => { setEmail(event.target.value); setErrors((previous) => ({ ...previous, email: undefined })); setError('') }}
               />
-              {errors.email && <FormHelperText id="email-erro">{errors.email}</FormHelperText>}
+              {errors.email && <FormHelperText id={`${emailId}-error`} role="alert">{errors.email}</FormHelperText>}
             </FormControl>
             <FormControl fullWidth required error={Boolean(errors.senha)} className={styles['grupo-campo']}>
-              <FormLabel htmlFor="senha">Senha</FormLabel>
+              <FormLabel htmlFor={passwordId}>Senha</FormLabel>
               <OutlinedInput
-                id="senha" name="senha" type="password" autoComplete="current-password"
+                id={passwordId} name="senha" type="password" autoComplete="current-password"
                 value={senha} inputRef={passwordInput} disabled={loading}
-                inputProps={{ 'aria-describedby': errors.senha ? 'senha-erro' : undefined }}
+                inputProps={{ 'aria-describedby': errors.senha ? `${passwordId}-error` : undefined, 'aria-invalid': Boolean(errors.senha) }}
                 onChange={(event) => { setSenha(event.target.value); setErrors((previous) => ({ ...previous, senha: undefined })); setError('') }}
               />
-              {errors.senha && <FormHelperText id="senha-erro">{errors.senha}</FormHelperText>}
+              {errors.senha && <FormHelperText id={`${passwordId}-error`} role="alert">{errors.senha}</FormHelperText>}
             </FormControl>
             {error && <Alert severity="error" className={styles['mensagem-login']}>{error}</Alert>}
-            {!error && notice && <Alert severity="info" className={styles['mensagem-login']}>{notice}</Alert>}
+            {!error && notice && <Alert severity="info" role="status" className={styles['mensagem-login']}>{notice}</Alert>}
             <Button type="submit" variant="contained" fullWidth disabled={loading} className={styles['botao-entrar']}>
               {loading && <CircularProgress size={18} color="inherit" aria-label="Aguardando resposta" />}
-              {loading ? 'Entrando…' : 'Entrar'}
+              {loading ? preparing ? 'Preparando acesso…' : 'Entrando…' : 'Entrar'}
             </Button>
-            <span role="status" className={styles['somente-leitor']}>{loading ? 'Autenticando. Aguarde.' : ''}</span>
+            {preparing && <Box>
+              <Typography role="status">Preparando o acesso. Isso pode levar cerca de um minuto.</Typography>
+              <Button type="button" onClick={() => signInController.current?.abort()}>Cancelar espera</Button>
+            </Box>}
+            <span role="status" className={styles['somente-leitor']}>{loading && !preparing ? 'Autenticando. Aguarde.' : ''}</span>
             <footer className={styles['rodape-login']}>
               <Link component="button" type="button" className={styles['link-esqueci-senha']} onClick={() => setRecoveryInfo(true)} disabled={loading}>
                 Esqueci minha senha

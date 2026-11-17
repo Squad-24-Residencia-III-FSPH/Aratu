@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-112 — API de registro de solicitação SVO (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+
+    code { overflow-wrap: anywhere; }
+    td, th { overflow-wrap: anywhere; }
+    ul.check label { display: block; }
+    ul.check input { margin-right: 8px; }
+    @media (max-width: 600px) { body { padding: 0 14px 40px; margin: 16px auto; } table { font-size: .78rem; } th, td { padding: 7px; } }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-112: API de registro de solicitação SVO</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-112</code> — API de registro de solicitação SVO</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/svo-occurrences</code> (proposta; criar de <code>develop</code> atualizada → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>SVO</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ATENDENTE_SVO, ADMINISTRADOR, GESTOR</code></p>
+  <p><strong>Data:</strong> 2026-11-13 · America/Sao_Paulo (revisão; versão anterior: 12/11/2026)</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p>Permitir que o Atendente SVO registre chamados recebidos fora do sistema, a qualquer hora, consulte o histórico de recebimento e confirme a triagem com autoria verificável. A FROTA-112 entrega a API e testes unitários; a FROTA-111 entrega os testes de integração.</p><p><strong>Revisão de continuidade — 13/11/2026 (America/Sao_Paulo):</strong> preserva o escopo e as decisões registrados nestes dois SDDs, conforme solicitação do usuário de continuar o planejamento existente. Fontes reconsultadas por <code>docs/scripts/jira-fetch.mjs</code>: <a href="https://squad24.atlassian.net/browse/FROTA-108">FROTA-108</a> (Story, Em andamento, High), <a href="https://squad24.atlassian.net/browse/FROTA-111">FROTA-111</a> e <a href="https://squad24.atlassian.net/browse/FROTA-112">FROTA-112</a> (Subtasks, Em andamento, Normal). Dependências <a href="https://squad24.atlassian.net/browse/FROTA-110">FROTA-110</a> e <a href="https://squad24.atlassian.net/browse/FROTA-159">FROTA-159</a>: Concluído no Jira. Referência local: <code>develop</code>, commit <code>e67eb5d</code>; os dois planos já estavam presentes como arquivos não rastreados. Nenhuma issue foi alterada.</p><p>A indicação de campos/estados pendentes ainda presente na descrição do Jira fica resolvida, para estes planos, pelas decisões registradas na versão anterior e mantidas no escopo autorizado. Não é uma declaração de homologação clínica pelo cliente.</p><table><thead><tr><th scope="col">Decisão registrada no plano anterior</th><th scope="col">Aplicação nos dois planos</th></tr></thead><tbody><tr><td>Triagem com os campos atuais</td><td>Nome, telefone e tipo do solicitante, local e descrição obrigatórios; observações opcionais. Sem questionário clínico adicional.</td></tr>
+<tr><td>Confirmação simples</td><td><code>PENDING → CONFIRMED</code>; nova confirmação retorna 409. <code>CANCELED</code> continua legível, mas não pode ser confirmado.</td></tr>
+<tr><td>Recebimento anterior ao cadastro</td><td><code>receivedAt</code> permite informar o instante real; <code>createdAt</code> e <code>registeredAt</code> são automáticos e independentes.</td></tr>
+<tr><td>Canal e evidência da origem</td><td><code>evidenceDescription</code> descreve o canal/meio do recebimento e é persistido no evento <code>RECEIVED</code>, sem criar coluna redundante.</td></tr></tbody></table><p>Escopo: quatro endpoints, validação, RBAC, estado atual + eventos append-only, auditoria sanitizada e documentação. Fora: tela FROTA-109, cancelamento/retificação/reabertura, despacho, equipes, viaturas, dados clínicos adicionais e upload de anexos. FROTA-108 não recebe plano ou implementação.</p><p>Dependência: migration <code>202610280006_create_svo_occurrences.sql</code> já existe na base local. Plano de QA: <a href="frota-111-testes-registro-solicitacao-svo.html">FROTA-111</a>. Branch proposta <code>feat/svo-occurrences</code>; base develop atualizada, PR para develop. A branch ainda não foi criada.</p>
+
+<hr>
+
+<h3>O que já existe e o que falta entregar</h3>
+<table><thead><tr><th scope="col">Parte</th><th scope="col">Evidência e situação em 13/11/2026</th></tr></thead><tbody>
+<tr><td>Planejamento das duas subtarefas</td><td>Os dois SDDs existentes são mantidos e complementados; as decisões abaixo são herdadas da versão anterior, não novas definições clínicas.</td></tr>
+<tr><td>Estrutura de banco</td><td><code>backend/src/database/migrations/202610280006_create_svo_occurrences.sql</code> já define ocorrências, eventos, constraints, índices e trigger append-only. Existência no repositório não comprova aplicação em cada ambiente; verificar pelo migrator na implementação.</td></tr>
+<tr><td>Infraestrutura reutilizável</td><td>Autenticação e revalidação da conta, RBAC, <code>AuditService</code>, transações e captura do ator em <code>RequestsRepository</code>, além dos helpers de testes HTTP/PostgreSQL, já existem.</td></tr>
+<tr><td>API e testes específicos</td><td>Não há arquivos <code>svo-occurrences</code> nas camadas de API nem as suítes previstas; <code>app.ts</code> ainda não monta <code>/svo/occurrences</code>. Implementar na FROTA-112 e validar por integração na FROTA-111.</td></tr>
+<tr><td>Documentação funcional</td><td><code>docs/modulos/SVO.html</code> ainda não existe; sua criação permanece na FROTA-112 e o registro de resultados na FROTA-111.</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<table><thead><tr><th scope="col">Regra</th><th scope="col">Definição implementável</th></tr></thead><tbody><tr><td>Campos do chamado</td><td>Strings obrigatórias não vazias após trim: requesterName, requesterPhone, requesterType, location, description. notes opcional; vazio normalizado para null. Telefone é texto não vazio, sem impor máscara ou validação de DDD não solicitada.</td></tr>
+<tr><td>Tipo do solicitante</td><td><code>FAMILY | HOSPITAL | UBS | UPA | PUBLIC_AGENCY | OTHER</code></td></tr>
+<tr><td>Horário e origem</td><td>receivedAt opcional em ISO 8601 com Z ou offset explícito; data válida e não futura em relação ao instante da operação no banco. Omitido usa o instante do cadastro. evidenceDescription obrigatório, texto não vazio, descreve canal/meio; sem enum de canais ou campo de upload.</td></tr>
+<tr><td>Estado inicial</td><td>Servidor fixa PENDING e revision = 1; attendantId e snapshot derivam da conta autenticada. Não aceitar propriedades de estado/autoria no corpo.</td></tr>
+<tr><td>Confirmar</td><td>Somente PENDING; validar os campos obrigatórios armazenados, sem questionário adicional. Gravar CONFIRMED, triagedBy, triagedAt e incrementar revision sob FOR UPDATE. CONFIRMED/CANCELED → 409.</td></tr>
+<tr><td>Trilha</td><td>Criação gera RECEIVED; confirmação gera CONFIRMED, sem duplicar com TRIAGED. Cada ato escreve entidade, evento e auditoria na mesma transação.</td></tr>
+<tr><td>Repetição</td><td>Confirmação repetida ou concorrente não duplica efeito e retorna 409. Criação não tem chave natural nem chave de idempotência na estrutura atual: não fazer deduplicação por nome/telefone/local nem prometer replay seguro; consumidor não deve reenviar POST automaticamente após resposta incerta.</td></tr>
+<tr><td>Listagem</td><td>Filtros opcionais status, from e to; datas YYYY-MM-DD em America/Maceio, sobre received_at, intervalo semiaberto; ordenação received_at DESC, id DESC. Retorno array como listagem atual de viagens, sem paginação nova nesta entrega.</td></tr></tbody></table><h3>Cenários essenciais</h3><table><thead><tr><th scope="col">Dado / Quando</th><th scope="col">Então</th></tr></thead><tbody><tr><td>Dado ATENDENTE_SVO ou ADMINISTRADOR e entrada válida, quando cadastrar</td><td>201 PENDING; uma ocorrência, um RECEIVED e uma auditoria CREATE na mesma transação.</td></tr>
+<tr><td>Dado cada campo obrigatório ausente, nulo, vazio, só espaços ou tipo incorreto, quando cadastrar</td><td>400 com { erro: texto orientador }; nenhuma escrita. Testar campos individualmente.</td></tr>
+<tr><td>Dado cada requesterType permitido e um valor desconhecido</td><td>Seis valores válidos aceitos; desconhecido rejeitado com 400.</td></tr>
+<tr><td>Dado recebimento anterior ao cadastro ou chamado recebido de madrugada/fim de semana</td><td>201; receivedAt preservado; createdAt e registeredAt gerados no servidor; nenhum bloqueio por expediente.</td></tr>
+<tr><td>Dado receivedAt omitido, data inválida, sem fuso ou futura</td><td>Omitido usa o instante do cadastro; demais casos retornam 400 e não escrevem.</td></tr>
+<tr><td>Dado PENDING, quando confirmar</td><td>200 CONFIRMED; revision + 1; triagedBy autenticado; triagedAt do servidor; um evento CONFIRMED e auditoria STATUS_CHANGE.</td></tr>
+<tr><td>Dado CONFIRMED ou CANCELED, quando confirmar</td><td>409; estado, revisão, carimbos, eventos e auditoria permanecem iguais.</td></tr>
+<tr><td>Dado PENDING, quando duas confirmações ocorrerem simultaneamente</td><td>Respostas [200, 409]; um único evento de confirmação e uma auditoria de mudança; nenhum lock/conexão retido.</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<table><thead><tr><th scope="col">Arquivo</th><th scope="col">Ação e responsabilidade</th></tr></thead><tbody><tr><td>backend/src/types/svo-occurrence.types.ts</td><td>Novo: enums, DTOs, contrato de listagem/detalhe, tipos de evento e SvoOccurrenceServiceError.</td></tr>
+<tr><td>backend/src/repositories/svo-occurrences.repository.ts</td><td>Novo: contrato e repositório, SQL parametrizado, transação, snapshots, lock e eventos.</td></tr>
+<tr><td>backend/src/services/svo-occurrences.service.ts</td><td>Novo: validações e FSM, operação atômica e projeção segura da auditoria.</td></tr>
+<tr><td>backend/src/controllers/svo-occurrences.controller.ts</td><td>Novo: parsing de entrada HTTP, chamada de service, resposta e mapeamento de erros.</td></tr>
+<tr><td>backend/src/routes/svo-occurrences.routes.ts</td><td>Novo: autenticação, conta atual e RBAC; exportar o handler sanitizado do módulo para montagem explícita em app.ts.</td></tr>
+<tr><td>backend/src/app.ts</td><td>Alterar: compor repository/service/router com pool, AuditService e currentUsersRepository existentes; montar /svo/occurrences e seu tratamento de erros no nível da aplicação, antes do handler global.</td></tr>
+<tr><td>backend/tests/svo-occurrences.service.test.ts</td><td>Novo: testes unitários de domínio com repositório/AuditLogger substituíveis.</td></tr>
+<tr><td>README.md; docs/modulos/SVO.html; docs/manuais/modulos.md</td><td>Documentar contratos no README raiz (não existe README no backend); criar documentação SVO usando EXEMPLO_MODULO.html e atualizar apenas a entrada SVO do índice.</td></tr></tbody></table><p>Reutilizar createAuthMiddleware, createCurrentUserMiddleware, authorizeRoles e AuditService. Seguir RequestsRepository.withTransaction/findActorSnapshot, TripsService.confirmTrip/listTrips e o padrão de controller existente. Não copiar regras de disponibilidade, dados de viagem nem sanitização baseada somente em senhas.</p>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p>Não há nova migration nem alteração da migration já aplicada. Reutilizar schemas nativos, PK id BIGINT GENERATED ALWAYS AS IDENTITY, FKs ON DELETE RESTRICT e os índices existentes; a convenção canônica prevalece sobre exemplos antigos de prefixos de três letras.</p><table><thead><tr><th scope="col">Dado</th><th scope="col">Persistência / compatibilidade</th></tr></thead><tbody><tr><td>Chamado atual</td><td>svo.occurrences: dados da solicitação, status, received_at, attendant_id, attendant_snapshot, triaged_at/by, revision, created_at e updated_at.</td></tr>
+<tr><td>Origem / evidência</td><td>svo.occurrence_events.evidence_description no evento RECEIVED. No detalhe, ler o primeiro RECEIVED com ordenação registered_at, id; legado sem evento retorna null.</td></tr>
+<tr><td>Bi-temporalidade</td><td>RECEIVED.occurred_at = received_at informado; registered_at automático do banco. Na confirmação, occurred_at e triaged_at refletem a confirmação executada no sistema. Não reescrever o received_at original.</td></tr>
+<tr><td>Autoria e motivo</td><td>Criação: reported_by = requester_name; registered_by = operador, actor_snapshot = { id, name, email, role }, reason fixo “Solicitação SVO recebida e registrada.”. Confirmação: reported_by = nome do operador, reason fixo “Triagem SVO conferida e solicitação confirmada.”; evidência descreve a conferência realizada na sessão autenticada.</td></tr>
+<tr><td>Estado histórico</td><td>before_state/after_state da tabela de eventos guardam o contexto do domínio; dados pessoais ficam restritos ao schema SVO. Não copiar esses objetos para audit.logs.</td></tr>
+<tr><td>Legado</td><td>Não preencher snapshots, canais ou horários retroativamente. Retornar null para evidência/snapshot ausente; manter estados existentes. Validar invariantes antes de confirmar.</td></tr></tbody></table><h3>Unidade transacional</h3><pre><code>BEGIN;
+-- Capturar e travar conta ativa (FOR SHARE); conferir perfil atual.
+-- Na confirmação, ler a ocorrência com FOR UPDATE e validar PENDING.
+-- INSERT da ocorrência OU UPDATE do estado/revision.
+-- INSERT em svo.occurrence_events (append-only).
+-- AuditService.recordAudit(..., MESMO PoolClient).
+COMMIT;
+-- Qualquer falha: ROLLBACK; client.release() no finally.</code></pre><p>Atualização de estado não apaga o passado: o evento anterior continua imutável. Sem DELETE ou UPDATE de eventos. Consultas nomeiam colunas e usam $1, $2; IDs são strings para não perder precisão de BIGINT. Filtros não aplicam DATE() na coluna. O índice svo_occurrences_by_status_received atende status + período; consultas sem status devem ser medidas com EXPLAIN antes de propor novo índice.</p><p><strong>Rollback de entrega:</strong> reverter o código das novas rotas e a composição em app.ts, mantendo as tabelas e todos os dados/eventos. Não executar o .down.sql da FROTA-110, pois também sustenta o módulo SVO. Falhas de requisição fazem rollback transacional integral; testes isolados de Repository encerram com ROLLBACK.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<table><thead><tr><th scope="col">Método e caminho</th><th scope="col">Entrada</th><th scope="col">Sucesso</th><th scope="col">Falhas</th></tr></thead><tbody><tr><td>POST /svo/occurrences</td><td>CreateSvoOccurrenceInput</td><td>201 · { id, status: "PENDING", receivedAt, createdAt, revision: 1 }</td><td>400, 401, 403, 500</td></tr>
+<tr><td>GET /svo/occurrences</td><td>status?, from?, to?</td><td>200 · SvoOccurrenceSummary[]; vazio = []</td><td>400, 401, 403, 500</td></tr>
+<tr><td>GET /svo/occurrences/:id</td><td>id decimal positivo (BIGINT como string)</td><td>200 · SvoOccurrenceDetail</td><td>400, 401, 403, 404, 500</td></tr>
+<tr><td>POST /svo/occurrences/:id/confirm</td><td>Sem corpo ou objeto vazio</td><td>200 · { id, status: "CONFIRMED", triagedAt, triagedBy, revision }</td><td>400, 401, 403, 404, 409, 500</td></tr></tbody></table><h3>DTO de criação</h3><pre><code>interface CreateSvoOccurrenceInput {
+  requesterName: string
+  requesterPhone: string
+  requesterType: "FAMILY" | "HOSPITAL" | "UBS" | "UPA" | "PUBLIC_AGENCY" | "OTHER"
+  location: string
+  description: string
+  notes?: string | null
+  receivedAt?: string // ISO 8601 com fuso; omitido = instante do cadastro
+  evidenceDescription: string // canal/meio do recebimento
+}</code></pre><p>JSON deve ser objeto; arrays, null, campos de tipo incorreto e propriedades fora do contrato retornam 400. A confirmação aceita ausência de corpo ou {}; id usa decimal positivo até 9223372036854775807. Status, carimbos de confirmação, revisão e snapshots são controlados pelo servidor.</p><h3>Projeções de resposta</h3><ul><li><code>SvoOccurrenceSummary</code>: id, requesterType, location, status, receivedAt, createdAt, revision. Não incluir telefone, descrição, notas ou snapshot do operador na lista.</li>
+<li><code>SvoOccurrenceDetail</code>: campos de Summary + requesterName, requesterPhone, description, notes, attendantId, triagedAt, triagedBy, updatedAt e evidenceDescription (nullable para legado). Não expor snapshots brutos nem eventos completos no contrato.</li>
+<li>Datas de resposta serializadas em ISO 8601; ids/FKs como strings; revision como inteiro. A leitura autorizada do GESTOR usa as mesmas projeções documentadas.</li>
+<li>status aceita PENDING, CONFIRMED ou CANCELED. from/to opcionais e inclusivos por dia local; converter limites para instantes antes do SQL, usando >= início e < dia seguinte ao fim. Rejeitar query array/objeto, data impossível e intervalo invertido.</li></ul><h3>Responsabilidades por camada</h3><ul><li>Routes: createAuthMiddleware → createCurrentUserMiddleware → authorizeRoles → controller; leituras autorizam ATENDENTE_SVO/ADMINISTRADOR/GESTOR, escritas apenas ATENDENTE_SVO/ADMINISTRADOR. Exportar handler de erros com quatro argumentos para montagem por caminho em app.ts, depois das rotas SVO e antes do handler global. Assim também são alcançados erros do parser JSON executado antes do router, além das falhas de middleware/repository.</li>
+<li>Controller: obter id/query/body/req.usuario.id, validar forma HTTP, chamar service e traduzir resultado para JSON. Erros previstos usam { erro: mensagem }; mensagens de domínio não reproduzem dados enviados.</li>
+<li>Service: createOccurrence, listOccurrences, getOccurrence e confirmOccurrence; receber repository e AuditLogger por construtor; sem importar Express. Validar datas, textos, FSM, conta/perfil e compor evento/auditoria.</li>
+<li>Repository: withTransaction, findActorSnapshot, create, list, findById, findByIdForUpdate, confirm e createEvent. findActorSnapshot usa conta ativa com FOR SHARE; escritas revalidam o perfil real antes de persistir. findById busca a evidência original sem N+1 na listagem.</li>
+<li>Concorrência: em confirmOccurrence, trava da conta e da ocorrência em ordem consistente; obter o estado dentro do lock, validar, atualizar e gravar trilha antes do commit. Retorno só após commit.</li></ul><h3>Detalhes para implementação sem divergência de contrato</h3>
+<ul><li><strong>Erros de domínio:</strong> definir códigos semânticos tipados para entrada inválida, conta indisponível, acesso negado, ocorrência inexistente e transição inválida; o controller/handler traduz para 400/401/403/404/409. O service não importa Express nem depende de objetos HTTP.</li>
+<li><strong>Relógio:</strong> o repository fornece o instante do banco dentro da transação. O service compara <code>receivedAt</code> com esse instante; quando omitido, usa esse mesmo valor. Na confirmação, persistir uma única referência temporal em <code>triaged_at</code> e <code>CONFIRMED.occurred_at</code>; <code>registered_at</code> continua automático. Validar calendário e fuso antes de converter para Date, sem aceitar normalização silenciosa de datas impossíveis.</li>
+<li><strong>Observações:</strong> <code>notes</code> omitido, null, vazio ou só espaços resulta em null; outros tipos retornam 400. Não enviar texto vazio à constraint do banco.</li>
+<li><strong>Legado:</strong> ausência de evidência de recebimento ou snapshot histórico permanece null e não impede, por si só, a confirmação simples dos campos obrigatórios do chamado. Não inventar autoria passada nem retropreencher o evento RECEIVED.</li>
+<li><strong>Resultado incerto:</strong> consultar ajuda na conferência operacional, mas sem chave de idempotência não comprova por si só qual POST originou um registro. Não oferecer reenvio automático nem deduplicação por dados pessoais; mantém-se a limitação já registrada neste escopo.</li></ul>
+<h3>Auditoria e falhas sem vazamento</h3><p>AuditService.sanitizeSnapshot remove senhas, mas não remove os dados sensíveis do SVO. Portanto criar projeção local explícita para audit.logs: before/after apenas { id, status, revision, receivedAt, triagedAt, triagedBy }; actorSnapshot contém a autoria autenticada, nunca a identidade do solicitante. operation = CREATE ou STATUS_CHANGE; reason é texto fixo. Não enviar requesterName, requesterPhone, location, description, notes ou evidenceDescription, nem estruturas aninhadas que os contenham.</p><p>O handler global atual registra o erro completo; o parser <code>express.json()</code> é instalado antes dos routers. Montar <code>app.use('/svo/occurrences', svoErrorHandler)</code> depois das rotas e antes do handler global (um handler apenas dentro do router não cobre falhas anteriores à entrada nele). Preservar 400 e a mensagem existente para JSON malformado, sem reproduzir o corpo recebido. Para falhas inesperadas das novas rotas SVO, interceptar antes do handler global e registrar somente código técnico controlado, operação e instante; não registrar objeto Error bruto, message/detail/stack SQL, req.body, parâmetros livres ou token. Resposta 500: “Não foi possível concluir a operação. Consulte as solicitações antes de tentar novamente.”. Manter comportamento dos outros módulos.</p>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p>Não se aplica à implementação de telas nesta entrega. A tela pertence à FROTA-109. Nenhum arquivo em frontend/src é alterado por estes planos.</p><table><thead><tr><th scope="col">Estado do consumidor futuro</th><th scope="col">Contrato disponibilizado pela API</th></tr></thead><tbody><tr><td>Ideal</td><td>201 na criação, 200 na consulta/confirmação; status em inglês e campos tipados.</td></tr>
+<tr><td>Carregando</td><td>Requisição em andamento; estados de interface são responsabilidade da FROTA-109.</td></tr>
+<tr><td>Vazio</td><td>GET retorna 200 com []; detalhe inexistente retorna 404.</td></tr>
+<tr><td>Erro</td><td>JSON { erro: mensagem em português }, inclusive 401/403/409/500.</td></tr>
+<tr><td>Parcial / resultado incerto</td><td>Transações não retornam sucesso parcial. Após timeout, consultar antes de reenviar; não repetir automaticamente criação.</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>Aplicável às mensagens da API: indicar o campo e a correção em português, sem jargão SQL, dados pessoais ou valores recebidos. Ex.: “Informe o telefone do solicitante.”, “Informe a data de recebimento com fuso horário.” e “Esta solicitação já foi confirmada.”</p><p>Teclado, foco, contraste, useId, alvos de toque e anúncios aria-live da tela não se aplicam a estas duas tarefas de backend/QA; serão verificados na FROTA-109. Este SDD mantém título, idioma pt-BR, sumário por âncoras, cabeçalhos de tabela e links acessíveis.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<table><thead><tr><th scope="col">Perfil atual da conta</th><th scope="col">Criar / confirmar</th><th scope="col">Listar / detalhar</th></tr></thead><tbody><tr><td>ATENDENTE_SVO</td><td>Sim</td><td>Sim</td></tr>
+<tr><td>ADMINISTRADOR</td><td>Sim</td><td>Sim</td></tr>
+<tr><td>GESTOR</td><td>403</td><td>Sim</td></tr>
+<tr><td>SOLICITANTE / MOTORISTA / EQUIPE_SVO</td><td>403</td><td>403</td></tr>
+<tr><td>Sem token, token inválido/expirado ou conta inativa</td><td>401</td><td>401</td></tr></tbody></table><p>Sem nova variável de ambiente, feature flag, perfil ou permissão global. Manter JWT, pool e configuração existentes. Autorização deve preceder busca pelo id para não revelar existência de chamado a perfis proibidos. As contas e snapshots ficam sob o mesmo padrão de autoria já usado no projeto.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<p>Unitários da FROTA-112: validação de DTO/datas/FSM, projeção de auditoria, transação coordenada e revalidação do ator. Integração completa no <a href="frota-111-testes-registro-solicitacao-svo.html">SDD FROTA-111</a>, que é o critério de aceite conjunto.</p><table><thead><tr><th scope="col">Grupo unitário</th><th scope="col">Verificação</th></tr></thead><tbody><tr><td>Entrada</td><td>Campos obrigatórios, enum, notes, receivedAt omitido/passado/futuro/sem fuso, propriedades forjadas e ids.</td></tr>
+<tr><td>FSM e concorrência</td><td>PENDING confirma; CONFIRMED/CANCELED rejeitam; decisão usa registro travado, não leitura externa ao lock.</td></tr>
+<tr><td>Histórico/auditoria</td><td>Eventos RECEIVED/CONFIRMED com autoria e bi-temporalidade; allowlist de auditoria e ausência de dados pessoais.</td></tr>
+<tr><td>Falha</td><td>Nenhum sucesso antes do commit; falha de evento/auditoria propaga erro sanitizado e rollback.</td></tr></tbody></table><pre><code>cd backend
+npx tsc --noEmit
+npm run build
+npx tsx --test tests/svo-occurrences.service.test.ts
+npx tsx --test --test-concurrency=1 tests/svo-occurrences.integration.test.ts
+npm test
+# Na raiz, ao finalizar a implementação:
+node docs/scripts/aratu-check.mjs</code></pre><p>Roteiro manual com dados fictícios: cadastrar como atendente com recebimento anterior, listar pelo dia do recebimento, abrir detalhe, confirmar, repetir e observar 409; entrar como GESTOR e verificar leitura/403 nas escritas; repetir com ADMINISTRADOR e perfis proibidos. Não executar teste com base operacional. Estes comandos são plano de verificação, não resultados de testes executados neste planejamento.</p>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><label><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></label></li>
+  <li><label><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (FROTA-112)</code>)</label></li>
+  <li><label><input type="checkbox"> Diff focado; organizar etapas revisáveis abaixo de 400 linhas quando possível, sem misturar refatoração em massa</label></li>
+  <li><label><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</label></li>
+  <li><label><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></label></li>
+  <li><label><input type="checkbox"> <code>npx tsc --noEmit</code>, <code>npm run build</code> e <code>npm test</code> no backend sem erros; frontend não alterado</label></li>
+  <li><label><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</label></li>
+  <li><label><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></label></li>
+  <li><label><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</label></li>
+  <li><label><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</label></li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+<p>Criar docs/modulos/SVO.html a partir de EXEMPLO_MODULO.html quando implementar, documentando apenas a API entregue, dados existentes, FSM, RBAC, bi-temporalidade, histórico restrito, auditoria sanitizada e limites do retry de criação. Atualizar README.md com os quatro endpoints, exemplos sintéticos, filtros, respostas e erros; atualizar a entrada SVO de docs/manuais/modulos.md. Não declarar endpoints de equipes/ordens como implementados.</p><h3>Sequência de implementação</h3><ul><li>Atualizar develop e criar feat/svo-occurrences; confirmar que a migration FROTA-110 está aplicada no banco de testes.</li>
+<li>Criar types e repository, service com testes unitários, controller/router e montagem em app.ts, nessa ordem.</li>
+<li>Aplicar a matriz FROTA-111, atualizar documentação e executar verificações.</li>
+<li>Preparar PR para develop. Commit sugerido: feat(svo): registrar e confirmar solicitacoes (FROTA-112). Sem commit/push automáticos.</li></ul>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ATENDENTE_SVO</code>, <code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>EQUIPE_SVO</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> na confirmação concorrente de ocorrências SVO.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

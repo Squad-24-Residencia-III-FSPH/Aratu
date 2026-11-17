@@ -1,0 +1,13 @@
+.pageContainer { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.printRoot { display: none; }
+@media print {
+  :global(body) > :not(.printRoot) { display: none !important; }
+  .printRoot { display: block; color: #0f172a; background: white; font: 10pt Arial, sans-serif; }
+  .printRoot h1 { font-size: 16pt; }
+  .printRoot p { margin: 4px 0; }
+  .printRoot table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 8pt; table-layout: fixed; }
+  .printRoot th, .printRoot td { border: 1px solid #64748b; padding: 4px; overflow-wrap: anywhere; text-align: left; }
+  .printRoot thead { display: table-header-group; }
+  .printRoot tfoot { display: table-row-group; font-weight: bold; }
+  .printRoot tr { break-inside: avoid; }
+}

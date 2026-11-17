@@ -26,5 +26,5 @@ export function createPool(connectionString: string): Pool {
     // Mantém a string original caso não seja uma URL padrão
   }
 
-  return new Pool({ connectionString: normalized })
+  return new Pool({ connectionString: normalized, max: 5, connectionTimeoutMillis: 10_000 })
 }

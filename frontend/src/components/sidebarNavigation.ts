@@ -4,6 +4,12 @@ import { VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 import { MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
 import { DRIVERS_PATH } from '../drivers/driverAccess.ts'
 import { FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
+import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
+import { SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
+import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
+import { SVO_ORDERS_PATH, SVO_TEAM_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
+import { REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
+import { REPORTS_PATH } from '../reports/reportTypes.ts'
 
 export type SidebarIconName =
   | 'home'
@@ -31,7 +37,7 @@ export interface SidebarMenuItem {
   behavior: 'static' | 'button' | 'link'
   path?: string
   selected?: boolean
-  /** Restringe o item a estes perfis; ausente significa visível a todos. */
+  badgeCount?: number
   profiles?: readonly Profile[]
 }
 
@@ -58,6 +64,7 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
       behavior: 'link',
       path: PROFILE_PERMISSIONS_PATH,
     },
+    { label: 'Tipos de serviço', icon: 'serviceTypes', behavior: 'link', path: SERVICE_TYPES_PATH },
     {
       label: 'Veículos',
       icon: 'vehicles',
@@ -69,6 +76,7 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
     { label: 'Abastecimentos', icon: 'fuel', behavior: 'link', path: FUELINGS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
     { label: 'Motoristas', icon: 'drivers', behavior: 'link', path: DRIVERS_PATH },
     { label: 'Auditoria', icon: 'audit', behavior: 'static' },
+    { label: 'Relatórios', icon: 'reports', behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] },
     { label: 'Configurações', icon: 'settings', behavior: 'static' },
   ],
   sections: [],
@@ -83,9 +91,19 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
       label: 'OPERAÇÃO',
       spaced: false,
       items: [
+        {
+          label: PROFILE_HOMES.MOTORISTA.title,
+          icon: 'trips',
+          behavior: 'link',
+          path: PROFILE_HOMES.MOTORISTA.path,
+          profiles: ['MOTORISTA'],
+        },
         { label: 'Solicitações', icon: 'requests', behavior: 'button' },
+        { label: 'Analisar solicitações', icon: 'requests', behavior: 'link', path: REQUEST_ANALYSIS_PATH, profiles: ['GESTOR'] },
         { label: 'Viagens', icon: 'trips', behavior: 'button' },
-        { label: 'Confirmar viagens', icon: 'confirmTrips', behavior: 'button' },
+        { label: 'Ordens da equipe', icon: 'requests', behavior: 'link', path: SVO_TEAM_ORDERS_PATH, profiles: ['EQUIPE_SVO'] },
+        { label: 'Acompanhamento de ordens', icon: 'requests', behavior: 'link', path: SVO_ORDERS_PATH, profiles: ['ATENDENTE_SVO', 'GESTOR'] },
+        { label: 'Confirmar viagens', icon: 'confirmTrips', behavior: 'link', path: TRIP_CONFIRMATION_PATH, profiles: ['GESTOR'] },
       ],
     },
     {
@@ -100,7 +118,8 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
           profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'],
         },
         { label: 'Motoristas', icon: 'drivers', behavior: 'link', path: DRIVERS_PATH, profiles: ['GESTOR'] },
-        { label: 'Tipos de serviço', icon: 'requests', behavior: 'button' },
+        { label: 'Tipos de serviço', icon: 'serviceTypes', behavior: 'link', path: SERVICE_TYPES_PATH, profiles: ['GESTOR'] },
+        { label: 'Agendar viagem', icon: 'trips', behavior: 'link', path: TRIP_SCHEDULING_PATH, profiles: ['GESTOR'] },
         { label: 'Manutenção', icon: 'maintenance', behavior: 'link', path: MAINTENANCE_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
         { label: 'Abastecimentos', icon: 'fuel', behavior: 'link', path: FUELINGS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
       ],
@@ -118,7 +137,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
       spaced: true,
       items: [
         { label: 'Dashboard', icon: 'dashboard', behavior: 'button' },
-        { label: 'Relatórios', icon: 'reports', behavior: 'button' },
+        { label: 'Relatórios', icon: 'reports', behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] },
         { label: 'Auditoria', icon: 'audit', behavior: 'button' },
       ],
     },
@@ -127,11 +146,31 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
   showDividerAfterTop: true,
 }
 
-/** Escolhe o conteúdo lateral sem alterar o shell ou os destinos existentes. */
+const SOLICITANTE_NAVIGATION: SidebarNavigation = {
+  topItems: [
+    { label: 'Início', icon: 'home', behavior: 'link', path: '/inicio' },
+    { label: 'Nova Solicitação', icon: 'requests', behavior: 'button' },
+    { label: 'Minhas Solicitações', icon: 'confirmTrips', behavior: 'link', path: '/minhas-solicitacoes', badgeCount: 2 },
+  ],
+  sections: [],
+  footerItems: [{ label: 'Ajuda', icon: 'help', behavior: 'static' }],
+  showDividerAfterTop: true,
+}
+
 export function getSidebarNavigation(profile: Profile | null): SidebarNavigation {
-  const navigation = profile === 'ADMINISTRADOR' ? ADMINISTRATOR_NAVIGATION : OPERATIONAL_NAVIGATION
-  const allowed = (item: SidebarMenuItem) => item.profiles === undefined
-    || (profile !== null && item.profiles.includes(profile))
+  let navigation: SidebarNavigation;
+
+  if (profile === 'ADMINISTRADOR') {
+    navigation = ADMINISTRATOR_NAVIGATION;
+  } else if (profile === 'SOLICITANTE') {
+    navigation = SOLICITANTE_NAVIGATION;
+  } else {
+    navigation = OPERATIONAL_NAVIGATION;
+  }
+
+  const allowed = (item: SidebarMenuItem) =>
+    item.profiles === undefined || (profile !== null && item.profiles.includes(profile));
+
   return {
     ...navigation,
     topItems: navigation.topItems.filter(allowed),
@@ -139,5 +178,5 @@ export function getSidebarNavigation(profile: Profile | null): SidebarNavigation
       .map((section) => ({ ...section, items: section.items.filter(allowed) }))
       .filter((section) => section.items.length > 0),
     footerItems: navigation.footerItems.filter(allowed),
-  }
+  };
 }

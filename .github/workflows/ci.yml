@@ -1,0 +1,158 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-ci:
+    name: frontend-ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - id: install
+        working-directory: frontend
+        run: npm ci
+      - name: Check delivery guards
+        run: node --test docs/scripts/tests/*.test.mjs
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:ci | tee "$RUNNER_TEMP/frontend-tests.tap"
+      - name: Check test counts
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: node docs/scripts/check-test-report.mjs "$RUNNER_TEMP/frontend-tests.tap" Frontend
+      - name: Build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        working-directory: frontend
+        run: npm run build
+      - name: Save test report
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-tests
+          path: ${{ runner.temp }}/frontend-tests.tap
+          retention-days: 7
+
+  backend-ci:
+    name: backend-ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: aratu_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ci_user -d aratu_ci"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://ci_user:ci_password@localhost:5432/aratu_ci
+      DATABASE_URL_TEST: postgresql://ci_user:ci_password@localhost:5432/aratu_ci_test
+      JWT_SECRET: synthetic-ci-secret-not-for-production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - id: install
+        working-directory: backend
+        run: npm ci
+      - name: Provision disposable test database
+        working-directory: backend
+        run: npm run test:db:setup
+      - name: Test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        working-directory: backend
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:ci | tee "$RUNNER_TEMP/backend-tests.tap"
+      - name: Check test counts
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: node docs/scripts/check-test-report.mjs "$RUNNER_TEMP/backend-tests.tap" Backend
+      - name: Check types and build runtime
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        working-directory: backend
+        run: |
+          npx tsc --noEmit
+          npm run build
+      - name: Save test report
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-tests
+          path: ${{ runner.temp }}/backend-tests.tap
+          retention-days: 7
+
+  docker-ci:
+    name: docker-ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: [frontend-ci, backend-ci]
+    env:
+      POSTGRES_USER: ci_user
+      POSTGRES_PASSWORD: ci_password
+      POSTGRES_DB: aratu_ci
+      DATABASE_URL: postgresql://ci_user:ci_password@db:5432/aratu_ci
+      JWT_SECRET: synthetic-ci-secret-not-for-production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build production images
+        run: |
+          docker compose -f docker-compose.prod.yml config --quiet
+          docker compose -f docker-compose.prod.yml build
+      - name: Migrate clean database and check runtime
+        run: |
+          docker compose -f docker-compose.prod.yml up -d db --wait
+          docker compose -f docker-compose.prod.yml run --rm --no-deps backend npm run db:migrate:prod
+          docker compose -f docker-compose.prod.yml run --rm --no-deps backend npm run db:migrate:prod
+          docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
+          docker compose -f docker-compose.prod.yml exec -T frontend wget -q -O /dev/null http://127.0.0.1/api/health/ready
+      - name: Clean up disposable containers
+        if: always()
+        run: docker compose -f docker-compose.prod.yml down --volumes
+
+  ci-required:
+    name: ci-required
+    if: always()
+    needs: [frontend-ci, backend-ci, docker-ci]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every validation to succeed
+        env:
+          FRONTEND: ${{ needs.frontend-ci.result }}
+          BACKEND: ${{ needs.backend-ci.result }}
+          DOCKER: ${{ needs.docker-ci.result }}
+        run: |
+          printf 'Frontend: %s\nBackend: %s\nDocker: %s\n' "$FRONTEND" "$BACKEND" "$DOCKER" >> "$GITHUB_STEP_SUMMARY"
+          [[ "$FRONTEND" == success && "$BACKEND" == success && "$DOCKER" == success ]]
