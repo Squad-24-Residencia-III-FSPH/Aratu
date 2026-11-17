@@ -4,11 +4,13 @@ import { AuthContext } from './AuthContext'
 import { login } from './loginService'
 import { logout as requestLogout } from './logoutService'
 import { clearSession, readSession, saveSession, SESSION_KEY } from './sessionStorage'
-import type { AuthSession, LoginCredentials } from './types'
+import type { AuthSession, LoginCredentials, SignInOptions } from './types'
 import { createApiClient } from '../api/client'
+import { waitForApi } from '../api/availability'
 import { SESSION_EXPIRED, tokenExpiresAt } from './token'
 
 const MAX_TIMEOUT_MS = 2_147_483_647
+const IDLE_PREPARATION_MS = 5 * 60_000
 const STORAGE_CLEANUP_ATTEMPTS = 2
 const SIGNED_OUT = 'Você saiu deste navegador.'
 const SIGNED_OUT_ELSEWHERE = 'Sua sessão foi encerrada em outra aba. Entre novamente.'
@@ -38,6 +40,16 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
   const previewToken = useRef(import.meta.env.DEV && session?.token.endsWith('.preview') ? session.token : undefined)
   const [notice, setNotice] = useState('')
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+  const lastApiActivity = useRef(0)
+
+  const prepareApi = useCallback(async (signal?: AbortSignal): Promise<void> => {
+    // A prévia local e os testes mantêm o proxy de desenvolvimento sem espera adicional.
+    if (import.meta.env.DEV) return
+    if (Date.now() - lastApiActivity.current >= IDLE_PREPARATION_MS) {
+      await waitForApi(baseUrl, signal ? { signal } : {})
+    }
+    lastApiActivity.current = Date.now()
+  }, [baseUrl])
 
   const replaceSession = useCallback((next: AuthSession | null, message = ''): void => {
     generation.current += 1
@@ -84,9 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
       baseUrl,
       getSession: () => sessionRef.current,
       onUnauthorized: () => { if (current) endSession(SESSION_EXPIRED, current.token) },
+      ...(import.meta.env.PROD ? { prepare: prepareApi } : {}),
     })
     return request(path, options)
-  }, [baseUrl, endSession, reconcileSession])
+  }, [baseUrl, endSession, reconcileSession, prepareApi])
 
   useEffect(() => {
     function onStorage(event: StorageEvent): void {
@@ -124,10 +137,19 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     return () => clearTimeout(timer)
   }, [session, endSession])
 
-  async function signIn(credentials: LoginCredentials): Promise<void> {
+  async function signIn(credentials: LoginCredentials, options: SignInOptions = {}): Promise<void> {
     const attempt = ++generation.current
-    const authenticated = await login(credentials, { baseUrl })
-    if (generation.current !== attempt) return
+    if (import.meta.env.PROD) {
+      options.onPreparing?.(true)
+      try {
+        await prepareApi(options.signal)
+      } finally {
+        options.onPreparing?.(false)
+      }
+    }
+    if (generation.current !== attempt || options.signal?.aborted) return
+    const authenticated = await login(credentials, { baseUrl, ...(options.signal ? { signal: options.signal } : {}) })
+    if (generation.current !== attempt || options.signal?.aborted) return
     try {
       saveSession(authenticated)
     } catch {

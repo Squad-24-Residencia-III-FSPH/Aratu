@@ -1,4 +1,8 @@
 import express from 'express'
+import { DatabaseMigrator } from './database/migrator'
+import { HealthRepository } from './repositories/health.repository'
+import { HealthService } from './services/health.service'
+import { createHealthRouter } from './routes/health.routes'
 import cors from 'cors'
 import { error as logError } from 'node:console'
 import type { Pool } from 'pg'
@@ -64,6 +68,8 @@ import { createReportsRouter } from './routes/reports.routes'
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
  */
 export interface AppDependencies {
+  /** Origem pública autorizada para clientes que acessam a API entre domínios. */
+  corsOrigin?: string
   /** Configurações de autenticação e expiração de tokens JWT. */
   jwtConfig: JwtConfig
   /** Repositório de usuários customizado (utilizado primariamente em testes unitários). */
@@ -89,6 +95,7 @@ export interface AppDependencies {
  * @throws {Error} Se nem o repositório de usuários nem o pool PostgreSQL forem informados.
  */
 export function createApp({
+  corsOrigin,
   jwtConfig,
   users,
   roles,
@@ -104,8 +111,13 @@ export function createApp({
   const auditService = auditRepository ? new AuditService(auditRepository) : undefined
 
   const app = express()
-  app.use(cors())
+  app.use(cors(corsOrigin ? { origin: corsOrigin } : {}))
   app.use(express.json())
+  const health = pool ? new HealthService(new HealthRepository(pool), async () => {
+    const files = await new DatabaseMigrator().loadFiles()
+    return files.map(file => file.version)
+  }) : undefined
+  app.use('/health', createHealthRouter(health))
   app.get('/', (_req, res) => {
     res.json({ mensagem: 'Servidor Express rodando com sucesso no Docker!' })
   })

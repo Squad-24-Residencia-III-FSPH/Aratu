@@ -97,11 +97,11 @@ git pull origin develop
 - Resolver conflitos antes de concluir o Pull Request.
 - Não enviar arquivos `.env`, dependências instaladas ou arquivos temporários.
 
-### Promoção para produção
+### Publicação para homologação
 
-Após a integração em `develop`, a equipe promove as alterações para `staging` por Pull Request. O workflow executa lint, testes, verificação de tipos e builds; com todos os checks aprovados, abre ou reutiliza um Pull Request de `staging` para `main`. A revisão e o merge em `main` continuam manuais. O merge aprovado aciona o deploy no VPS via SSH e Docker Compose.
+O fluxo é `feature/fix → develop → main`, por Pull Requests revisados. A `main` publica a versão de homologação do cliente em Cloudflare Pages (frontend), Render Free (API) e Neon Free (PostgreSQL 18). Não há branch `staging` nem dependência do VPS anterior.
 
-Configure as proteções de branch, o ambiente `production`, secrets e variáveis do Actions e o servidor conforme [`docs/manuais/deploy.md`](docs/manuais/deploy.md).
+O CI executa lint, testes, tipos e builds; `ci-required` exige sucesso de todas as validações. A publicação executa o mesmo CI antes de migrations e deploy. Siga o passo a passo em [`docs/manuais/deploy.md`](docs/manuais/deploy.md) para cadastrar o Environment `homologation`, os secrets e os serviços gratuitos.
 
 ## Solicitações SVO (FROTA-112 / FROTA-111)
 

@@ -8,3 +8,9 @@ export interface AuthSession {
   nome: string
   perfil: string
 }
+
+/** Permite cancelar o acesso durante a retomada sem repetir a autenticação. */
+export interface SignInOptions {
+  signal?: AbortSignal
+  onPreparing?: (preparing: boolean) => void
+}

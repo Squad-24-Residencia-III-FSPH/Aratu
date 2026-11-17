@@ -45,13 +45,17 @@ export class DatabaseMigrator {
    */
   public async loadFiles(): Promise<MigrationFile[]> {
     if (!fs.existsSync(this.migrationsDirectory)) {
-      return [];
+      throw new Error('Diretório de migrações SQL não encontrado. Verifique o pacote da aplicação.');
     }
 
     const entries = await fs.promises.readdir(this.migrationsDirectory);
     const sqlFiles = entries
       .filter((file) => file.endsWith('.sql') && !file.endsWith('.down.sql'))
       .sort();
+
+    if (sqlFiles.length === 0) {
+      throw new Error('Nenhuma migração SQL encontrada. Verifique o pacote da aplicação.');
+    }
 
     return sqlFiles.map((filename) => {
       const match = filename.match(/^([0-9a-zA-Z]+)_(.+)\.sql$/);
