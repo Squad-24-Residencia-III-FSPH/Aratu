@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   Alert, Box, Button, CircularProgress, FormControl, FormHelperText,
@@ -22,6 +22,11 @@ export default function LoginPage() {
   const submitting = useRef(false)
   const emailInput = useRef<HTMLInputElement>(null)
   const passwordInput = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    document.title = 'Entrar — Aratu'
+    emailInput.current?.focus()
+  }, [])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -83,7 +88,7 @@ export default function LoginPage() {
               {errors.senha && <FormHelperText id="senha-erro">{errors.senha}</FormHelperText>}
             </FormControl>
             {error && <Alert severity="error" className={styles['mensagem-login']}>{error}</Alert>}
-            {!error && notice && <Alert severity="info" className={styles['mensagem-login']}>{notice}</Alert>}
+            {!error && notice && <Alert severity="info" role="status" className={styles['mensagem-login']}>{notice}</Alert>}
             <Button type="submit" variant="contained" fullWidth disabled={loading} className={styles['botao-entrar']}>
               {loading && <CircularProgress size={18} color="inherit" aria-label="Aguardando resposta" />}
               {loading ? 'Entrando…' : 'Entrar'}
