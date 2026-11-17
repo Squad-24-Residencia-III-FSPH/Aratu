@@ -135,7 +135,7 @@
   </li>
   <li>
     <strong>Encerramento de Sessão Auditado (<code>AuthService::logout</code>):</strong>
-    O logout valida o token JWT do usuário ativo, grava o evento <code>LOGOUT</code> na trilha de auditoria e orienta o cliente web a descartar o token em memória e no <code>sessionStorage</code>.
+    O menu da conta na topbar abre pelo nome/perfil e uma seta, apresenta a identificação textual e a ação <strong>Sair</strong>, e está disponível para os seis perfis. A barra não exibe avatar/foto nem notificações simuladas. A saída remove imediatamente a sessão da memória e do <code>localStorage</code>, sincronizando as abas da mesma origem e perfil do navegador. A aba originadora tenta <code>POST /auth/logout</code> com o token capturado, sem esperar a API para retirar o acesso. O backend valida o JWT e grava <code>LOGOUT</code>; falhas de rede ou servidor mantêm a saída local e exibem aviso de confirmação indisponível. O endpoint não revoga tokens: cópias externas permanecem válidas até expirar.
   </li>
   <li>
     <strong>Unicidade de E-mail (<code>UsersService::createUser</code> e <code>UsersService::updateUser</code>):</strong>
@@ -526,7 +526,10 @@
     <strong>Telas do Fluxo de Autenticação:</strong>
     <ul>
       <li><code>LoginPage.tsx</code>: Formulário de entrada com campos de e-mail e senha, botão de submissão, alerta de feedback visual/auditivo e suporte aos 5 estados visuais.</li>
-      <li><code>ProfileHome.tsx</code>: Tela inicial padronizada pós-autenticação apresentando as boas-vindas ao servidor, seu perfil RBAC e botão de logout.</li>
+      <li><code>Topbar.tsx</code> no layout compartilhado (<code>components/layout.tsx</code>): botão de conta com nome, perfil e seta; menu suspenso apresenta a identificação textual e oferece <strong>Sair</strong>. O controle é acessível por teclado, com alvo mínimo de 44×44px. Não há foto de perfil nem sino de notificações sem suporte de dados. Em celulares, o rótulo Conta e a seta permanecem visíveis; nome e perfil aparecem no menu. Sem sessão, o layout redireciona para o login, inclusive na entrada legada de solicitações. Mudanças de token remontam o conteúdo para descartar dados da identidade anterior.</li>
+      <li><code>auth/sessionStorage.ts</code>: apesar do nome legado preservado neste fix, usa exclusivamente <code>localStorage</code>, chave <code>aratu.auth.session</code> e DTO mínimo <code>{ token, nome, perfil }</code>. Não persiste senha nem dados operacionais. Restaura em novas abas ou após reabrir o navegador apenas enquanto o JWT for válido; oito horas por padrão, sem renovação. JSON inválido, perfil incompatível e tokens expirados são descartados. Bloqueio de armazenamento impede login persistente; falha de remoção limpa a aba atual e orienta a limpar dados do site.</li>
+      <li>Compatibilidade: sessões antigas do <code>sessionStorage</code> são descartadas sem promoção automática, exigindo novo login após atualizar. Logout não permite que uma cópia legada ressuscite a sessão. Eventos <code>storage</code>, foco, visibilidade e reconciliação antes da API mantêm as abas atualizadas; resposta 401 ou temporizador antigo não apaga um login posterior.</li>
+      <li>Após a saída, o login recebe foco no e-mail e anuncia o resultado como status. A confirmação assíncrona da auditoria não sobrescreve avisos de um login posterior. Limitação existente: não há aviso antecipado/extensão do tempo de sessão; este fix não demonstra atendimento integral ao critério WCAG 2.2.1.</li>
       <li><code>UserManagementPage.tsx</code>: Tela <strong>Gerenciar usuários</strong> integrada a <code>/users</code>, com busca, filtros por perfil e situação, tabela paginada, cadastro, edição, inativação e reativação por <code>ConfirmDialog</code>. A ação de inativar é ocultada na própria conta do administrador.</li>
     </ul>
   </li>
@@ -566,6 +569,7 @@
     <ul>
       <li>12 casos de perfil (1 permitido [200] e 1 negado [403] para cada um dos 6 perfis);</li>
       <li>Logout com sucesso [200] para todos os 6 perfis em <code>POST /auth/logout</code>;</li>
+      <li>Regressões do fix: <code>frontend/tests/login.test.mjs</code>, <code>logoutService.test.mjs</code>, <code>authProvider.test.mjs</code> e <code>topbarLogout.test.mjs</code> cobrem persistência, múltiplas abas, expiração, 401 atrasado, saída offline, armazenamento bloqueado, teclado, foco, abertura do menu da conta e proteção da rota legada. Fixtures são exclusivamente sintéticas; roteiro em navegador no SDD <code>docs/plans/fix-auth-persistencia-sessao-logout.html</code>.</li>
       <li>Tratamento de integridade e rejeição com HTTP 401 para requisições sem token, tokens expirados, tokens forjados ou perfis fora do catálogo canônico;</li>
       <li>Fixture centralizada em <code>backend/tests/fixtures/rbac-users.fixture.ts</code> para provisionamento dos 6 usuários e geração de tokens JWT válidos com dados 100% fictícios (LGPD).</li>
     </ul>
@@ -697,14 +701,14 @@
       <td>Chamada HTTP tipada para <code>/auth/login</code> e tratamento de status.</td>
     </tr>
     <tr>
-      <td><code>frontend/src/pages/LoginPage.tsx</code></td>
+      <td><code>frontend/src/pages/loginPage/LoginPage.tsx</code></td>
       <td>Page (React 19)</td>
       <td>Interface visual acessível de autenticação.</td>
     </tr>
     <tr>
-      <td><code>frontend/src/pages/ProfileHome.tsx</code></td>
-      <td>Page (React 19)</td>
-      <td>Área inicial pós-login para redirecionamento por perfil RBAC.</td>
+      <td><code>frontend/src/components/Topbar.tsx</code> / <code>layout.tsx</code></td>
+      <td>Layout (React 19)</td>
+      <td>Saída compartilhada e proteção do conteúdo autenticado, com remontagem na troca de sessão.</td>
     </tr>
     <tr>
       <td><code>backend/package.json</code></td>
