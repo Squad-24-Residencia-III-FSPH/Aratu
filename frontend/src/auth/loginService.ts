@@ -6,6 +6,7 @@ export const SERVICE_UNAVAILABLE = 'Serviço temporariamente indisponível'
 export const INVALID_CREDENTIALS = 'E-mail ou senha inválidos'
 
 export interface LoginOptions {
+  signal?: AbortSignal
   baseUrl?: string
   timeoutMs?: number
   fetcher?: typeof fetch
@@ -42,7 +43,7 @@ export function parseLoginResponse(data: unknown): AuthSession {
 
 export async function login(
   credentials: LoginCredentials,
-  { baseUrl = '/api', timeoutMs = 15_000, fetcher = fetch }: LoginOptions = {},
+  { baseUrl = '/api', timeoutMs = 15_000, fetcher = fetch, signal }: LoginOptions = {},
 ): Promise<AuthSession> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
@@ -54,14 +55,14 @@ export async function login(
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ email: credentials.email.trim(), senha: credentials.senha }),
-        signal: controller.signal,
+        signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
         cache: 'no-store',
       })
       data = await response.json().catch(() => null)
     } catch {
       throw new Error(SERVICE_UNAVAILABLE)
     }
-    if (controller.signal.aborted) throw new Error(SERVICE_UNAVAILABLE)
+    if (controller.signal.aborted || signal?.aborted) throw new Error(SERVICE_UNAVAILABLE)
     if (response.status === 401) throw new Error(INVALID_CREDENTIALS)
     if (response.status >= 500 || response.status === 404 || response.status === 408) {
       throw new Error(SERVICE_UNAVAILABLE)

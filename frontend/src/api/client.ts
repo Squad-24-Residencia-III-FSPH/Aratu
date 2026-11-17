@@ -8,12 +8,13 @@ interface ApiClientOptions {
   onUnauthorized: () => void
   fetcher?: typeof fetch
   timeoutMs?: number
+  prepare?: (signal?: AbortSignal) => Promise<void>
 }
 
 export type ApiRequest = (path: string, options?: RequestInit) => Promise<Response>
 
 export function createApiClient({
-  baseUrl, getSession, onUnauthorized, fetcher = fetch, timeoutMs = 15_000,
+  baseUrl, getSession, onUnauthorized, fetcher = fetch, timeoutMs = 15_000, prepare,
 }: ApiClientOptions): ApiRequest {
   return async (path, options = {}) => {
     const session = getSession()
@@ -23,6 +24,9 @@ export function createApiClient({
       throw new Error(SESSION_EXPIRED)
     }
     if (!path.startsWith('/') || path.startsWith('//')) throw new Error('Caminho de API inválido.')
+    if (prepare) await prepare(options.signal ?? undefined)
+    if (getSession()?.token !== session.token || expiresAt <= Date.now()) throw new Error(SESSION_EXPIRED)
+    options.signal?.throwIfAborted()
     const headers = new Headers(options.headers)
     headers.set('Authorization', 'Bearer ' + session.token)
     headers.set('Accept', 'application/json')

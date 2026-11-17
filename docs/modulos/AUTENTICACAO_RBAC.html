@@ -584,7 +584,7 @@
       <li><code>npm run db:seed</code>: Provisiona o Administrador inicial com auditoria atômica em <code>audit.logs</code> a partir do <code>.env</code>.</li>
     </ul>
   </li>
-  <li><strong>Integração Contínua (CI):</strong> O workflow <code>.github/workflows/ci-cd.yml</code> conta com container de serviço <code>postgres:18-alpine</code> com healthcheck <code>pg_isready</code>, rodando a suíte com banco real a cada Pull Request.</li>
+  <li><strong>CI e homologação:</strong> <code>.github/workflows/ci.yml</code> valida PRs em develop/main com PostgreSQL 18 descartável e relatórios TAP; <code>ci-required</code> reprova falhas e skips. A main publica a homologação por <code>deploy-homologation.yml</code>, após migrations. O login aguarda a retomada da API gratuita com GET, espera limitada e cancelamento. Autenticação e RBAC continuam obrigatórios. <a href="../manuais/deploy.md">Guia de publicação e seis contas fictícias</a>.</li>
   <li><strong>Suíte de Gerenciamento de Usuários (FROTA-29):</strong> <code>backend/tests/users.service.test.ts</code> cobre validações, unicidade, revisão, autoinativação, idempotência e auditoria em memória; <code>backend/tests/users.integration.test.ts</code> valida os endpoints <code>/users</code> contra o PostgreSQL 18, incluindo RBAC, login de conta inativada, conflitos e trilha <code>audit.logs</code>. No frontend, <code>usersService.test.mjs</code>, <code>tokenUser.test.mjs</code> e <code>userFormValidation.test.mjs</code> cobrem query string, parsing, erros, identificação da própria conta e validação de criação/edição.</li>
 </ul>
 
@@ -716,7 +716,7 @@
       <td>Scripts operacionais de teste (<code>test</code>, <code>test:unit</code>, <code>test:integration</code>, <code>test:db:setup</code>).</td>
     </tr>
     <tr>
-      <td><code>.github/workflows/ci-cd.yml</code></td>
+      <td><code>.github/workflows/ci.yml</code></td>
       <td>DevOps / CI</td>
       <td>Pipeline do GitHub Actions com container de serviço PostgreSQL 18 para validação contínua.</td>
     </tr>

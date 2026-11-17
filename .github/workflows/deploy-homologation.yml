@@ -1,0 +1,98 @@
+name: Publish homologation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bootstrap_demo:
+        description: Provisionar as seis contas fictícias (somente primeiro acesso)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: homologation-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: deploy-homologation
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: homologation
+      url: ${{ vars.FRONTEND_URL }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Validate configuration and current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+          BOOTSTRAP_DEMO: ${{ inputs.bootstrap_demo }}
+        run: |
+          node docs/scripts/validate-deployment.mjs
+          latest_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          [[ "$latest_sha" == "$GITHUB_SHA" ]] || { echo 'Main avançou. Execute a publicação do commit mais recente.'; exit 1; }
+      - name: Build approved commit
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
+        run: |
+          npm ci --prefix backend
+          npm run build --prefix backend
+          npm ci --prefix frontend
+          npm run build --prefix frontend
+      - name: Apply database migrations
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: npm run db:migrate:prod --prefix backend
+      - name: Provision demo accounts when requested
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.bootstrap_demo }}
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          DEPLOYMENT_ENVIRONMENT: homologation
+          DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+          NODE_ENV: production
+        run: npm run db:seed:demo --prefix backend
+      - name: Deploy API and wait for readiness
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+        run: node docs/scripts/deploy-render.mjs
+      - name: Publish approved frontend
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.136.3'
+          command: pages deploy frontend/dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }} --branch=main --commit-hash=${{ github.sha }}
+      - name: Check public frontend and cross-origin API
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+          BOOTSTRAP_DEMO: ${{ inputs.bootstrap_demo }}
+        run: node docs/scripts/smoke-homologation.mjs
