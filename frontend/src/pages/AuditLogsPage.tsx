@@ -54,6 +54,7 @@ export default function AuditLogsPage() {
       <title>Registros de auditoria — Aratu</title>
       <Typography component="h1" variant="h5" gutterBottom>Registros de auditoria</Typography>
       <Typography sx={{ mb: 2 }}>Fuso horário local: {dates.resolvedOptions().timeZone}</Typography>
+      <Typography sx={{ mb: 2 }}>O período usa o fuso da FSPH (America/Maceio).</Typography>
       <Box component="form" onSubmit={event => {
         event.preventDefault()
         const invalid = Boolean(draft.inicio && draft.fim && draft.inicio > draft.fim)

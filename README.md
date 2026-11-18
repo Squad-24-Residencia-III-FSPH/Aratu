@@ -243,6 +243,16 @@ Na interface, `/svo/ordens` abre com o recorte inicial **Ativas** (filtrando loc
 
 Ver [SDD FROTA-122](docs/plans/frota-122-registrar-resultado-svo.html) e [documentação SVO](docs/modulos/SVO.html#results).
 
+## Consulta de auditoria (FROTA-141)
+
+`GET /audit-logs` exige Bearer JWT de uma conta ativa com perfil Gestor ou Administrador.
+
+- Filtros opcionais `inicio` e `fim` no formato `AAAA-MM-DD`. As duas datas são inclusivas no fuso operacional `America/Maceio`.
+- `usuario_id` aceita um ID positivo. `acao` e `entidade` correspondem aos valores registrados, como `UPDATE` e `fleet.vehicles`.
+- `page` começa em 1. Cada página retorna até 25 itens, do mais recente ao mais antigo.
+- Resposta `200` com `{ rows, total }`. Cada item contém `id`, `created_at`, `usuario`, `acao`, `entidade`, `resumo` e `detalhes_mascarados`. Snapshots, justificativas e identificadores do alvo são ocultados.
+- Filtro inválido retorna `400` com `{ erro }`. Sessão inválida retorna `401` e perfil sem acesso retorna `403`.
+
 ## Padrão de commits
 
 Será utilizado um padrão inspirado em Conventional Commits.

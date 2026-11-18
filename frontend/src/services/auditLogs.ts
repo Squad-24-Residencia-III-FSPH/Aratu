@@ -30,7 +30,7 @@ export interface AuditPage {
 
 export class AuditAccessDenied extends Error {}
 
-/** Usa o GET documentado na FROTA-141. A leitura do envelope provisório fica isolada aqui. */
+/** Consulta o endpoint de leitura da auditoria e valida os registros antes de exibi-los. */
 export async function readAuditLogs(api: ApiRequest, filters: AuditFilters, page: number, signal: AbortSignal): Promise<AuditPage> {
   const params = new URLSearchParams({ page: String(page) })
   for (const [key, value] of Object.entries(filters)) {
