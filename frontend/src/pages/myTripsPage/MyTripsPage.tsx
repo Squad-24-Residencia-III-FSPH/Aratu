@@ -1,19 +1,19 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Alert, Box, Button, Typography } from '@mui/material'
-import { useAuth } from '../auth/useAuth'
-import { EntityCard } from '../components/ui/EntityCard'
-import { FormSelect } from '../components/ui/FormField'
-import PageHeader from '../components/ui/PageHeader'
-import StateFeedback from '../components/ui/StateFeedback'
-import StatusChip from '../components/ui/StatusChip'
-import { useMyTrips } from '../hooks/useMyTrips'
+import { useAuth } from '../../auth/useAuth'
+import { EntityCard } from '../../components/ui/EntityCard'
+import { FormSelect } from '../../components/ui/FormField'
+import PageHeader from '../../components/ui/PageHeader'
+import StateFeedback from '../../components/ui/StateFeedback'
+import StatusChip from '../../components/ui/StatusChip'
+import { useMyTrips } from '../../hooks/useMyTrips'
 import {
   ACTION_LABELS, formatDateTime, formatKm, NEXT_ACTION, selectTrips,
   TRIP_FILTER_LABELS, TRIP_STATUS_LABELS, TRIP_STATUS_TONES,
-} from '../trips/tripPresentation'
-import { TRIP_FILTERS } from '../trips/tripTypes'
-import type { DriverTrip, TripFilter } from '../trips/tripTypes'
-import TripExecutionDialog from './myTripsPage/TripExecutionDialog'
+} from '../../trips/tripPresentation'
+import { TRIP_FILTERS } from '../../trips/tripTypes'
+import type { DriverTrip, TripFilter } from '../../trips/tripTypes'
+import TripExecutionDialog from './TripExecutionDialog'
 
 const DOCUMENT_TITLE = 'Minhas viagens — Aratu'
 const FILTER_OPTIONS = TRIP_FILTERS.map((value) => ({ value, label: TRIP_FILTER_LABELS[value] }))

@@ -34,7 +34,7 @@ const userEvent = (await import('@testing-library/user-event')).default
 const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), plugins: [react()],
   cacheDir: viteCacheDir, server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: DriversPage }, { AuthContext }] = await Promise.all([
-  vite.ssrLoadModule('/src/pages/DriversPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
+  vite.ssrLoadModule('/src/pages/driversPage/DriversPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
 ])
 
 afterEach(() => cleanup())
