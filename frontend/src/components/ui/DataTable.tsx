@@ -28,6 +28,8 @@ export interface DataTableProps<T> {
   rows: readonly T[]
   rowKey: (row: T) => string
   renderActions?: (row: T) => ReactNode
+  /** Atalho por ponteiro. A tela deve manter uma ação de teclado equivalente. */
+  onRowClick?: (row: T) => void
   busy?: boolean
   minWidth?: number | string
   tableLayout?: 'auto' | 'fixed'
@@ -48,6 +50,7 @@ export default function DataTable<T>({
   rows,
   rowKey,
   renderActions,
+  onRowClick,
   busy,
   minWidth = 960,
   tableLayout = 'auto',
@@ -139,7 +142,8 @@ export default function DataTable<T>({
               </TableRow>
             ) : (
               rows.map((row) => (
-                <TableRow key={rowKey(row)} hover>
+                <TableRow key={rowKey(row)} hover onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  sx={onRowClick ? { cursor: 'pointer' } : undefined}>
                   {columns.map((column) => (
                     <TableCell
                       key={column.key}

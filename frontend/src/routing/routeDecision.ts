@@ -13,10 +13,12 @@ import { SVO_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
 import { canAnalyzeRequests, REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 import { canAccessReports } from '../reports/reportAccess.ts'
 import { REPORTS_PATH } from '../reports/reportTypes.ts'
+import { AUDIT_PATH, canReadAudit } from '../services/auditLogs.ts'
 
 type RouteDecision =
   | { kind: 'login' }
   | { kind: 'reports'; profile: Profile }
+  | { kind: 'audit'; profile: Profile }
   | { kind: 'redirect'; to: string }
   | { kind: 'home'; profile: Profile }
   | { kind: 'profile-permissions'; profile: 'ADMINISTRADOR' }
@@ -38,6 +40,7 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
   }
   const home = PROFILE_HOMES[profile].path
   if (path === REPORTS_PATH) return canAccessReports(profile) ? { kind: 'reports', profile } : { kind: 'redirect', to: home }
+  if (path === AUDIT_PATH) return canReadAudit(profile) ? { kind: 'audit', profile } : { kind: 'redirect', to: home }
   if (path === SVO_ORDERS_PATH) {
     return profile === 'ATENDENTE_SVO' || profile === 'GESTOR'
       ? { kind: 'svo-orders', profile }

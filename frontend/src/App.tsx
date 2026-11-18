@@ -22,6 +22,7 @@ import SvoTeamOrdersPage from './pages/SvoTeamOrdersPage';
 import SvoOrdersPage from './pages/SvoOrdersPage';
 import RequestAnalysisPage from './pages/RequestAnalysisPage';
 import ReportsPage from './pages/ReportsPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -63,6 +64,7 @@ function PrivateRoute() {
   }
   if (decision.kind === 'maintenance') return <Layout><MaintenancePage /></Layout>;
   if (decision.kind === 'reports') return <Layout><ReportsPage /></Layout>;
+  if (decision.kind === 'audit') return <Layout><AuditLogsPage /></Layout>;
   if (decision.kind === 'drivers') {
     return (
       <Layout>

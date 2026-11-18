@@ -48,6 +48,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
       { label: 'Manutenção', path: '/maintenance-orders' },
       { label: 'Abastecimentos', path: '/abastecimentos' },
       { label: 'Motoristas', path: '/motoristas' },
+      { label: 'Auditoria', path: '/auditoria' },
       { label: 'Relatórios', path: '/relatorios' },
     ],
   )
@@ -56,7 +57,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
   assert.equal(navigation.topItems[5].behavior, 'link')
   assert.equal(navigation.topItems[6].behavior, 'link')
   assert.equal(navigation.topItems[7].behavior, 'link')
-  assert.equal(navigation.topItems[8].behavior, 'static')
+  assert.equal(navigation.topItems[8].behavior, 'link')
   assert.equal(navigation.topItems[9].behavior, 'link')
   assert.equal(navigation.topItems[10].behavior, 'static')
   assert.equal(navigation.footerItems[0].behavior, 'static')
@@ -123,6 +124,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'Manutenção',
     'Abastecimentos',
     'Analisar solicitações',
+    'Auditoria',
   ])
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]
