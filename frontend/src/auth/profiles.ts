@@ -10,6 +10,7 @@ export const PROFILE_HOMES = {
 } as const
 
 export const PROFILE_PERMISSIONS_PATH = '/administracao/perfis'
+export const GESTOR_DASHBOARD_PATH = '/frota/dashboard'
 
 export type Profile = keyof typeof PROFILE_HOMES
 

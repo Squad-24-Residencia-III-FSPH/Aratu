@@ -16,20 +16,20 @@ import {
 import PersonAddAlt1 from '@mui/icons-material/PersonAddAlt1'
 import Search from '@mui/icons-material/Search'
 import PeopleAlt from '@mui/icons-material/PeopleAlt'
-import { useAuth } from '../auth/useAuth'
-import { PROFILE_HOMES } from '../auth/profiles'
-import type { Profile } from '../auth/profiles'
-import { tokenUserId } from '../auth/token'
-import { listProfiles } from '../services/profileService'
-import type { ProfileOption } from '../services/profileService'
-import ConfirmDialog from '../components/ui/ConfirmDialog'
-import DataTable from '../components/ui/DataTable'
-import type { DataTableColumn } from '../components/ui/DataTable'
-import FilterBar from '../components/ui/FilterBar'
-import { FormField, FormSelect } from '../components/ui/FormField'
-import PageHeader from '../components/ui/PageHeader'
-import StateFeedback from '../components/ui/StateFeedback'
-import StatusChip from '../components/ui/StatusChip'
+import { useAuth } from '../../auth/useAuth'
+import { PROFILE_HOMES } from '../../auth/profiles'
+import type { Profile } from '../../auth/profiles'
+import { tokenUserId } from '../../auth/token'
+import { listProfiles } from '../../services/profileService'
+import type { ProfileOption } from '../../services/profileService'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import DataTable from '../../components/ui/DataTable'
+import type { DataTableColumn } from '../../components/ui/DataTable'
+import FilterBar from '../../components/ui/FilterBar'
+import { FormField, FormSelect } from '../../components/ui/FormField'
+import PageHeader from '../../components/ui/PageHeader'
+import StateFeedback from '../../components/ui/StateFeedback'
+import StatusChip from '../../components/ui/StatusChip'
 import {
   activateUser,
   createUser,
@@ -37,14 +37,14 @@ import {
   listUsers,
   toProfile,
   updateUser,
-} from '../services/usersService'
-import type { ManagedUser } from '../users/userTypes'
+} from '../../services/usersService'
+import type { ManagedUser } from '../../users/userTypes'
 import {
   resolveProfileChangeConfirmation,
   shouldConfirmProfileChange,
-} from '../users/profileChangeConfirmation'
-import { validateUserForm } from '../users/userFormValidation'
-import type { UserFormErrors, UserFormValues } from '../users/userFormValidation'
+} from '../../users/profileChangeConfirmation'
+import { validateUserForm } from '../../users/userFormValidation'
+import type { UserFormErrors, UserFormValues } from '../../users/userFormValidation'
 import styles from './UserManagementPage.module.css'
 
 const pageSize = 10

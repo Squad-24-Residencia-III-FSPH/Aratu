@@ -4,22 +4,22 @@ import {
 } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
 import VisibilityIcon from '@mui/icons-material/Visibility'
-import { useAuth } from '../auth/useAuth'
-import { resolveProfile } from '../auth/profiles'
-import { useTripConfirmations } from '../hooks/useTripConfirmations'
-import ConfirmDialog from '../components/ui/ConfirmDialog'
-import DataTable from '../components/ui/DataTable'
-import type { DataTableColumn } from '../components/ui/DataTable'
-import FilterBar from '../components/ui/FilterBar'
-import { FormField, FormSelect } from '../components/ui/FormField'
-import PageHeader from '../components/ui/PageHeader'
-import StateFeedback from '../components/ui/StateFeedback'
-import StatusChip from '../components/ui/StatusChip'
+import { useAuth } from '../../auth/useAuth'
+import { resolveProfile } from '../../auth/profiles'
+import { useTripConfirmations } from '../../hooks/useTripConfirmations'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import DataTable from '../../components/ui/DataTable'
+import type { DataTableColumn } from '../../components/ui/DataTable'
+import FilterBar from '../../components/ui/FilterBar'
+import { FormField, FormSelect } from '../../components/ui/FormField'
+import PageHeader from '../../components/ui/PageHeader'
+import StateFeedback from '../../components/ui/StateFeedback'
+import StatusChip from '../../components/ui/StatusChip'
 import {
   canConfirmTrip, confirmationFilterOptions, filterConfirmationTrips, formatTripInstant,
   formatTripOdometer, tripDistance,
-} from '../trips/tripConfirmationPresentation'
-import type { TripConfirmationItem } from '../trips/tripConfirmationTypes'
+} from '../../trips/tripConfirmationPresentation'
+import type { TripConfirmationItem } from '../../trips/tripConfirmationTypes'
 
 const NUMBER_FORMAT = new Intl.NumberFormat('pt-BR')
 

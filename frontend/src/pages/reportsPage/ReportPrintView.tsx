@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom'
 import type { ReportPrintData } from '../../reports/reportTypes'
 import { formatReportCell } from '../../reports/reportPresentation'
-import styles from '../ReportsPage.module.css'
+import styles from './ReportsPage.module.css'
 
 /** Resultado completo autorizado para impressão, separado dos controles e da prévia paginada. */
 export default function ReportPrintView({ data }: { data: ReportPrintData }) {
