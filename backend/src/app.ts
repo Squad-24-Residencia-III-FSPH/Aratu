@@ -63,6 +63,9 @@ import { ReportsRepository } from './repositories/reports.repository'
 import { ReportsService } from './services/reports.service'
 import { ReportRegistry } from './services/reports/report-registry'
 import { createReportsRouter } from './routes/reports.routes'
+import { AuditLogsRepository } from './repositories/audit-logs.repository'
+import { AuditLogsService } from './services/audit-logs.service'
+import { createAuditLogsRouter } from './routes/audit-logs.routes'
 
 /**
  * Dependências injetadas para inicialização da aplicação Express do Aratu.
@@ -156,6 +159,7 @@ export function createApp({
       : new UsersRepository(pool)
     const reportsService = new ReportsService(new ReportsRepository(pool), new ReportRegistry(vehicleDocumentAlertDays), currentUsersRepository, auditService)
     app.use('/reports', createReportsRouter(reportsService, jwtConfig, currentUsersRepository))
+    app.use('/audit-logs', createAuditLogsRouter(new AuditLogsService(new AuditLogsRepository(pool)), jwtConfig, currentUsersRepository))
     app.use('/fines', createFinesRouter(finesService, jwtConfig, currentUsersRepository))
     app.use('/vehicle-documents', createVehicleDocumentsRouter(vehicleDocumentsService, jwtConfig, currentUsersRepository))
     const requestDecisionsService = new RequestDecisionsService(new RequestDecisionsRepository(pool), auditService)
