@@ -243,6 +243,16 @@ Na interface, `/svo/ordens` abre com o recorte inicial **Ativas** (filtrando loc
 
 Ver [SDD FROTA-122](docs/plans/frota-122-registrar-resultado-svo.html) e [documentação SVO](docs/modulos/SVO.html#results).
 
+## Consulta de auditoria (FROTA-141 / FROTA-140)
+
+`GET /audit-logs?from=&to=&userId=&operation=&table=&page=&pageSize=`, com JWT Bearer de `GESTOR` ou `ADMINISTRADOR` (conta revalidada; demais perfis `403`, sem token `401`). Somente leitura: não existem rotas de criação, edição ou exclusão (`PUT`, `PATCH`, `DELETE` respondem `404`).
+
+Resposta `200`: `{ logs: [{ id, registeredAt, userId, actorName, operation, table, recordId, reason, before, after, actorSnapshot, sensitiveDataHidden }], total, page, pageSize, totalPages }`, do mais recente para o mais antigo. Filtros opcionais: `from` (incluído) e `to` (excluído) em `AAAA-MM-DD` no fuso `America/Maceio`, até 366 dias; `userId`; `operation` (ex.: `CREATE`, `STATUS_CHANGE`, `LOGIN_SUCCESS`); `table` (ex.: `fleet.vehicles`); `page` e `pageSize` (padrão 20, máximo 100). Filtro inválido retorna `400 { "erro": "..." }`.
+
+Proteção de dados: CPF vira `***.***.***-NN`, o número da CNH mostra só os 2 últimos dígitos e campos de senha, hash, token e segredo são removidos em qualquer nível do JSON. Registros de tabelas `svo.*` trazem `before` e `after` nulos com `sensitiveDataHidden: true`, mantendo visíveis quem fez, o quê e quando. A máscara vale só para a resposta; o histórico gravado não é alterado.
+
+Testes: `cd backend`, `npx tsx --test tests/audit-logs.service.test.ts` e `npx tsx --test --test-concurrency=1 tests/audit-logs.integration.test.ts`, exclusivamente em banco de testes.
+
 ## Padrão de commits
 
 Será utilizado um padrão inspirado em Conventional Commits.
