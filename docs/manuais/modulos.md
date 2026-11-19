@@ -2,6 +2,10 @@
 
 Este documento apresenta o índice dos módulos funcionais do **Aratu — Sistema de Gestão de Frota e Operações**, desenvolvido pela **Squad 24** para a **Fundação de Saúde Parreiras Horta (FSPH)** e o **Serviço de Verificação de Óbito (SVO)**.
 
+### Consulta de auditoria no frontend
+
+A rota interna `/auditoria` apresenta a consulta somente leitura de registros para os perfis `GESTOR` e `ADMINISTRADOR`. A tela React consome `GET /audit-logs`, documentado no módulo de autenticação e RBAC, com filtros e paginação; datas e períodos seguem `America/Maceio`. A autorização efetiva continua sendo validada pela API.
+
 ---
 
 ## 1. Mapa de Módulos Previstos
