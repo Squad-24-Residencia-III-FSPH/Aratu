@@ -13,6 +13,12 @@ export function createSvoOccurrencesController(service: SvoOccurrencesService) {
     async detail(req: Request, res: Response): Promise<void> {
       res.json(await service.getOccurrence(req.params.id))
     },
+    async triage(req: Request, res: Response): Promise<void> {
+      res.json(await service.getOccurrenceTriage(req.params.id))
+    },
+    async saveTriage(req: Request, res: Response): Promise<void> {
+      res.status(201).json(await service.saveOccurrenceTriage(req.params.id, req.body, req.usuario!.id))
+    },
     async confirm(req: Request, res: Response): Promise<void> {
       res.json(await service.confirmOccurrence(req.params.id, req.body, req.usuario!.id))
     },

@@ -8,6 +8,7 @@ import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
 import { SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
 import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
 import { SVO_ORDERS_PATH, SVO_TEAM_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
+import { SVO_OCCURRENCES_PATH, SVO_TRIAGES_PATH } from '../svo/svoOccurrenceTypes.ts'
 import { REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 import { REPORTS_PATH } from '../reports/reportTypes.ts'
 
@@ -65,6 +66,8 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
       path: PROFILE_PERMISSIONS_PATH,
     },
     { label: 'Tipos de serviço', icon: 'serviceTypes', behavior: 'link', path: SERVICE_TYPES_PATH },
+    { label: 'Solicitações SVO', icon: 'requests', behavior: 'link', path: SVO_OCCURRENCES_PATH },
+    { label: 'Triagens', icon: 'requests', behavior: 'link', path: SVO_TRIAGES_PATH, profiles: ['ATENDENTE_SVO', 'ADMINISTRADOR'] },
     {
       label: 'Veículos',
       icon: 'vehicles',
@@ -103,6 +106,8 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
         { label: 'Viagens', icon: 'trips', behavior: 'button' },
         { label: 'Ordens da equipe', icon: 'requests', behavior: 'link', path: SVO_TEAM_ORDERS_PATH, profiles: ['EQUIPE_SVO'] },
         { label: 'Acompanhamento de ordens', icon: 'requests', behavior: 'link', path: SVO_ORDERS_PATH, profiles: ['ATENDENTE_SVO', 'GESTOR'] },
+        { label: 'Solicitações SVO', icon: 'requests', behavior: 'link', path: SVO_OCCURRENCES_PATH, profiles: ['ATENDENTE_SVO'] },
+        { label: 'Triagens', icon: 'requests', behavior: 'link', path: SVO_TRIAGES_PATH, profiles: ['ATENDENTE_SVO', 'ADMINISTRADOR'] },
         { label: 'Confirmar viagens', icon: 'confirmTrips', behavior: 'link', path: TRIP_CONFIRMATION_PATH, profiles: ['GESTOR'] },
       ],
     },

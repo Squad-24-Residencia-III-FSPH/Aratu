@@ -5,6 +5,7 @@ import { PROFILE_PERMISSIONS_PATH, resolveProfile } from '../src/auth/profiles.t
 import { REQUEST_ANALYSIS_PATH } from '../src/requests/requestAccess.ts'
 import { sessionFor } from './fixtures.mjs'
 import { TRIP_CONFIRMATION_PATH } from '../src/trips/tripConfirmationTypes.ts'
+import { SVO_OCCURRENCES_PATH, SVO_TRIAGES_PATH } from '../src/svo/svoOccurrenceTypes.ts'
 
 const destinations = [
   ['ADMINISTRADOR', '/administracao/usuarios'],
@@ -32,7 +33,9 @@ for (const [profile, path] of destinations) {
   test(profile + ' vai para a própria tela e não pode abrir as demais', () => {
     const session = sessionFor(profile)
     assert.deepEqual(resolveRoute(session, '/login'), { kind: 'redirect', to: path })
-    assert.deepEqual(resolveRoute(session, path), { kind: 'home', profile })
+    assert.deepEqual(resolveRoute(session, path), profile === 'ATENDENTE_SVO'
+      ? { kind: 'svo-occurrences', profile }
+      : { kind: 'home', profile })
     assert.deepEqual(
       resolveRoute(session, PROFILE_PERMISSIONS_PATH),
       profile === 'ADMINISTRADOR'
@@ -40,7 +43,9 @@ for (const [profile, path] of destinations) {
         : { kind: 'redirect', to: path },
     )
     for (const [, otherPath] of destinations) {
-      if (otherPath !== path) assert.deepEqual(resolveRoute(session, otherPath), { kind: 'redirect', to: path })
+      if (otherPath !== path && !(otherPath === SVO_OCCURRENCES_PATH && profile === 'ADMINISTRADOR')) {
+        assert.deepEqual(resolveRoute(session, otherPath), { kind: 'redirect', to: path })
+      }
     }
     assert.deepEqual(
       resolveRoute(session, VEHICLES_PATH),
@@ -71,6 +76,26 @@ test('sem login e após logout, todas as rotas internas voltam ao login', () => 
     assert.deepEqual(resolveRoute(null, path), { kind: 'redirect', to: '/login' })
   }
   assert.deepEqual(resolveRoute(null, '/login'), { kind: 'login' })
+})
+
+test('cadastro e consulta de ocorrências SVO são restritos ao atendente e administrador', () => {
+  for (const [profile, home] of destinations) {
+    assert.deepEqual(resolveRoute(sessionFor(profile), SVO_OCCURRENCES_PATH),
+      profile === 'ATENDENTE_SVO' || profile === 'ADMINISTRADOR'
+        ? { kind: 'svo-occurrences', profile }
+        : { kind: 'redirect', to: home })
+  }
+  assert.deepEqual(resolveRoute(null, SVO_OCCURRENCES_PATH), { kind: 'redirect', to: '/login' })
+})
+
+test('página de triagens é restrita ao atendente SVO e administrador', () => {
+  for (const [profile, home] of destinations) {
+    assert.deepEqual(resolveRoute(sessionFor(profile), SVO_TRIAGES_PATH),
+      profile === 'ATENDENTE_SVO' || profile === 'ADMINISTRADOR'
+        ? { kind: 'svo-triages', profile }
+        : { kind: 'redirect', to: home })
+  }
+  assert.deepEqual(resolveRoute(null, SVO_TRIAGES_PATH), { kind: 'redirect', to: '/login' })
 })
 
 test('token expirado e sessão adulterada não abrem telas internas', () => {

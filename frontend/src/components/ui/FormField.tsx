@@ -7,6 +7,7 @@ export interface FormFieldProps {
   label: string
   value: string
   onChange: (value: string) => void
+  onEnter?: () => void
   error?: string
   helperText?: string
   required?: boolean
@@ -65,6 +66,7 @@ export function FormField({
   label,
   value,
   onChange,
+  onEnter,
   error,
   helperText,
   required,
@@ -91,6 +93,12 @@ export function FormField({
       label={label}
       value={value}
       onChange={(event) => onChange(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && onEnter && !multiline) {
+          event.preventDefault()
+          onEnter()
+        }
+      }}
       error={Boolean(error)}
       helperText={helperContent}
       required={required}
