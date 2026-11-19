@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/layout';
 import GestorPage from './pages/gestor/gestorPage/GestorPage';
+import GestorDashboardPage from './pages/gestor/gestorPage/DashboardPage';
 import LoginPage from './pages/loginPage/LoginPage';
 import PlaceholderPage from './pages/placeholderPage/PlaceholderPage';
 import ProfilePermissionsPage from './pages/profilePermissionsPage/ProfilePermissionsPage';
@@ -11,17 +12,17 @@ import { useAuth } from './auth/useAuth';
 import { PROFILE_HOMES } from './auth/profiles';
 import type { Profile } from './auth/profiles';
 import { resolveRoute } from './routing/routeDecision';
-import UserManagementPage from './pages/UserManagementPage';
-import DriversPage from './pages/DriversPage';
-import FuelingsPage from './pages/FuelingsPage';
-import MyTripsPage from './pages/MyTripsPage';
-import TripConfirmationPage from './pages/TripConfirmationPage';
+import UserManagementPage from './pages/userManagementPage/UserManagementPage';
+import DriversPage from './pages/driversPage/DriversPage';
+import FuelingsPage from './pages/fuelingsPage/FuelingsPage';
+import MyTripsPage from './pages/myTripsPage/MyTripsPage';
+import TripConfirmationPage from './pages/tripConfirmationPage/TripConfirmationPage';
 import ServicesPage from './pages/gestor/servicePage/ServicesPage';
 import ScheduleTripPage from './pages/gestor/schedulingPage/ScheduleTripPage';
-import SvoTeamOrdersPage from './pages/SvoTeamOrdersPage';
-import SvoOrdersPage from './pages/SvoOrdersPage';
-import RequestAnalysisPage from './pages/RequestAnalysisPage';
-import ReportsPage from './pages/ReportsPage';
+import SvoTeamOrdersPage from './pages/svoOrdersPage/SvoTeamOrdersPage';
+import SvoOrdersPage from './pages/svoOrdersPage/SvoOrdersPage';
+import RequestAnalysisPage from './pages/requestAnalysisPage/RequestAnalysisPage';
+import ReportsPage from './pages/reportsPage/ReportsPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -80,6 +81,7 @@ function PrivateRoute() {
   if (decision.kind === 'trip-confirmation') return <Layout><TripConfirmationPage /></Layout>;
   if (decision.kind === 'service-types') return <Layout><ServicesPage /></Layout>
   if (decision.kind === 'trip-scheduling') return <Layout><ScheduleTripPage /></Layout>
+  if (decision.kind === 'dashboard') return <Layout><GestorDashboardPage /></Layout>
   if (decision.kind === 'svo-orders') return <Layout><SvoOrdersPage /></Layout>
   if (decision.kind === 'request-analysis') return <Layout><RequestAnalysisPage /></Layout>
   return (

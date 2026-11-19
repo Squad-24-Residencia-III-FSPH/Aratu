@@ -1,4 +1,4 @@
-import { PROFILE_HOMES, PROFILE_PERMISSIONS_PATH } from '../auth/profiles.ts'
+import { GESTOR_DASHBOARD_PATH, PROFILE_HOMES, PROFILE_PERMISSIONS_PATH } from '../auth/profiles.ts'
 import type { Profile } from '../auth/profiles.ts'
 import { VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 import { MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
@@ -136,7 +136,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
       label: 'GESTÃO',
       spaced: true,
       items: [
-        { label: 'Dashboard', icon: 'dashboard', behavior: 'button' },
+        { label: 'Dashboard', icon: 'dashboard', behavior: 'link', path: GESTOR_DASHBOARD_PATH, profiles: ['GESTOR'] },
         { label: 'Relatórios', icon: 'reports', behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] },
         { label: 'Auditoria', icon: 'audit', behavior: 'button' },
       ],
@@ -171,9 +171,15 @@ export function getSidebarNavigation(profile: Profile | null): SidebarNavigation
   const allowed = (item: SidebarMenuItem) =>
     item.profiles === undefined || (profile !== null && item.profiles.includes(profile));
 
+  const topItems = profile === 'GESTOR'
+    ? navigation.topItems.map((item) => item.label === 'Início'
+      ? { ...item, behavior: 'link' as const, path: PROFILE_HOMES.GESTOR.path }
+      : item)
+    : navigation.topItems;
+
   return {
     ...navigation,
-    topItems: navigation.topItems.filter(allowed),
+    topItems: topItems.filter(allowed),
     sections: navigation.sections
       .map((section) => ({ ...section, items: section.items.filter(allowed) }))
       .filter((section) => section.items.length > 0),

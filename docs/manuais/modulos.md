@@ -20,6 +20,7 @@ Este documento apresenta o índice dos módulos funcionais do **Aratu — Sistem
 | 6 | `MANUTENCOES` | Manutenção Preventiva e Corretiva | `GESTOR`, `ADMINISTRADOR` | `fleet.maintenance_orders`, `fleet.vehicles` | Abertura e acompanhamento de ordens de serviço de manutenção, bloqueio automático de veículos indisponíveis e retorno à frota ativa. |
 
 **Consulta de auditoria (US23, AUTENTICACAO_RBAC):** `GET /audit-logs?from=&to=&userId=&operation=&table=&page=&pageSize=` lê `audit.logs` somente para consulta (sem rotas de escrita), paginado (padrão 20, máximo 100) e do mais recente para o mais antigo, restrito a GESTOR e ADMINISTRADOR. Na resposta, CPF e número da CNH aparecem só com os 2 últimos dígitos, senhas/hashes/tokens/segredos são removidos e registros de tabelas `svo.*` trazem `before`/`after` nulos com `sensitiveDataHidden: true`; o registro gravado não é alterado.
+**Dashboard gerencial (US21, transversal a FROTA, VIAGENS, MANUTENCOES e SVO):** `GET /dashboard/summary` (retrato atual: frota por situação, solicitações pendentes, viagens a confirmar, documentos a vencer/vencidos e, para perfis com acesso ao SVO, ordens em andamento e ocupação) e `GET /dashboard/indicators?from=&to=&vehicleId=` (viagens, km, litros, gastos e consumo por veículo no período `[from, to)`, até 366 dias, mais indicadores do SVO), restritos a GESTOR e ADMINISTRADOR e agregados no PostgreSQL. Fórmulas, fontes e pendências em `docs/manuais/indicadores-dashboard.md`.
 
 ---
 

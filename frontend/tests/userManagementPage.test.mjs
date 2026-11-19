@@ -51,7 +51,7 @@ const vite = await createServer({
   appType: 'custom',
 })
 const [{ default: UserManagementPage }, { AuthContext }] = await Promise.all([
-  vite.ssrLoadModule('/src/pages/UserManagementPage.tsx'),
+  vite.ssrLoadModule('/src/pages/userManagementPage/UserManagementPage.tsx'),
   vite.ssrLoadModule('/src/auth/AuthContext.ts'),
 ])
 

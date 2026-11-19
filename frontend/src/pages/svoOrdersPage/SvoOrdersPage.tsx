@@ -1,5 +1,5 @@
-import { useAuth } from '../auth/useAuth'
-import SvoOrderList from '../components/svo/SvoOrderList'
+import { useAuth } from '../../auth/useAuth'
+import SvoOrderList from '../../components/svo/SvoOrderList'
 
 /** Consulta de leitura para central SVO e gestor, sem comandos de alteração e sem persistir conteúdo SVO. */
 export default function SvoOrdersPage() {

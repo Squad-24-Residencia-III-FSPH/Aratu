@@ -1,4 +1,4 @@
-import { PROFILE_HOMES, PROFILE_PERMISSIONS_PATH, resolveProfile } from '../auth/profiles.ts'
+import { GESTOR_DASHBOARD_PATH, PROFILE_HOMES, PROFILE_PERMISSIONS_PATH, resolveProfile } from '../auth/profiles.ts'
 import type { Profile } from '../auth/profiles.ts'
 import type { AuthSession } from '../auth/types.ts'
 import { tokenExpiresAt } from '../auth/token.ts'
@@ -19,6 +19,7 @@ type RouteDecision =
   | { kind: 'reports'; profile: Profile }
   | { kind: 'redirect'; to: string }
   | { kind: 'home'; profile: Profile }
+  | { kind: 'dashboard'; profile: 'GESTOR' }
   | { kind: 'profile-permissions'; profile: 'ADMINISTRADOR' }
   | { kind: 'vehicles'; profile: Profile }
   | { kind: 'maintenance'; profile: Profile }
@@ -37,6 +38,9 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
     return path === '/login' ? { kind: 'login' } : { kind: 'redirect', to: '/login' }
   }
   const home = PROFILE_HOMES[profile].path
+  if (path === GESTOR_DASHBOARD_PATH) {
+    return profile === 'GESTOR' ? { kind: 'dashboard', profile } : { kind: 'redirect', to: home }
+  }
   if (path === REPORTS_PATH) return canAccessReports(profile) ? { kind: 'reports', profile } : { kind: 'redirect', to: home }
   if (path === SVO_ORDERS_PATH) {
     return profile === 'ATENDENTE_SVO' || profile === 'GESTOR'
