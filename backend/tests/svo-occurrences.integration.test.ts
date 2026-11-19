@@ -66,7 +66,11 @@ async function history(id: string) {
 /** Captura somente o schema SVO e sua auditoria para demonstrar ausência de qualquer escrita. */
 async function databaseState(): Promise<unknown[]> {
   const ids = await pool.query<{ id: string }>('SELECT id::text FROM svo.occurrences ORDER BY id')
-  return Promise.all(ids.rows.map(({ id }) => history(id)))
+  const triages = await pool.query<JsonRecord>(
+    `SELECT id::text, occurrence_id::text, revision, supersedes_id::text, registered_by::text,
+            registered_at, reason FROM svo.occurrence_triages ORDER BY id`,
+  )
+  return [...await Promise.all(ids.rows.map(({ id }) => history(id))), triages.rows]
 }
 
 async function rejectsWithoutWrite(operation: () => Promise<Response>, status: number): Promise<void> {
@@ -193,6 +197,149 @@ test('SVO-07: CONFIRMED e CANCELED retornam 409 sem alterar trilhas ou revisão'
   const confirmed = await create(); await json(await call('POST', `/${confirmed}/confirm`, {}))
   const canceled = await insertLegacySvo(pool, user().id, 'CANCELED')
   for (const id of [confirmed, canceled]) await rejectsWithoutWrite(() => call('POST', `/${id}/confirm`), 409)
+})
+
+test('SVO-TRIAGE-01: cria e consulta snapshot opcional sem expor dados em auditoria de metadados', async () => {
+  const id = await create()
+  const payload = {
+    deceasedName: 'SENTINELA_NOME_FICTICIO', estimatedAge: 'aproximadamente 70',
+    responsiblePhysician: 'SENTINELA_MEDICO_FICTICIO', crm: 'CRM-FICTICIO',
+    preliminaryCauseOfDeath: 'SENTINELA_CAUSA_FICTICIA',
+    availableDocuments: ['tipo-livre-a', 'tipo-livre-b'], referral: 'encaminhamento-livre',
+    triageNotes: 'SENTINELA_OBSERVACAO_FICTICIA',
+  }
+  const created = await json(await call('POST', `/${id}/triage`, payload), 201)
+  assert.equal(created.occurrenceId, id)
+  assert.equal(created.revision, 1)
+  assert.equal(created.supersedesId, null)
+  assert.deepEqual(created.availableDocuments, payload.availableDocuments)
+  assert.equal(created.registeredBy, user().id)
+  assert.ok(typeof created.occurredAt === 'string' && typeof created.registeredAt === 'string')
+  assert.deepEqual(await json(await call('GET', `/${id}/triage`)), created)
+  const audits = await pool.query<JsonRecord>(
+    `SELECT "before", "after", reason FROM audit.logs
+      WHERE table_name = 'svo.occurrence_triages' AND record_id = $1`, [created.id],
+  )
+  const events = await pool.query<JsonRecord>(
+    `SELECT reason, before_state, after_state FROM svo.occurrence_events
+      WHERE occurrence_id = $1 AND event_type IN ('TRIAGED', 'RECTIFIED')`, [id],
+  )
+  assert.equal(audits.rows.length, 1)
+  assert.ok(!JSON.stringify([audits.rows, events.rows]).includes('SENTINELA_'))
+  assert.equal((await json(await call('GET', `/${id}`))).deceasedName, undefined)
+})
+
+test('SVO-TRIAGE-02: retificação preserva versão, encadeia revisão e exige justificativa', async () => {
+  const id = await create()
+  const first = await json(await call('POST', `/${id}/triage`, { deceasedName: 'Nome fictício' }), 201)
+  await rejectsWithoutWrite(() => call('POST', `/${id}/triage`, { deceasedName: 'Outro nome fictício' }), 400)
+  const second = await json(await call('POST', `/${id}/triage`, {
+    deceasedName: 'Outro nome fictício', reason: 'SENTINELA_JUSTIFICATIVA_FICTICIA',
+  }), 201)
+  assert.equal(second.revision, 2)
+  assert.equal(second.supersedesId, first.id)
+  assert.equal(second.deceasedName, 'Outro nome fictício')
+  const versions = await pool.query<JsonRecord>(
+    'SELECT id::text, revision, deceased_name FROM svo.occurrence_triages WHERE occurrence_id = $1 ORDER BY revision', [id],
+  )
+  assert.deepEqual(versions.rows.map((row) => [row.revision, row.deceased_name]), [
+    [1, 'Nome fictício'], [2, 'Outro nome fictício'],
+  ])
+  const events = await pool.query<{ event_type: string }>(
+    'SELECT event_type FROM svo.occurrence_events WHERE occurrence_id = $1 ORDER BY id', [id],
+  )
+  assert.deepEqual(events.rows.map((row) => row.event_type), ['RECEIVED', 'TRIAGED', 'RECTIFIED'])
+  const eventRows = await pool.query<JsonRecord>(
+    `SELECT reason, before_state, after_state FROM svo.occurrence_events
+      WHERE occurrence_id = $1 AND event_type IN ('TRIAGED', 'RECTIFIED')`, [id],
+  )
+  const auditRows = await pool.query<JsonRecord>(
+    `SELECT reason, "before", "after" FROM audit.logs
+      WHERE table_name = 'svo.occurrence_triages' ORDER BY id`,
+  )
+  assert.ok(!JSON.stringify([eventRows.rows, auditRows.rows]).includes('SENTINELA_JUSTIFICATIVA'))
+})
+
+test('SVO-TRIAGE-03: somente PENDING aceita triagem e campos não definidos não ganham validação clínica', async () => {
+  const pending = await create()
+  const empty = await json(await call('POST', `/${pending}/triage`, {}), 201)
+  assert.equal(empty.deceasedName, null)
+  assert.equal(empty.availableDocuments, null)
+  const confirmed = await create(); await json(await call('POST', `/${confirmed}/confirm`, {}))
+  const canceled = await insertLegacySvo(pool, user().id, 'CANCELED')
+  for (const id of [confirmed, canceled]) await rejectsWithoutWrite(() => call('POST', `/${id}/triage`, {}), 409)
+  const invalids = [
+    { deceasedName: 2 }, { availableDocuments: 'texto' }, { availableDocuments: [1] },
+    { status: 'CONFIRMED' }, { revision: 4 },
+  ]
+  for (const body of invalids) await rejectsWithoutWrite(() => call('POST', `/${pending}/triage`, body), 400)
+  await rejectsWithoutWrite(() => call('GET', '/9223372036854775807/triage'), 404)
+})
+
+test('SVO-TRIAGE-04: permissões e autenticação respeitam os perfis SVO atuais', async () => {
+  const id = await create()
+  assert.equal(await (await call('GET', `/${id}/triage`, undefined, 'GESTOR')).json(), null)
+  for (const role of ['ATENDENTE_SVO', 'ADMINISTRADOR'] as const) {
+    const roleOccurrence = role === 'ATENDENTE_SVO' ? id : await create()
+    assert.equal((await call('POST', `/${roleOccurrence}/triage`, {}, role)).status, 201)
+  }
+  for (const role of ['EQUIPE_SVO', 'SOLICITANTE', 'MOTORISTA'] as const) {
+    await rejectsWithoutWrite(() => call('POST', `/${id}/triage`, {}, role), 403)
+  }
+  await rejectsWithoutWrite(() => call('POST', `/${id}/triage`, {}, null), 401)
+  await rejectsWithoutWrite(() => call('GET', `/${id}/triage`, undefined, null), 401)
+})
+
+test('SVO-TRIAGE-05: falha de auditoria desfaz triagem, evento e versão na mesma transação', async (context) => {
+  context.mock.method(console, 'error', () => {})
+  const id = await create()
+  const real = new AuditRepository(pool)
+  const audits: AuditRepositoryContract = {
+    async create(input, client) {
+      if (input.table === 'svo.occurrence_triages') throw new Error('Falha sintética de auditoria clínica')
+      return real.create(input, client)
+    },
+  }
+  const failing = createApp({ pool, jwtConfig: RBAC_JWT_CONFIG, audits }).listen(0)
+  await new Promise<void>((resolve) => failing.once('listening', resolve))
+  const originalUrl = baseUrl
+  try {
+    baseUrl = `http://127.0.0.1:${(failing.address() as AddressInfo).port}`
+    await rejectsWithoutWrite(() => call('POST', `/${id}/triage`, { deceasedName: 'SENTINELA_TRANSACAO' }), 500)
+  } finally { baseUrl = originalUrl; await closeServer(failing) }
+  assert.equal(await (await call('GET', `/${id}/triage`)).json(), null)
+  assert.deepEqual((await history(id)).events.map((row) => row.event_type), ['RECEIVED'])
+})
+
+test('SVO-TRIAGE-06: versões clínicas não aceitam UPDATE nem DELETE', async () => {
+  const id = await create()
+  const triage = await json(await call('POST', `/${id}/triage`, { deceasedName: 'Nome fictício' }), 201)
+  for (const query of [
+    'UPDATE svo.occurrence_triages SET reason = $2 WHERE id = $1',
+    'DELETE FROM svo.occurrence_triages WHERE id = $1',
+  ]) {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      await assert.rejects(client.query(query, query.startsWith('UPDATE')
+        ? [triage.id, 'Alteração fictícia'] : [triage.id]), /append-only/)
+    } finally { await client.query('ROLLBACK'); client.release() }
+  }
+  assert.equal((await json(await call('GET', `/${id}/triage`))).deceasedName, 'Nome fictício')
+})
+
+test('SVO-TRIAGE-07: concorrência entre triagem e confirmação respeita a trava de PENDING', async () => {
+  const id = await create()
+  const [triageResponse, confirmResponse] = await Promise.all([
+    call('POST', `/${id}/triage`, { deceasedName: 'Nome fictício' }),
+    call('POST', `/${id}/confirm`, {}),
+  ])
+  assert.equal(confirmResponse.status, 200)
+  assert.ok([201, 409].includes(triageResponse.status))
+  const occurrence = await pool.query<{ status: string }>('SELECT status FROM svo.occurrences WHERE id = $1', [id])
+  assert.equal(occurrence.rows[0]!.status, 'CONFIRMED')
+  const triageCount = await pool.query<{ count: string }>('SELECT count(*)::text AS count FROM svo.occurrence_triages WHERE occurrence_id = $1', [id])
+  assert.equal(Number(triageCount.rows[0]!.count), triageResponse.status === 201 ? 1 : 0)
 })
 
 test('SVO-08: duas confirmações simultâneas retornam 200/409 e gravam um único efeito', async () => {

@@ -16,6 +16,8 @@ test('links de ordens SVO aparecem somente para seus respectivos perfis', () => 
     const items = [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items)]
     assert.equal(items.some((item) => item.path === '/svo/ordens'), profile === 'EQUIPE_SVO')
     assert.equal(items.some((item) => item.path === '/svo/acompanhamento'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR')
+    assert.equal(items.some((item) => item.path === '/svo/solicitacoes'), profile === 'ATENDENTE_SVO' || profile === 'ADMINISTRADOR')
+    assert.equal(items.some((item) => item.path === '/svo/triagens'), profile === 'ATENDENTE_SVO' || profile === 'ADMINISTRADOR')
   }
 })
 
@@ -27,6 +29,8 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     'Usuários',
     'Perfis e Permissões',
     'Tipos de serviço',
+    'Solicitações SVO',
+    'Triagens',
     'Veículos',
     'Manutenção',
     'Abastecimentos',
@@ -44,6 +48,8 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
       { label: 'Usuários', path: '/administracao/usuarios' },
       { label: 'Perfis e Permissões', path: '/administracao/perfis' },
       { label: 'Tipos de serviço', path: '/tipos-de-servico' },
+      { label: 'Solicitações SVO', path: '/svo/solicitacoes' },
+      { label: 'Triagens', path: '/svo/triagens' },
       { label: 'Veículos', path: '/veiculos' },
       { label: 'Manutenção', path: '/maintenance-orders' },
       { label: 'Abastecimentos', path: '/abastecimentos' },
@@ -56,9 +62,11 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
   assert.equal(navigation.topItems[5].behavior, 'link')
   assert.equal(navigation.topItems[6].behavior, 'link')
   assert.equal(navigation.topItems[7].behavior, 'link')
-  assert.equal(navigation.topItems[8].behavior, 'static')
+  assert.equal(navigation.topItems[8].behavior, 'link')
   assert.equal(navigation.topItems[9].behavior, 'link')
   assert.equal(navigation.topItems[10].behavior, 'static')
+  assert.equal(navigation.topItems[11].behavior, 'link')
+  assert.equal(navigation.topItems[12].behavior, 'static')
   assert.equal(navigation.footerItems[0].behavior, 'static')
   assert.equal(navigation.showDividerAfterTop, false)
 })
@@ -133,6 +141,19 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   )
 
   assert.equal(navigation.showDividerAfterTop, true)
+})
+
+test('Triagens fica ao lado de Solicitações SVO somente para atendente SVO e administrador', () => {
+  for (const profile of ['ATENDENTE_SVO', 'ADMINISTRADOR']) {
+    const navigation = getSidebarNavigation(profile)
+    const items = [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items)]
+    const occurrenceIndex = items.findIndex((item) => item.path === '/svo/solicitacoes')
+    assert.equal(items[occurrenceIndex + 1]?.label, 'Triagens')
+    assert.equal(items[occurrenceIndex + 1]?.path, '/svo/triagens')
+  }
+  for (const profile of ['GESTOR', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO', null]) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Triagens'), false)
+  }
 })
 
 test('somente perfis com leitura de veículos recebem o atalho no menu', () => {

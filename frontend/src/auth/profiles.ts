@@ -1,3 +1,5 @@
+import { SVO_OCCURRENCES_PATH } from '../svo/svoOccurrenceTypes.ts'
+
 // Identificadores centralizados conforme FROTA-27/36; os nomes legíveis também
 // são aceitos enquanto a equipe finaliza o seed de perfis do backend.
 export const PROFILE_HOMES = {
@@ -5,7 +7,7 @@ export const PROFILE_HOMES = {
   GESTOR: { label: 'Gestor de Frota', title: 'Painel da frota', path: '/frota/inicio' },
   SOLICITANTE: { label: 'Solicitante Interno', title: 'Minhas solicitações', path: '/solicitacoes/minhas' },
   MOTORISTA: { label: 'Motorista', title: 'Minhas viagens', path: '/viagens/minhas' },
-  ATENDENTE_SVO: { label: 'Atendente SVO', title: 'Solicitações SVO', path: '/svo/solicitacoes' },
+  ATENDENTE_SVO: { label: 'Atendente SVO', title: 'Solicitações SVO', path: SVO_OCCURRENCES_PATH },
   EQUIPE_SVO: { label: 'Equipe SVO', title: 'Ordens SVO', path: '/svo/ordens' },
 } as const
 

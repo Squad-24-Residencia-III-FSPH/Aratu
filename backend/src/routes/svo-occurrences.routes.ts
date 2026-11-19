@@ -20,7 +20,9 @@ export function createSvoOccurrencesRouter(service: SvoOccurrencesService, jwt: 
   router.use(createAuthMiddleware(jwt.secret), createCurrentUserMiddleware(users))
   router.get('/', authorizeRoles(SVO_READ_ROLES), controller.list)
   router.get('/:id', authorizeRoles(SVO_READ_ROLES), controller.detail)
+  router.get('/:id/triage', authorizeRoles(SVO_READ_ROLES), controller.triage)
   router.post('/', authorizeRoles(SVO_WRITE_ROLES), controller.create)
+  router.post('/:id/triage', authorizeRoles(SVO_WRITE_ROLES), controller.saveTriage)
   router.post('/:id/confirm', authorizeRoles(SVO_WRITE_ROLES), controller.confirm)
   return router
 }

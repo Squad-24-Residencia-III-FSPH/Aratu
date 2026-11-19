@@ -60,14 +60,47 @@ export interface SvoListFilters {
 
 export interface CreateSvoEventInput {
   occurrenceId: string
-  eventType: 'RECEIVED' | 'CONFIRMED'
+  eventType: 'RECEIVED' | 'TRIAGED' | 'CONFIRMED' | 'RECTIFIED'
   occurredAt: Date
   reportedBy: string
   actorSnapshot: SvoActorSnapshot
   reason: string
-  evidenceDescription: string
-  beforeState: SvoOccurrenceDetail | null
-  afterState: SvoOccurrenceDetail
+  evidenceDescription: string | null
+  beforeState: Record<string, unknown> | null
+  afterState: Record<string, unknown>
+}
+
+/** Conteúdo clínico informado para uma versão imutável da triagem; nenhum campo é obrigatório. */
+export interface SaveSvoOccurrenceTriageInput {
+  deceasedName?: string | null
+  estimatedAge?: string | null
+  responsiblePhysician?: string | null
+  crm?: string | null
+  preliminaryCauseOfDeath?: string | null
+  availableDocuments?: string[] | null
+  referral?: string | null
+  triageNotes?: string | null
+  reason?: string | null
+}
+
+/** Versão clínica dedicada, exposta somente pelo endpoint autenticado de triagem. */
+export interface SvoOccurrenceTriage {
+  id: string
+  occurrenceId: string
+  revision: number
+  supersedesId: string | null
+  deceasedName: string | null
+  estimatedAge: string | null
+  responsiblePhysician: string | null
+  crm: string | null
+  preliminaryCauseOfDeath: string | null
+  availableDocuments: string[] | null
+  referral: string | null
+  triageNotes: string | null
+  occurredAt: Date
+  registeredAt: Date
+  registeredBy: string
+  reason: string
 }
 
 export type SvoErrorCode = 'INVALID_INPUT' | 'ACCOUNT_UNAVAILABLE' | 'ACCESS_DENIED' | 'NOT_FOUND' | 'INVALID_TRANSITION'
