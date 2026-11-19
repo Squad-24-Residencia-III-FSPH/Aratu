@@ -121,6 +121,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   assert.deepEqual({ behavior: svoTracking.behavior, path: svoTracking.path }, { behavior: 'link', path: '/svo/acompanhamento' })
 
   const linkLabels = new Set([
+    'Início',
     'Relatórios',
     'Acompanhamento de ordens',
     'Confirmar viagens',
@@ -131,6 +132,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'Manutenção',
     'Abastecimentos',
     'Analisar solicitações',
+    'Dashboard',
   ])
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]

@@ -34,7 +34,7 @@ const userEvent = (await import('@testing-library/user-event')).default
 const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), plugins: [react()],
   cacheDir: viteCacheDir, server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: TripConfirmationPage }, { AuthContext }] = await Promise.all([
-  vite.ssrLoadModule('/src/pages/TripConfirmationPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
+  vite.ssrLoadModule('/src/pages/tripConfirmationPage/TripConfirmationPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
 ])
 afterEach(() => cleanup())
 after(async () => {

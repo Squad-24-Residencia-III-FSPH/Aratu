@@ -28,7 +28,7 @@ const { cleanup, render, screen, waitFor, within } = await import('@testing-libr
 const userEvent = (await import('@testing-library/user-event')).default
 const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir, plugins: [react()], server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: ReportsPage }, { AuthContext }] = await Promise.all([
-  vite.ssrLoadModule('/src/pages/ReportsPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
+  vite.ssrLoadModule('/src/pages/reportsPage/ReportsPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
 ])
 afterEach(() => { cleanup(); dom.window.localStorage.clear() })
 after(async () => { await vite.close(); dom.window.close() })
