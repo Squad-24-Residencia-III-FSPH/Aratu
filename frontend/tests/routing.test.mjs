@@ -20,6 +20,14 @@ const VEHICLES_PATH = '/veiculos'
 const DRIVERS_PATH = '/motoristas'
 const FUELINGS_PATH = '/abastecimentos'
 
+test('multas só podem ser abertas pelo gestor e pelo administrador', () => {
+  for (const [profile, home] of destinations) {
+    assert.deepEqual(resolveRoute(sessionFor(profile), '/multas'), ['GESTOR', 'ADMINISTRADOR'].includes(profile)
+      ? { kind: 'fines', profile } : { kind: 'redirect', to: home })
+  }
+  assert.deepEqual(resolveRoute(null, '/multas'), { kind: 'redirect', to: '/login' })
+})
+
 test('acompanhamento SVO é restrito ao atendente e ao gestor, preservando as homes de cada perfil', () => {
   for (const [profile, home] of destinations) {
     assert.deepEqual(resolveRoute(sessionFor(profile), '/svo/acompanhamento'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR'

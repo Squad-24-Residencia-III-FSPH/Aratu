@@ -4,6 +4,7 @@ import { VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 import { MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
 import { DRIVERS_PATH } from '../drivers/driverAccess.ts'
 import { FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
+import { FINE_ACCESS_PROFILES, FINES_PATH } from '../fines/fineAccess.ts'
 import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
 import { SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
 import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
@@ -74,6 +75,7 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
     },
     { label: 'Manutenção', icon: 'maintenance', behavior: 'link', path: MAINTENANCE_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
     { label: 'Abastecimentos', icon: 'fuel', behavior: 'link', path: FUELINGS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
+    { label: 'Multas e Infrações', icon: 'warnings', behavior: 'link', path: FINES_PATH, profiles: FINE_ACCESS_PROFILES },
     { label: 'Motoristas', icon: 'drivers', behavior: 'link', path: DRIVERS_PATH },
     { label: 'Auditoria', icon: 'audit', behavior: 'static' },
     { label: 'Relatórios', icon: 'reports', behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] },
@@ -129,7 +131,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
       spaced: true,
       items: [
         { label: 'Documentos', icon: 'documents', behavior: 'button' },
-        { label: 'Multas e Infrações', icon: 'warnings', behavior: 'button' },
+        { label: 'Multas e Infrações', icon: 'warnings', behavior: 'link', path: FINES_PATH, profiles: FINE_ACCESS_PROFILES },
       ],
     },
     {
