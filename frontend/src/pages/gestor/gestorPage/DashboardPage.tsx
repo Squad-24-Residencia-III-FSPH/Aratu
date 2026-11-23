@@ -249,86 +249,119 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let current = true
-    setSummaryLoading(true)
-    setSummaryError('')
-    setSummary(null)
-    void getDashboardSummary(api, appliedFilters.vehicleId || undefined).then((value) => {
-      if (current) setSummary(value)
-    }).catch((error: unknown) => {
-      if (current) setSummaryError(error instanceof Error ? error.message : 'Não foi possível carregar o resumo da frota.')
-    }).finally(() => { if (current) setSummaryLoading(false) })
+    void Promise.resolve().then(async () => {
+      if (!current) return
+      setSummaryLoading(true)
+      setSummaryError('')
+      setSummary(null)
+      try {
+        const value = await getDashboardSummary(api, appliedFilters.vehicleId || undefined)
+        if (current) setSummary(value)
+      } catch (error: unknown) {
+        if (current) setSummaryError(error instanceof Error ? error.message : 'Não foi possível carregar o resumo da frota.')
+      } finally {
+        if (current) setSummaryLoading(false)
+      }
+    })
     return () => { current = false }
   }, [api, appliedFilters.vehicleId, refreshVersion])
 
   useEffect(() => {
     let current = true
-    setVehiclesLoading(true)
-    setVehiclesError('')
-    void listVehicles(api).then((value) => {
-      if (current) setVehicles(value)
-    }).catch((error: unknown) => {
-      if (current) setVehiclesError(error instanceof Error ? error.message : 'Não foi possível carregar a lista de veículos.')
-    }).finally(() => { if (current) setVehiclesLoading(false) })
+    void Promise.resolve().then(async () => {
+      if (!current) return
+      setVehiclesLoading(true)
+      setVehiclesError('')
+      try {
+        const value = await listVehicles(api)
+        if (current) setVehicles(value)
+      } catch (error: unknown) {
+        if (current) setVehiclesError(error instanceof Error ? error.message : 'Não foi possível carregar a lista de veículos.')
+      } finally {
+        if (current) setVehiclesLoading(false)
+      }
+    })
     return () => { current = false }
   }, [api, refreshVersion])
 
   useEffect(() => {
     let current = true
     if (!validAppliedPeriod) {
-      setIndicatorsLoading(false)
-      setIndicatorsError('O período aplicado é inválido. Escolha no máximo 366 dias.')
+      void Promise.resolve().then(() => {
+        if (!current) return
+        setIndicatorsLoading(false)
+        setIndicatorsError('O período aplicado é inválido. Escolha no máximo 366 dias.')
+      })
       return () => { current = false }
     }
-    setIndicatorsLoading(true)
-    setIndicatorsError('')
-    setIndicators(null)
-    setComparisonIndicators(null)
-    const currentPeriod = getDashboardIndicators(api, {
-      from: appliedFilters.from,
-      toExclusive: shiftDate(appliedFilters.to, 1),
-      vehicleId: appliedFilters.vehicleId || undefined,
+    void Promise.resolve().then(async () => {
+      if (!current) return
+      setIndicatorsLoading(true)
+      setIndicatorsError('')
+      setIndicators(null)
+      setComparisonIndicators(null)
+      const currentPeriod = getDashboardIndicators(api, {
+        from: appliedFilters.from,
+        toExclusive: shiftDate(appliedFilters.to, 1),
+        vehicleId: appliedFilters.vehicleId || undefined,
+      })
+      const periodDays = inclusiveDays(appliedFilters.from, appliedFilters.to)
+      const previousPeriod = getDashboardIndicators(api, {
+        from: shiftDate(appliedFilters.from, -periodDays),
+        toExclusive: appliedFilters.from,
+        vehicleId: appliedFilters.vehicleId || undefined,
+      })
+      try {
+        const [value, previous] = await Promise.all([currentPeriod, previousPeriod])
+        if (current) { setIndicators(value); setComparisonIndicators(previous) }
+      } catch (error: unknown) {
+        if (current) setIndicatorsError(error instanceof Error ? error.message : 'Não foi possível carregar os indicadores do período.')
+      } finally {
+        if (current) setIndicatorsLoading(false)
+      }
     })
-    const periodDays = inclusiveDays(appliedFilters.from, appliedFilters.to)
-    const previousPeriod = getDashboardIndicators(api, {
-      from: shiftDate(appliedFilters.from, -periodDays),
-      toExclusive: appliedFilters.from,
-      vehicleId: appliedFilters.vehicleId || undefined,
-    })
-    void Promise.all([currentPeriod, previousPeriod]).then(([value, previous]) => {
-      if (current) { setIndicators(value); setComparisonIndicators(previous) }
-    }).catch((error: unknown) => {
-      if (current) setIndicatorsError(error instanceof Error ? error.message : 'Não foi possível carregar os indicadores do período.')
-    }).finally(() => { if (current) setIndicatorsLoading(false) })
     return () => { current = false }
   }, [api, appliedFilters, refreshVersion, validAppliedPeriod])
 
   useEffect(() => {
     let current = true
-    setMaintenanceLoading(true)
-    setMaintenanceError('')
-    void Promise.all([
-      listMaintenance(api, { status: 'OPEN' }),
-      listMaintenance(api, { status: 'IN_PROGRESS' }),
-    ]).then(([opened, inProgress]) => {
-      if (current) setMaintenanceOrders([...opened.items, ...inProgress.items])
-    }).catch((error: unknown) => {
-      if (current) setMaintenanceError(error instanceof Error ? error.message : 'Não foi possível carregar as previsões de manutenção.')
-    }).finally(() => { if (current) setMaintenanceLoading(false) })
+    void Promise.resolve().then(async () => {
+      if (!current) return
+      setMaintenanceLoading(true)
+      setMaintenanceError('')
+      try {
+        const [opened, inProgress] = await Promise.all([
+          listMaintenance(api, { status: 'OPEN' }),
+          listMaintenance(api, { status: 'IN_PROGRESS' }),
+        ])
+        if (current) setMaintenanceOrders([...opened.items, ...inProgress.items])
+      } catch (error: unknown) {
+        if (current) setMaintenanceError(error instanceof Error ? error.message : 'Não foi possível carregar as previsões de manutenção.')
+      } finally {
+        if (current) setMaintenanceLoading(false)
+      }
+    })
     return () => { current = false }
   }, [api, refreshVersion])
 
   useEffect(() => {
     let current = true
-    setScheduledLoading(true)
-    setScheduledError('')
-    void listScheduledTrips(api, {
-      from: today,
-      to: shiftDate(today, futureDays - 1),
-    }).then((value) => {
-      if (current) setScheduledTrips([...value].sort((left, right) => left.scheduledStart.localeCompare(right.scheduledStart)))
-    }).catch((error: unknown) => {
-      if (current) setScheduledError(error instanceof Error ? error.message : 'Não foi possível carregar as viagens agendadas.')
-    }).finally(() => { if (current) setScheduledLoading(false) })
+    void Promise.resolve().then(async () => {
+      if (!current) return
+      setScheduledLoading(true)
+      setScheduledError('')
+      try {
+        const value = await listScheduledTrips(api, {
+          from: today,
+          to: shiftDate(today, futureDays - 1),
+        })
+        if (current) setScheduledTrips([...value].sort((left, right) => left.scheduledStart.localeCompare(right.scheduledStart)))
+      } catch (error: unknown) {
+        if (current) setScheduledError(error instanceof Error ? error.message : 'Não foi possível carregar as viagens agendadas.')
+      } finally {
+        if (current) setScheduledLoading(false)
+      }
+    })
     return () => { current = false }
   }, [api, futureDays, refreshVersion, today])
 
