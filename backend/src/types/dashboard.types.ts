@@ -10,7 +10,11 @@ export const DASHBOARD_MAX_PERIOD_DAYS = 366
 /** Cards de situação atual da operação (sem período). */
 export interface DashboardSummaryCounts {
   fleet: { available: number; inMaintenance: number; inactive: number; total: number }
+  drivers: { active: number; away: number; inactive: number; total: number; cnhExpiring: number; cnhExpired: number }
+  fines: { pending: number; paid: number; contested: number }
   pendingRequests: number
+  tripsInProgress: number
+  vehiclesInTrip: number
   tripsToConfirm: number
   documents: { expiring: number; expired: number }
 }
@@ -35,6 +39,10 @@ export interface VehicleIndicatorMeasures {
   litersFueled: number
   fuelCost: number
   averageConsumptionKmPerLiter: number | null
+  maintenanceOrdersOpened: number
+  preventiveMaintenanceOrdersOpened: number
+  correctiveMaintenanceOrdersOpened: number
+  vehiclesWithCorrectiveMaintenance: number
   maintenanceCost: number
 }
 
@@ -56,9 +64,32 @@ export interface DashboardSvoIndicators {
   averageMinutesToCollection: number | null
 }
 
+/** Série temporal real do período, agrupada por dia ou mês no fuso operacional. */
+export interface DashboardActivityBucket {
+  period: string
+  tripsCount: number
+  fuelCost: number
+  maintenanceOpened: number
+  maintenanceClosed: number
+  requestsCreated: number
+  requestsApproved: number
+  requestsRejected: number
+  requestsScheduled: number
+  requestsCanceled: number
+  finesRegistered: number
+  finesPaid: number
+  finesContested: number
+  driversCreated: number
+  driversStatusChanged: number
+  documentsRegistered: number
+  documentsRenewed: number
+}
+
 /** Resposta de `GET /dashboard/indicators`. */
 export interface DashboardIndicators {
   period: { from: string; to: string }
+  activityBucket: 'day' | 'month'
+  activitySeries: DashboardActivityBucket[]
   vehicles: VehicleIndicators[]
   totals: VehicleIndicatorMeasures
   svo?: DashboardSvoIndicators

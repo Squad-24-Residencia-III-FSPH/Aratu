@@ -23,6 +23,10 @@ const EMPTY_TOTALS: VehicleIndicatorMeasures = {
   litersFueled: 0,
   fuelCost: 0,
   averageConsumptionKmPerLiter: null,
+  maintenanceOrdersOpened: 0,
+  preventiveMaintenanceOrdersOpened: 0,
+  correctiveMaintenanceOrdersOpened: 0,
+  vehiclesWithCorrectiveMaintenance: 0,
   maintenanceCost: 0,
 }
 
@@ -55,14 +59,15 @@ export class DashboardService {
   /**
    * Retrato atual da operação (sem período); o bloco do SVO só é calculado para perfis com acesso ao SVO.
    */
-  async getSummary(role: UserRole | undefined): Promise<DashboardSummary> {
-    const counts = await this.repository.summary(this.alertDays)
+  async getSummary(role: UserRole | undefined, vehicleIdValue?: unknown): Promise<DashboardSummary> {
+    const vehicleId = await this.validateVehicle(vehicleIdValue)
+    const counts = await this.repository.summary(this.alertDays, vehicleId)
     const summary: DashboardSummary = {
       generatedAt: new Date().toISOString(),
       ...counts,
       documents: { ...counts.documents, alertDays: this.alertDays },
     }
-    if (canSeeSvo(role)) summary.svo = await this.repository.svoSummary()
+    if (canSeeSvo(role)) summary.svo = await this.repository.svoSummary(vehicleId)
     return summary
   }
 
@@ -77,9 +82,16 @@ export class DashboardService {
   async getIndicators(query: DashboardIndicatorsQuery, role: UserRole | undefined): Promise<DashboardIndicators> {
     const period = this.validatePeriod(query.from, query.to)
     const vehicleId = await this.validateVehicle(query.vehicleId)
-    const rows = await this.repository.vehicleIndicators(period, vehicleId)
+    const days = (Date.parse(period.to) - Date.parse(period.from)) / DAY_MS
+    const activityBucket = days <= 60 ? 'day' : 'month'
+    const [rows, activitySeries] = await Promise.all([
+      this.repository.vehicleIndicators(period, vehicleId),
+      this.repository.activitySeries(period, vehicleId, activityBucket),
+    ])
     const indicators: DashboardIndicators = {
       period,
+      activityBucket,
+      activitySeries,
       vehicles: rows.map(({ totals: _totals, ...vehicle }) => vehicle),
       totals: rows[0]?.totals ?? EMPTY_TOTALS,
       pendingValidation: [PENDING_VALIDATION_INDICATORS.averageConsumption],

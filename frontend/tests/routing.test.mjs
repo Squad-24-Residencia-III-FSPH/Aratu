@@ -6,6 +6,7 @@ import { REQUEST_ANALYSIS_PATH } from '../src/requests/requestAccess.ts'
 import { sessionFor } from './fixtures.mjs'
 import { TRIP_CONFIRMATION_PATH } from '../src/trips/tripConfirmationTypes.ts'
 import { SVO_OCCURRENCES_PATH } from '../src/svo/svoOccurrenceTypes.ts'
+import { SERVICE_TYPES_PATH } from '../src/services/fleetServicesAccess.ts'
 
 const destinations = [
   ['ADMINISTRADOR', '/administracao/usuarios'],
@@ -128,4 +129,15 @@ test('somente GESTOR abre a tela de confirmação de viagens', () => {
     assert.deepEqual(resolveRoute(sessionFor(profile), TRIP_CONFIRMATION_PATH), { kind: 'redirect', to: home })
   }
   assert.deepEqual(resolveRoute(null, TRIP_CONFIRMATION_PATH), { kind: 'redirect', to: '/login' })
+})
+
+test('catálogo independente de tipos de serviço fica disponível para gestor e administrador', () => {
+  for (const profile of ['GESTOR', 'ADMINISTRADOR']) {
+    assert.deepEqual(resolveRoute(sessionFor(profile), SERVICE_TYPES_PATH), { kind: 'service-types', profile })
+  }
+  for (const [profile, home] of destinations) {
+    if (profile === 'GESTOR' || profile === 'ADMINISTRADOR') continue
+    assert.deepEqual(resolveRoute(sessionFor(profile), SERVICE_TYPES_PATH), { kind: 'redirect', to: home })
+  }
+  assert.deepEqual(resolveRoute(null, SERVICE_TYPES_PATH), { kind: 'redirect', to: '/login' })
 })

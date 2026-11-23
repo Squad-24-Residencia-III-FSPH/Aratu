@@ -195,6 +195,16 @@ export default function VehiclesPage() {
     reload()
   }
 
+  function handlePartialSaved(saved: Vehicle, message: string) {
+    setVehicles((current) => current
+      ? current.some((vehicle) => vehicle.id === saved.id)
+        ? current.map((vehicle) => vehicle.id === saved.id ? saved : vehicle)
+        : [saved, ...current]
+      : [saved])
+    setFeedback({ severity: 'warning', message })
+    reload()
+  }
+
   return (
     <Box>
       <PageHeader
@@ -253,7 +263,6 @@ export default function VehiclesPage() {
                 value={typeFilter}
                 onChange={setTypeFilter}
                 placeholder="Ex.: Van"
-                helperText="Filtra a lista já carregada."
               />
             </Box>
             <Button
@@ -369,6 +378,7 @@ export default function VehiclesPage() {
             ? { mode: 'edit' as const, vehicle: formDialog.vehicle }
             : { mode: 'create' as const })}
           onSaved={handleSaved}
+          onPartialSaved={handlePartialSaved}
           onCancel={() => setFormDialog(null)}
           onConflict={handleConflict}
         />

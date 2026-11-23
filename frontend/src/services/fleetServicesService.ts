@@ -19,6 +19,18 @@ export interface CompatibleVehiclesView {
   vehicles: { id: string; licensePlate: string }[]
 }
 
+/** Snapshot de compatibilidade usado para editar serviços direto no cadastro do veículo. */
+export interface FleetServiceAssignmentSnapshot {
+  service: FleetService
+  revision: number
+  vehicleIds: string[]
+}
+
+export interface FleetServiceAssignmentSaveResult {
+  snapshot: FleetServiceAssignmentSnapshot[]
+  failedServices: string[]
+}
+
 export type FleetServiceErrorKind = 'validation' | 'forbidden' | 'not-found' | 'conflict' | 'unavailable'
 
 export class FleetServiceRequestError extends Error {
@@ -118,13 +130,7 @@ export async function listFleetServices(api: ApiRequest): Promise<FleetService[]
   })
 }
 
-/** Lista veículos atualmente associados ao tipo de serviço. */
-export async function listCompatibleVehicles(api: ApiRequest, serviceId: string): Promise<CompatibleVehiclesView> {
-  return requestJson(api, `/services/${encodeURIComponent(serviceId)}/vehicles`, {},
-    'Não foi possível carregar os veículos compatíveis.', parseCompatibleView)
-}
-
-/** Cria um tipo e retorna a revisão usada na associação de veículos. */
+/** Cadastra um tipo de serviço independente de qualquer veículo. */
 export async function createFleetService(api: ApiRequest, input: {
   name: string
   description: string
@@ -153,6 +159,35 @@ export async function updateFleetService(api: ApiRequest, service: FleetService,
   }, 'Não foi possível atualizar o tipo de serviço.', parseFleetService)
 }
 
+/** Altera a situação do tipo mantendo as associações e registrando auditoria. */
+export async function setFleetServiceActive(api: ApiRequest, service: FleetService, active: boolean,
+  reason: string): Promise<FleetService> {
+  const action = active ? 'activate' : 'deactivate'
+  return requestJson(api, `/services/${encodeURIComponent(service.id)}/${action}`, {
+    method: 'PATCH',
+    ...jsonBody({ reason, expectedRevision: service.revision }),
+  }, 'Não foi possível alterar a situação do tipo de serviço.', parseFleetService)
+}
+
+/** Carrega o catálogo e os vínculos vigentes para edição do formulário de veículo. */
+export async function listFleetServiceAssignments(api: ApiRequest): Promise<FleetServiceAssignmentSnapshot[]> {
+  const services = await listFleetServices(api)
+  return Promise.all(services.map(async (service) => {
+    const compatibility = await listCompatibleVehicles(api, service.id)
+    return {
+      service,
+      revision: compatibility.revision,
+      vehicleIds: compatibility.vehicles.map((vehicle) => vehicle.id),
+    }
+  }))
+}
+
+/** Lista veículos atualmente associados ao tipo de serviço. */
+export async function listCompatibleVehicles(api: ApiRequest, serviceId: string): Promise<CompatibleVehiclesView> {
+  return requestJson(api, `/services/${encodeURIComponent(serviceId)}/vehicles`, {},
+    'Não foi possível carregar os veículos compatíveis.', parseCompatibleView)
+}
+
 /** Substitui integralmente os veículos compatíveis e registra a justificativa. */
 export async function replaceCompatibleVehicles(api: ApiRequest, serviceId: string, input: {
   vehicleIds: string[]
@@ -164,12 +199,42 @@ export async function replaceCompatibleVehicles(api: ApiRequest, serviceId: stri
   }, 'Não foi possível atualizar os veículos compatíveis.', parseCompatibleView)
 }
 
-/** Altera a situação do serviço mantendo as viagens existentes e registrando auditoria. */
-export async function setFleetServiceActive(api: ApiRequest, service: FleetService, active: boolean,
-  reason: string): Promise<FleetService> {
-  const action = active ? 'activate' : 'deactivate'
-  return requestJson(api, `/services/${encodeURIComponent(service.id)}/${action}`, {
-    method: 'PATCH',
-    ...jsonBody({ reason, expectedRevision: service.revision }),
-  }, 'Não foi possível alterar a situação do tipo de serviço.', parseFleetService)
+/** Atualiza os vínculos alterados e devolve os tipos que falharam para permitir uma nova tentativa. */
+export async function saveFleetServiceAssignments(api: ApiRequest, vehicleId: string,
+  serviceIds: readonly string[], snapshot: readonly FleetServiceAssignmentSnapshot[], reason: string): Promise<FleetServiceAssignmentSaveResult> {
+  const desired = new Set(serviceIds)
+  const changes = snapshot.filter(({ service, vehicleIds }) => vehicleIds.includes(vehicleId) !== desired.has(service.id))
+  const results = await Promise.allSettled(changes.map(({ service, revision, vehicleIds }) => replaceCompatibleVehicles(
+    api,
+    service.id,
+    {
+      vehicleIds: desired.has(service.id)
+        ? [...vehicleIds, vehicleId]
+        : vehicleIds.filter((id) => id !== vehicleId),
+      expectedRevision: revision,
+      reason,
+    },
+  )))
+  const nextSnapshot = snapshot.map((entry) => ({ ...entry, vehicleIds: [...entry.vehicleIds] }))
+  const failedServices: string[] = []
+  results.forEach((result, index) => {
+    const change = changes[index]
+    if (!change) return
+    if (result.status === 'rejected') {
+      failedServices.push(change.service.name)
+      return
+    }
+    const snapshotIndex = nextSnapshot.findIndex(({ service }) => service.id === change.service.id)
+    if (snapshotIndex >= 0) {
+      const current = nextSnapshot[snapshotIndex]
+      if (current) {
+        nextSnapshot[snapshotIndex] = {
+          ...current,
+          revision: result.value.revision,
+          vehicleIds: result.value.vehicles.map((vehicle) => vehicle.id),
+        }
+      }
+    }
+  })
+  return { snapshot: nextSnapshot, failedServices }
 }

@@ -11,20 +11,32 @@ import { DashboardError } from '../src/types/dashboard.types'
 import type { DashboardRepositoryContract } from '../src/repositories/dashboard.repository'
 import { DashboardService } from '../src/services/dashboard.service'
 
-const totals = { tripsCount: 3, kmDriven: 300, litersFueled: 30, fuelCost: 180, averageConsumptionKmPerLiter: 10, maintenanceCost: 500 }
+const totals = {
+  tripsCount: 3, kmDriven: 300, litersFueled: 30, fuelCost: 180, averageConsumptionKmPerLiter: 10,
+  maintenanceOrdersOpened: 2, preventiveMaintenanceOrdersOpened: 1, correctiveMaintenanceOrdersOpened: 1,
+  vehiclesWithCorrectiveMaintenance: 1, maintenanceCost: 500,
+}
 const row: VehicleIndicatorsRow = {
   vehicleId: '1', licensePlate: 'ABC1234', tripsCount: 3, kmDriven: 300, litersFueled: 30, fuelCost: 180,
-  averageConsumptionKmPerLiter: 10, maintenanceCost: 500, totals,
+  averageConsumptionKmPerLiter: 10, maintenanceOrdersOpened: 2, preventiveMaintenanceOrdersOpened: 1,
+  correctiveMaintenanceOrdersOpened: 1, vehiclesWithCorrectiveMaintenance: 1, maintenanceCost: 500, totals,
 }
 
 function setup(rows: VehicleIndicatorsRow[] = [row], vehicles: string[] = ['1']) {
   const calls: { period?: DashboardPeriod; vehicleId?: string | null; svo: number } = { svo: 0 }
   const repository: DashboardRepositoryContract = {
     async summary(): Promise<DashboardSummaryCounts> {
-      return { fleet: { available: 2, inMaintenance: 1, inactive: 0, total: 3 }, pendingRequests: 4, tripsToConfirm: 1, documents: { expiring: 2, expired: 1 } }
+      return {
+        fleet: { available: 2, inMaintenance: 1, inactive: 0, total: 3 },
+        drivers: { active: 2, away: 0, inactive: 0, total: 2, cnhExpiring: 0, cnhExpired: 0 },
+        fines: { pending: 1, paid: 1, contested: 0 },
+        pendingRequests: 4, tripsInProgress: 1, vehiclesInTrip: 1, tripsToConfirm: 1,
+        documents: { expiring: 2, expired: 1 },
+      }
     },
     async svoSummary(): Promise<DashboardSvoSummary> { calls.svo += 1; return { ordersInProgress: 1, vehicles: { total: 2, busy: 1, occupancyRate: 50 } } },
     async vehicleIndicators(period: DashboardPeriod, vehicleId: string | null) { calls.period = period; calls.vehicleId = vehicleId; return rows },
+    async activitySeries() { return [] },
     async svoIndicators(): Promise<DashboardSvoIndicators> { calls.svo += 1; return { ordersOpened: 2, ordersCollected: 1, averageMinutesToCollection: 45 } },
     async vehicleExists(id: string) { return vehicles.includes(id) },
   }
@@ -67,7 +79,11 @@ test('indicators separa os totais das linhas e lista as propostas pendentes', as
 test('sem veículos no período os totais são zero e o consumo é nulo', async () => {
   const indicators = await setup([]).service.getIndicators({ from: '2026-11-01', to: '2026-11-02' }, 'GESTOR')
   assert.deepEqual(indicators.vehicles, [])
-  assert.deepEqual(indicators.totals, { tripsCount: 0, kmDriven: 0, litersFueled: 0, fuelCost: 0, averageConsumptionKmPerLiter: null, maintenanceCost: 0 })
+  assert.deepEqual(indicators.totals, {
+    tripsCount: 0, kmDriven: 0, litersFueled: 0, fuelCost: 0, averageConsumptionKmPerLiter: null,
+    maintenanceOrdersOpened: 0, preventiveMaintenanceOrdersOpened: 0, correctiveMaintenanceOrdersOpened: 0,
+    vehiclesWithCorrectiveMaintenance: 0, maintenanceCost: 0,
+  })
 })
 
 test('período inválido: ausente, mal formatado, data inexistente, fim não posterior e acima de 366 dias → 400', async () => {

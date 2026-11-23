@@ -76,11 +76,10 @@ export default function GestorPage() {
   ]
 
   return (
-    <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
+    <Box sx={{ minWidth: 0 }}>
       <PageHeader
         eyebrow={currentDateLabel()}
         title={`${currentGreeting()}, ${firstName}`}
-        titleVariant="h4"
         description="Acompanhe a operação e resolva o que precisa de atenção."
         actions={(
           <Button component={RouterLink} to={GESTOR_DASHBOARD_PATH} variant="outlined" sx={{ minHeight: 44 }}>

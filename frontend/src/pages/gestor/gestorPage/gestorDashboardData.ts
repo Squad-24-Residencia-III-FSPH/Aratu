@@ -1,4 +1,4 @@
-/** Dados sintéticos usados nas telas do Gestor enquanto as APIs de indicadores não existem. */
+
 export const DEMO_FLEET_STATUS = [
   { key: 'available', label: 'Disponíveis', count: 12, color: '#15803d' },
   { key: 'inTrip', label: 'Em viagem', count: 5, color: '#2563eb' },
@@ -51,12 +51,10 @@ function dateInDays(daysFromNow: number): string {
   return `${year}-${month}-${day}`
 }
 
-/** Formata contagens de custo em moeda brasileira. */
 export function formatDemoCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value)
 }
 
-/** Formata datas demonstrativas no padrão local. */
 export function formatDemoDate(value: string): string {
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     .format(new Date(`${value}T12:00:00`))

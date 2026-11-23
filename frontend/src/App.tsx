@@ -17,7 +17,6 @@ import DriversPage from './pages/driversPage/DriversPage';
 import FuelingsPage from './pages/fuelingsPage/FuelingsPage';
 import MyTripsPage from './pages/myTripsPage/MyTripsPage';
 import TripConfirmationPage from './pages/tripConfirmationPage/TripConfirmationPage';
-import ServicesPage from './pages/gestor/servicePage/ServicesPage';
 import ScheduleTripPage from './pages/gestor/schedulingPage/ScheduleTripPage';
 import SvoTeamOrdersPage from './pages/svoOrdersPage/SvoTeamOrdersPage';
 import SvoOrdersPage from './pages/svoOrdersPage/SvoOrdersPage';
@@ -25,6 +24,7 @@ import RequestAnalysisPage from './pages/requestAnalysisPage/RequestAnalysisPage
 import ReportsPage from './pages/reportsPage/ReportsPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import SvoOccurrencesPage from './pages/SvoOccurrencesPage';
+import ServicesPage from './pages/gestor/servicePage/ServicesPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -86,7 +86,7 @@ function PrivateRoute() {
     );
   }
   if (decision.kind === 'trip-confirmation') return <Layout><TripConfirmationPage /></Layout>;
-  if (decision.kind === 'service-types') return <Layout><ServicesPage /></Layout>
+  if (decision.kind === 'service-types') return <Layout><ServicesPage /></Layout>;
   if (decision.kind === 'trip-scheduling') return <Layout><ScheduleTripPage /></Layout>
   if (decision.kind === 'dashboard') return <Layout><GestorDashboardPage /></Layout>
   if (decision.kind === 'svo-orders') return <Layout><SvoOrdersPage /></Layout>

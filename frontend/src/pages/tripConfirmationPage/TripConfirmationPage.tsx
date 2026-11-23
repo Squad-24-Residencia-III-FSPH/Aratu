@@ -91,7 +91,6 @@ export default function TripConfirmationPage() {
     <Box>
       <PageHeader
         title="Confirmar viagens"
-        titleVariant="h4"
         breadcrumbs={['Início', 'Viagens', 'Conferência']}
         description="Confira os registros das viagens finalizadas antes de confirmar a conclusão."
       />
@@ -107,7 +106,7 @@ export default function TripConfirmationPage() {
             <FormField label="De" type="date" value={from} onChange={setFrom} />
           </Box>
           <Box sx={{ flex: '1 1 170px', minWidth: { xs: '100%', sm: 170 } }}>
-            <FormField label="Até" type="date" value={to} onChange={setTo} helperText="Data final inclusiva." />
+            <FormField label="Até" type="date" value={to} onChange={setTo} />
           </Box>
           <Box sx={{ flex: '1 1 190px', minWidth: { xs: '100%', sm: 190 } }}>
             <FormSelect label="Veículo" value={vehicle} onChange={setVehicle} options={vehicleOptions} emptyLabel="Todos os veículos" />

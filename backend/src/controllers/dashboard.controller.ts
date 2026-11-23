@@ -18,7 +18,8 @@ async function respondWithDomainErrors<T>(response: Response, next: NextFunction
 export function createDashboardController(service: DashboardService) {
   return {
     summary(req: Request, res: Response, next: NextFunction): Promise<void> {
-      return respondWithDomainErrors(res, next, () => service.getSummary(req.usuario?.perfil))
+      const { vehicleId } = req.query
+      return respondWithDomainErrors(res, next, () => service.getSummary(req.usuario?.perfil, vehicleId))
     },
 
     indicators(req: Request, res: Response, next: NextFunction): Promise<void> {

@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   Alert,
@@ -12,6 +12,11 @@ import {
 } from '@mui/material'
 import type { ApiRequest } from '../../../api/client'
 import { FormField, FormSelect } from '../../../components/ui/FormField'
+import {
+  listFleetServiceAssignments,
+  saveFleetServiceAssignments,
+} from '../../../services/fleetServicesService'
+import type { FleetServiceAssignmentSnapshot } from '../../../services/fleetServicesService'
 import { createVehicle, updateVehicle, VehicleRequestError } from '../../../services/vehiclesService'
 import {
   EMPTY_VEHICLE_FORM,
@@ -50,6 +55,7 @@ interface VehicleFormDialogBaseProps {
   api: ApiRequest
   reportedBy: string
   onSaved: (vehicle: Vehicle) => void
+  onPartialSaved: (vehicle: Vehicle, message: string) => void
   onCancel: () => void
   onConflict: (message: string) => void
 }
@@ -67,9 +73,39 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
   const [errors, setErrors] = useState<VehicleFormErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [serviceAssignments, setServiceAssignments] = useState<FleetServiceAssignmentSnapshot[] | null>(null)
+  const [serviceLoadError, setServiceLoadError] = useState<string | null>(null)
+  const [serviceReload, setServiceReload] = useState(0)
+  const [serviceConflict, setServiceConflict] = useState(false)
+  const [serviceIds, setServiceIds] = useState<string[]>([])
+  const [persistedVehicle, setPersistedVehicle] = useState<Vehicle | null>(null)
+  const [vehicleAttributesChanged, setVehicleAttributesChanged] = useState(true)
+
+  const editingVehicleId = props.mode === 'edit' ? props.vehicle.id : null
+
+  useEffect(() => {
+    let current = true
+    setServiceAssignments(null)
+    setServiceLoadError(null)
+    void listFleetServiceAssignments(props.api)
+      .then((snapshot) => {
+        if (!current) return
+        setServiceAssignments(snapshot)
+        setServiceConflict(false)
+        setServiceIds(editingVehicleId
+          ? snapshot.filter(({ vehicleIds }) => vehicleIds.includes(editingVehicleId)).map(({ service }) => service.id)
+          : [])
+      })
+      .catch((error: unknown) => {
+        if (!current) return
+        setServiceLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os tipos de serviço.')
+      })
+    return () => { current = false }
+  }, [props.api, editingVehicleId, serviceReload])
 
   function update<K extends keyof VehicleFormValues>(field: K, value: VehicleFormValues[K]) {
     setValues((current) => ({ ...current, [field]: value }))
+    setVehicleAttributesChanged(true)
     setErrors((current) => {
       const next = { ...current }
       delete next[field as keyof VehicleFormErrors]
@@ -82,22 +118,61 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
     const nextErrors = validateVehicleForm(values)
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
+    if (!serviceAssignments) {
+      setSubmitError(serviceLoadError ?? 'Aguarde o carregamento dos tipos de serviço antes de salvar.')
+      return
+    }
 
     setSubmitting(true)
     setSubmitError(null)
-    const attributes = toVehicleAttributes(values)
-    const metadata = { reportedBy: props.reportedBy, reason: values.reason.trim() }
+    let savedVehicle = persistedVehicle
+    let vehicleSavedThisAttempt = false
 
     try {
-      const saved = props.mode === 'edit'
-        ? await updateVehicle(props.api, props.vehicle.id, {
-            ...attributes,
-            ...metadata,
-            expectedRevision: props.vehicle.revision,
-          })
-        : await createVehicle(props.api, { ...attributes, ...metadata })
-      props.onSaved(saved)
+      if (!savedVehicle || vehicleAttributesChanged) {
+        const attributes = toVehicleAttributes(values)
+        const metadata = { reportedBy: props.reportedBy, reason: values.reason.trim() }
+        savedVehicle = props.mode === 'edit' && !persistedVehicle
+          ? await updateVehicle(props.api, props.vehicle.id, {
+              ...attributes,
+              ...metadata,
+              expectedRevision: props.vehicle.revision,
+            })
+          : persistedVehicle
+            ? await updateVehicle(props.api, persistedVehicle.id, {
+                ...attributes,
+                ...metadata,
+                expectedRevision: persistedVehicle.revision,
+              })
+            : await createVehicle(props.api, { ...attributes, ...metadata })
+        vehicleSavedThisAttempt = true
+        setPersistedVehicle(savedVehicle)
+        setVehicleAttributesChanged(false)
+      }
+
+      const result = await saveFleetServiceAssignments(
+        props.api,
+        savedVehicle.id,
+        serviceIds,
+        serviceAssignments,
+        values.reason.trim(),
+      )
+      setServiceAssignments(result.snapshot)
+      if (result.failedServices.length > 0) {
+        setServiceConflict(true)
+        const message = `O veículo foi salvo, mas houve conflito ao atualizar estes tipos de serviço: ${result.failedServices.join(', ')}. Recarregue a seleção, revise os vínculos atuais e salve novamente.`
+        setSubmitError(message)
+        props.onPartialSaved(savedVehicle, message)
+        return
+      }
+      props.onSaved(savedVehicle)
     } catch (error) {
+      if (savedVehicle && (vehicleSavedThisAttempt || !vehicleAttributesChanged)) {
+        const message = `O veículo foi salvo, mas os vínculos dos tipos de serviço não foram atualizados. ${error instanceof Error ? error.message : 'Tente novamente.'}`
+        setSubmitError(message)
+        props.onPartialSaved(savedVehicle, message)
+        return
+      }
       if (error instanceof VehicleRequestError) {
         if (error.kind === 'conflict-plate') {
           setErrors((current) => ({ ...current, licensePlate: error.message }))
@@ -133,7 +208,23 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
       <Box component="form" onSubmit={handleSubmit} noValidate>
         <DialogTitle id={titleId}>{title}</DialogTitle>
         <DialogContent dividers>
-          {submitError && <Alert severity="error" sx={{ mb: 2 }}>{submitError}</Alert>}
+          {submitError && (
+            <Alert
+              severity="error"
+              sx={{ mb: 2 }}
+              action={serviceConflict ? (
+                <Button color="inherit" onClick={() => {
+                  setSubmitError(null)
+                  setServiceConflict(false)
+                  setServiceReload((value) => value + 1)
+                }}>
+                  Recarregar seleção
+                </Button>
+              ) : undefined}
+            >
+              {submitError}
+            </Alert>
+          )}
           <Stack spacing={2} sx={{ mt: 0.5 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <FormField
@@ -227,6 +318,30 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
               helperText="Selecione ao menos uma categoria operacional."
             />
 
+            {serviceLoadError ? (
+              <Alert severity="error" role="alert" action={(
+                <Button color="inherit" onClick={() => setServiceReload((value) => value + 1)}>
+                  Tentar novamente
+                </Button>
+              )}>{serviceLoadError}</Alert>
+            ) : (
+              <FormSelect
+                label="Tipos de serviço atendidos"
+                value={serviceIds}
+                onChange={setServiceIds}
+                options={(serviceAssignments ?? [])
+                  .filter(({ service, vehicleIds }) => service.active || (editingVehicleId && vehicleIds.includes(editingVehicleId)))
+                  .map(({ service }) => ({ value: service.id, label: service.active ? service.name : `${service.name} (inativo)` }))}
+                multiple
+                disabled={submitting || serviceAssignments === null}
+                helperText={serviceAssignments === null
+                  ? 'Carregando tipos de serviço...'
+                  : serviceAssignments.some(({ service }) => service.active)
+                    ? 'Selecione os serviços que este veículo pode atender.'
+                    : 'Não há tipos de serviço ativos disponíveis.'}
+              />
+            )}
+
             <FormField
               label="Justificativa"
               value={values.reason}
@@ -246,11 +361,11 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
           <Button
             type="submit"
             variant="contained"
-            disabled={submitting}
+            disabled={submitting || serviceAssignments === null || Boolean(serviceLoadError)}
             aria-busy={submitting ? 'true' : undefined}
             sx={{ minHeight: 44 }}
           >
-            {submitting ? 'Salvando...' : props.mode === 'edit' ? 'Atualizar' : 'Cadastrar'}
+            {submitting ? 'Salvando...' : persistedVehicle ? 'Salvar alterações' : props.mode === 'edit' ? 'Atualizar' : 'Cadastrar'}
           </Button>
         </DialogActions>
       </Box>
