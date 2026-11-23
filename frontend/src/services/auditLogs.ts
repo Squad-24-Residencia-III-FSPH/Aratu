@@ -14,6 +14,11 @@ export interface AuditFilters {
   table: string
 }
 
+export interface AuditFilterError {
+  field: keyof AuditFilters
+  message: string
+}
+
 export interface AuditLog {
   id: string
   registeredAt: string
@@ -55,26 +60,39 @@ function isCivilDate(value: string): boolean {
 
 export function nextCivilDate(value: string): string {
   const [year, month, day] = value.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10)
+  const nextDate = new Date(0)
+  nextDate.setUTCHours(0, 0, 0, 0)
+  nextDate.setUTCFullYear(year, month - 1, day + 1)
+  return nextDate.toISOString().slice(0, 10)
 }
 
-export function validateAuditFilters(filters: AuditFilters): string | null {
+export function validateAuditFilters(filters: AuditFilters): AuditFilterError | null {
   const from = filters.from.trim()
   const inclusiveTo = filters.to.trim()
-  if (from && !isCivilDate(from)) return 'Informe uma data inicial válida.'
-  if (inclusiveTo && !isCivilDate(inclusiveTo)) return 'Informe uma data final válida.'
+  if (from && !isCivilDate(from)) return { field: 'from', message: 'Informe uma data inicial válida.' }
+  if (inclusiveTo && !isCivilDate(inclusiveTo)) return { field: 'to', message: 'Informe uma data final válida.' }
+  if (inclusiveTo === '9999-12-31') {
+    return { field: 'to', message: 'A data final informada não pode ser convertida para o período da consulta.' }
+  }
   if (from && inclusiveTo) {
-    if (inclusiveTo < from) return 'A data final deve ser igual ou posterior à data inicial.'
+    if (inclusiveTo < from) return { field: 'to', message: 'A data final deve ser igual ou posterior à data inicial.' }
     const days = (Date.parse(`${inclusiveTo}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / dayMs + 1
-    if (days > AUDIT_MAX_PERIOD_DAYS) return `O período máximo da consulta é de ${AUDIT_MAX_PERIOD_DAYS} dias.`
-    if (inclusiveTo === '9999-12-31') return 'A data final informada não pode ser convertida para o período da consulta.'
+    if (days > AUDIT_MAX_PERIOD_DAYS) {
+      return { field: 'to', message: `O período máximo da consulta é de ${AUDIT_MAX_PERIOD_DAYS} dias.` }
+    }
   }
   const userId = filters.userId.trim()
-  if (userId && !positiveIdPattern.test(userId)) return 'O ID do usuário deve ser um número inteiro positivo.'
+  if (userId && !positiveIdPattern.test(userId)) {
+    return { field: 'userId', message: 'O ID do usuário deve ser um número inteiro positivo.' }
+  }
   const operation = filters.operation.trim()
-  if (operation && !operationPattern.test(operation)) return 'Use o código da ação em letras maiúsculas, por exemplo: CREATE ou STATUS_CHANGE.'
+  if (operation && !operationPattern.test(operation)) {
+    return { field: 'operation', message: 'Use o código da ação em letras maiúsculas, por exemplo: CREATE ou STATUS_CHANGE.' }
+  }
   const table = filters.table.trim()
-  if (table && !tablePattern.test(table)) return 'Use o nome da entidade no formato schema.tabela, por exemplo: fleet.vehicles.'
+  if (table && !tablePattern.test(table)) {
+    return { field: 'table', message: 'Use o nome da entidade no formato schema.tabela, por exemplo: fleet.vehicles.' }
+  }
   return null
 }
 

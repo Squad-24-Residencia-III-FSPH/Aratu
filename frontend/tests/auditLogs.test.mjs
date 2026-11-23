@@ -90,11 +90,22 @@ test('cliente envia os nomes de campos do contrato e descarta propriedades não 
 
 test('valida formato dos filtros, datas e limite inclusivo de 366 dias', async () => {
   assert.equal(service.validateAuditFilters({ ...serviceFilters(), from: '2026-11-18', to: '2026-11-18' }), null)
-  assert.equal(service.validateAuditFilters({ ...serviceFilters(), from: '2026-11-18', to: '2027-11-19' }), 'O período máximo da consulta é de 366 dias.')
-  assert.match(service.validateAuditFilters({ ...serviceFilters(), from: '2026-02-30' }), /data inicial válida/)
-  assert.match(service.validateAuditFilters({ ...serviceFilters(), operation: 'drop table' }), /letras maiúsculas/)
-  assert.match(service.validateAuditFilters({ ...serviceFilters(), table: 'logs; --' }), /schema.tabela/)
-  assert.match(service.validateAuditFilters({ ...serviceFilters(), userId: '0' }), /inteiro positivo/)
+  assert.deepEqual(service.validateAuditFilters({ ...serviceFilters(), from: '2026-11-18', to: '2027-11-19' }), {
+    field: 'to', message: 'O período máximo da consulta é de 366 dias.',
+  })
+  assert.deepEqual(service.validateAuditFilters({ ...serviceFilters(), from: '2026-02-30' }), {
+    field: 'from', message: 'Informe uma data inicial válida.',
+  })
+  assert.deepEqual(service.validateAuditFilters({ ...serviceFilters(), operation: 'drop table' }), {
+    field: 'operation', message: 'Use o código da ação em letras maiúsculas, por exemplo: CREATE ou STATUS_CHANGE.',
+  })
+  assert.equal(service.validateAuditFilters({ ...serviceFilters(), table: 'logs; --' })?.field, 'table')
+  assert.equal(service.validateAuditFilters({ ...serviceFilters(), userId: '0' })?.field, 'userId')
+  assert.deepEqual(service.validateAuditFilters({ ...serviceFilters(), to: '9999-12-31' }), {
+    field: 'to', message: 'A data final informada não pode ser convertida para o período da consulta.',
+  })
+  assert.equal(service.nextCivilDate('0099-12-31'), '0100-01-01')
+  assert.equal(service.nextCivilDate('2026-11-18'), '2026-11-19')
 })
 
 function serviceFilters() { return { from: '', to: '', userId: '', operation: '', table: '' } }
@@ -130,8 +141,28 @@ test('período acima de 366 dias é avisado antes da chamada à API', async () =
   fireEvent.change(screen.getByLabelText('Data inicial'), { target: { value: '2025-11-18' } })
   fireEvent.change(screen.getByLabelText('Data final'), { target: { value: '2026-11-19' } })
   await user.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
-  assert.ok(screen.getByRole('alert').textContent.includes('366 dias'))
+  const alert = screen.getByRole('alert')
+  const startDate = screen.getByLabelText('Data inicial')
+  const endDate = screen.getByLabelText('Data final')
+  assert.ok(alert.textContent.includes('366 dias'))
+  assert.equal(startDate.getAttribute('aria-invalid'), 'false')
+  assert.equal(endDate.getAttribute('aria-invalid'), 'true')
+  assert.ok(endDate.getAttribute('aria-describedby').includes(alert.id))
   assert.equal(calls, 1)
+})
+
+test('associa erro de formato ao campo de ação sem marcar os outros filtros inválidos', async () => {
+  const user = mount(async () => Response.json(page()))
+  await screen.findByRole('table')
+  await user.type(screen.getByLabelText('Ação'), 'invalid')
+  await user.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
+  const action = screen.getByLabelText('Ação')
+  const entity = screen.getByLabelText('Entidade')
+  const alert = screen.getByRole('alert')
+  assert.equal(action.getAttribute('aria-invalid'), 'true')
+  assert.equal(entity.getAttribute('aria-invalid'), 'false')
+  assert.ok(action.getAttribute('aria-describedby').includes(alert.id))
+  assert.ok(alert.textContent.includes('letras maiúsculas'))
 })
 
 test('usa a paginação retornada pelo backend, fallback do usuário e detalhes com máscara da API', async () => {

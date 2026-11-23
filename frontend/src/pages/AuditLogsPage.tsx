@@ -63,7 +63,7 @@ export default function AuditLogsPage() {
   const [query, setQuery] = useState({ filters: empty, page: 1 })
   const [result, setResult] = useState<Result>({ kind: 'loading' })
   const [selected, setSelected] = useState<AuditLog | null>(null)
-  const [filterError, setFilterError] = useState('')
+  const [filterError, setFilterError] = useState<ReturnType<typeof validateAuditFilters>>(null)
 
   useEffect(() => { document.title = 'Registros de auditoria — Aratu' }, [])
 
@@ -96,22 +96,25 @@ export default function AuditLogsPage() {
       <Box component="form" onSubmit={event => {
         event.preventDefault()
         const validation = validateAuditFilters(draft)
-        setFilterError(validation ?? '')
+        setFilterError(validation)
         if (validation) return
         load({ ...draft, to: draft.to ? nextCivilDate(draft.to) : '' })
       }}>
         <FilterBar label="Filtros da auditoria">
           {fields.map(({ key, label, type, helper }) => (
             <TextField key={key} id={id + key} label={label} type={type} value={draft[key]}
-              error={Boolean(filterError)} helperText={helper}
+              error={filterError?.field === key}
+              helperText={filterError?.field === key ? <span role="alert">{filterError.message}</span> : helper}
               placeholder={key === 'operation' ? 'CREATE' : key === 'table' ? 'fleet.vehicles' : undefined}
               slotProps={{ inputLabel: { shrink: true } }}
               sx={{ minWidth: 0, width: { xs: '100%', sm: 180 } }}
-              onChange={event => { setFilterError(''); setDraft({ ...draft, [key]: event.target.value }) }} />
+              onChange={event => {
+                if (filterError?.field === key) setFilterError(null)
+                setDraft({ ...draft, [key]: event.target.value })
+              }} />
           ))}
-          {filterError && <Typography role="alert" color="error" sx={{ width: '100%' }}>{filterError}</Typography>}
           <Button type="submit" variant="contained">Aplicar filtros</Button>
-          <Button color="inherit" onClick={() => { setDraft(empty); setFilterError(''); load(empty) }}>Limpar filtros</Button>
+          <Button color="inherit" onClick={() => { setDraft(empty); setFilterError(null); load(empty) }}>Limpar filtros</Button>
         </FilterBar>
       </Box>
       {result.kind === 'loading' && <StateFeedback kind="loading" title="Carregando registros de auditoria…" />}
