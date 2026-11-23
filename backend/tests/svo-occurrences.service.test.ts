@@ -1,4 +1,3 @@
-
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { Pool, PoolClient } from 'pg'
@@ -40,11 +39,6 @@ function harness() {
       return { ...occurrence, status: 'CONFIRMED', triagedAt: instant, triagedBy: actorId, revision: 2 }
     },
     async createEvent(event, transaction) { assert.equal(transaction, client); calls.push('event'); events.push(event) },
-    async findLatestTriage() { return null },
-    async findTriage() { return null },
-    async saveTriage() {
-      throw new Error('saveTriage não implementado neste teste')
-    },
   }
   const audit: AuditLogger = {
     async recordAudit(input, transaction) { assert.equal(transaction, client); calls.push('audit'); audits.push(input); return {} as AuditEntry },

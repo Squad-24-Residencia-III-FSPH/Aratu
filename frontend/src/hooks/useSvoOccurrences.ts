@@ -2,13 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiRequest } from '../api/client.ts'
 import {
   confirmSvoOccurrence, createSvoOccurrence, getSvoOccurrence, listSvoOccurrences,
-  getSvoOccurrenceTriage, saveSvoOccurrenceTriage,
 } from '../services/svoOccurrencesService.ts'
 import { SvoOccurrenceRequestError } from '../svo/svoOccurrenceTypes.ts'
 import type {
   CreateSvoOccurrenceInput, SvoOccurrenceConfirmationResult, SvoOccurrenceCreationResult,
-  SvoOccurrenceDetail, SvoOccurrenceFilters, SvoOccurrenceSummary, SaveSvoOccurrenceTriageInput,
-  SvoOccurrenceTriage,
+  SvoOccurrenceDetail, SvoOccurrenceFilters, SvoOccurrenceSummary,
 } from '../svo/svoOccurrenceTypes.ts'
 
 interface DetailState {
@@ -16,10 +14,6 @@ interface DetailState {
   data: SvoOccurrenceDetail | null
   loading: boolean
   error: string
-  triage: SvoOccurrenceTriage | null
-  triageLoading: boolean
-  triageLoadError: string
-  triageError: string
 }
 
 const initialFilters: SvoOccurrenceFilters = { status: '', from: '', to: '' }
@@ -28,15 +22,6 @@ const message = (error: unknown): string => error instanceof Error
   : 'Não foi possível concluir a operação. Tente novamente.'
 const uncertain = (error: unknown): boolean => error instanceof SvoOccurrenceRequestError
   && ['network', 'server', 'invalidResponse'].includes(error.kind)
-const triageFieldsMatch = (triage: SvoOccurrenceTriage, input: SaveSvoOccurrenceTriageInput): boolean =>
-  triage.deceasedName === (input.deceasedName?.trim() || null)
-  && triage.estimatedAge === (input.estimatedAge?.trim() || null)
-  && triage.responsiblePhysician === (input.responsiblePhysician?.trim() || null)
-  && triage.crm === (input.crm?.trim() || null)
-  && triage.preliminaryCauseOfDeath === (input.preliminaryCauseOfDeath?.trim() || null)
-  && JSON.stringify(triage.availableDocuments ?? []) === JSON.stringify(input.availableDocuments ?? [])
-  && triage.referral === (input.referral?.trim() || null)
-  && triage.triageNotes === (input.triageNotes?.trim() || null)
 
 /**
  * Isola consulta, cadastro, detalhe e confirmação da apresentação, limpando respostas antigas.
@@ -51,7 +36,6 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
   const [detail, setDetail] = useState<DetailState | null>(null)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
-  const [savingTriage, setSavingTriage] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [confirmationError, setConfirmationError] = useState('')
   const [confirmationBlocked, setConfirmationBlocked] = useState(false)
@@ -116,34 +100,18 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
 
   const openDetail = useCallback(async (id: string): Promise<void> => {
     const sequence = ++detailSequence.current
-    setDetail({ id, data: null, loading: true, error: '', triage: null, triageLoading: true, triageLoadError: '', triageError: '' })
+    setDetail({ id, data: null, loading: true, error: '' })
     try {
       const data = await getSvoOccurrence(api, id)
       if (sequence === detailSequence.current && mounted.current) {
         setDetail((current) => current?.id === id
-          ? { ...current, data, loading: false, error: '', triageError: '' }
+          ? { ...current, data, loading: false, error: '' }
           : current)
       }
     } catch (error) {
       if (sequence === detailSequence.current && mounted.current) {
         setDetail((current) => current?.id === id
-          ? { ...current, data: null, loading: false, error: message(error), triageLoading: false }
-          : current)
-        if (error instanceof SvoOccurrenceRequestError && error.kind === 'forbidden') setPermissionDenied(true)
-        return
-      }
-    }
-    try {
-      const triage = await getSvoOccurrenceTriage(api, id)
-      if (sequence === detailSequence.current && mounted.current) {
-        setDetail((current) => current?.id === id
-          ? { ...current, triage, triageLoading: false, triageLoadError: '', triageError: '' }
-          : current)
-      }
-    } catch (error) {
-      if (sequence === detailSequence.current && mounted.current) {
-        setDetail((current) => current?.id === id
-          ? { ...current, triageLoading: false, triageLoadError: message(error), triageError: '' }
+          ? { ...current, data: null, loading: false, error: message(error) }
           : current)
         if (error instanceof SvoOccurrenceRequestError && error.kind === 'forbidden') setPermissionDenied(true)
       }
@@ -154,56 +122,6 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
     detailSequence.current += 1
     setDetail(null)
   }, [])
-
-  const saveTriage = useCallback(async (input: SaveSvoOccurrenceTriageInput): Promise<SvoOccurrenceTriage | null> => {
-    const currentDetail = detail
-    if (sending.current || !currentDetail?.data || currentDetail.data.status !== 'PENDING') return null
-    sending.current = true
-    setSavingTriage(true)
-    setDetail((current) => current?.id === currentDetail.id ? { ...current, triageError: '' } : current)
-    const epoch = lifecycle.current
-    const previous = currentDetail.triage
-    try {
-      const saved = await saveSvoOccurrenceTriage(api, currentDetail.id, input, previous)
-      if (!mounted.current || epoch !== lifecycle.current) return null
-      setDetail((current) => current?.id === currentDetail.id
-        ? { ...current, triage: saved, triageLoading: false, triageError: '' }
-        : current)
-      setNotice(`Triagem da solicitação #${saved.occurrenceId} salva na versão ${saved.revision}.`)
-      return saved
-    } catch (error) {
-      if (!mounted.current || epoch !== lifecycle.current) return null
-      const errorMessage = message(error)
-      if (uncertain(error)) {
-        try {
-          const latest = await getSvoOccurrenceTriage(api, currentDetail.id)
-          if (latest && latest.revision === (previous?.revision ?? 0) + 1 && triageFieldsMatch(latest, input)) {
-            setDetail((current) => current?.id === currentDetail.id
-              ? { ...current, triage: latest, triageLoading: false, triageError: '' }
-              : current)
-            setNotice(`Triagem da solicitação #${latest.occurrenceId} salva na versão ${latest.revision}.`)
-            return latest
-          }
-          setDetail((current) => current?.id === currentDetail.id
-            ? { ...current, triage: latest, triageLoading: false, triageError: 'A resposta do salvamento não foi confirmada. Confira a versão consultada antes de tentar novamente.' }
-            : current)
-        } catch {
-          setDetail((current) => current?.id === currentDetail.id
-            ? { ...current, triageError: 'Não foi possível confirmar o salvamento. Consulte a triagem antes de tentar novamente.' }
-            : current)
-        }
-      } else {
-        setDetail((current) => current?.id === currentDetail.id ? { ...current, triageError: errorMessage } : current)
-      }
-      if (error instanceof SvoOccurrenceRequestError && error.kind === 'forbidden') setPermissionDenied(true)
-      return null
-    } finally {
-      if (mounted.current && epoch === lifecycle.current) {
-        sending.current = false
-        setSavingTriage(false)
-      }
-    }
-  }, [api, detail])
 
   const register = useCallback(async (input: CreateSvoOccurrenceInput): Promise<SvoOccurrenceCreationResult | null> => {
     if (sending.current) return null
@@ -249,7 +167,7 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
   }, [api, reload])
 
   const confirm = useCallback(async (occurrence: SvoOccurrenceDetail): Promise<SvoOccurrenceConfirmationResult | null> => {
-    if (sending.current || occurrence.status !== 'PENDING' || !detail?.triage) return null
+    if (sending.current || occurrence.status !== 'PENDING') return null
     sending.current = true
     setConfirming(true)
     setConfirmationError('')
@@ -265,7 +183,7 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
       setDetail((current) => current?.id === result.id && current.data
         ? { ...current, data: { ...current.data, status: result.status, triagedAt: result.triagedAt, triagedBy: result.triagedBy, revision: result.revision } }
         : current)
-      setNotice(`Solicitação #${result.id} confirmada após conferência dos dados recebidos. Esta ação não conclui a triagem clínica.`)
+      setNotice(`Solicitação #${result.id} confirmada após conferência dos dados recebidos.`)
       const refreshed = await reload('A confirmação foi concluída, mas a lista não pôde ser atualizada. Atualize a consulta.')
       if (!refreshed && mounted.current && epoch === lifecycle.current) {
         setPartialWarning('A confirmação foi concluída, mas a lista pode estar desatualizada. Atualize a consulta.')
@@ -287,7 +205,7 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
         setConfirming(false)
       }
     }
-  }, [api, detail?.triage, reload])
+  }, [api, reload])
 
   function clearCreateError(): void { setCreateError('') }
   function clearConfirmationError(): void {
@@ -297,8 +215,8 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
 
   return {
     occurrences, filters, loading, listError, listErrorKind, partialWarning, detail,
-    creating, createError, savingTriage, confirming, confirmationError, confirmationBlocked,
+    creating, createError, confirming, confirmationError, confirmationBlocked,
     permissionDenied, notice, reload, changeFilters, openDetail, closeDetail,
-    register, saveTriage, confirm, clearCreateError, clearConfirmationError,
+    register, confirm, clearCreateError, clearConfirmationError,
   }
 }

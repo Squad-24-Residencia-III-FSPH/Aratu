@@ -5,7 +5,7 @@ import { PROFILE_PERMISSIONS_PATH, resolveProfile } from '../src/auth/profiles.t
 import { REQUEST_ANALYSIS_PATH } from '../src/requests/requestAccess.ts'
 import { sessionFor } from './fixtures.mjs'
 import { TRIP_CONFIRMATION_PATH } from '../src/trips/tripConfirmationTypes.ts'
-import { SVO_OCCURRENCES_PATH, SVO_TRIAGES_PATH } from '../src/svo/svoOccurrenceTypes.ts'
+import { SVO_OCCURRENCES_PATH } from '../src/svo/svoOccurrenceTypes.ts'
 
 const destinations = [
   ['ADMINISTRADOR', '/administracao/usuarios'],
@@ -86,16 +86,6 @@ test('cadastro e consulta de ocorrências SVO são restritos ao atendente e admi
         : { kind: 'redirect', to: home })
   }
   assert.deepEqual(resolveRoute(null, SVO_OCCURRENCES_PATH), { kind: 'redirect', to: '/login' })
-})
-
-test('página de triagens é restrita ao atendente SVO e administrador', () => {
-  for (const [profile, home] of destinations) {
-    assert.deepEqual(resolveRoute(sessionFor(profile), SVO_TRIAGES_PATH),
-      profile === 'ATENDENTE_SVO' || profile === 'ADMINISTRADOR'
-        ? { kind: 'svo-triages', profile }
-        : { kind: 'redirect', to: home })
-  }
-  assert.deepEqual(resolveRoute(null, SVO_TRIAGES_PATH), { kind: 'redirect', to: '/login' })
 })
 
 test('token expirado e sessão adulterada não abrem telas internas', () => {

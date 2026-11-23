@@ -10,8 +10,6 @@ import type {
   SvoOccurrenceFilters,
   SvoOccurrenceStatus,
   SvoOccurrenceSummary,
-  SaveSvoOccurrenceTriageInput,
-  SvoOccurrenceTriage,
 } from '../svo/svoOccurrenceTypes.ts'
 
 const INVALID_RESPONSE = 'A resposta do servidor não pôde ser confirmada. Consulte a solicitação antes de continuar.'
@@ -25,8 +23,6 @@ const revision = (value: unknown): value is number => typeof value === 'number' 
 const iso = (value: unknown): value is string => string(value)
   && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value))
 const nullableString = (value: unknown): value is string | null => value === null || string(value)
-const nullableStringArray = (value: unknown): value is string[] | null => value === null
-  || (Array.isArray(value) && value.every(string))
 const invalid = (): SvoOccurrenceRequestError => new SvoOccurrenceRequestError('invalidResponse', INVALID_RESPONSE)
 
 function parseSummary(value: unknown): SvoOccurrenceSummary {
@@ -94,26 +90,6 @@ async function request(api: ApiRequest, path: string, init?: RequestInit): Promi
   }
 }
 
-function parseTriage(value: unknown): SvoOccurrenceTriage {
-  if (!record(value) || !id(value.id) || !id(value.occurrenceId) || !revision(value.revision)
-    || !(value.supersedesId === null || id(value.supersedesId))
-    || !nullableString(value.deceasedName) || !nullableString(value.estimatedAge)
-    || !nullableString(value.responsiblePhysician) || !nullableString(value.crm)
-    || !nullableString(value.preliminaryCauseOfDeath) || !nullableStringArray(value.availableDocuments)
-    || !nullableString(value.referral) || !nullableString(value.triageNotes)
-    || !iso(value.occurredAt) || !iso(value.registeredAt) || !id(value.registeredBy)
-    || !string(value.reason)) throw invalid()
-  return {
-    id: value.id, occurrenceId: value.occurrenceId, revision: value.revision,
-    supersedesId: value.supersedesId, deceasedName: value.deceasedName,
-    estimatedAge: value.estimatedAge, responsiblePhysician: value.responsiblePhysician,
-    crm: value.crm, preliminaryCauseOfDeath: value.preliminaryCauseOfDeath,
-    availableDocuments: value.availableDocuments, referral: value.referral,
-    triageNotes: value.triageNotes, occurredAt: value.occurredAt, registeredAt: value.registeredAt,
-    registeredBy: value.registeredBy, reason: value.reason,
-  }
-}
-
 /** Consulta ocorrências usando somente os filtros aceitos pela API. */
 export async function listSvoOccurrences(api: ApiRequest, filters: SvoOccurrenceFilters): Promise<SvoOccurrenceSummary[]> {
   const query = new URLSearchParams()
@@ -156,7 +132,7 @@ export async function createSvoOccurrence(
   return { id: value.id, status: 'PENDING', receivedAt: value.receivedAt, createdAt: value.createdAt, revision: value.revision }
 }
 
-/** Confirma a conferência dos dados recebidos sem enviar campos de triagem clínica. */
+/** Confirma a conferência dos dados recebidos usando o contrato existente. */
 export async function confirmSvoOccurrence(
   api: ApiRequest,
   occurrence: SvoOccurrenceDetail,
@@ -173,42 +149,4 @@ export async function confirmSvoOccurrence(
     triagedBy: value.triagedBy,
     revision: value.revision,
   }
-}
-
-/** Consulta a versão clínica atual sem misturá-la aos dados do detalhe da ocorrência. */
-export async function getSvoOccurrenceTriage(api: ApiRequest, occurrenceId: string): Promise<SvoOccurrenceTriage | null> {
-  const value = await request(api, `/svo/occurrences/${encodeURIComponent(occurrenceId)}/triage`)
-  if (value === null) return null
-  const triage = parseTriage(value)
-  if (triage.occurrenceId !== occurrenceId) throw invalid()
-  return triage
-}
-
-/** Salva uma versão completa do snapshot clínico com os campos opcionais aceitos pela API. */
-export async function saveSvoOccurrenceTriage(
-  api: ApiRequest,
-  occurrenceId: string,
-  input: SaveSvoOccurrenceTriageInput,
-  previous: SvoOccurrenceTriage | null,
-): Promise<SvoOccurrenceTriage> {
-  const clean = (value: string | null | undefined): string | null => value?.trim() || null
-  const body: SaveSvoOccurrenceTriageInput = {
-    deceasedName: clean(input.deceasedName),
-    estimatedAge: clean(input.estimatedAge),
-    responsiblePhysician: clean(input.responsiblePhysician),
-    crm: clean(input.crm),
-    preliminaryCauseOfDeath: clean(input.preliminaryCauseOfDeath),
-    availableDocuments: input.availableDocuments ?? null,
-    referral: clean(input.referral),
-    triageNotes: clean(input.triageNotes),
-    ...(input.reason?.trim() ? { reason: input.reason.trim() } : {}),
-  }
-  const value = await request(api, `/svo/occurrences/${encodeURIComponent(occurrenceId)}/triage`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  })
-  const triage = parseTriage(value)
-  const expectedRevision = (previous?.revision ?? 0) + 1
-  if (triage.occurrenceId !== occurrenceId || triage.revision !== expectedRevision
-    || triage.supersedesId !== (previous?.id ?? null)) throw invalid()
-  return triage
 }

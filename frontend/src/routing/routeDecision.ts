@@ -14,7 +14,7 @@ import { SVO_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
 import { canAnalyzeRequests, REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 import { canAccessReports } from '../reports/reportAccess.ts'
 import { REPORTS_PATH } from '../reports/reportTypes.ts'
-import { SVO_OCCURRENCES_PATH, SVO_TRIAGES_PATH } from '../svo/svoOccurrenceTypes.ts'
+import { SVO_OCCURRENCES_PATH } from '../svo/svoOccurrenceTypes.ts'
 
 type RouteDecision =
   | { kind: 'login' }
@@ -32,7 +32,6 @@ type RouteDecision =
   | { kind: 'trip-scheduling'; profile: Profile }
   | { kind: 'svo-orders'; profile: 'ATENDENTE_SVO' | 'GESTOR' }
   | { kind: 'svo-occurrences'; profile: 'ATENDENTE_SVO' | 'ADMINISTRADOR' }
-  | { kind: 'svo-triages'; profile: 'ATENDENTE_SVO' | 'ADMINISTRADOR' }
   | { kind: 'request-analysis'; profile: 'GESTOR' }
 
 export function resolveRoute(session: AuthSession | null, path: string, now = Date.now()): RouteDecision {
@@ -52,12 +51,6 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
   if (path === SVO_OCCURRENCES_PATH) {
     return profile === 'ATENDENTE_SVO' || profile === 'ADMINISTRADOR'
       ? { kind: 'svo-occurrences', profile }
-      : { kind: 'redirect', to: home }
-  }
-
-  if (path === SVO_TRIAGES_PATH) {
-    return profile === 'ATENDENTE_SVO' || profile === 'ADMINISTRADOR'
-      ? { kind: 'svo-triages', profile }
       : { kind: 'redirect', to: home }
   }
 

@@ -80,7 +80,7 @@ function occurrenceColumns(onView: (occurrence: SvoOccurrenceSummary) => void): 
   ]
 }
 
-/** Cadastro, consulta e fluxo de triagem clínica das solicitações SVO. */
+/** Cadastro, consulta e confirmação técnica das solicitações SVO. */
 export default function SvoOccurrencesPage() {
   const { api, session } = useAuth()
   const theme = useTheme()
@@ -347,13 +347,11 @@ export default function SvoOccurrencesPage() {
         open={detailDialogOpen}
         detail={workflow.detail}
         canWrite={canWrite}
-        savingTriage={workflow.savingTriage}
         confirming={workflow.confirming}
         confirmationError={workflow.confirmationError}
         confirmationBlocked={workflow.confirmationBlocked}
         onClose={closeDetails}
         onRetry={() => { if (workflow.detail) void workflow.openDetail(workflow.detail.id) }}
-        onSaveTriage={workflow.saveTriage}
         onConfirm={workflow.confirm}
         onClearConfirmationError={workflow.clearConfirmationError}
       />

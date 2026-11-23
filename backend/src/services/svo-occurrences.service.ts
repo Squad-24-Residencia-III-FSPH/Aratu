@@ -6,7 +6,7 @@ import {
 } from '../types/svo-occurrence.types'
 import type {
   CreateSvoOccurrenceInput, SvoActorSnapshot, SvoOccurrenceDetail, SvoOccurrenceSummary,
-  SvoCreationResult, SvoConfirmationResult, SaveSvoOccurrenceTriageInput, SvoOccurrenceTriage,
+  SvoCreationResult, SvoConfirmationResult,
 } from '../types/svo-occurrence.types'
 
 const CREATE_FIELDS = ['requesterName', 'requesterPhone', 'requesterType', 'location', 'description', 'notes', 'receivedAt', 'evidenceDescription']
@@ -14,9 +14,6 @@ const RECEIVED_REASON = 'Solicitação SVO recebida e registrada.'
 const CONFIRMED_REASON = 'Triagem SVO conferida e solicitação confirmada.'
 const CONFIRMATION_EVIDENCE = 'Campos obrigatórios conferidos pelo operador na sessão autenticada.'
 const MAX_BIGINT = 9223372036854775807n
-const INITIAL_TRIAGE_REASON = 'Triagem clínica registrada.'
-const TRIAGE_AUDIT_REASON = 'Registro de triagem clínica.'
-const TRIAGE_EVENT_REASON = 'Triagem clínica registrada ou retificada.'
 const DAY_MS = 86_400_000
 const OPERATIONAL_TIME_ZONE = 'America/Maceio'
 const MAX_ZONE_ADJUSTMENTS = 3
@@ -86,27 +83,6 @@ function createInput(value: unknown): CreateSvoOccurrenceInput {
     evidenceDescription: requiredText(body.evidenceDescription, 'Descreva o canal ou meio de recebimento da solicitação.'),
     ...(body.receivedAt === undefined ? {} : { receivedAt: receivedInstant(body.receivedAt).toISOString() }),
   }
-}
-
-const TRIAGE_FIELDS = ['deceasedName', 'estimatedAge', 'responsiblePhysician', 'crm', 'preliminaryCauseOfDeath', 'availableDocuments', 'referral', 'triageNotes', 'reason'] as const
-const TRIAGE_TEXT_FIELDS = ['deceasedName', 'estimatedAge', 'responsiblePhysician', 'crm', 'preliminaryCauseOfDeath', 'referral', 'triageNotes'] as const
-
-function triageInput(value: unknown): SaveSvoOccurrenceTriageInput {
-  const body = inputRecord(value, TRIAGE_FIELDS)
-  const input: SaveSvoOccurrenceTriageInput = {}
-  for (const field of TRIAGE_TEXT_FIELDS) {
-    const candidate = body[field]
-    if (candidate !== undefined && candidate !== null && typeof candidate !== 'string') invalid('Os campos de triagem devem ser textos ou nulos.')
-    input[field] = typeof candidate === 'string' ? candidate.trim() || null : null
-  }
-  const documents = body.availableDocuments
-  if (documents !== undefined && documents !== null && (!Array.isArray(documents) || documents.some((item) => typeof item !== 'string'))) {
-    invalid('Documentos disponíveis deve ser uma lista de textos ou nula.')
-  }
-  input.availableDocuments = Array.isArray(documents) ? documents.map((item) => (item as string).trim()).filter(Boolean) : null
-  if (body.reason !== undefined && body.reason !== null && typeof body.reason !== 'string') invalid('A justificativa deve ser texto ou nula.')
-  input.reason = typeof body.reason === 'string' ? body.reason.trim() || null : null
-  return input
 }
 
 function filterDate(value: unknown, field: string): string | null {
@@ -193,45 +169,6 @@ export class SvoOccurrencesService {
     return occurrence
   }
 
-  /** Consulta somente a versão clínica atual pelo endpoint dedicado e protegido. */
-  async getOccurrenceTriage(id: unknown): Promise<SvoOccurrenceTriage | null> {
-    const validId = occurrenceId(id)
-    if (!await this.repository.findById(validId)) throw new SvoOccurrenceServiceError('NOT_FOUND', 'Solicitação SVO não encontrada.')
-    return this.repository.findTriage(validId)
-  }
-
-  /** Registra um snapshot clínico append-only enquanto a ocorrência permanece PENDING. */
-  async saveOccurrenceTriage(id: unknown, body: unknown, userId: string): Promise<SvoOccurrenceTriage> {
-    const validId = occurrenceId(id)
-    const input = triageInput(body)
-    return this.repository.withTransaction(async (client) => {
-      const actor = await this.requireActor(userId, client)
-      const before = await this.repository.findByIdForUpdate(validId, client)
-      if (!before) throw new SvoOccurrenceServiceError('NOT_FOUND', 'Solicitação SVO não encontrada.')
-      if (before.status !== 'PENDING') throw new SvoOccurrenceServiceError('INVALID_TRANSITION', 'A triagem só pode ser registrada enquanto a solicitação estiver PENDING.')
-      const previous = await this.repository.findLatestTriage(validId, client)
-      const reason = previous ? input.reason : INITIAL_TRIAGE_REASON
-      if (previous && !reason) invalid('Informe a justificativa para retificar uma triagem existente.')
-      const now = await this.repository.currentTime(client)
-      const after = await this.repository.saveTriage(validId, input, (previous?.revision ?? 0) + 1,
-        previous?.id ?? null, actor, now, reason!, client)
-      await this.repository.createEvent({
-        occurrenceId: validId, eventType: previous ? 'RECTIFIED' : 'TRIAGED', occurredAt: now,
-        reportedBy: actor.name, actorSnapshot: actor, reason: TRIAGE_EVENT_REASON, evidenceDescription: null,
-        beforeState: previous ? { triageId: previous.id, revision: previous.revision } : null,
-        afterState: { occurrenceId: validId, status: before.status, triageId: after.id, revision: after.revision },
-      }, client)
-      await this.audit.recordAudit({
-        userId: actor.id, table: 'svo.occurrence_triages', recordId: after.id,
-        operation: previous ? 'UPDATE' : 'CREATE',
-        before: previous ? { id: previous.id, occurrenceId: validId, revision: previous.revision } : null,
-        after: { id: after.id, occurrenceId: validId, revision: after.revision, supersedesId: after.supersedesId },
-        actorSnapshot: { id: actor.id, role: actor.role }, reason: TRIAGE_AUDIT_REASON,
-      }, client)
-      return after
-    })
-  }
-
   /**
    * Confirma apenas PENDING após travar conta e ocorrência, preservando o recebimento original.
    * @throws {SvoOccurrenceServiceError} Entrada inválida, acesso negado, registro inexistente ou transição já concluída.
@@ -253,7 +190,7 @@ export class SvoOccurrencesService {
       await this.repository.createEvent({
         occurrenceId: validId, eventType: 'CONFIRMED', occurredAt: now, reportedBy: actor.name,
         actorSnapshot: actor, reason: CONFIRMED_REASON, evidenceDescription: CONFIRMATION_EVIDENCE,
-        beforeState: { ...before }, afterState: { ...after },
+        beforeState: before, afterState: after,
       }, client)
       await this.recordAudit(before, after, actor, CONFIRMED_REASON, client)
       const { status, triagedAt, triagedBy, revision } = after

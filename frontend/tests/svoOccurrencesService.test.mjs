@@ -4,9 +4,7 @@ import {
   confirmSvoOccurrence,
   createSvoOccurrence,
   getSvoOccurrence,
-  getSvoOccurrenceTriage,
   listSvoOccurrences,
-  saveSvoOccurrenceTriage,
 } from '../src/services/svoOccurrencesService.ts'
 import { SvoOccurrenceRequestError } from '../src/svo/svoOccurrenceTypes.ts'
 import { jsonResponse } from './svo-orders.fixture.mjs'
@@ -22,14 +20,6 @@ const detail = (overrides = {}) => ({
   description: 'Solicitação sintética de teste', notes: null, attendantId: '7',
   triagedAt: null, triagedBy: null, updatedAt: '2026-11-18T12:10:00.000Z',
   evidenceDescription: 'Telefone', ...overrides,
-})
-
-const triage = (overrides = {}) => ({
-  id: '81', occurrenceId: '41', revision: 1, supersedesId: null,
-  deceasedName: 'Pessoa ficticia QA', estimatedAge: null, responsiblePhysician: null, crm: null,
-  preliminaryCauseOfDeath: null, availableDocuments: ['Documento QA'], referral: null, triageNotes: null,
-  occurredAt: '2026-11-18T12:10:00.000Z', registeredAt: '2026-11-18T12:10:00.000Z',
-  registeredBy: '7', reason: '', ...overrides,
 })
 
 test('lista usa somente os filtros de situação e período definidos na API', async () => {
@@ -100,42 +90,4 @@ test('identifica status e rota quando a resposta HTTP não contém { erro }', as
   await assert.rejects(listSvoOccurrences(async () => new Response('Cannot GET /svo/occurrences', { status: 404 }), {
     status: '', from: '', to: '',
   }), { kind: 'notFound', message: 'A API respondeu HTTP 404 para /svo/occurrences.' })
-})
-
-test('consulta triagem existente ou retorna null conforme o contrato', async () => {
-  const value = await getSvoOccurrenceTriage(async (path) => {
-    assert.equal(path, '/svo/occurrences/41/triage')
-    return jsonResponse(triage())
-  }, '41')
-  assert.equal(value.revision, 1)
-  assert.equal(await getSvoOccurrenceTriage(async () => jsonResponse(null), '41'), null)
-  await assert.rejects(getSvoOccurrenceTriage(async () => jsonResponse(triage({ occurrenceId: '42' })), '41'), { kind: 'invalidResponse' })
-})
-
-test('salva triagem opcional e retificação preservando o contrato de versões', async () => {
-  let call
-  const first = await saveSvoOccurrenceTriage(async (path, init) => {
-    call = { path, init }
-    return jsonResponse(triage(), 201)
-  }, '41', { deceasedName: ' Pessoa ficticia QA ', availableDocuments: ['Documento QA'] }, null)
-  assert.equal(call.path, '/svo/occurrences/41/triage')
-  assert.equal(call.init.method, 'POST')
-  assert.deepEqual(JSON.parse(call.init.body), {
-    deceasedName: 'Pessoa ficticia QA', estimatedAge: null, responsiblePhysician: null, crm: null,
-    preliminaryCauseOfDeath: null, availableDocuments: ['Documento QA'], referral: null, triageNotes: null,
-  })
-  const correction = triage({ id: '82', revision: 2, supersedesId: '81', reason: 'Correcao QA' })
-  const second = await saveSvoOccurrenceTriage(async (_path, init) => {
-    call = init
-    return jsonResponse(correction, 201)
-  }, '41', { deceasedName: 'Pessoa ficticia QA', reason: ' Correcao QA ' }, first)
-  assert.equal(JSON.parse(call.body).reason, 'Correcao QA')
-  assert.equal(second.supersedesId, first.id)
-})
-
-test('triagem preserva erro da API e rejeita resposta com versão divergente', async () => {
-  await assert.rejects(saveSvoOccurrenceTriage(async () => jsonResponse({ erro: 'Justificativa necessária.' }, 400), '41', {}, null), {
-    kind: 'validation', message: 'Justificativa necessária.',
-  })
-  await assert.rejects(saveSvoOccurrenceTriage(async () => jsonResponse(triage({ revision: 3 }), 201), '41', {}, null), { kind: 'invalidResponse' })
 })

@@ -2,7 +2,6 @@ import type { Pool, PoolClient } from 'pg'
 import type {
   CreateSvoOccurrenceInput, CreateSvoEventInput, SvoActorSnapshot,
   SvoOccurrenceDetail, SvoOccurrenceSummary, SvoListFilters,
-  SaveSvoOccurrenceTriageInput, SvoOccurrenceTriage,
 } from '../types/svo-occurrence.types'
 
 export interface SvoOccurrencesRepositoryContract {
@@ -15,9 +14,6 @@ export interface SvoOccurrencesRepositoryContract {
   findByIdForUpdate(id: string, client: PoolClient): Promise<SvoOccurrenceDetail | null>
   confirm(id: string, actorId: string, time: Date, client: PoolClient): Promise<SvoOccurrenceDetail>
   createEvent(input: CreateSvoEventInput, client: PoolClient): Promise<void>
-  findLatestTriage(occurrenceId: string, client: PoolClient): Promise<SvoOccurrenceTriage | null>
-  findTriage(occurrenceId: string): Promise<SvoOccurrenceTriage | null>
-  saveTriage(occurrenceId: string, input: SaveSvoOccurrenceTriageInput, revision: number, supersedesId: string | null, actor: SvoActorSnapshot, time: Date, reason: string, client: PoolClient): Promise<SvoOccurrenceTriage>
 }
 
 /** Persistência restrita do SVO, com projeções públicas explícitas e histórico append-only. */
@@ -126,59 +122,5 @@ export class SvoOccurrencesRepository implements SvoOccurrencesRepositoryContrac
         JSON.stringify(input.actorSnapshot), input.reason, input.evidenceDescription,
         JSON.stringify(input.beforeState), JSON.stringify(input.afterState)],
     )
-  }
-
-  /** Retorna a versão atual sem expor os eventos brutos da ocorrência. */
-  async findLatestTriage(occurrenceId: string, client: PoolClient): Promise<SvoOccurrenceTriage | null> {
-    return this.readTriage(occurrenceId, client)
-  }
-
-  /** Consulta a triagem mais recente fora de uma transação de escrita. */
-  async findTriage(occurrenceId: string): Promise<SvoOccurrenceTriage | null> {
-    return this.readTriage(occurrenceId, this.pool)
-  }
-
-  private async readTriage(occurrenceId: string, executor: Pool | PoolClient): Promise<SvoOccurrenceTriage | null> {
-    const result = await executor.query<SvoOccurrenceTriage>(
-      `SELECT id::text AS id, occurrence_id::text AS "occurrenceId", revision,
-              supersedes_id::text AS "supersedesId", deceased_name AS "deceasedName",
-              estimated_age AS "estimatedAge", responsible_physician AS "responsiblePhysician",
-              crm, preliminary_cause_of_death AS "preliminaryCauseOfDeath",
-              available_documents AS "availableDocuments", referral, triage_notes AS "triageNotes",
-              occurred_at AS "occurredAt", registered_at AS "registeredAt",
-              registered_by::text AS "registeredBy", reason
-         FROM svo.occurrence_triages WHERE occurrence_id = $1
-        ORDER BY revision DESC LIMIT 1`, [occurrenceId],
-    )
-    return result.rows[0] ?? null
-  }
-
-  /** Insere snapshot clínico e autoria na mesma transação do evento e da auditoria. */
-  async saveTriage(occurrenceId: string, input: SaveSvoOccurrenceTriageInput, revision: number, supersedesId: string | null, actor: SvoActorSnapshot, time: Date, reason: string, client: PoolClient): Promise<SvoOccurrenceTriage> {
-    const result = await client.query<{ id: string }>(
-      `INSERT INTO svo.occurrence_triages
-         (occurrence_id, revision, supersedes_id, deceased_name, estimated_age,
-          responsible_physician, crm, preliminary_cause_of_death, available_documents,
-          referral, triage_notes, occurred_at, registered_at, registered_by,
-          actor_snapshot, reason)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $13, $14::jsonb, $15)
-       RETURNING id::text AS id`,
-      [occurrenceId, revision, supersedesId, input.deceasedName ?? null, input.estimatedAge ?? null,
-        input.responsiblePhysician ?? null, input.crm ?? null, input.preliminaryCauseOfDeath ?? null,
-        input.availableDocuments ?? null, input.referral ?? null, input.triageNotes ?? null,
-        time, actor.id, JSON.stringify(actor), reason],
-    )
-    const saved = await client.query<SvoOccurrenceTriage>(
-      `SELECT id::text AS id, occurrence_id::text AS "occurrenceId", revision,
-              supersedes_id::text AS "supersedesId", deceased_name AS "deceasedName",
-              estimated_age AS "estimatedAge", responsible_physician AS "responsiblePhysician",
-              crm, preliminary_cause_of_death AS "preliminaryCauseOfDeath",
-              available_documents AS "availableDocuments", referral, triage_notes AS "triageNotes",
-              occurred_at AS "occurredAt", registered_at AS "registeredAt",
-              registered_by::text AS "registeredBy", reason
-         FROM svo.occurrence_triages WHERE id = $1`, [result.rows[0]!.id],
-    )
-    if (!saved.rows[0]) throw new Error('Falha ao recuperar a versão de triagem criada.')
-    return saved.rows[0]
   }
 }

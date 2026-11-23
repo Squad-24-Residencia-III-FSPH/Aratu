@@ -1,5 +1,4 @@
 export const SVO_OCCURRENCES_PATH = '/svo/solicitacoes'
-export const SVO_TRIAGES_PATH = '/svo/triagens'
 
 export const SVO_OCCURRENCE_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELED'] as const
 export type SvoOccurrenceStatus = typeof SVO_OCCURRENCE_STATUSES[number]
@@ -60,39 +59,6 @@ export interface SvoOccurrenceConfirmationResult {
   triagedAt: string
   triagedBy: string
   revision: number
-}
-
-/** Campos aceitos pelo POST de triagem da ocorrência, sem obrigatoriedade clínica. */
-export interface SaveSvoOccurrenceTriageInput {
-  deceasedName?: string | null
-  estimatedAge?: string | null
-  responsiblePhysician?: string | null
-  crm?: string | null
-  preliminaryCauseOfDeath?: string | null
-  availableDocuments?: string[] | null
-  referral?: string | null
-  triageNotes?: string | null
-  reason?: string | null
-}
-
-/** Versão atual da triagem retornada pelos endpoints dedicados do SVO. */
-export interface SvoOccurrenceTriage extends Omit<SaveSvoOccurrenceTriageInput, 'reason'> {
-  id: string
-  occurrenceId: string
-  revision: number
-  supersedesId: string | null
-  deceasedName: string | null
-  estimatedAge: string | null
-  responsiblePhysician: string | null
-  crm: string | null
-  preliminaryCauseOfDeath: string | null
-  availableDocuments: string[] | null
-  referral: string | null
-  triageNotes: string | null
-  occurredAt: string
-  registeredAt: string
-  registeredBy: string
-  reason: string
 }
 
 export type SvoOccurrenceErrorKind =
