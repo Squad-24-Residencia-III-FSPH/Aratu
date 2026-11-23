@@ -16,7 +16,7 @@
 <h1>Revisão — FROTA-142: Tela de consulta de auditoria</h1>
 <div class="meta">
   <p><strong>Tarefa:</strong> <a href="https://squad24.atlassian.net/browse/FROTA-142">FROTA-142 — [FE] Tela de auditoria</a>.</p>
-  <p><strong>Branch:</strong> <code>feat/frota-142-tela-auditoria</code> · <strong>Base:</strong> <code>develop</code> · <strong>PR:</strong> <a href="https://github.com/Squad-24-Residencia-III-FSPH/Aratu/pull/92">#92</a>.</p>
+  <p><strong>Branch:</strong> <code>feat/frota-142-tela-auditoria</code> · <strong>Base:</strong> <code>develop</code> · <strong>PR:</strong> <a href="https://github.com/Squad-24-Residencia-III-FSPH/Aratu/pull/98">#98</a>.</p>
   <p><strong>SDD:</strong> <code>docs/plans/frota-142-tela-consulta-auditoria.html</code>.</p>
 </div>
 <h2>Escopo conferido</h2>
@@ -43,9 +43,9 @@
 <table><thead><tr><th>Comando</th><th>Resultado</th></tr></thead><tbody>
 <tr><td><code>npm run lint</code></td><td class="ok">Passou.</td></tr>
 <tr><td><code>npm run build</code></td><td class="ok">Passou; Vite reporta aviso do bundle principal &gt;500 kB.</td></tr>
-<tr><td><code>npm test</code></td><td class="ok">Passou: 258 testes, 0 falhas.</td></tr>
-<tr><td><code>node docs/scripts/aratu-check.mjs</code></td><td class="ok">Passou: 0 achados estáticos; TypeScript e 258 testes aprovados.</td></tr>
-<tr><td>CI do GitHub</td><td>A conferir após atualização da PR.</td></tr>
+<tr><td><code>npm run test:ci</code></td><td class="ok">Após integrar a develop e corrigir os filtros: 42 suítes passaram, 0 falhas.</td></tr>
+<tr><td><code>node docs/scripts/aratu-check.mjs --skip-tsc</code></td><td class="ok">Após a correção: 0 achados estáticos. O build frontend passou com TypeScript; aviso de bundle acima de 500 kB permanece.</td></tr>
+<tr><td>CI do GitHub</td><td>Os quatro checks consultados passaram no commit original da PR. A correção local ainda precisa ser enviada à branch para executar CI sobre os novos commits.</td></tr>
 </tbody></table>
 <h2>Pendências para revisão humana</h2>
 <ul>

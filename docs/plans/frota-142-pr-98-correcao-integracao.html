@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-142 — PR 98 — correcao de integracao com develop (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — FROTA-142: PR 98 — correcao de integracao com develop</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-142</code> — PR 98 — correcao de integracao com develop</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/frota-142-tela-auditoria</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>AUTENTICACAO_RBAC</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR, ATENDENTE_SVO</code></p>
+  <p><strong>Data:</strong> 2026-11-23</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p><strong>Estado:</strong> implementação local concluída em <a href="https://github.com/Squad-24-Residencia-III-FSPH/Aratu/pull/98">PR #98</a>. O commit <code>a52fd31</code> integrou a ponta atual de <code>develop</code> e resolveu os conflitos preservando Auditoria e Solicitações SVO. O commit <code>a082358</code> corrigiu validação de filtros e datas civis.</p>
+<p><strong>Objetivo:</strong> desbloquear o PR preservando Auditoria (FROTA-142) e Solicitações SVO (US17, PR #97) na integração com <code>develop</code>.</p>
+<p>Referências verificadas em 23/11/2026: a ponta remota inicial da branch <code>feat/frota-142-tela-auditoria</code> era <code>fd7c1b868ce386ae29eb69fac264b1d983cb7852</code>; ponta atual de <code>develop</code> confirmada pela API de branches: <code>4406d66ce5b3ac9dbd68bb887fb1dc295da13e3d</code>; ancestral comum <code>c1b3233cabad008850a2ed79c0cd75e89c72f1ed</code>. A resposta do PR ainda informa esse ancestral em <code>base.sha</code>; a integração local usou a ponta atual de develop, não esse campo defasado. Os commits locais resultantes são <code>a52fd31</code> e <code>a082358</code>.</p>
+<p>O GitHub ainda reflete o commit original da PR, com <code>mergeable=false</code> e <code>mergeable_state=dirty</code>, porque os commits locais ainda não foram enviados. Na branch local, a integração foi concluída sem arquivos não resolvidos; a validação local passou. O merge remoto e os checks dos novos commits dependem de atualizar a branch da PR.</p>
+<p><strong>Fonte de requisito:</strong> pedido do usuário, descrição do PR e SDD existente <code>docs/plans/frota-142-tela-consulta-auditoria.html</code>. A consulta Jira retornou 404; não foram inferidos critérios adicionais. Sem decisões de domínio pendentes para esta correção de integração.</p>
+<p><strong>Escopo executado:</strong> integrar develop na branch existente, resolver os conflitos de composição, conferir os arquivos mesclados automaticamente, atualizar a evidência de revisão e validar a combinação. Também foram corrigidas as datas extremas, a associação dos erros aos campos e o link antigo do relatório para a PR #98.</p>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<ul>
+<li><strong>Dado</strong> GESTOR ou ADMINISTRADOR autenticado, <strong>quando</strong> abrir <code>/auditoria</code>, <strong>então</strong> resolver <code>kind: 'audit'</code> e renderizar <code>AuditLogsPage</code> no Layout.</li>
+<li><strong>Dado</strong> ATENDENTE_SVO ou ADMINISTRADOR autenticado, <strong>quando</strong> abrir <code>/svo/solicitacoes</code>, <strong>então</strong> preservar <code>kind: 'svo-occurrences'</code> e <code>SvoOccurrencesPage</code> conforme develop.</li>
+<li><strong>Dado</strong> qualquer outro perfil, <strong>quando</strong> tentar essas rotas sem autorização, <strong>então</strong> preservar o redirecionamento existente. Sem sessão, ambas exigem login.</li>
+<li><strong>Dado</strong> ADMINISTRADOR, <strong>quando</strong> abrir o menu, <strong>então</strong> encontrar Solicitações SVO e Auditoria como links, além de Relatórios; Configurações permanece estático. GESTOR mantém Auditoria no grupo gerencial.</li>
+<li><strong>Dado</strong> a branch integrada, <strong>quando</strong> rodar QA, <strong>então</strong> compilar, passar lint/testes e obter checks verdes no novo commit integrado e ausência de conflitos no PR.</li>
+</ul><p>Nenhuma transição de estado, regra de auditoria ou regra de domínio do SVO será alterada.</p>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<div style="overflow-x:auto" tabindex="0" role="region" aria-label="Tabela de referência"><table><thead><tr><th scope="col">Arquivo</th><th scope="col">Alteração executada</th></tr></thead><tbody><tr><td><code>frontend/src/App.tsx</code></td><td>Preservados ambos os imports e ramos de renderização: AuditLogsPage/audit e SvoOccurrencesPage/svo-occurrences.</td></tr><tr><td><code>frontend/src/routing/routeDecision.ts</code></td><td>Preservados ambos os imports, variantes de RouteDecision, autorização SVO da develop e autorização da Auditoria; Relatórios permanece com uma condição.</td></tr><tr><td><code>frontend/tests/sidebarNavigation.test.mjs</code></td><td>Teste de navegação ajustado para Solicitações SVO, Auditoria, Relatórios e Configurações no menu administrativo.</td></tr><tr><td><code>frontend/src/components/sidebarNavigation.ts</code></td><td>Merge manteve os links SVO e Auditoria com os perfis existentes; cobertura de menu passou.</td></tr><tr><td><code>frontend/src/services/auditLogs.ts</code> e <code>frontend/src/pages/AuditLogsPage.tsx</code></td><td>Avanço de data preserva anos 0000–0099; data final máxima é rejeitada mesmo sem data inicial. Erros agora identificam o filtro e só marcam esse controle como inválido.</td></tr><tr><td><code>frontend/tests/auditLogs.test.mjs</code></td><td>Testa anos 0099 e 9999, campo inválido e associação acessível do alerta ao input.</td></tr><tr><td>Relatórios FROTA-142</td><td>Link atualizado de #92 para #98 e resultados atualizados para a árvore combinada.</td></tr></tbody></table></div>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p>Não se aplica a esta tarefa: nenhuma migração, tabela, índice ou dado persistido será alterado. A auditoria e os snapshots históricos permanecem sob os serviços existentes.</p>
+<p><strong>Recuperação:</strong> a integração foi concluída e registrada localmente; caso seja necessário desfazê-la após publicação, usar commits de reversão sem reescrever o histórico compartilhado. Não executar rollback de banco.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<div style="overflow-x:auto" tabindex="0" role="region" aria-label="Tabela de referência"><table><thead><tr><th scope="col">Endpoint existente</th><th scope="col">Contrato preservado</th><th scope="col">Autorização</th></tr></thead><tbody><tr><td><code>GET /audit-logs</code></td><td>from/to/userId/operation/table/page/pageSize; logs,total,page,pageSize,totalPages. to exclusivo, limite de 366 dias; snapshots mascarados; 400 orientador, 401/403 de segurança.</td><td>GESTOR e ADMINISTRADOR, via autenticação, usuário vigente e RBAC.</td></tr><tr><td>API SVO existente em develop</td><td>Preservar o fluxo US17 e seus contratos sem recriar backend neste PR de frontend.</td><td>Conforme routers/services de develop; não ampliar permissões.</td></tr></tbody></table></div><p>Nenhuma alteração em controllers, services, repositories ou DTOs do backend. O frontend continuará consumindo a API por serviço tipado.</p>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<ol>
+<li>Conferido o estado da working tree e usada a ponta atual de <code>origin/develop</code> (<code>4406d66</code>).</li>
+<li>Concluído no commit <code>a52fd31</code>: integrar <code>origin/develop</code> na branch vinculada ao PR, sem descartar um dos fluxos.</li>
+<li>Concluído: resolver <code>App.tsx</code>, <code>routeDecision.ts</code> e o teste do menu preservando Auditoria e Solicitações SVO; conferir também o merge automático de <code>sidebarNavigation.ts</code>.</li>
+<li>Concluído: inspecionar o diff, executar as verificações da seção 9 e criar os commits locais. A branch remota da PR permanece no SHA original até que seja atualizada.</li>
+</ol><div style="overflow-x:auto" tabindex="0" role="region" aria-label="Tabela de referência"><table><thead><tr><th scope="col">Estado da auditoria</th><th scope="col">Comportamento a preservar</th></tr></thead><tbody><tr><td>Ideal</td><td>Tabela, paginação e detalhes somente leitura.</td></tr><tr><td>Carregando</td><td>StateFeedback com anúncio e aria-busy.</td></tr><tr><td>Vazio</td><td>Mensagem para rever filtros.</td></tr><tr><td>Erro</td><td>Mensagem recuperável e Tentar novamente; 403 específico.</td></tr><tr><td>Parcial</td><td>Aviso de linhas inválidas descartadas, mantendo linhas válidas.</td></tr></tbody></table></div><p>Reutilizar Layout, PageHeader, FilterBar, DataTable, StateFeedback e o diálogo existentes. Nenhuma mudança visual de produto é necessária para resolver os conflitos.</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>Validar os links Auditoria e Solicitações SVO por Tab/Enter e acesso direto; abrir detalhes pela ação de teclado; fechar com Esc e confirmar retorno de foco. Preservar rótulos associados, anúncios, contraste e alvos do tema.</p><p>Conferir 320 px, desktop e zoom de 200%, mantendo rolagem restrita à tabela. A revisão atual não executou auditoria visual independente completa; esses passos são critérios de verificação da integração.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<div style="overflow-x:auto" tabindex="0" role="region" aria-label="Tabela de referência"><table><thead><tr><th scope="col">Perfil</th><th scope="col">/auditoria</th><th scope="col">/svo/solicitacoes</th></tr></thead><tbody><tr><td>ADMINISTRADOR</td><td>Permitido</td><td>Permitido</td></tr><tr><td>GESTOR</td><td>Permitido</td><td>Redirecionar conforme develop</td></tr><tr><td>ATENDENTE_SVO</td><td>Redirecionar</td><td>Permitido</td></tr><tr><td>MOTORISTA / SOLICITANTE / EQUIPE_SVO</td><td>Redirecionar</td><td>Redirecionar</td></tr><tr><td>Sem sessão / expirada</td><td>Login</td><td>Login</td></tr></tbody></table></div><p>A matriz reproduz os resolvedores existentes nas duas pontas. Nenhuma feature flag, variável de ambiente ou nova configuração.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<ol>
+<li>Usar instalação consistente com <code>frontend/package-lock.json</code>. Nesta revisão o node_modules local estava incompleto e sem permissão de escrita; uma cópia temporária com npm ci permitiu validar a revisão sem alterar o lockfile.</li>
+<li>Concluído em cópia de trabalho limpa da árvore integrada: <code>npm run lint</code> e <code>npm run build</code> passaram; <code>npm run test:ci</code> passou com 42 suítes e 0 falhas. O relatório TAP passou por <code>node docs/scripts/check-test-report.mjs</code>.</li>
+<li>Concluído: <code>node docs/scripts/aratu-check.mjs --skip-tsc</code> reportou 0 achados estáticos. <code>npm run build</code> passou incluindo TypeScript; aviso de bundle acima de 500 kB permanece.</li>
+<li>Concluído: a suíte frontend passou, incluindo testes de auditoria, menu, roteamento SVO e todos os perfis cobertos.</li>
+<li>Concluído: nenhuma entrada não resolvida, marcadores de conflito ou erro em <code>git diff --check</code>; diff conferido para preservar o PR #97.</li>
+<li>Pendente remotamente: atualizar a branch da PR e exigir frontend-ci, backend-ci, docker-ci, ci-required e estado sem conflitos sobre os commits novos. Os checks verdes antigos não validam a nova combinação.</li>
+</ol><p>Não foram necessárias migrações ou testes de banco para a resolução frontend. O CI remoto existente cobre backend e Docker; o socket Docker local não estava acessível. Todo teste usa dados fictícios.</p>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+<ul class="check"><li><input type="checkbox" checked> Branch atual integrada com a develop atual, preservando US17 e FROTA-142.</li><li><input type="checkbox" checked> Conflitos resolvidos e diff sem marcadores/espaços inválidos.</li><li><input type="checkbox" checked> Matriz RBAC, links e as duas páginas preservados.</li><li><input type="checkbox" checked> Lint, build e suíte TAP completa aprovados localmente. CI remoto dos novos commits pendente de atualização da PR.</li><li><input type="checkbox"> Verificação de teclado e responsividade realizada.</li><li><input type="checkbox" checked> Relatórios apontam PR #98 e identificam os SHAs locais validados.</li><li><input type="checkbox" checked> Sem dados reais, mudanças de banco ou ampliação de escopo.</li></ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+<p>Concluído: os trechos de Auditoria em <code>docs/modulos/AUTENTICACAO_RBAC.html</code> e <code>docs/manuais/modulos.md</code> foram preservados, assim como a documentação SVO incorporada por develop. O relatório anterior agora aponta para PR #98. Este plano e o relatório complementar registram os SHAs locais e resultados reais. Nenhuma reescrita funcional do módulo foi necessária.</p>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>ATENDENTE_SVO</code>, <code>SOLICITANTE</code>, <code>EQUIPE_SVO</code>, <code>MOTORISTA</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>
