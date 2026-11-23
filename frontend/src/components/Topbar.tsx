@@ -1,12 +1,19 @@
 import { useState } from 'react';
-import { AppBar, Toolbar, Typography, Box, Button, Menu, MenuItem, Divider, ListItemIcon, ListItemText } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Button, IconButton, Menu, MenuItem, Divider, ListItemIcon, ListItemText } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import MenuIcon from '@mui/icons-material/Menu';
 import logoAratu from '../assets/aratu-logo-black-white.png';
 import { useAuth } from '../auth/useAuth';
 import { profileLabel } from '../auth/profiles';
 
-export default function Topbar() {
+interface TopbarProps {
+  isCompactViewport: boolean
+  navigationExpanded: boolean
+  onMenuToggle: () => void
+}
+
+export default function Topbar({ isCompactViewport, navigationExpanded, onMenuToggle }: TopbarProps) {
   const { session, logout } = useAuth();
   const nome = session?.nome ?? 'Usuário';
   const perfil = session ? profileLabel(session.perfil) : '';
@@ -28,6 +35,27 @@ export default function Topbar() {
 
         {/* Logo */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <IconButton
+            type="button"
+            aria-label={isCompactViewport
+              ? navigationExpanded ? 'Fechar menu' : 'Abrir menu'
+              : navigationExpanded ? 'Recolher menu' : 'Expandir menu'}
+            aria-controls="primary-navigation"
+            aria-expanded={navigationExpanded}
+            onClick={onMenuToggle}
+            sx={{
+              color: '#111827',
+              width: 44,
+              height: 44,
+              alignSelf: 'center',
+              display: 'grid',
+              placeItems: 'center',
+              '&:hover': { backgroundColor: 'rgba(17, 24, 39, 0.08)' },
+              '&.Mui-focusVisible': { outline: '2px solid #111827', outlineOffset: 2 },
+            }}
+          >
+            <MenuIcon aria-hidden="true" />
+          </IconButton>
           <Box
             component="img"
             src={logoAratu}

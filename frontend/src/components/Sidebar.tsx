@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   Box,
   Drawer,
@@ -53,7 +52,6 @@ const icons: Record<SidebarIconName, SvgIconComponent> = {
   confirmTrips: CheckCircle,
   vehicles: DirectionsCar,
   drivers: Person,
-  serviceTypes: Assignment,
   maintenance: Build,
   fuel: LocalGasStation,
   documents: Description,
@@ -63,23 +61,26 @@ const icons: Record<SidebarIconName, SvgIconComponent> = {
   help: Help,
 };
 
-export default function Sidebar() {
+interface SidebarProps {
+  expanded: boolean
+  mobileOpen: boolean
+  onExpandedChange: (expanded: boolean) => void
+  onMobileClose: () => void
+}
+
+export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onExpandedChange, onMobileClose }: SidebarProps) {
   const theme = useTheme();
   const isCompactViewport = useMediaQuery(theme.breakpoints.down('md'));
-  const [prefersExpanded, setPrefersExpanded] = useState(true);
   const location = useLocation();
   const { session } = useAuth();
 
   const profile = session ? resolveProfile(session.perfil) : null;
   const navigation = getSidebarNavigation(profile);
   const roleLabel = session ? profileLabel(session.perfil) : 'Usuário';
-  const expanded = isCompactViewport ? false : prefersExpanded;
+  const expanded = isCompactViewport ? mobileOpen : desktopExpanded;
 
   const currentWidth = expanded ? drawerWidthExpanded : drawerWidthCollapsed;
-
-  const toggleSidebar = () => {
-    setPrefersExpanded((prev) => !prev);
-  };
+  const drawerWidth = isCompactViewport ? drawerWidthExpanded : currentWidth;
 
   const selectedStyle = {
     borderRadius: 1,
@@ -143,6 +144,7 @@ export default function Sidebar() {
       <ListItemButton
         {...(item.behavior === 'link' && item.path ? { component: RouterLink, to: item.path } : {})}
         selected={isSelected}
+        onClick={isCompactViewport ? onMobileClose : undefined}
         sx={itemStyle}
       >
         <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center', color: isSelected ? '#FF6B00' : 'inherit' }}>
@@ -162,15 +164,21 @@ export default function Sidebar() {
   };
 
   return (
-    <Box sx={{ display: 'flex', position: 'relative', flexShrink: 0 }}>
+    <Box sx={{ display: 'flex', position: 'relative', flexShrink: 0, width: isCompactViewport ? 0 : currentWidth }}>
       <Drawer
-        variant="permanent"
+        variant={isCompactViewport ? 'temporary' : 'permanent'}
+        open={!isCompactViewport || mobileOpen}
+        onClose={onMobileClose}
+        slotProps={{
+          root: { keepMounted: true },
+          paper: { id: 'primary-navigation', 'aria-label': 'Navegação principal' },
+        }}
         sx={{
-          width: currentWidth,
+          width: isCompactViewport ? 0 : currentWidth,
           flexShrink: 0,
           transition: 'width 0.2s ease-in-out',
           '& .MuiDrawer-paper': {
-            width: currentWidth,
+            width: drawerWidth,
             boxSizing: 'border-box',
             backgroundColor: '#fff',
             borderRight: '1px solid #e2e8f0',
@@ -259,7 +267,7 @@ export default function Sidebar() {
       {!isCompactViewport && (
         <Tooltip title={expanded ? 'Recolher menu' : 'Expandir menu'} {...tooltipProps}>
           <IconButton
-            onClick={toggleSidebar}
+            onClick={() => onExpandedChange(!desktopExpanded)}
             aria-label={expanded ? 'Recolher menu' : 'Expandir menu'}
             sx={{
               position: 'absolute',

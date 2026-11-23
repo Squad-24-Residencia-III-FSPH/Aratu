@@ -123,7 +123,7 @@ export default function RequestAnalysisPage() {
   ] as const
 
   return (
-    <Box sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 4, ...accessibleControls }}>
+    <Box sx={{ minWidth: 0, ...accessibleControls }}>
       <PageHeader title="Análise de solicitações" description="Revise os dados antes de aprovar ou rejeitar uma viagem." />
 
       <FilterBar label="Filtros das solicitações pendentes">

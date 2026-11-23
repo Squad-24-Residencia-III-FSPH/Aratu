@@ -27,8 +27,12 @@ Não dependem de período: mostram a situação atual.
 | Indicador | Fórmula | Fonte | Perfil |
 |---|---|---|---|
 | Frota disponível / em manutenção / inativa | Contagem de veículos por `status` (`AVAILABLE`, `IN_MAINTENANCE`, `INACTIVE`) | `fleet.vehicles.status` | GESTOR, ADMINISTRADOR |
+| Motoristas ativos / afastados / inativos | Contagem por situação atual (`ACTIVE`, `AWAY`, `INACTIVE`) | `fleet.drivers.status` | GESTOR, ADMINISTRADOR; sem expor dados pessoais |
+| CNHs a vencer / vencidas | Contagem de vencimentos nos próximos 30 dias e anteriores à data atual | `fleet.drivers.cnh_expires_at` | Janela de 30 dias conforme a regra do módulo de motoristas |
 | Solicitações pendentes | Contagem de solicitações com `status = 'PENDING'` | `trip.requests.status` | GESTOR, ADMINISTRADOR |
+| Viagens em andamento / veículos em viagem | Contagem de viagens `IN_PROGRESS` e de veículos distintos nessas viagens | `trip.trips.status`, `trip.trips.vehicle_id` | GESTOR, ADMINISTRADOR |
 | Viagens a confirmar | Contagem de viagens com `status = 'FINISHED'` (finalizadas e ainda não conferidas) | `trip.trips.status` | GESTOR, ADMINISTRADOR |
+| Multas pendentes / pagas / contestadas | Contagem por situação atual (`PENDING`, `PAID`, `CONTESTED`) | `fleet.fines.status` | Registros cancelados não entram nessas três contagens |
 | Documentos a vencer | Documentos vigentes com validade entre hoje e hoje + 30 dias (janela `DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS`) | `fleet.vehicle_documents.expires_at` | GESTOR, ADMINISTRADOR |
 | Documentos vencidos | Documentos vigentes com validade anterior a hoje | `fleet.vehicle_documents.expires_at` | GESTOR, ADMINISTRADOR |
 | SVO: ordens em andamento | Contagem de ordens com `status` em `OPEN`, `IN_TRANSIT`, `IN_SERVICE`, `IN_PROGRESS` | `svo.execution_orders.status` | perfis com acesso ao SVO |
@@ -48,6 +52,24 @@ Uma linha por veículo (todos, ou só `vehicleId`) mais os totais do período.
 | Gasto com combustível | Soma de `total_value` dos abastecimentos vigentes no período | `fleet.fuelings` | Em reais. |
 | Consumo médio (km/L) | Km percorrido ÷ litros abastecidos | `trip.trips`, `fleet.fuelings` | **Proposta — aguarda confirmação do cliente.** `null` sem km ou sem litros. |
 | Gasto com manutenção | Soma de `cost` das ordens `DONE` fechadas no período | `fleet.maintenance_orders` | Em reais; ordens sem custo informado não entram. |
+| Ordens de manutenção registradas | Contagem por `opened_at` no período, detalhada por tipo (`PREVENTIVE` e `CORRECTIVE`) | `fleet.maintenance_orders` | Conta registros e não identifica panes nem veículos distintos. |
+| Veículos com ordem corretiva | Contagem distinta de veículos com ordem `CORRECTIVE` aberta no período | `fleet.maintenance_orders.vehicle_id` | Mede veículos com ordem corretiva registrada; não classifica pane mecânica. |
+
+### Séries dos gráficos do dashboard
+
+`activitySeries` devolve os indicadores agrupados por dia em intervalos de até 60 dias e por mês acima disso, sempre no fuso `America/Maceio`. As viagens usam os critérios de conclusão descritos acima; o gasto usa abastecimentos vigentes agrupados por `fueled_at`. O gráfico de situação da frota usa os status atuais cadastrados (`AVAILABLE`, `IN_MAINTENANCE` e `INACTIVE`). Gráficos por veículo usam as viagens concluídas já listadas nos indicadores.
+
+Os gráficos de histórico usam eventos operacionais vigentes (`is_annulled = false` e sem retificação posterior): abertura/conclusão de manutenção; criação, aprovação, rejeição, agendamento e cancelamento de solicitação; registro, pagamento e contestação de multa; cadastro e mudança de situação de motorista; registro e renovação de documento. São contagens de eventos no período, não fotografia de estados passados. Com veículo selecionado, eventos de solicitação contam apenas quando a solicitação está associada a uma viagem daquele veículo; eventos de motoristas permanecem totais da frota, pois não têm vínculo direto com uma viatura.
+
+A comparação consulta o intervalo imediatamente anterior com a mesma quantidade de dias do período selecionado. Os valores exibidos nos cartões são a diferença absoluta entre os dois intervalos. A tabela de próximas manutenções inclui apenas ordens abertas ou em andamento com `expected_completion_date` igual ou posterior à data local de hoje.
+
+### Filtro por veículo
+
+O filtro de veículo também se aplica ao retrato atual de frota, viagens em andamento/a confirmar, multas, documentos, ordens de manutenção, abastecimentos, viagens e ocupação do SVO. Eventos de solicitação são filtrados quando associados a uma viagem daquele veículo. Solicitações ainda sem alocação e dados cadastrais/eventos de motoristas não têm vínculo direto com uma viatura e permanecem como totais gerais da operação.
+
+### Agenda futura
+
+O dashboard consulta `GET /trips?status=SCHEDULED&from=&to=` para exibir viagens já registradas no intervalo futuro. O cartão mostra a quantidade e a lista traz início previsto, veículo, motorista e trajeto; o filtro de veículo usa a placa devolvida pela consulta e o cadastro vigente. Não são projetados quilometragem, custo ou viagens ainda não agendadas.
 
 ### SVO no período (perfis com acesso ao SVO)
 

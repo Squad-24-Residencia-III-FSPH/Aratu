@@ -14,13 +14,21 @@ export const theme = createTheme({
   components: {
     MuiButton: {
       defaultProps: { disableElevation: true },
-      styleOverrides: { root: { minHeight: 44 } },
+      styleOverrides: {
+        root: { minHeight: 44 },
+        text: { '&.Mui-disabled': { color: '#6b7280' } },
+        outlined: { '&.Mui-disabled': { color: '#6b7280', borderColor: '#9ca3af' } },
+        contained: { '&.Mui-disabled': { color: '#4b5563', backgroundColor: '#e5e7eb' } },
+      },
     },
     MuiOutlinedInput: {
       styleOverrides: {
         root: { fontSize: 14, minHeight: 44 },
         notchedOutline: { borderColor: '#d1d5db' },
-        input: { padding: '10px 12px' },
+        input: {
+          padding: '10px 12px',
+          '&::placeholder': { color: '#4b5563', opacity: 1 },
+        },
       },
     },
   },

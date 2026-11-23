@@ -194,10 +194,7 @@ export default function DriversPage() {
     <Box className={styles.page}>
       <PageHeader
         title="Motoristas"
-        titleVariant="h4"
-        titleSx={{ color: '#0f172a', fontSize: { xs: '1.5rem', sm: '2rem' } }}
         breadcrumbs={['Início', 'Motoristas']}
-        breadcrumbsSx={{ mb: 2, color: '#64748b', fontSize: '0.85rem' }}
         actions={canWrite
           ? (
               <Button
@@ -258,7 +255,7 @@ export default function DriversPage() {
                 />
               </Box>
               {filtersActive && (
-                <Button onClick={clearFilters} sx={{ minHeight: 44, color: '#1e293b' }}>
+                <Button onClick={clearFilters} sx={{ minHeight: 44 }}>
                   Limpar filtros
                 </Button>
               )}
@@ -301,7 +298,6 @@ export default function DriversPage() {
                   actionsWidth={220}
                   containerClassName={styles.tableContainer}
                   paperSx={{ border: 0, boxShadow: 'none', borderRadius: 0 }}
-                  headerCellSx={{ backgroundColor: '#f8fafc', color: '#64748b', fontSize: '0.8rem', py: 1.75 }}
                   renderActions={(driver) => (
                     <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
                       <IconButton
