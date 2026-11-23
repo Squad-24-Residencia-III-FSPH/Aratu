@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Stack, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import { useAuth } from '../auth/useAuth'
-import { resolveProfile } from '../auth/profiles'
-import DataTable from '../components/ui/DataTable'
-import type { DataTableColumn } from '../components/ui/DataTable'
-import FilterBar from '../components/ui/FilterBar'
-import { FormField, FormSelect } from '../components/ui/FormField'
-import PageHeader from '../components/ui/PageHeader'
-import StateFeedback from '../components/ui/StateFeedback'
-import { canAccessFuelings } from '../fuelings/fuelingAccess'
-import { FUEL_TYPE_LABELS } from '../fuelings/fuelingTypes'
-import type { FuelingFilters, FuelingVersion } from '../fuelings/fuelingTypes'
-import { listDrivers } from '../services/driversService'
-import { listFuelings } from '../services/fuelingsService'
-import { listVehicles } from '../services/vehiclesService'
-import type { Driver } from '../drivers/driverTypes'
-import type { Vehicle } from '../vehicles/vehicleTypes'
-import FuelingFormDialog from './fuelingsPage/FuelingFormDialog'
+import { useAuth } from '../../auth/useAuth'
+import { resolveProfile } from '../../auth/profiles'
+import DataTable from '../../components/ui/DataTable'
+import type { DataTableColumn } from '../../components/ui/DataTable'
+import FilterBar from '../../components/ui/FilterBar'
+import { FormField, FormSelect } from '../../components/ui/FormField'
+import PageHeader from '../../components/ui/PageHeader'
+import StateFeedback from '../../components/ui/StateFeedback'
+import { canAccessFuelings } from '../../fuelings/fuelingAccess'
+import { FUEL_TYPE_LABELS } from '../../fuelings/fuelingTypes'
+import type { FuelingFilters, FuelingVersion } from '../../fuelings/fuelingTypes'
+import { listDrivers } from '../../services/driversService'
+import { listFuelings } from '../../services/fuelingsService'
+import { listVehicles } from '../../services/vehiclesService'
+import type { Driver } from '../../drivers/driverTypes'
+import type { Vehicle } from '../../vehicles/vehicleTypes'
+import FuelingFormDialog from './FuelingFormDialog'
 
 const PAGE_SIZE = 20
 const CURRENCY = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -164,7 +164,6 @@ export default function FuelingsPage() {
     <Box>
       <PageHeader
         title="Abastecimentos"
-        titleVariant="h4"
         breadcrumbs={['Início', 'Abastecimentos']}
         actions={allowed ? <Button variant="contained" startIcon={<AddIcon aria-hidden="true" />} onClick={() => setFormOpen(true)} disabled={optionsLoading || Boolean(optionsError) || vehicles.length === 0} sx={{ minHeight: 44 }}>Registrar Abastecimento</Button> : undefined}
       />

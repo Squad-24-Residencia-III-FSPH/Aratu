@@ -27,7 +27,7 @@ const userEvent = (await import('@testing-library/user-event')).default
 const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), plugins: [react()],
   cacheDir, server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: TeamPage }, { default: AttendantPage }, { AuthContext }] = await Promise.all([
-  vite.ssrLoadModule('/src/pages/SvoTeamOrdersPage.tsx'), vite.ssrLoadModule('/src/pages/SvoOrdersPage.tsx'),
+  vite.ssrLoadModule('/src/pages/svoOrdersPage/SvoTeamOrdersPage.tsx'), vite.ssrLoadModule('/src/pages/svoOrdersPage/SvoOrdersPage.tsx'),
   vite.ssrLoadModule('/src/auth/AuthContext.ts'),
 ])
 afterEach(cleanup)
@@ -68,7 +68,9 @@ test('carregamento, cards, despacho e detalhe parcial sem perder lista', async (
   await act(async () => { pending.resolve(jsonResponse(state.list)) })
   assert.ok(await screen.findByRole('article', { name: 'Ordem #1' }))
   assert.equal(document.title, 'Ordens da equipe — Aratu')
-  assert.ok(screen.getByText('Local do despacho: Local Fictício QA'))
+  const dispatch = screen.getByRole('region', { name: 'No despacho' })
+  assert.ok(within(dispatch).getByText('Local'))
+  assert.ok(within(dispatch).getByText('Local Fictício QA'))
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Ver detalhes da ordem #1' }))
   assert.ok(await screen.findByRole('dialog', { name: 'Detalhes da ordem #1' }))

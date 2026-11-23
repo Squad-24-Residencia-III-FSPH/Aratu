@@ -4,22 +4,22 @@ import {
 } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
 import VisibilityIcon from '@mui/icons-material/Visibility'
-import { useAuth } from '../auth/useAuth'
-import { resolveProfile } from '../auth/profiles'
-import { useTripConfirmations } from '../hooks/useTripConfirmations'
-import ConfirmDialog from '../components/ui/ConfirmDialog'
-import DataTable from '../components/ui/DataTable'
-import type { DataTableColumn } from '../components/ui/DataTable'
-import FilterBar from '../components/ui/FilterBar'
-import { FormField, FormSelect } from '../components/ui/FormField'
-import PageHeader from '../components/ui/PageHeader'
-import StateFeedback from '../components/ui/StateFeedback'
-import StatusChip from '../components/ui/StatusChip'
+import { useAuth } from '../../auth/useAuth'
+import { resolveProfile } from '../../auth/profiles'
+import { useTripConfirmations } from '../../hooks/useTripConfirmations'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import DataTable from '../../components/ui/DataTable'
+import type { DataTableColumn } from '../../components/ui/DataTable'
+import FilterBar from '../../components/ui/FilterBar'
+import { FormField, FormSelect } from '../../components/ui/FormField'
+import PageHeader from '../../components/ui/PageHeader'
+import StateFeedback from '../../components/ui/StateFeedback'
+import StatusChip from '../../components/ui/StatusChip'
 import {
   canConfirmTrip, confirmationFilterOptions, filterConfirmationTrips, formatTripInstant,
   formatTripOdometer, tripDistance,
-} from '../trips/tripConfirmationPresentation'
-import type { TripConfirmationItem } from '../trips/tripConfirmationTypes'
+} from '../../trips/tripConfirmationPresentation'
+import type { TripConfirmationItem } from '../../trips/tripConfirmationTypes'
 
 const NUMBER_FORMAT = new Intl.NumberFormat('pt-BR')
 
@@ -91,7 +91,6 @@ export default function TripConfirmationPage() {
     <Box>
       <PageHeader
         title="Confirmar viagens"
-        titleVariant="h4"
         breadcrumbs={['Início', 'Viagens', 'Conferência']}
         description="Confira os registros das viagens finalizadas antes de confirmar a conclusão."
       />
@@ -107,7 +106,7 @@ export default function TripConfirmationPage() {
             <FormField label="De" type="date" value={from} onChange={setFrom} />
           </Box>
           <Box sx={{ flex: '1 1 170px', minWidth: { xs: '100%', sm: 170 } }}>
-            <FormField label="Até" type="date" value={to} onChange={setTo} helperText="Data final inclusiva." />
+            <FormField label="Até" type="date" value={to} onChange={setTo} />
           </Box>
           <Box sx={{ flex: '1 1 190px', minWidth: { xs: '100%', sm: 190 } }}>
             <FormSelect label="Veículo" value={vehicle} onChange={setVehicle} options={vehicleOptions} emptyLabel="Todos os veículos" />

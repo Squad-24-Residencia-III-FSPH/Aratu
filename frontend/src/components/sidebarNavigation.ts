@@ -1,4 +1,4 @@
-import { PROFILE_HOMES, PROFILE_PERMISSIONS_PATH } from '../auth/profiles.ts'
+import { GESTOR_DASHBOARD_PATH, PROFILE_HOMES, PROFILE_PERMISSIONS_PATH } from '../auth/profiles.ts'
 import type { Profile } from '../auth/profiles.ts'
 import { VEHICLES_PATH } from '../vehicles/vehicleAccess.ts'
 import { MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
@@ -8,8 +8,10 @@ import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
 import { SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
 import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
 import { SVO_ORDERS_PATH, SVO_TEAM_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
+import { SVO_OCCURRENCES_PATH } from '../svo/svoOccurrenceTypes.ts'
 import { REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 import { REPORTS_PATH } from '../reports/reportTypes.ts'
+import { AUDIT_PATH } from '../services/auditLogs.ts'
 
 export type SidebarIconName =
   | 'home'
@@ -65,6 +67,7 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
       path: PROFILE_PERMISSIONS_PATH,
     },
     { label: 'Tipos de serviço', icon: 'serviceTypes', behavior: 'link', path: SERVICE_TYPES_PATH },
+    { label: 'Solicitações SVO', icon: 'requests', behavior: 'link', path: SVO_OCCURRENCES_PATH },
     {
       label: 'Veículos',
       icon: 'vehicles',
@@ -75,7 +78,7 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
     { label: 'Manutenção', icon: 'maintenance', behavior: 'link', path: MAINTENANCE_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
     { label: 'Abastecimentos', icon: 'fuel', behavior: 'link', path: FUELINGS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
     { label: 'Motoristas', icon: 'drivers', behavior: 'link', path: DRIVERS_PATH },
-    { label: 'Auditoria', icon: 'audit', behavior: 'static' },
+    { label: 'Auditoria', icon: 'audit', behavior: 'link', path: AUDIT_PATH, profiles: ['ADMINISTRADOR'] },
     { label: 'Relatórios', icon: 'reports', behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] },
     { label: 'Configurações', icon: 'settings', behavior: 'static' },
   ],
@@ -103,6 +106,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
         { label: 'Viagens', icon: 'trips', behavior: 'button' },
         { label: 'Ordens da equipe', icon: 'requests', behavior: 'link', path: SVO_TEAM_ORDERS_PATH, profiles: ['EQUIPE_SVO'] },
         { label: 'Acompanhamento de ordens', icon: 'requests', behavior: 'link', path: SVO_ORDERS_PATH, profiles: ['ATENDENTE_SVO', 'GESTOR'] },
+        { label: 'Solicitações SVO', icon: 'requests', behavior: 'link', path: SVO_OCCURRENCES_PATH, profiles: ['ATENDENTE_SVO'] },
         { label: 'Confirmar viagens', icon: 'confirmTrips', behavior: 'link', path: TRIP_CONFIRMATION_PATH, profiles: ['GESTOR'] },
       ],
     },
@@ -136,9 +140,9 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
       label: 'GESTÃO',
       spaced: true,
       items: [
-        { label: 'Dashboard', icon: 'dashboard', behavior: 'button' },
+        { label: 'Dashboard', icon: 'dashboard', behavior: 'link', path: GESTOR_DASHBOARD_PATH, profiles: ['GESTOR'] },
         { label: 'Relatórios', icon: 'reports', behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] },
-        { label: 'Auditoria', icon: 'audit', behavior: 'button' },
+        { label: 'Auditoria', icon: 'audit', behavior: 'link', path: AUDIT_PATH, profiles: ['GESTOR'] },
       ],
     },
   ],
@@ -171,9 +175,15 @@ export function getSidebarNavigation(profile: Profile | null): SidebarNavigation
   const allowed = (item: SidebarMenuItem) =>
     item.profiles === undefined || (profile !== null && item.profiles.includes(profile));
 
+  const topItems = profile === 'GESTOR'
+    ? navigation.topItems.map((item) => item.label === 'Início'
+      ? { ...item, behavior: 'link' as const, path: PROFILE_HOMES.GESTOR.path }
+      : item)
+    : navigation.topItems;
+
   return {
     ...navigation,
-    topItems: navigation.topItems.filter(allowed),
+    topItems: topItems.filter(allowed),
     sections: navigation.sections
       .map((section) => ({ ...section, items: section.items.filter(allowed) }))
       .filter((section) => section.items.length > 0),

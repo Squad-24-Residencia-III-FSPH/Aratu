@@ -16,6 +16,7 @@ test('links de ordens SVO aparecem somente para seus respectivos perfis', () => 
     const items = [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items)]
     assert.equal(items.some((item) => item.path === '/svo/ordens'), profile === 'EQUIPE_SVO')
     assert.equal(items.some((item) => item.path === '/svo/acompanhamento'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR')
+    assert.equal(items.some((item) => item.path === '/svo/solicitacoes'), profile === 'ATENDENTE_SVO' || profile === 'ADMINISTRADOR')
   }
 })
 
@@ -27,6 +28,7 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     'Usuários',
     'Perfis e Permissões',
     'Tipos de serviço',
+    'Solicitações SVO',
     'Veículos',
     'Manutenção',
     'Abastecimentos',
@@ -44,10 +46,12 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
       { label: 'Usuários', path: '/administracao/usuarios' },
       { label: 'Perfis e Permissões', path: '/administracao/perfis' },
       { label: 'Tipos de serviço', path: '/tipos-de-servico' },
+      { label: 'Solicitações SVO', path: '/svo/solicitacoes' },
       { label: 'Veículos', path: '/veiculos' },
       { label: 'Manutenção', path: '/maintenance-orders' },
       { label: 'Abastecimentos', path: '/abastecimentos' },
       { label: 'Motoristas', path: '/motoristas' },
+      { label: 'Auditoria', path: '/auditoria' },
       { label: 'Relatórios', path: '/relatorios' },
     ],
   )
@@ -56,9 +60,10 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
   assert.equal(navigation.topItems[5].behavior, 'link')
   assert.equal(navigation.topItems[6].behavior, 'link')
   assert.equal(navigation.topItems[7].behavior, 'link')
-  assert.equal(navigation.topItems[8].behavior, 'static')
+  assert.equal(navigation.topItems[8].behavior, 'link')
   assert.equal(navigation.topItems[9].behavior, 'link')
-  assert.equal(navigation.topItems[10].behavior, 'static')
+  assert.equal(navigation.topItems[10].behavior, 'link')
+  assert.equal(navigation.topItems[11].behavior, 'static')
   assert.equal(navigation.footerItems[0].behavior, 'static')
   assert.equal(navigation.showDividerAfterTop, false)
 })
@@ -113,6 +118,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
   assert.deepEqual({ behavior: svoTracking.behavior, path: svoTracking.path }, { behavior: 'link', path: '/svo/acompanhamento' })
 
   const linkLabels = new Set([
+    'Início',
     'Relatórios',
     'Acompanhamento de ordens',
     'Confirmar viagens',
@@ -123,6 +129,8 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'Manutenção',
     'Abastecimentos',
     'Analisar solicitações',
+    'Dashboard',
+    'Auditoria',
   ])
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]

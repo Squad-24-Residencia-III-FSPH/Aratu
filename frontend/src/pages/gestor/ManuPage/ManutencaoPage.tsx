@@ -133,7 +133,6 @@ export default function MaintenancePage() {
                 type="datetime-local" 
                 value={values.from}
                 onChange={from => setValues({ ...values, from })} 
-                helperText="Horário local deste dispositivo." 
               />
             </Box>
             <Box sx={{ flex: { xs: 'none', md: '1 1 220px' }, minWidth: 0 }}>
@@ -142,12 +141,11 @@ export default function MaintenancePage() {
                 type="datetime-local" 
                 value={values.to}
                 onChange={to => setValues({ ...values, to })} 
-                helperText="Limite final não incluído; horário local." 
               />
             </Box>
-            <Button variant="outlined" onClick={applyFilters}>Aplicar filtros</Button>
-            <Button onClick={() => { setValues({ vehicleId: '', type: '', status: '', from: '', to: '' }); setFilters({}); setFilterError(''); state.reload() }}>Limpar filtros</Button>
-            <Button onClick={state.reload}>Atualizar</Button>
+            <Button variant="contained" onClick={applyFilters}>Aplicar filtros</Button>
+            <Button variant="outlined" onClick={() => { setValues({ vehicleId: '', type: '', status: '', from: '', to: '' }); setFilters({}); setFilterError(''); state.reload() }}>Limpar filtros</Button>
+            <Button variant="outlined" onClick={state.reload}>Atualizar</Button>
           </FilterBar>
 
           {filterError && <Alert severity="error" role="alert" sx={{ mb: 2 }}>{filterError}</Alert>}

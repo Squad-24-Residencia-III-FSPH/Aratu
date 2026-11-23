@@ -49,8 +49,8 @@ export default function PageHeader({
           {eyebrow}
         </Typography>
       )}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-        <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
           <Typography component="h1" variant={titleVariant} sx={[{ fontWeight: 700 }, ...(Array.isArray(titleSx) ? titleSx : titleSx ? [titleSx] : [])]}>
             {title}
           </Typography>
@@ -60,7 +60,7 @@ export default function PageHeader({
             </Typography>
           )}
         </Box>
-        {actions && <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>{actions}</Box>}
+        {actions && <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', minWidth: 0, maxWidth: '100%' }}>{actions}</Box>}
       </Box>
     </Box>
   )

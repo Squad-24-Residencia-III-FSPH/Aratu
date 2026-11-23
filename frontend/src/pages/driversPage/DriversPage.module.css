@@ -1,0 +1,10 @@
+.page {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+}

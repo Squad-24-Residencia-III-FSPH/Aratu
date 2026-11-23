@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Revisão pós-correção — US17 — PR 97</title>
+  <style>
+    :root { --brand:#4f46e5; --ink:#0f172a; --muted:#334155; --bg:#f8fafc; --card:#fff; --line:#cbd5e1; }
+    * { box-sizing:border-box; }
+    body { max-width:960px; margin:40px auto; padding:0 28px 60px; color:var(--ink); background:var(--bg); font:16px/1.7 system-ui,sans-serif; }
+    h1 { border-bottom:3px solid var(--brand); padding-bottom:10px; line-height:1.3; }
+    h2 { margin:2rem 0 .6rem; padding-left:12px; border-left:4px solid var(--brand); color:#3730a3; font-size:1.2rem; }
+    p, ul { margin:.6rem 0; }
+    li { margin:.35rem 0; }
+    .meta,.verdict,.card { margin:16px 0; padding:14px 18px; border:1px solid var(--line); border-radius:6px; background:var(--card); }
+    .meta { background:#eef2ff; border-color:#c7d2fe; }
+    .verdict { border-left:5px solid #d97706; background:#fffbeb; color:#78350f; font-weight:600; }
+    table { width:100%; margin:12px 0; border-collapse:collapse; background:var(--card); }
+    th,td { border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top; }
+    th { background:#3730a3; color:white; }
+    code { padding:1px 5px; border:1px solid #cbd5e1; border-radius:4px; background:#f1f5f9; font-family:ui-monospace,monospace; }
+    a { color:#3730a3; }
+  </style>
+</head>
+<body>
+  <h1>Revisão pós-correção — US17: Registrar solicitação SVO — PR 97</h1>
+  <div class="meta">
+    <p><strong>Branch:</strong> <code>feat/US17-registrar-solicitacao-svo</code> · base <code>develop</code></p>
+    <p><strong>SDD:</strong> <code>docs/plans/us17-registrar-solicitacao-svo.html</code></p>
+    <p><strong>Decisão de escopo:</strong> o usuário confirmou manter o SDD; triagem clínica fica fora desta entrega.</p>
+    <p><strong>Estado deste relatório:</strong> correções preparadas localmente; ainda não commitadas nem enviadas ao PR.</p>
+  </div>
+  <div class="verdict">Parecer: correções funcionais concluídas e exceção de tamanho aprovada. Após enviar o commit corrigido, aguardar CI verde antes do merge.</div>
+
+  <h2>Correções aplicadas</h2>
+  <ul>
+    <li>Removida da branch a triagem clínica não aprovada: tela, chamadas, tipos, rota, persistência, migration e testes específicos. O backend e o banco ficam iguais à base do PR.</li>
+    <li>A confirmação técnica volta a usar o endpoint existente com corpo vazio, sem exigir ou gravar formulário clínico.</li>
+    <li>Detalhes de ocorrências <code>CONFIRMED</code> continuam consultáveis, exibindo os dados recebidos. A ação de confirmar aparece apenas em <code>PENDING</code>.</li>
+    <li>Atualizados os testes de detalhe, serviço, rotas e menu; corrigidas as expectativas de posição dos itens do menu administrativo.</li>
+  </ul>
+
+  <h2>Achados e pendências</h2>
+  <table>
+    <thead><tr><th>Item</th><th>Status</th><th>Observação</th></tr></thead>
+    <tbody>
+      <tr><td>Escopo clínico fora do SDD</td><td>Corrigido</td><td>Sem tela, rota, migration ou alteração de backend para triagem.</td></tr>
+      <tr><td>Detalhes de registros confirmados</td><td>Corrigido</td><td>Dados seguem visíveis sem liberar nova confirmação ou edição.</td></tr>
+      <tr><td>Limite de diff do SDD (&lt; 400 linhas)</td><td>Exceção aprovada</td><td>O usuário autorizou manter a US17 em um PR único apesar das aproximadamente 1.463 linhas adicionadas. A exceção foi registrada no SDD e não amplia o escopo funcional.</td></tr>
+      <tr><td>CI com o conteúdo corrigido</td><td>Pendente</td><td>A branch remota ainda contém o commit anterior; CI deve ser executado depois de enviar o commit corrigido.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Verificações locais</h2>
+  <table>
+    <thead><tr><th>Comando</th><th>Resultado</th></tr></thead>
+    <tbody>
+      <tr><td><code>npm test</code> (frontend)</td><td>41 testes passaram, 0 falharam.</td></tr>
+      <tr><td><code>npm run lint</code> (frontend)</td><td>Passou.</td></tr>
+      <tr><td><code>npx tsc --noEmit</code> (backend)</td><td>Passou.</td></tr>
+      <tr><td><code>git diff --check</code></td><td>Passou.</td></tr>
+      <tr><td><code>npm run build</code> / TypeScript frontend</td><td>Não passou localmente: faltam <code>@mui/x-charts/BarChart</code> e <code>PieChart</code> em <code>frontend/node_modules</code>; os erros estão em <code>DashboardPage.tsx</code>, fora do diff. A instalação local não está completa para essa dependência.</td></tr>
+    </tbody>
+  </table>
+  <p>A aprovação do PR e o merge ainda não foram realizados. Recomenda-se confirmar o critério do SDD, enviar o commit corrigido e acompanhar os checks do GitHub antes do merge.</p>
+</body>
+</html>

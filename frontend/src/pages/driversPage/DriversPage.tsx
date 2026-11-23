@@ -12,24 +12,24 @@ import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined'
 import EditOutlined from '@mui/icons-material/EditOutlined'
 import BlockOutlined from '@mui/icons-material/BlockOutlined'
 import ReplayOutlined from '@mui/icons-material/ReplayOutlined'
-import { useAuth } from '../auth/useAuth'
-import { resolveProfile } from '../auth/profiles'
-import PageHeader from '../components/ui/PageHeader'
-import FilterBar from '../components/ui/FilterBar'
-import { FormField, FormSelect } from '../components/ui/FormField'
-import DataTable from '../components/ui/DataTable'
-import type { DataTableColumn } from '../components/ui/DataTable'
-import StateFeedback from '../components/ui/StateFeedback'
-import StatusChip from '../components/ui/StatusChip'
-import { canReadDrivers, canWriteDrivers } from '../drivers/driverAccess'
-import { cnhValidity, formatIsoDate } from '../drivers/driverForm'
-import { DRIVER_STATUS_LABELS, DRIVER_STATUS_OPTIONS, DRIVER_STATUS_TONES } from '../drivers/driverStatus'
-import { CNH_CATEGORIES } from '../drivers/driverTypes'
-import type { Driver, DriverStatus } from '../drivers/driverTypes'
-import { getDriver, listDrivers } from '../services/driversService'
-import DriverDetailsDialog from './driversPage/DriverDetailsDialog'
-import DriverFormDialog from './driversPage/DriverFormDialog'
-import DriverStatusDialog from './driversPage/DriverStatusDialog'
+import { useAuth } from '../../auth/useAuth'
+import { resolveProfile } from '../../auth/profiles'
+import PageHeader from '../../components/ui/PageHeader'
+import FilterBar from '../../components/ui/FilterBar'
+import { FormField, FormSelect } from '../../components/ui/FormField'
+import DataTable from '../../components/ui/DataTable'
+import type { DataTableColumn } from '../../components/ui/DataTable'
+import StateFeedback from '../../components/ui/StateFeedback'
+import StatusChip from '../../components/ui/StatusChip'
+import { canReadDrivers, canWriteDrivers } from '../../drivers/driverAccess'
+import { cnhValidity, formatIsoDate } from '../../drivers/driverForm'
+import { DRIVER_STATUS_LABELS, DRIVER_STATUS_OPTIONS, DRIVER_STATUS_TONES } from '../../drivers/driverStatus'
+import { CNH_CATEGORIES } from '../../drivers/driverTypes'
+import type { Driver, DriverStatus } from '../../drivers/driverTypes'
+import { getDriver, listDrivers } from '../../services/driversService'
+import DriverDetailsDialog from './DriverDetailsDialog'
+import DriverFormDialog from './DriverFormDialog'
+import DriverStatusDialog from './DriverStatusDialog'
 import styles from './DriversPage.module.css'
 
 type FormDialogState = { mode: 'create' } | { mode: 'edit'; driver: Driver }
@@ -194,10 +194,7 @@ export default function DriversPage() {
     <Box className={styles.page}>
       <PageHeader
         title="Motoristas"
-        titleVariant="h4"
-        titleSx={{ color: '#0f172a', fontSize: { xs: '1.5rem', sm: '2rem' } }}
         breadcrumbs={['Início', 'Motoristas']}
-        breadcrumbsSx={{ mb: 2, color: '#64748b', fontSize: '0.85rem' }}
         actions={canWrite
           ? (
               <Button
@@ -258,7 +255,7 @@ export default function DriversPage() {
                 />
               </Box>
               {filtersActive && (
-                <Button onClick={clearFilters} sx={{ minHeight: 44, color: '#1e293b' }}>
+                <Button onClick={clearFilters} sx={{ minHeight: 44 }}>
                   Limpar filtros
                 </Button>
               )}
@@ -301,7 +298,6 @@ export default function DriversPage() {
                   actionsWidth={220}
                   containerClassName={styles.tableContainer}
                   paperSx={{ border: 0, boxShadow: 'none', borderRadius: 0 }}
-                  headerCellSx={{ backgroundColor: '#f8fafc', color: '#64748b', fontSize: '0.8rem', py: 1.75 }}
                   renderActions={(driver) => (
                     <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
                       <IconButton

@@ -243,6 +243,28 @@ Na interface, `/svo/ordens` abre com o recorte inicial **Ativas** (filtrando loc
 
 Ver [SDD FROTA-122](docs/plans/frota-122-registrar-resultado-svo.html) e [documentação SVO](docs/modulos/SVO.html#results).
 
+## Consulta de auditoria (FROTA-141 / FROTA-140)
+
+`GET /audit-logs?from=&to=&userId=&operation=&table=&page=&pageSize=`, com JWT Bearer de `GESTOR` ou `ADMINISTRADOR` (conta revalidada; demais perfis `403`, sem token `401`). Somente leitura: não existem rotas de criação, edição ou exclusão (`PUT`, `PATCH`, `DELETE` respondem `404`).
+
+Resposta `200`: `{ logs: [{ id, registeredAt, userId, actorName, operation, table, recordId, reason, before, after, actorSnapshot, sensitiveDataHidden }], total, page, pageSize, totalPages }`, do mais recente para o mais antigo. Filtros opcionais: `from` (incluído) e `to` (excluído) em `AAAA-MM-DD` no fuso `America/Maceio`, até 366 dias; `userId`; `operation` (ex.: `CREATE`, `STATUS_CHANGE`, `LOGIN_SUCCESS`); `table` (ex.: `fleet.vehicles`); `page` e `pageSize` (padrão 20, máximo 100). Filtro inválido retorna `400 { "erro": "..." }`.
+
+Proteção de dados: CPF vira `***.***.***-NN`, o número da CNH mostra só os 2 últimos dígitos e campos de senha, hash, token e segredo são removidos em qualquer nível do JSON. Registros de tabelas `svo.*` trazem `before` e `after` nulos com `sensitiveDataHidden: true`, mantendo visíveis quem fez, o quê e quando. A máscara vale só para a resposta; o histórico gravado não é alterado.
+
+Testes: `cd backend`, `npx tsx --test tests/audit-logs.service.test.ts` e `npx tsx --test --test-concurrency=1 tests/audit-logs.integration.test.ts`, exclusivamente em banco de testes.
+## Dashboard gerencial (FROTA-128 / FROTA-129 / FROTA-131)
+
+Indicadores calculados no PostgreSQL, restritos a `GESTOR` e `ADMINISTRADOR` (com revalidação da conta). A definição de cada indicador (fórmula, fonte, perfil e pendências) está em [indicadores-dashboard.md](docs/manuais/indicadores-dashboard.md).
+
+| Método e endpoint | Resultado |
+|---|---|
+| `GET /dashboard/summary` | `200` com o retrato atual: `fleet` (disponíveis, em manutenção, inativos, total), `pendingRequests`, `tripsToConfirm`, `documents` (`expiring`, `expired`, `alertDays`) e `svo` (`ordersInProgress`, ocupação dos veículos SVO). |
+| `GET /dashboard/indicators?from=&to=&vehicleId=` | `200` com `vehicles` (viagens, km, litros, gasto com combustível, consumo km/L e gasto com manutenção por veículo), `totals`, `svo` (ordens abertas, coletadas e tempo médio até a coleta) e `pendingValidation`. |
+
+O período é obrigatório em `/indicators`: `from` incluído e `to` excluído, `AAAA-MM-DD` no fuso `America/Maceio`, até 366 dias (ex.: `?from=2026-11-01&to=2026-12-01` cobre novembro). Período ou `vehicleId` inválido retorna `400 { "erro": "..." }`; veículo inexistente, `404`. Viagens contam pelo término (`FINISHED`/`CONFIRMED`), abastecimentos vigentes pela data do abastecimento, manutenções `DONE` pelo fechamento e ordens SVO pela abertura. Consumo km/L e tempo até a coleta são propostas ainda não validadas pelo cliente e aparecem em `pendingValidation`.
+
+Testes: `cd backend`, `npx tsx --test tests/dashboard.service.test.ts` e `npx tsx --test --test-concurrency=1 tests/dashboard.integration.test.ts`, exclusivamente em banco de testes. A tela pertence à FROTA-130.
+
 ## Padrão de commits
 
 Será utilizado um padrão inspirado em Conventional Commits.

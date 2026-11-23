@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Box, Button, Stack, TablePagination, Typography } from '@mui/material'
-import PageHeader from '../components/ui/PageHeader'
-import DataTable from '../components/ui/DataTable'
-import FilterBar from '../components/ui/FilterBar'
-import { FormField } from '../components/ui/FormField'
-import StateFeedback from '../components/ui/StateFeedback'
-import StatusChip from '../components/ui/StatusChip'
-import ConfirmDialog from '../components/ui/ConfirmDialog'
-import RequestDetailsPanel from '../components/RequestDetailsPanel'
-import { useAuth } from '../auth/useAuth'
-import { decideRequest, listRequests } from '../services/requestsService'
-import type { PaginatedRequests, RequestListFilters, RequestSummary } from '../requests/requestTypes'
-import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONES } from '../requests/requestPresentation'
-import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess'
-import { accessibleControls } from '../components/ui/accessibleControls'
-import { formatCalendarDate } from '../utils/dates'
+import PageHeader from '../../components/ui/PageHeader'
+import DataTable from '../../components/ui/DataTable'
+import FilterBar from '../../components/ui/FilterBar'
+import { FormField } from '../../components/ui/FormField'
+import StateFeedback from '../../components/ui/StateFeedback'
+import StatusChip from '../../components/ui/StatusChip'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import RequestDetailsPanel from '../../components/RequestDetailsPanel'
+import { useAuth } from '../../auth/useAuth'
+import { decideRequest, listRequests } from '../../services/requestsService'
+import type { PaginatedRequests, RequestListFilters, RequestSummary } from '../../requests/requestTypes'
+import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONES } from '../../requests/requestPresentation'
+import { TRIP_SCHEDULING_PATH } from '../../trips/tripSchedulingAccess'
+import { accessibleControls } from '../../components/ui/accessibleControls'
+import { formatCalendarDate } from '../../utils/dates'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 const EMPTY_FILTERS: RequestListFilters = { status: 'PENDING', page: 1, pageSize: 20 }
@@ -123,7 +123,7 @@ export default function RequestAnalysisPage() {
   ] as const
 
   return (
-    <Box sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 4, ...accessibleControls }}>
+    <Box sx={{ minWidth: 0, ...accessibleControls }}>
       <PageHeader title="Análise de solicitações" description="Revise os dados antes de aprovar ou rejeitar uma viagem." />
 
       <FilterBar label="Filtros das solicitações pendentes">
