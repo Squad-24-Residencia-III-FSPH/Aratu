@@ -76,6 +76,7 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
   const [serviceAssignments, setServiceAssignments] = useState<FleetServiceAssignmentSnapshot[] | null>(null)
   const [serviceLoadError, setServiceLoadError] = useState<string | null>(null)
   const [serviceReload, setServiceReload] = useState(0)
+  const [serviceConflict, setServiceConflict] = useState(false)
   const [serviceIds, setServiceIds] = useState<string[]>([])
   const [persistedVehicle, setPersistedVehicle] = useState<Vehicle | null>(null)
   const [vehicleAttributesChanged, setVehicleAttributesChanged] = useState(true)
@@ -90,6 +91,7 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
       .then((snapshot) => {
         if (!current) return
         setServiceAssignments(snapshot)
+        setServiceConflict(false)
         setServiceIds(editingVehicleId
           ? snapshot.filter(({ vehicleIds }) => vehicleIds.includes(editingVehicleId)).map(({ service }) => service.id)
           : [])
@@ -148,16 +150,17 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
         setVehicleAttributesChanged(false)
       }
 
-      const latestAssignments = await listFleetServiceAssignments(props.api)
-      const failedServices = await saveFleetServiceAssignments(
+      const result = await saveFleetServiceAssignments(
         props.api,
         savedVehicle.id,
         serviceIds,
-        latestAssignments,
+        serviceAssignments,
         values.reason.trim(),
       )
-      if (failedServices.length > 0) {
-        const message = `O veículo foi salvo, mas não foi possível atualizar estes tipos de serviço: ${failedServices.join(', ')}. Revise a seleção e tente salvar novamente.`
+      setServiceAssignments(result.snapshot)
+      if (result.failedServices.length > 0) {
+        setServiceConflict(true)
+        const message = `O veículo foi salvo, mas houve conflito ao atualizar estes tipos de serviço: ${result.failedServices.join(', ')}. Recarregue a seleção, revise os vínculos atuais e salve novamente.`
         setSubmitError(message)
         props.onPartialSaved(savedVehicle, message)
         return
@@ -205,7 +208,23 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
       <Box component="form" onSubmit={handleSubmit} noValidate>
         <DialogTitle id={titleId}>{title}</DialogTitle>
         <DialogContent dividers>
-          {submitError && <Alert severity="error" sx={{ mb: 2 }}>{submitError}</Alert>}
+          {submitError && (
+            <Alert
+              severity="error"
+              sx={{ mb: 2 }}
+              action={serviceConflict ? (
+                <Button color="inherit" onClick={() => {
+                  setSubmitError(null)
+                  setServiceConflict(false)
+                  setServiceReload((value) => value + 1)
+                }}>
+                  Recarregar seleção
+                </Button>
+              ) : undefined}
+            >
+              {submitError}
+            </Alert>
+          )}
           <Stack spacing={2} sx={{ mt: 0.5 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <FormField

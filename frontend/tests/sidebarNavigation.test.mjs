@@ -16,6 +16,7 @@ test('links de ordens SVO aparecem somente para seus respectivos perfis', () => 
     const items = [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items)]
     assert.equal(items.some((item) => item.path === '/svo/ordens'), profile === 'EQUIPE_SVO')
     assert.equal(items.some((item) => item.path === '/svo/acompanhamento'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR')
+    assert.equal(items.some((item) => item.path === '/svo/solicitacoes'), profile === 'ATENDENTE_SVO' || profile === 'ADMINISTRADOR')
   }
 })
 
@@ -26,6 +27,8 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     'Início',
     'Usuários',
     'Perfis e Permissões',
+    'Tipos de serviço',
+    'Solicitações SVO',
     'Veículos',
     'Manutenção',
     'Abastecimentos',
@@ -42,21 +45,25 @@ test('ADMINISTRADOR recebe o menu administrativo e Ajuda compartilhada', () => {
     [
       { label: 'Usuários', path: '/administracao/usuarios' },
       { label: 'Perfis e Permissões', path: '/administracao/perfis' },
+      { label: 'Tipos de serviço', path: '/tipos-de-servico' },
+      { label: 'Solicitações SVO', path: '/svo/solicitacoes' },
       { label: 'Veículos', path: '/veiculos' },
       { label: 'Manutenção', path: '/maintenance-orders' },
       { label: 'Abastecimentos', path: '/abastecimentos' },
       { label: 'Motoristas', path: '/motoristas' },
+      { label: 'Auditoria', path: '/auditoria' },
       { label: 'Relatórios', path: '/relatorios' },
     ],
   )
   assert.equal(navigation.topItems[0].behavior, 'static')
-  assert.equal(navigation.topItems[3].behavior, 'link')
   assert.equal(navigation.topItems[4].behavior, 'link')
   assert.equal(navigation.topItems[5].behavior, 'link')
   assert.equal(navigation.topItems[6].behavior, 'link')
-  assert.equal(navigation.topItems[7].behavior, 'static')
+  assert.equal(navigation.topItems[7].behavior, 'link')
   assert.equal(navigation.topItems[8].behavior, 'link')
-  assert.equal(navigation.topItems[9].behavior, 'static')
+  assert.equal(navigation.topItems[9].behavior, 'link')
+  assert.equal(navigation.topItems[10].behavior, 'link')
+  assert.equal(navigation.topItems[11].behavior, 'static')
   assert.equal(navigation.footerItems[0].behavior, 'static')
   assert.equal(navigation.showDividerAfterTop, false)
 })
@@ -73,6 +80,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'Confirmar viagens',
     'Veículos',
     'Motoristas',
+    'Tipos de serviço',
     'Agendar viagem',
     'Manutenção',
     'Abastecimentos',
@@ -89,7 +97,6 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'CONTROLE',
     'GESTÃO',
   ])
-  assert.equal(getLabels(navigation).includes('Tipos de serviço'), false)
   const vehicles = navigation.sections
     .flatMap((section) => section.items)
     .find((item) => item.label === 'Veículos')
@@ -123,6 +130,7 @@ test('GESTOR mantém os itens, grupos e Ajuda do menu operacional', () => {
     'Abastecimentos',
     'Analisar solicitações',
     'Dashboard',
+    'Auditoria',
   ])
   assert.ok(
     [...navigation.topItems, ...navigation.sections.flatMap((section) => section.items), ...navigation.footerItems]

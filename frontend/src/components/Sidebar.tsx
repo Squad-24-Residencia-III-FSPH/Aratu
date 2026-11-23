@@ -52,6 +52,7 @@ const icons: Record<SidebarIconName, SvgIconComponent> = {
   confirmTrips: CheckCircle,
   vehicles: DirectionsCar,
   drivers: Person,
+  serviceTypes: Assignment,
   maintenance: Build,
   fuel: LocalGasStation,
   documents: Description,

@@ -26,6 +26,11 @@ export interface FleetServiceAssignmentSnapshot {
   vehicleIds: string[]
 }
 
+export interface FleetServiceAssignmentSaveResult {
+  snapshot: FleetServiceAssignmentSnapshot[]
+  failedServices: string[]
+}
+
 export type FleetServiceErrorKind = 'validation' | 'forbidden' | 'not-found' | 'conflict' | 'unavailable'
 
 export class FleetServiceRequestError extends Error {
@@ -125,6 +130,45 @@ export async function listFleetServices(api: ApiRequest): Promise<FleetService[]
   })
 }
 
+/** Cadastra um tipo de serviço independente de qualquer veículo. */
+export async function createFleetService(api: ApiRequest, input: {
+  name: string
+  description: string
+  reason: string
+}): Promise<FleetService> {
+  return requestJson(api, '/services', { method: 'POST', ...jsonBody(input) },
+    'Não foi possível cadastrar o tipo de serviço.', parseFleetService)
+}
+
+/** Atualiza os dados do tipo com controle de revisão otimista. */
+export async function updateFleetService(api: ApiRequest, service: FleetService, input: {
+  name: string
+  description: string
+  reason: string
+}): Promise<FleetService> {
+  return requestJson(api, `/services/${encodeURIComponent(service.id)}`, {
+    method: 'PUT',
+    ...jsonBody({
+      ...input,
+      categories: service.categories,
+      requiresTriage: service.requiresTriage,
+      requiresWeight: service.requiresWeight,
+      requiresIdentification: service.requiresIdentification,
+      expectedRevision: service.revision,
+    }),
+  }, 'Não foi possível atualizar o tipo de serviço.', parseFleetService)
+}
+
+/** Altera a situação do tipo mantendo as associações e registrando auditoria. */
+export async function setFleetServiceActive(api: ApiRequest, service: FleetService, active: boolean,
+  reason: string): Promise<FleetService> {
+  const action = active ? 'activate' : 'deactivate'
+  return requestJson(api, `/services/${encodeURIComponent(service.id)}/${action}`, {
+    method: 'PATCH',
+    ...jsonBody({ reason, expectedRevision: service.revision }),
+  }, 'Não foi possível alterar a situação do tipo de serviço.', parseFleetService)
+}
+
 /** Carrega o catálogo e os vínculos vigentes para edição do formulário de veículo. */
 export async function listFleetServiceAssignments(api: ApiRequest): Promise<FleetServiceAssignmentSnapshot[]> {
   const services = await listFleetServices(api)
@@ -157,7 +201,7 @@ export async function replaceCompatibleVehicles(api: ApiRequest, serviceId: stri
 
 /** Atualiza os vínculos alterados e devolve os tipos que falharam para permitir uma nova tentativa. */
 export async function saveFleetServiceAssignments(api: ApiRequest, vehicleId: string,
-  serviceIds: readonly string[], snapshot: readonly FleetServiceAssignmentSnapshot[], reason: string): Promise<string[]> {
+  serviceIds: readonly string[], snapshot: readonly FleetServiceAssignmentSnapshot[], reason: string): Promise<FleetServiceAssignmentSaveResult> {
   const desired = new Set(serviceIds)
   const changes = snapshot.filter(({ service, vehicleIds }) => vehicleIds.includes(vehicleId) !== desired.has(service.id))
   const results = await Promise.allSettled(changes.map(({ service, revision, vehicleIds }) => replaceCompatibleVehicles(
@@ -171,5 +215,26 @@ export async function saveFleetServiceAssignments(api: ApiRequest, vehicleId: st
       reason,
     },
   )))
-  return results.flatMap((result, index) => result.status === 'rejected' ? [changes[index]?.service.name ?? 'Tipo sem identificação'] : [])
+  const nextSnapshot = snapshot.map((entry) => ({ ...entry, vehicleIds: [...entry.vehicleIds] }))
+  const failedServices: string[] = []
+  results.forEach((result, index) => {
+    const change = changes[index]
+    if (!change) return
+    if (result.status === 'rejected') {
+      failedServices.push(change.service.name)
+      return
+    }
+    const snapshotIndex = nextSnapshot.findIndex(({ service }) => service.id === change.service.id)
+    if (snapshotIndex >= 0) {
+      const current = nextSnapshot[snapshotIndex]
+      if (current) {
+        nextSnapshot[snapshotIndex] = {
+          ...current,
+          revision: result.value.revision,
+          vehicleIds: result.value.vehicles.map((vehicle) => vehicle.id),
+        }
+      }
+    }
+  })
+  return { snapshot: nextSnapshot, failedServices }
 }

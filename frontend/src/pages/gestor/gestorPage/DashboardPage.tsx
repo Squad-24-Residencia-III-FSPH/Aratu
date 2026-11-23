@@ -237,6 +237,7 @@ export default function DashboardPage() {
   const [summaryError, setSummaryError] = useState('')
   const [vehiclesError, setVehiclesError] = useState('')
   const [indicatorsError, setIndicatorsError] = useState('')
+  const [comparisonError, setComparisonError] = useState('')
   const [scheduledError, setScheduledError] = useState('')
   const [maintenanceError, setMaintenanceError] = useState('')
   const [refreshVersion, setRefreshVersion] = useState(0)
@@ -298,6 +299,7 @@ export default function DashboardPage() {
       if (!current) return
       setIndicatorsLoading(true)
       setIndicatorsError('')
+      setComparisonError('')
       setIndicators(null)
       setComparisonIndicators(null)
       const currentPeriod = getDashboardIndicators(api, {
@@ -312,10 +314,18 @@ export default function DashboardPage() {
         vehicleId: appliedFilters.vehicleId || undefined,
       })
       try {
-        const [value, previous] = await Promise.all([currentPeriod, previousPeriod])
-        if (current) { setIndicators(value); setComparisonIndicators(previous) }
-      } catch (error: unknown) {
-        if (current) setIndicatorsError(error instanceof Error ? error.message : 'Não foi possível carregar os indicadores do período.')
+        const [value, previous] = await Promise.allSettled([currentPeriod, previousPeriod])
+        if (!current) return
+        if (value.status === 'fulfilled') {
+          setIndicators(value.value)
+        } else {
+          setIndicatorsError(value.reason instanceof Error ? value.reason.message : 'Não foi possível carregar os indicadores do período.')
+        }
+        if (previous.status === 'fulfilled') {
+          setComparisonIndicators(previous.value)
+        } else {
+          setComparisonError(previous.reason instanceof Error ? previous.reason.message : 'Não foi possível carregar o período anterior.')
+        }
       } finally {
         if (current) setIndicatorsLoading(false)
       }
@@ -677,11 +687,20 @@ export default function DashboardPage() {
         </Grid>}
       </Box>
 
-      {indicators && comparisonIndicators && <Box component="section" id="dashboard-comparison" aria-labelledby="comparison-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(180) }}>
+      {indicators && <Box component="section" id="dashboard-comparison" aria-labelledby="comparison-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(180) }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 0.5, mb: 1.5 }}>
           <Typography id="comparison-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>Comparação com o período anterior</Typography>
-          <Typography variant="body2" color="text.secondary">Intervalo anterior com a mesma duração: {formatDate(comparisonIndicators.period.from)} a {formatDate(shiftDate(comparisonIndicators.period.to, -1))}</Typography>
+          {comparisonIndicators && <Typography variant="body2" color="text.secondary">Intervalo anterior com a mesma duração: {formatDate(comparisonIndicators.period.from)} a {formatDate(shiftDate(comparisonIndicators.period.to, -1))}</Typography>}
         </Stack>
+        {comparisonError ? (
+          <StateFeedback
+            kind="error"
+            title="Não foi possível carregar a comparação"
+            description={comparisonError}
+            actionLabel="Tentar novamente"
+            onAction={() => setRefreshVersion((value) => value + 1)}
+          />
+        ) : comparisonIndicators ? (
         <Grid container spacing={2}>
           {[
             { id: 'comparison-trips', title: 'Viagens concluídas', current: indicators.totals.tripsCount, previous: comparisonIndicators.totals.tripsCount },
@@ -700,6 +719,7 @@ export default function DashboardPage() {
             return <Grid key={item.id} size={{ xs: 12, sm: 6, xl: 3 }} sx={dashboardCardMotion}><StatCard title={item.title} value={value} description={description} /></Grid>
           })}
         </Grid>
+        ) : null}
       </Box>}
 
       <Box component="section" id="dashboard-vehicles" aria-labelledby="vehicle-indicators-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(220) }}>

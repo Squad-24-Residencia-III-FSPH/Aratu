@@ -5,10 +5,13 @@ import { MAINTENANCE_PATH } from '../maintenance/maintenanceTypes.ts'
 import { DRIVERS_PATH } from '../drivers/driverAccess.ts'
 import { FUELINGS_PATH } from '../fuelings/fuelingAccess.ts'
 import { TRIP_CONFIRMATION_PATH } from '../trips/tripConfirmationTypes.ts'
+import { SERVICE_TYPES_PATH } from '../services/fleetServicesAccess.ts'
 import { TRIP_SCHEDULING_PATH } from '../trips/tripSchedulingAccess.ts'
 import { SVO_ORDERS_PATH, SVO_TEAM_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
+import { SVO_OCCURRENCES_PATH } from '../svo/svoOccurrenceTypes.ts'
 import { REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 import { REPORTS_PATH } from '../reports/reportTypes.ts'
+import { AUDIT_PATH } from '../services/auditLogs.ts'
 
 export type SidebarIconName =
   | 'home'
@@ -21,6 +24,7 @@ export type SidebarIconName =
   | 'confirmTrips'
   | 'vehicles'
   | 'drivers'
+  | 'serviceTypes'
   | 'maintenance'
   | 'fuel'
   | 'documents'
@@ -62,6 +66,8 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
       behavior: 'link',
       path: PROFILE_PERMISSIONS_PATH,
     },
+    { label: 'Tipos de serviço', icon: 'serviceTypes', behavior: 'link', path: SERVICE_TYPES_PATH },
+    { label: 'Solicitações SVO', icon: 'requests', behavior: 'link', path: SVO_OCCURRENCES_PATH },
     {
       label: 'Veículos',
       icon: 'vehicles',
@@ -72,7 +78,7 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
     { label: 'Manutenção', icon: 'maintenance', behavior: 'link', path: MAINTENANCE_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
     { label: 'Abastecimentos', icon: 'fuel', behavior: 'link', path: FUELINGS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
     { label: 'Motoristas', icon: 'drivers', behavior: 'link', path: DRIVERS_PATH },
-    { label: 'Auditoria', icon: 'audit', behavior: 'static' },
+    { label: 'Auditoria', icon: 'audit', behavior: 'link', path: AUDIT_PATH, profiles: ['ADMINISTRADOR'] },
     { label: 'Relatórios', icon: 'reports', behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] },
     { label: 'Configurações', icon: 'settings', behavior: 'static' },
   ],
@@ -100,6 +106,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
         { label: 'Viagens', icon: 'trips', behavior: 'button' },
         { label: 'Ordens da equipe', icon: 'requests', behavior: 'link', path: SVO_TEAM_ORDERS_PATH, profiles: ['EQUIPE_SVO'] },
         { label: 'Acompanhamento de ordens', icon: 'requests', behavior: 'link', path: SVO_ORDERS_PATH, profiles: ['ATENDENTE_SVO', 'GESTOR'] },
+        { label: 'Solicitações SVO', icon: 'requests', behavior: 'link', path: SVO_OCCURRENCES_PATH, profiles: ['ATENDENTE_SVO'] },
         { label: 'Confirmar viagens', icon: 'confirmTrips', behavior: 'link', path: TRIP_CONFIRMATION_PATH, profiles: ['GESTOR'] },
       ],
     },
@@ -115,6 +122,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
           profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'],
         },
         { label: 'Motoristas', icon: 'drivers', behavior: 'link', path: DRIVERS_PATH, profiles: ['GESTOR'] },
+        { label: 'Tipos de serviço', icon: 'serviceTypes', behavior: 'link', path: SERVICE_TYPES_PATH, profiles: ['GESTOR'] },
         { label: 'Agendar viagem', icon: 'trips', behavior: 'link', path: TRIP_SCHEDULING_PATH, profiles: ['GESTOR'] },
         { label: 'Manutenção', icon: 'maintenance', behavior: 'link', path: MAINTENANCE_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
         { label: 'Abastecimentos', icon: 'fuel', behavior: 'link', path: FUELINGS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
@@ -134,7 +142,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
       items: [
         { label: 'Dashboard', icon: 'dashboard', behavior: 'link', path: GESTOR_DASHBOARD_PATH, profiles: ['GESTOR'] },
         { label: 'Relatórios', icon: 'reports', behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] },
-        { label: 'Auditoria', icon: 'audit', behavior: 'button' },
+        { label: 'Auditoria', icon: 'audit', behavior: 'link', path: AUDIT_PATH, profiles: ['GESTOR'] },
       ],
     },
   ],
