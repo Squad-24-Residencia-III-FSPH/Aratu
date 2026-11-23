@@ -11,6 +11,7 @@ import { SVO_ORDERS_PATH, SVO_TEAM_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
 import { SVO_OCCURRENCES_PATH } from '../svo/svoOccurrenceTypes.ts'
 import { REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 import { REPORTS_PATH } from '../reports/reportTypes.ts'
+import { AUDIT_PATH } from '../services/auditLogs.ts'
 
 export type SidebarIconName =
   | 'home'
@@ -77,7 +78,7 @@ const ADMINISTRATOR_NAVIGATION: SidebarNavigation = {
     { label: 'Manutenção', icon: 'maintenance', behavior: 'link', path: MAINTENANCE_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
     { label: 'Abastecimentos', icon: 'fuel', behavior: 'link', path: FUELINGS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR'] },
     { label: 'Motoristas', icon: 'drivers', behavior: 'link', path: DRIVERS_PATH },
-    { label: 'Auditoria', icon: 'audit', behavior: 'static' },
+    { label: 'Auditoria', icon: 'audit', behavior: 'link', path: AUDIT_PATH, profiles: ['ADMINISTRADOR'] },
     { label: 'Relatórios', icon: 'reports', behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] },
     { label: 'Configurações', icon: 'settings', behavior: 'static' },
   ],
@@ -141,7 +142,7 @@ const OPERATIONAL_NAVIGATION: SidebarNavigation = {
       items: [
         { label: 'Dashboard', icon: 'dashboard', behavior: 'link', path: GESTOR_DASHBOARD_PATH, profiles: ['GESTOR'] },
         { label: 'Relatórios', icon: 'reports', behavior: 'link', path: REPORTS_PATH, profiles: ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] },
-        { label: 'Auditoria', icon: 'audit', behavior: 'button' },
+        { label: 'Auditoria', icon: 'audit', behavior: 'link', path: AUDIT_PATH, profiles: ['GESTOR'] },
       ],
     },
   ],

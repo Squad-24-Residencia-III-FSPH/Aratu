@@ -23,6 +23,7 @@ import SvoTeamOrdersPage from './pages/svoOrdersPage/SvoTeamOrdersPage';
 import SvoOrdersPage from './pages/svoOrdersPage/SvoOrdersPage';
 import RequestAnalysisPage from './pages/requestAnalysisPage/RequestAnalysisPage';
 import ReportsPage from './pages/reportsPage/ReportsPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 import SvoOccurrencesPage from './pages/SvoOccurrencesPage';
 
 function LoginRoute() {
@@ -68,6 +69,7 @@ function PrivateRoute() {
   }
   if (decision.kind === 'maintenance') return <Layout><MaintenancePage /></Layout>;
   if (decision.kind === 'reports') return <Layout><ReportsPage /></Layout>;
+  if (decision.kind === 'audit') return <Layout><AuditLogsPage /></Layout>;
   if (decision.kind === 'svo-occurrences') return <Layout><SvoOccurrencesPage /></Layout>;
   if (decision.kind === 'drivers') {
     return (
