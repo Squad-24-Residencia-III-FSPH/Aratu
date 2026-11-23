@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+﻿import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/layout';
 import GestorPage from './pages/gestor/gestorPage/GestorPage';
 import GestorDashboardPage from './pages/gestor/gestorPage/DashboardPage';
@@ -24,12 +24,16 @@ import SvoOrdersPage from './pages/svoOrdersPage/SvoOrdersPage';
 import RequestAnalysisPage from './pages/requestAnalysisPage/RequestAnalysisPage';
 import ReportsPage from './pages/reportsPage/ReportsPage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import SvoOccurrencesPage from './pages/SvoOccurrencesPage';
 
 function LoginRoute() {
   const { session } = useAuth();
   const { pathname } = useLocation();
   const decision = resolveRoute(session, pathname);
   if (decision.kind === 'login') return <LoginPage />;
+  if (decision.kind === 'svo-occurrences') {
+    return <Navigate to={PROFILE_HOMES[decision.profile].path} replace />;
+  }
   const target = decision.kind === 'redirect' ? decision.to : PROFILE_HOMES[decision.profile].path;
   return <Navigate to={target} replace />;
 }
@@ -66,6 +70,7 @@ function PrivateRoute() {
   if (decision.kind === 'maintenance') return <Layout><MaintenancePage /></Layout>;
   if (decision.kind === 'reports') return <Layout><ReportsPage /></Layout>;
   if (decision.kind === 'audit') return <Layout><AuditLogsPage /></Layout>;
+  if (decision.kind === 'svo-occurrences') return <Layout><SvoOccurrencesPage /></Layout>;
   if (decision.kind === 'drivers') {
     return (
       <Layout>
