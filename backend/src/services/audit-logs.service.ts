@@ -9,6 +9,7 @@ import type { AuditLogsRepositoryContract } from '../repositories/audit-logs.rep
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const ID_PATTERN = /^[1-9]\d{0,18}$/
+const MAX_BIGINT_TEXT = '9223372036854775807'
 const OPERATION_PATTERN = /^[A-Z][A-Z_]{0,63}$/
 const TABLE_PATTERN = /^[a-z][a-z_]*\.[a-z0-9_-]{1,94}$/
 const POSITIVE_INTEGER = /^[1-9]\d{0,8}$/
@@ -48,13 +49,14 @@ export function maskAuditPayload(value: unknown): unknown {
 }
 
 function toView(log: StoredAuditLog): AuditLogView {
-  const hideSnapshots = log.table.startsWith(SVO_TABLE_PREFIX)
+  const sensitiveDataHidden = log.table.startsWith(SVO_TABLE_PREFIX)
   return {
     ...log,
-    before: hideSnapshots ? null : maskAuditPayload(log.before),
-    after: hideSnapshots ? null : maskAuditPayload(log.after),
+    reason: sensitiveDataHidden ? null : log.reason,
+    before: sensitiveDataHidden ? null : maskAuditPayload(log.before),
+    after: sensitiveDataHidden ? null : maskAuditPayload(log.after),
     actorSnapshot: maskAuditPayload(log.actorSnapshot),
-    sensitiveDataHidden: hideSnapshots,
+    sensitiveDataHidden,
   }
 }
 
@@ -62,6 +64,14 @@ function optionalText(value: unknown, pattern: RegExp, message: string): string 
   if (value === undefined) return null
   if (typeof value !== 'string' || !pattern.test(value)) throw new AuditLogsError(400, message)
   return value
+}
+
+function optionalBigIntId(value: unknown, message: string): string | null {
+  const id = optionalText(value, ID_PATTERN, message)
+  if (id !== null && id.length === MAX_BIGINT_TEXT.length && id > MAX_BIGINT_TEXT) {
+    throw new AuditLogsError(400, message)
+  }
+  return id
 }
 
 function optionalDate(value: unknown, field: string): string | null {
@@ -87,8 +97,8 @@ export class AuditLogsService {
   /**
    * Lista registros de auditoria do mais recente para o mais antigo.
    *
-   * Registros de tabelas do SVO devolvem `before`/`after` nulos (`sensitiveDataHidden`), mantendo
-   * visíveis quem fez, o quê e quando.
+   * Registros de tabelas do SVO devolvem `before`, `after` e `reason` nulos (`sensitiveDataHidden`),
+   * mantendo visíveis quem fez, o quê, em qual entidade e quando, sem alterar o histórico gravado.
    *
    * @throws {AuditLogsError} 400 quando algum filtro ou a paginação é inválido.
    */
@@ -113,7 +123,7 @@ export class AuditLogsService {
     return {
       from,
       to,
-      userId: optionalText(query.userId, ID_PATTERN, 'userId deve ser um identificador válido.'),
+      userId: optionalBigIntId(query.userId, 'userId deve ser um identificador válido.'),
       operation: optionalText(query.operation, OPERATION_PATTERN, 'operation deve ser um código em maiúsculas, ex.: CREATE, STATUS_CHANGE.'),
       table: optionalText(query.table, TABLE_PATTERN, 'table deve ser o nome de uma entidade, ex.: fleet.vehicles.'),
       limit: pageSize,
