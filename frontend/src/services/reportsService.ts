@@ -1,6 +1,19 @@
 import type { ApiRequest } from '../api/client'
 import type { ReportCatalogGroup, ReportColumn, ReportPreview, ReportPrintData, ReportSelection } from '../reports/reportTypes.ts'
 
+/** Erro HTTP retornado pelas rotas de relatórios, preservando código de domínio e status. */
+export class ReportApiError extends Error {
+  readonly code?: string
+  readonly status?: number
+
+  constructor(message: string, code?: string, status?: number) {
+    super(message)
+    this.name = 'ReportApiError'
+    this.code = code
+    this.status = status
+  }
+}
+
 function record(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === 'object' && !Array.isArray(value) }
 function columns(value: unknown): value is ReportColumn[] {
   return Array.isArray(value) && value.every(column => record(column) && typeof column.key === 'string' && typeof column.label === 'string'
@@ -10,7 +23,11 @@ async function responseFor(api: ApiRequest, path: string, signal?: AbortSignal):
   const response = await api(path, signal ? { signal } : undefined)
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => null)
-    throw new Error(record(body) && typeof body.erro === 'string' ? body.erro : 'Não foi possível gerar o relatório. Tente novamente.')
+    const errorMessage = record(body) && typeof body.erro === 'string'
+      ? body.erro
+      : 'Não foi possível gerar o relatório. Tente novamente.'
+    const code = record(body) && typeof body.code === 'string' ? body.code : undefined
+    throw new ReportApiError(errorMessage, code, response.status)
   }
   return response
 }
