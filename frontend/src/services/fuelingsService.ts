@@ -1,8 +1,33 @@
 import type { ApiRequest } from '../api/client'
+import { SERVICE_UNAVAILABLE } from '../auth/loginService.ts'
+import { SESSION_EXPIRED } from '../auth/token.ts'
 import { FUEL_TYPES } from '../fuelings/fuelingTypes.ts'
 import type { CreateFuelingInput, FuelingFilters, FuelingList, FuelingVersion, FuelType } from '../fuelings/fuelingTypes.ts'
 
 const INVALID_RESPONSE_MESSAGE = 'A resposta de abastecimentos da API está em um formato inválido.'
+
+/** Erro HTTP da API de abastecimentos preservando o código de status retornado. */
+export class FuelingRequestError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'FuelingRequestError'
+    this.status = status
+  }
+}
+
+/** Indica falha sem resposta conclusiva do servidor (rede, timeout, 5xx ou payload inválido). */
+export function isUncertainFuelingOutcome(error: unknown): boolean {
+  if (error instanceof FuelingRequestError) {
+    return error.status >= 500
+  }
+  if (error instanceof Error) {
+    if (error.message === SESSION_EXPIRED) return false
+    return error.message === SERVICE_UNAVAILABLE || error.message === INVALID_RESPONSE_MESSAGE || error.name !== 'AbortError'
+  }
+  return true
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -14,7 +39,7 @@ function readErrorMessage(body: unknown, fallback: string): string {
 
 async function throwRequestError(response: Response, fallback: string): Promise<never> {
   const body: unknown = await response.json().catch(() => null)
-  throw new Error(readErrorMessage(body, fallback))
+  throw new FuelingRequestError(response.status, readErrorMessage(body, fallback))
 }
 
 function parseFueling(value: unknown): FuelingVersion {
@@ -70,8 +95,12 @@ export function buildFuelingsQuery(filters: FuelingFilters = {}): string {
 }
 
 /** Consulta os abastecimentos e os totais calculados para os filtros aplicados. */
-export async function listFuelings(api: ApiRequest, filters: FuelingFilters = {}): Promise<FuelingList> {
-  const response = await api(`/fuelings${buildFuelingsQuery(filters)}`)
+export async function listFuelings(
+  api: ApiRequest,
+  filters: FuelingFilters = {},
+  signal?: AbortSignal,
+): Promise<FuelingList> {
+  const response = await api(`/fuelings${buildFuelingsQuery(filters)}`, signal ? { signal } : undefined)
   if (!response.ok) await throwRequestError(response, 'Não foi possível carregar os abastecimentos.')
   const body: unknown = await response.json().catch(() => null)
   if (!isRecord(body) || !Array.isArray(body.items)
@@ -91,11 +120,15 @@ export async function listFuelings(api: ApiRequest, filters: FuelingFilters = {}
   }
 }
 
-/** Registra abastecimento enviando a chave exigida para reenvio idempotente. */
-export async function createFueling(api: ApiRequest, input: CreateFuelingInput): Promise<FuelingVersion> {
+/** Registra abastecimento preservando a chave de idempotência fornecida para a intenção de envio. */
+export async function createFueling(
+  api: ApiRequest,
+  input: CreateFuelingInput,
+  idempotencyKey: string = crypto.randomUUID(),
+): Promise<FuelingVersion> {
   const response = await api('/fuelings', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify(input),
   })
   if (!response.ok) await throwRequestError(response, 'Não foi possível registrar o abastecimento.')
