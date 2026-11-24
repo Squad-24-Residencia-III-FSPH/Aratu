@@ -9,6 +9,17 @@ import type {
   UsersPage,
 } from '../users/userTypes'
 
+/** Erro HTTP retornado pelas operações administrativas de usuários. */
+export class UserRequestError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'UserRequestError'
+    this.status = status
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -84,9 +95,25 @@ export async function listUsers(api: ApiRequest, query: UserListQuery = {}): Pro
   const response = await api(`/users${buildUsersQuery(query)}`)
   const body: unknown = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new Error(errorMessage(body, 'Não foi possível carregar os usuários.'))
+    throw new UserRequestError(
+      response.status,
+      errorMessage(body, 'Não foi possível carregar os usuários.'),
+    )
   }
   return parseUsersPage(body)
+}
+
+/** Consulta um usuário específico pelo identificador para conferência ou retomada de revisão. */
+export async function getUserById(api: ApiRequest, id: string): Promise<ManagedUser> {
+  const response = await api(`/users/${encodeURIComponent(id)}`)
+  const body: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new UserRequestError(
+      response.status,
+      errorMessage(body, 'Não foi possível consultar o usuário.'),
+    )
+  }
+  return parseUser(body)
 }
 
 /** Cadastra uma conta e retorna o usuário persistido. */
@@ -98,7 +125,10 @@ export async function createUser(api: ApiRequest, input: CreateUserInput): Promi
   })
   const body: unknown = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new Error(errorMessage(body, 'Não foi possível cadastrar o usuário.'))
+    throw new UserRequestError(
+      response.status,
+      errorMessage(body, 'Não foi possível cadastrar o usuário.'),
+    )
   }
   return parseUser(body)
 }
@@ -116,7 +146,10 @@ export async function updateUser(
   })
   const body: unknown = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new Error(errorMessage(body, 'Não foi possível atualizar o usuário.'))
+    throw new UserRequestError(
+      response.status,
+      errorMessage(body, 'Não foi possível atualizar o usuário.'),
+    )
   }
   return parseUser(body)
 }
@@ -129,7 +162,10 @@ async function changeStatus(
   const response = await api(`/users/${encodeURIComponent(id)}/${action}`, { method: 'PATCH' })
   const body: unknown = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new Error(errorMessage(body, 'Não foi possível alterar a situação do usuário.'))
+    throw new UserRequestError(
+      response.status,
+      errorMessage(body, 'Não foi possível alterar a situação do usuário.'),
+    )
   }
   return parseUser(body)
 }
