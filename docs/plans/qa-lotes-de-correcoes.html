@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lotes de correção da campanha de QA · Aratu</title>
+<style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  
+
+main { min-width: 0; }
+header > p { max-width: 75ch; }
+h1 { margin-top: 0; }
+.lot { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 1rem 1.25rem .85rem; margin: 1rem 0; min-width: 0; }
+.lot h3 { color: var(--brand-strong); font-size: 1.12rem; margin-top: 0; }
+.lot h4 { color: var(--brand-strong); }
+.object { font-size: 1.02rem; }
+.issue { font-family: var(--font-mono); font-size: .86rem; display: inline-block; margin: .17rem .25rem .17rem 0; padding: .1rem .32rem; border: 1px solid var(--code-inline-border); border-radius: 4px; }
+.sources { font-size: .88rem; }
+.sources a, pre, td { overflow-wrap: anywhere; }
+details { border-top: 1px solid var(--border-subtle); margin: .65rem 0; padding-top: .35rem; }
+summary { display: list-item; cursor: pointer; padding: .45rem .2rem; font-weight: 650; color: var(--brand-strong); min-height: 44px; }
+button { margin: .3rem 0; min-height: 44px; padding: .35rem .8rem; color: #fff; background: var(--brand-strong); border: 1px solid var(--brand-strong); border-radius: 4px; cursor: pointer; font: inherit; }
+button[hidden] { display: none; }
+summary:focus-visible, button:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: 3px; }
+.copy-status { margin: 0; color: var(--brand-strong); font-size: .88rem; }
+pre { white-space: pre-wrap; font: .87rem/1.6 var(--font-mono); margin-top: .4rem; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
+.toc ul { margin-bottom: 0; }
+@media (max-width: 550px) {
+  body { margin-top: 18px; padding: 0 12px 35px; }
+  .lot { padding: .8rem; }
+  thead th, tbody td { padding: .45rem .34rem; font-size: .84rem; }
+}
+@media print { .lot { break-inside: auto; } .prompt, .toc { display: none; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Lotes de correção da campanha de QA</h1>
+<p>Cada lote reúne achados que compartilham uma solução ou um teste de aceite. Os prompts incluem os arquivos e as decisões que o chat executor precisa verificar na base atual.</p>
+<div class="meta-block"><strong>20 lotes · 108 achados de referência · 30 reincidências vinculadas</strong><p>Aratu · campanha 20261122-1131 · base testada c1b3233 · propostas de execução</p><p><a href="../tests/telas/20261122-1131/indice.md">Resultados e evidências da campanha</a> · <a href="qa-telas-e-fluxos.html#s11">Rastreabilidade do Jira no snapshot da campanha</a></p></div>
+</header>
+<nav class="toc" aria-label="Seções do documento">
+<strong>Consultar</strong>
+<ul><li><a href="#ordem">Ordem sugerida e dependências</a></li><li><a href="#lotes">Lotes e prompts</a></li><li><a href="#contratos">Dados, contratos e perfis</a></li><li><a href="#aceite">Verificação e pré-PR</a></li><li><a href="#principios">Princípios e fontes</a></li></ul>
+</nav>
+<section id="ordem">
+<h2>1. Ordem sugerida e dependências</h2>
+<ol>
+<li><strong>Restabelecer as jornadas interrompidas.</strong> Priorize criação e consulta do Solicitante em <a href="#L12">L12</a>, com a guarda do alias em <a href="#L02">L02</a>. Em paralelo com arquivos distintos, trate registro e despacho em <a href="#L16">L16</a> e a tela em branco e os dados do Dashboard em <a href="#L18">L18</a>. Abra os fluxos sem tela em <a href="#L10">L10</a>, <a href="#L11">L11</a> e <a href="#L20">L20</a> conforme as respectivas tarefas FE.</li>
+<li><strong>Tratar regras transversais e mutações.</strong> Encaminhe a decisão de sessão de <a href="#L01">L01</a> e alinhe o kit visual de <a href="#L03">L03</a> com os lotes de tela. Os ajustes de <a href="#L13">L13</a> e <a href="#L14">L14</a> podem iniciar com dados sintéticos da API e fechar o aceite integrado após L12.</li>
+<li><strong>Fechar as passagens entre perfis.</strong> Valide <a href="#L15">L15</a> e <a href="#L17">L17</a> nas mesmas viagens e ordens, e <a href="#L19">L19</a> e <a href="#L20">L20</a> na mesma seleção de relatório. Os lotes <a href="#L04">L04</a> a <a href="#L09">L09</a> podem avançar independentemente entre si, coordenando alterações aos componentes comuns.</li>
+</ol>
+<p>Use um chat por lote e compartilhe o link desta ficha e as decisões já confirmadas. Para trabalhos paralelos, use branches de tarefa a partir de <code>develop</code> atualizada e diretórios de trabalho isolados quando necessário. Coordene a ordem de integração sempre que dois lotes tocarem o mesmo arquivo, especialmente <code>App.tsx</code>, a navegação e o tema. Reexecute o aceite da passagem no branch integrado.</p>
+<div class="table-scroll" role="region" aria-label="Índice de lotes e prioridades" tabindex="0"><table>
+<caption>Priorização recomendada para distribuição entre chats</caption>
+<thead><tr><th scope="col">Lote</th><th scope="col">Prioridade</th><th scope="col">Achados</th><th scope="col">Decisões</th></tr></thead>
+<tbody><tr><td><a href="#L01">L01 · Sessão, revogação e continuidade</a></td><td>Alta</td><td>4</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L02">L02 · Navegação, rotas e visibilidade por perfil</a></td><td>Alta</td><td>5</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L03">L03 · Contraste, alvos e foco em controles compartilhados</a></td><td>Média</td><td>6</td><td>Escopo documentado</td></tr>
+<tr><td><a href="#L04">L04 · Usuários e atribuição de perfil</a></td><td>Média</td><td>6</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L05">L05 · Veículos, filtros e ações da lista</a></td><td>Média</td><td>5</td><td>Escopo documentado</td></tr>
+<tr><td><a href="#L06">L06 · Cadastro e vínculo de motoristas</a></td><td>Média</td><td>9</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L07">L07 · Tipos de serviço e veículos compatíveis</a></td><td>Média</td><td>5</td><td>Escopo documentado</td></tr>
+<tr><td><a href="#L08">L08 · Manutenção, impedimento e total por recorte</a></td><td>Média</td><td>5</td><td>Escopo documentado</td></tr>
+<tr><td><a href="#L09">L09 · Abastecimento, recuperação e reenvio seguro</a></td><td>Média</td><td>7</td><td>Escopo documentado</td></tr>
+<tr><td><a href="#L10">L10 · Documentos de veículos e vencimentos</a></td><td>Alta</td><td>1</td><td>Escopo documentado</td></tr>
+<tr><td><a href="#L11">L11 · Multas e infrações no navegador</a></td><td>Alta</td><td>1</td><td>Escopo documentado</td></tr>
+<tr><td><a href="#L12">L12 · Criação e acompanhamento de solicitações</a></td><td>Alta</td><td>9</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L13">L13 · Análise de solicitações e decisão desatualizada</a></td><td>Alta</td><td>5</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L14">L14 · Agendamento, recálculo de disponibilidade e lotação</a></td><td>Alta</td><td>3</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L15">L15 · Execução e conferência de viagens</a></td><td>Média</td><td>8</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L16">L16 · Registro, triagem e despacho na Central SVO</a></td><td>Alta</td><td>3</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L17">L17 · Ordens SVO em campo e recuperação na Central</a></td><td>Média</td><td>7</td><td>Escopo documentado</td></tr>
+<tr><td><a href="#L18">L18 · Início e Dashboard com dados operacionais</a></td><td>Alta</td><td>6</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L19">L19 · Prévia, CSV e impressão de relatórios</a></td><td>Média</td><td>9</td><td>Há decisão pendente em parte do escopo</td></tr>
+<tr><td><a href="#L20">L20 · Tela de Auditoria e projeção autorizada</a></td><td>Alta</td><td>4</td><td>Há decisão pendente em parte do escopo</td></tr></tbody></table></div>
+</section>
+<section id="lotes">
+<h2>2. Lotes e prompts</h2>
+<p>As decisões em aberto acompanham somente o trabalho que depende delas. Os IDs ligam para os relatórios que registraram o comportamento observado. T04-P09 aparece como reincidência no lote 18. A parte referente ao filtro de Veículos é retestada também no lote 05.</p>
+<article class="lot" id="L01" aria-labelledby="titulo-L01">
+<h3 id="titulo-L01">L01 · Sessão, revogação e continuidade</h3>
+<p class="object">O operador recebe aviso antes de perder o preenchimento e a navegação deixa de apresentar uma conta revogada como ativa.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T01-P01" href="../tests/telas/20261122-1131/T01.md">T01-P01</a> <a class="issue" data-achado="T01-P04" href="../tests/telas/20261122-1131/T01.md">T01-P04</a> <a class="issue" data-achado="T01-P05" href="../tests/telas/20261122-1131/T01.md">T01-P05</a> <a class="issue" data-achado="T17-P05" href="../tests/telas/20261122-1131/T17.md">T17-P05</a></p>
+<details><summary>Reincidências vinculadas</summary><ul><li>T01-P01 é a referência de <a class="issue" data-recorrencia="T02-P04" href="../tests/telas/20261122-1131/T02.md">T02-P04</a>, <a class="issue" data-recorrencia="T05-P04" href="../tests/telas/20261122-1131/T05.md">T05-P04</a>, <a class="issue" data-recorrencia="T06-P06" href="../tests/telas/20261122-1131/T06.md">T06-P06</a>, <a class="issue" data-recorrencia="T07-P05" href="../tests/telas/20261122-1131/T07.md">T07-P05</a>, <a class="issue" data-recorrencia="T08-P05" href="../tests/telas/20261122-1131/T08.md">T08-P05</a>, <a class="issue" data-recorrencia="T09-P08" href="../tests/telas/20261122-1131/T09.md">T09-P08</a>, <a class="issue" data-recorrencia="T12-P06" href="../tests/telas/20261122-1131/T12.md">T12-P06</a>, <a class="issue" data-recorrencia="T13-P06" href="../tests/telas/20261122-1131/T13.md">T13-P06</a>, <a class="issue" data-recorrencia="T14-P05" href="../tests/telas/20261122-1131/T14.md">T14-P05</a>, <a class="issue" data-recorrencia="T15-P03" href="../tests/telas/20261122-1131/T15.md">T15-P03</a>.</li></ul></details>
+<h4>Solução recomendada</h4>
+<ol><li>Use o vencimento já interpretado em AuthProvider para um aviso acessível e mantenha o tratamento de 401 e logout como ponto único. O backend só publica login e logout. Proponha reautenticação explícita com retomada pelo mesmo usuário, sem prolongar JWT no cliente.</li><li>Use o mecanismo autenticado de revalidação que existir na base. Se faltar um contrato mínimo de identidade atual, proponha sua adição separadamente. Revalide ao retomar a aplicação e quando a sessão recebe 401, sem consultar dados de outro perfil. Remova o contexto local quando a sessão for invalidada.</li><li>Para entrada perdida, documente o caso de voltar e a origem do rascunho. Proponha conservar em memória apenas os campos permitidos durante o fluxo, com descarte no logout intencional e em troca de conta. Use confirmação de descarte ao sair de um formulário alterado. Preserve <code>401</code> genérico para credenciais inválidas conforme o contrato vigente. Separe a validação de e-mail do cliente da revisão de FROTA-26.</li></ol>
+<p><strong>Dependências.</strong> Coordene os formulários com os lotes 04 a 09, 12, 13 e 14. O lote 15 cobre a tela de conferência.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar tempo/ação do aviso, campos elegíveis à retomada por módulo e política de SVO. Se houver demanda por renovação silenciosa ou mudança do HTTP para formato de e-mail, confirmar compatibilidade e regra antes do SDD.</li></ul></div>
+<p><strong>Aceite.</strong> Com duas contas fictícias e um formulário preenchido, conferir aviso, expiração, autenticação, reabertura e descarte na troca de conta. Repetir na tela do Solicitante com revogação e na conferência com período selecionado. Validar campos obrigatórios e equivalência das respostas de credenciais inválidas.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/auth/AuthProvider.tsx">AuthProvider.tsx</a> · <a href="../../frontend/src/api/client.ts">client.ts</a> · <a href="../../backend/src/routes/auth.routes.ts">auth.routes.ts</a> · <a href="../../docs/plans/fix-auth-persistencia-sessao-logout.html">fix-auth-persistencia-sessao-logout.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L01</summary><button type="button" data-copy="L01" hidden>Copiar prompt L01</button><p class="copy-status" id="status-L01" role="status"></p><pre id="prompt-L01">Trabalhe somente no lote L01 · Sessão, revogação e continuidade do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L01 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T01-P01, T01-P04, T01-P05, T17-P05.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L02" aria-labelledby="titulo-L02">
+<h3 id="titulo-L02">L02 · Navegação, rotas e visibilidade por perfil</h3>
+<p class="object">O menu apresenta ações reais para o perfil conectado e as entradas alternativas executam a mesma guarda.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T04-P04" href="../tests/telas/20261122-1131/T04.md">T04-P04</a> <a class="issue" data-achado="T04-P05" href="../tests/telas/20261122-1131/T04.md">T04-P05</a> <a class="issue" data-achado="T04-P06" href="../tests/telas/20261122-1131/T04.md">T04-P06</a> <a class="issue" data-achado="T04-P08" href="../tests/telas/20261122-1131/T04.md">T04-P08</a> <a class="issue" data-achado="T04-P10" href="../tests/telas/20261122-1131/T04.md">T04-P10</a></p>
+<details><summary>Reincidências vinculadas</summary><ul><li>T04-P04 é a referência de <a class="issue" data-recorrencia="T03-P02" href="../tests/telas/20261122-1131/T03.md">T03-P02</a>, <a class="issue" data-recorrencia="T10-P03" href="../tests/telas/20261122-1131/T10.md">T10-P03</a>, <a class="issue" data-recorrencia="T11-P02" href="../tests/telas/20261122-1131/T11.md">T11-P02</a>, <a class="issue" data-recorrencia="T12-P03" href="../tests/telas/20261122-1131/T12.md">T12-P03</a>, <a class="issue" data-recorrencia="T18-P02" href="../tests/telas/20261122-1131/T18.md">T18-P02</a>, <a class="issue" data-recorrencia="T26-P02" href="../tests/telas/20261122-1131/T26.md">T26-P02</a>.</li><li>T04-P05 é a referência de <a class="issue" data-recorrencia="T13-P02" href="../tests/telas/20261122-1131/T13.md">T13-P02</a>.</li><li>T04-P06 é a referência de <a class="issue" data-recorrencia="T23-P03" href="../tests/telas/20261122-1131/T23.md">T23-P03</a>.</li><li>T04-P08 é a referência de <a class="issue" data-recorrencia="T10-P05" href="../tests/telas/20261122-1131/T10.md">T10-P05</a>.</li></ul></details>
+<h4>Solução recomendada</h4>
+<ol><li>Aplique a mesma resolução autorizada de rota à entrada canônica e ao alias do Solicitante, preservando favoritos legítimos. Use a política declarada no módulo, e mantenha a autorização dos endpoints. Faça a alteração do alias em sincronia com o lote 12.</li><li>Vincule entradas suportadas a suas rotas entregues. Retire da navegação ativa controles sem destino ou identifique a indisponibilidade quando a jornada documentada exigir orientação. Registre o elemento <code>nav</code>, <code>aria-current</code>, um <code>main</code> por rota, título da aba e uma forma de revelar rótulos pelo toque.</li><li>Confronte o Administrador nas rotas de Dashboard e Acompanhamento com o contrato REST e a política de tela. A proposta é habilitar apenas consulta onde o módulo confirmar paridade, preservando ações de campo e escrita restritas aos respectivos perfis.</li></ol>
+<p><strong>Dependências.</strong> Receba dos lotes 10, 11, 12, 16, 18 e 20 somente caminhos entregues. Coordene mudanças em App.tsx e sidebarNavigation.ts em um único PR por vez.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar a visibilidade de Dashboard e Acompanhamento para Administrador se o critério da UI continuar divergente da API. Priorizar correção do alias e dos itens sem ação enquanto a decisão estiver aberta.</li></ul></div>
+<p><strong>Aceite.</strong> Testar os seis perfis e visitante no menu expandido e compacto, endereço direto e favoritos. Cada item ativável tem destino ou ação verificável. O perfil permitido abre a rota e o vedado recebe o comportamento autorizado. Verificar títulos, marcos, item atual e rótulos visíveis em 320/375 px.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/App.tsx">App.tsx</a> · <a href="../../frontend/src/components/sidebarNavigation.ts">sidebarNavigation.ts</a> · <a href="../../frontend/src/components/Sidebar.tsx">Sidebar.tsx</a> · <a href="../../frontend/src/auth/profiles.ts">profiles.ts</a> · <a href="../../docs/manuais/modulos.md">modulos.md</a></p>
+<details class="prompt"><summary>Prompt para o chat L02</summary><button type="button" data-copy="L02" hidden>Copiar prompt L02</button><p class="copy-status" id="status-L02" role="status"></p><pre id="prompt-L02">Trabalhe somente no lote L02 · Navegação, rotas e visibilidade por perfil do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L02 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T04-P04, T04-P05, T04-P06, T04-P08, T04-P10.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L03" aria-labelledby="titulo-L03">
+<h3 id="titulo-L03">L03 · Contraste, alvos e foco em controles compartilhados</h3>
+<p class="object">Login, Usuários, Perfis e atalhos do Início ficam legíveis e operáveis por toque e teclado.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T01-P02" href="../tests/telas/20261122-1131/T01.md">T01-P02</a> <a class="issue" data-achado="T01-P03" href="../tests/telas/20261122-1131/T01.md">T01-P03</a> <a class="issue" data-achado="T02-P02" href="../tests/telas/20261122-1131/T02.md">T02-P02</a> <a class="issue" data-achado="T03-P03" href="../tests/telas/20261122-1131/T03.md">T03-P03</a> <a class="issue" data-achado="T03-P04" href="../tests/telas/20261122-1131/T03.md">T03-P04</a> <a class="issue" data-achado="T04-P07" href="../tests/telas/20261122-1131/T04.md">T04-P07</a></p>
+<details><summary>Reincidências vinculadas</summary><ul><li>T04-P07 é a referência de <a class="issue" data-recorrencia="T10-P04" href="../tests/telas/20261122-1131/T10.md">T10-P04</a>.</li></ul></details>
+<h4>Solução recomendada</h4>
+<ol><li>Localize no tema e nos consumidores o token usado para texto, contorno e foco. Preserve a identidade visual com tons que alcancem 4,5:1 para texto normal e 3:1 no indicador não textual pertinente. Restrinja as mudanças aos estados e controles observados.</li><li>Ajuste altura interativa no login, recuperação e nos controles dos achados para o piso do projeto. Garanta foco visível e desobstruído pelo cabeçalho em 320 px, incluindo retorno via Esc. Use o espaçamento do layout fixo para tratamento do foco quando aplicável.</li></ol>
+<p><strong>Dependências.</strong> Lote 02 cuida da estrutura e dos títulos de rota. Combine a ordem de merge com os lotes que consumirem os componentes corrigidos.</p>
+
+<p><strong>Aceite.</strong> Medir login, Editar de Usuários, matriz de Perfis e atalhos do Início em estado normal e focado. Conferir alvo de 44×44 px onde o projeto exige, zoom 200%, reflow e foco sem obstrução. Executar amostra de consumidores do tema para evitar regressão.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/theme.ts">theme.ts</a> · <a href="../../frontend/src/components/ui/FormField.tsx">FormField.tsx</a> · <a href="../../frontend/src/components/ui/ConfirmDialog.tsx">ConfirmDialog.tsx</a> · <a href="../../frontend/src/components/Topbar.tsx">Topbar.tsx</a> · <a href="../../.agents/skills/principios/references/acessibilidade.md">acessibilidade.md</a> · <a href="../../.agents/skills/principios/references/ui-componentes.md">ui-componentes.md</a></p>
+<details class="prompt"><summary>Prompt para o chat L03</summary><button type="button" data-copy="L03" hidden>Copiar prompt L03</button><p class="copy-status" id="status-L03" role="status"></p><pre id="prompt-L03">Trabalhe somente no lote L03 · Contraste, alvos e foco em controles compartilhados do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L03 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T01-P02, T01-P03, T02-P02, T03-P03, T03-P04, T04-P07.
+
+Confirme a aderência do lote ao contrato e ao estado atual da base. Se surgir divergência, aplique a Regra da Dúvida.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L04" aria-labelledby="titulo-L04">
+<h3 id="titulo-L04">L04 · Usuários e atribuição de perfil</h3>
+<p class="object">O Administrador consegue concluir uma alteração de conta, recuperar a lista de perfis e localizar o registro salvo.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T02-P01" href="../tests/telas/20261122-1131/T02.md">T02-P01</a> <a class="issue" data-achado="T02-P03" href="../tests/telas/20261122-1131/T02.md">T02-P03</a> <a class="issue" data-achado="T02-P05" href="../tests/telas/20261122-1131/T02.md">T02-P05</a> <a class="issue" data-achado="T02-P06" href="../tests/telas/20261122-1131/T02.md">T02-P06</a> <a class="issue" data-achado="T02-P07" href="../tests/telas/20261122-1131/T02.md">T02-P07</a> <a class="issue" data-achado="T03-P01" href="../tests/telas/20261122-1131/T03.md">T03-P01</a></p>
+<details><summary>Reincidências vinculadas</summary><ul><li>T02-P07 é a referência de <a class="issue" data-recorrencia="T03-P05" href="../tests/telas/20261122-1131/T03.md">T03-P05</a>.</li></ul></details>
+<h4>Solução recomendada</h4>
+<ol><li>Reutilize FormField e os estados do formulário para associar erros, focar o primeiro inválido e anunciar a espera uma vez. Trate catálogo de perfis indisponível no diálogo com orientação e nova consulta, sem perder os outros campos.</li><li>Compacte filtros móveis com FilterBar e mantenha regiões de tabela roláveis e identificadas. Após salvar, mostre o registro por ID ou uma ação clara para consultá-lo mesmo quando sai do filtro/página. Preserve revisão e validação do backend.</li><li>Converta a entrada de Perfis em consulta claramente rotulada com caminho para atribuição no cadastro. O endpoint atual fornece consulta. Se edição de permissões for requisito confirmado, ela precisa de proposta específica de escrita, RBAC e auditoria.</li></ol>
+<p><strong>Dependências.</strong> Lote 03 cobre tokens e foco compartilhado. Lote 01 cobre expiração e preservação de rascunho.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar se a matriz é somente consultiva ou precisa de edição persistente. Recomenda-se manter consulta e rota de atribuição enquanto a política for fixa.</li></ul></div>
+<p><strong>Aceite.</strong> Criar, editar e trocar perfil na UI e reencontrar o mesmo ID após recarga. Simular falha de perfis, erro de campo, resposta lenta e cadastro fora da página atual. Abrir a matriz e localizar a atribuição sem depender de adivinhar o menu.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/services/usersService.ts">usersService.ts</a> · <a href="../../frontend/src/services/profileService.ts">profileService.ts</a> · <a href="../../frontend/src/pages/profilePermissionsPage/ProfilePermissionsPage.tsx">ProfilePermissionsPage.tsx</a> · <a href="../../backend/src/routes/profile.routes.ts">profile.routes.ts</a> · <a href="../../docs/modulos/AUTENTICACAO_RBAC.html">AUTENTICACAO_RBAC.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L04</summary><button type="button" data-copy="L04" hidden>Copiar prompt L04</button><p class="copy-status" id="status-L04" role="status"></p><pre id="prompt-L04">Trabalhe somente no lote L04 · Usuários e atribuição de perfil do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L04 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T02-P01, T02-P03, T02-P05, T02-P06, T02-P07, T03-P01.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L05" aria-labelledby="titulo-L05">
+<h3 id="titulo-L05">L05 · Veículos, filtros e ações da lista</h3>
+<p class="object">O Gestor sabe quais veículos correspondem ao filtro e retoma a mesma lista depois de consultar um registro.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T05-P01" href="../tests/telas/20261122-1131/T05.md">T05-P01</a> <a class="issue" data-achado="T05-P02" href="../tests/telas/20261122-1131/T05.md">T05-P02</a> <a class="issue" data-achado="T05-P03" href="../tests/telas/20261122-1131/T05.md">T05-P03</a> <a class="issue" data-achado="T05-P05" href="../tests/telas/20261122-1131/T05.md">T05-P05</a> <a class="issue" data-achado="T05-P06" href="../tests/telas/20261122-1131/T05.md">T05-P06</a></p>
+
+<h4>Solução recomendada</h4>
+<ol><li>No estado da consulta, associe linhas, ações e filtros à última resposta bem-sucedida. Mostre o recorte antigo como desatualizado e suspenda ações que dependam do novo recorte até recarregar. Guarde os filtros permitidos no histórico de navegação.</li><li>Corrija foco do primeiro campo inválido no cadastro e na justificativa, compacte controles móveis e atualize título da rota e ícone semântico de situação via StatusChip. Preserve regras de operação, situação e trilha.</li></ol>
+<p><strong>Dependências.</strong> Lote 03 cobre padrões compartilhados. O caso de filtros de Veículos em T04-P09 é revalidado aqui. As datas e o recorte do Dashboard ficam no lote 18.</p>
+
+<p><strong>Aceite.</strong> Trocar Disponível para Inativo com erro de rede, recuperar o resultado correto e reabrir com o recorte preservado. Validar justificativa e cadastro em 320/375 px com foco visível, status legível e ação coerente.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/pages/gestor/vehiclesPage/VehiclesPage.tsx">VehiclesPage.tsx</a> · <a href="../../frontend/src/pages/gestor/vehiclesPage/VehicleFormDialog.tsx">VehicleFormDialog.tsx</a> · <a href="../../frontend/src/pages/gestor/vehiclesPage/VehicleStatusDialog.tsx">VehicleStatusDialog.tsx</a> · <a href="../../frontend/src/services/vehiclesService.ts">vehiclesService.ts</a> · <a href="../../docs/modulos/FROTA.html">FROTA.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L05</summary><button type="button" data-copy="L05" hidden>Copiar prompt L05</button><p class="copy-status" id="status-L05" role="status"></p><pre id="prompt-L05">Trabalhe somente no lote L05 · Veículos, filtros e ações da lista do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L05 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T05-P01, T05-P02, T05-P03, T05-P05, T05-P06.
+
+Confirme a aderência do lote ao contrato e ao estado atual da base. Se surgir divergência, aplique a Regra da Dúvida.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L06" aria-labelledby="titulo-L06">
+<h3 id="titulo-L06">L06 · Cadastro e vínculo de motoristas</h3>
+<p class="object">Quem cadastra um motorista consegue distinguir vínculo elegível, erro de consulta e histórico do cadastro.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T06-P01" href="../tests/telas/20261122-1131/T06.md">T06-P01</a> <a class="issue" data-achado="T06-P02" href="../tests/telas/20261122-1131/T06.md">T06-P02</a> <a class="issue" data-achado="T06-P03" href="../tests/telas/20261122-1131/T06.md">T06-P03</a> <a class="issue" data-achado="T06-P04" href="../tests/telas/20261122-1131/T06.md">T06-P04</a> <a class="issue" data-achado="T06-P05" href="../tests/telas/20261122-1131/T06.md">T06-P05</a> <a class="issue" data-achado="T06-P07" href="../tests/telas/20261122-1131/T06.md">T06-P07</a> <a class="issue" data-achado="T06-P08" href="../tests/telas/20261122-1131/T06.md">T06-P08</a> <a class="issue" data-achado="T06-P09" href="../tests/telas/20261122-1131/T06.md">T06-P09</a> <a class="issue" data-achado="T06-P10" href="../tests/telas/20261122-1131/T06.md">T06-P10</a></p>
+
+<h4>Solução recomendada</h4>
+<ol><li>Desacople a elegibilidade das contas do filtro visual de motoristas. Use resposta já disponível se tiver a relação completa. Se o Gestor puder vincular, proponha projeção mínima de contas MOTORISTA elegíveis no domínio, sem conceder acesso administrativo a /users. Preserve a confirmação concorrente no backend.</li><li>Cancele ou ignore resposta tardia ao fechar detalhe. Ofereça nova tentativa para catálogo indisponível preservando entradas. Controle CPF e máscara sem ecoar valores em mensagens ou evidências. Corrija foco, densidade, título e ícones pelo kit existente.</li><li>Para histórico, aproveite eventos persistidos se houver projeção autorizada. Caso falte consulta, proponha leitura restrita ao motorista e ao histórico operacional necessário, sem expor snapshots de documentos completos.</li></ol>
+<p><strong>Dependências.</strong> Lote 03 cobre padrões compartilhados. A mudança de acesso a contas elegíveis depende da decisão de RBAC.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar se Gestor pode vincular conta ou se a atribuição permanece com Administrador. Confirmar campos e perfis do histórico antes de publicar uma nova projeção.</li></ul></div>
+<p><strong>Aceite.</strong> Com Administrador e Gestor conforme a matriz, verificar vínculo livre/ocupado mesmo sob filtro, 409 concorrente sem duplicação, 503 do catálogo, detalhe fechado com resposta atrasada, validação de CPF e histórico do mesmo ID.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/pages/driversPage/DriversPage.tsx">DriversPage.tsx</a> · <a href="../../frontend/src/pages/driversPage/DriverFormDialog.tsx">DriverFormDialog.tsx</a> · <a href="../../frontend/src/pages/driversPage/DriverDetailsDialog.tsx">DriverDetailsDialog.tsx</a> · <a href="../../backend/src/routes/drivers.routes.ts">drivers.routes.ts</a> · <a href="../../backend/src/services/drivers.service.ts">drivers.service.ts</a> · <a href="../../docs/plans/frota-49-api-de-motoristas.html">frota-49-api-de-motoristas.html</a> · <a href="../../docs/manuais/modulos.md">modulos.md</a></p>
+<details class="prompt"><summary>Prompt para o chat L06</summary><button type="button" data-copy="L06" hidden>Copiar prompt L06</button><p class="copy-status" id="status-L06" role="status"></p><pre id="prompt-L06">Trabalhe somente no lote L06 · Cadastro e vínculo de motoristas do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L06 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T06-P01, T06-P02, T06-P03, T06-P04, T06-P05, T06-P07, T06-P08, T06-P09, T06-P10.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L07" aria-labelledby="titulo-L07">
+<h3 id="titulo-L07">L07 · Tipos de serviço e veículos compatíveis</h3>
+<p class="object">O operador sabe o que foi salvo, consegue retomar um vínculo e continua vendo o catálogo quando uma consulta individual falha.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T07-P02" href="../tests/telas/20261122-1131/T07.md">T07-P02</a> <a class="issue" data-achado="T07-P03" href="../tests/telas/20261122-1131/T07.md">T07-P03</a> <a class="issue" data-achado="T07-P04" href="../tests/telas/20261122-1131/T07.md">T07-P04</a> <a class="issue" data-achado="T07-P06" href="../tests/telas/20261122-1131/T07.md">T07-P06</a> <a class="issue" data-achado="T07-P07" href="../tests/telas/20261122-1131/T07.md">T07-P07</a></p>
+
+<h4>Solução recomendada</h4>
+<ol><li>Separe o estado do catálogo da leitura dos vínculos. Permita nova consulta por serviço e preserve itens carregados. Marque veículos inativos como indisponíveis para nova seleção e preserve a apresentação histórica conforme a resposta REST.</li><li>Reconcilie os dois comandos existentes. Em falha apenas de vínculo, informe se o cadastro foi salvo e mantenha ID, seleção e justificativa no formulário. Quando apenas o vínculo falhar, a mensagem descreve a recusa. Depois de resultado incerto, consulte o estado antes de tentar gravar novamente.</li><li>Associe o erro de nome/duplicidade ao campo, aplique foco inicial e atualize o título e o status visual. Evite unificar as escritas em nova operação transacional sem requisito confirmado.</li></ol>
+<p><strong>Dependências.</strong> Lote 12 consome o catálogo ativo. Preserve o contrato e os vínculos históricos usados no agendamento.</p>
+
+<p><strong>Aceite.</strong> Falha em um GET de vínculos mantém catálogo utilizável. Recusa de veículo inativo ou falha de PUT não exibe sucesso incorreto. Retomar o mesmo ID após POST confirmado sem duplicação, preservando o histórico.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/pages/gestor/servicePage/ServicesPage.tsx">ServicesPage.tsx</a> · <a href="../../frontend/src/services/fleetServicesService.ts">fleetServicesService.ts</a> · <a href="../../backend/src/services/fleet-services.service.ts">fleet-services.service.ts</a> · <a href="../../docs/plans/frota-54-be-vincular-veiculos-compativeis.html">frota-54-be-vincular-veiculos-compativeis.html</a> · <a href="../../docs/modulos/FROTA.html">FROTA.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L07</summary><button type="button" data-copy="L07" hidden>Copiar prompt L07</button><p class="copy-status" id="status-L07" role="status"></p><pre id="prompt-L07">Trabalhe somente no lote L07 · Tipos de serviço e veículos compatíveis do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L07 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T07-P02, T07-P03, T07-P04, T07-P06, T07-P07.
+
+Confirme a aderência do lote ao contrato e ao estado atual da base. Se surgir divergência, aplique a Regra da Dúvida.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L08" aria-labelledby="titulo-L08">
+<h3 id="titulo-L08">L08 · Manutenção, impedimento e total por recorte</h3>
+<p class="object">O Gestor entende qual ordem bloqueia a viatura, que evento pode liberá-la e a que período pertence o custo mostrado.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T08-P01" href="../tests/telas/20261122-1131/T08.md">T08-P01</a> <a class="issue" data-achado="T08-P02" href="../tests/telas/20261122-1131/T08.md">T08-P02</a> <a class="issue" data-achado="T08-P03" href="../tests/telas/20261122-1131/T08.md">T08-P03</a> <a class="issue" data-achado="T08-P04" href="../tests/telas/20261122-1131/T08.md">T08-P04</a> <a class="issue" data-achado="T08-P06" href="../tests/telas/20261122-1131/T08.md">T08-P06</a></p>
+
+<h4>Solução recomendada</h4>
+<ol><li>Apresente na revisão se a ordem em tela é impeditiva e, após salvar, consulte a situação real do veículo. Preserve a proteção de concorrência do serviço. Em 409, oriente consultar as ordens impeditivas do mesmo identificador. Use um ID da ordem bloqueadora somente se estiver disponível na resposta autorizada ou em extensão compatível confirmada.</li><li>Vincule os totais ao recorte da última consulta bem-sucedida. Aplique StateFeedback ao erro de filtro e anuncie como desatualizado o recorte anterior, com nova tentativa. Associe campo e erro de datas/orçamento/justificativa e aplique o status semântico.</li></ol>
+<p><strong>Dependências.</strong> Lote 05 recebe o estado correto do veículo. Lote 18 e 19 consomem períodos de fechamento ou abertura conforme contrato.</p>
+
+<p><strong>Aceite.</strong> Reproduzir uma corretiva e uma preventiva impeditiva no mesmo veículo. Conferir conflito, fechamento de cada ordem e disponibilidade real, incluindo inativação independente. Simular 503 após filtro e provar que o total exibido corresponde ao recorte indicado.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/pages/gestor/ManuPage/ManutencaoPage.tsx">ManutencaoPage.tsx</a> · <a href="../../frontend/src/services/maintenanceService.ts">maintenanceService.ts</a> · <a href="../../backend/src/services/maintenance-orders.service.ts">maintenance-orders.service.ts</a> · <a href="../../docs/modulos/MANUTENCOES.html">MANUTENCOES.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L08</summary><button type="button" data-copy="L08" hidden>Copiar prompt L08</button><p class="copy-status" id="status-L08" role="status"></p><pre id="prompt-L08">Trabalhe somente no lote L08 · Manutenção, impedimento e total por recorte do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L08 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T08-P01, T08-P02, T08-P03, T08-P04, T08-P06.
+
+Confirme a aderência do lote ao contrato e ao estado atual da base. Se surgir divergência, aplique a Regra da Dúvida.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L09" aria-labelledby="titulo-L09">
+<h3 id="titulo-L09">L09 · Abastecimento, recuperação e reenvio seguro</h3>
+<p class="object">O Gestor registra sem motorista quando permitido, reconhece o recorte dos totais e recupera uma tentativa de resultado incerto.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T09-P01" href="../tests/telas/20261122-1131/T09.md">T09-P01</a> <a class="issue" data-achado="T09-P02" href="../tests/telas/20261122-1131/T09.md">T09-P02</a> <a class="issue" data-achado="T09-P03" href="../tests/telas/20261122-1131/T09.md">T09-P03</a> <a class="issue" data-achado="T09-P04" href="../tests/telas/20261122-1131/T09.md">T09-P04</a> <a class="issue" data-achado="T09-P05" href="../tests/telas/20261122-1131/T09.md">T09-P05</a> <a class="issue" data-achado="T09-P06" href="../tests/telas/20261122-1131/T09.md">T09-P06</a> <a class="issue" data-achado="T09-P07" href="../tests/telas/20261122-1131/T09.md">T09-P07</a></p>
+
+<h4>Solução recomendada</h4>
+<ol><li>Carregue veículos e motoristas independentemente. A falha do catálogo opcional permite gravar sem motorista e oferece reconsulta. Vincule linhas e totais ao filtro confirmado, distinguindo zero da indisponibilidade.</li><li>Crie <code>Idempotency-Key</code> por intenção de envio, preservando a mesma chave ao repetir a mesma entrada depois de falha incerta. Use o contrato existente e a consulta/reconciliação disponível antes de repetir. Gere uma nova intenção quando o conteúdo realmente mudar, conforme a regra do serviço, com feedback de espera e foco recuperável.</li><li>Associe erros de campos a rótulos em português, preserve os valores e use o tema para contraste. Corrija título da aba, reflow e posição do controle focado em 320/375 px.</li></ol>
+<p><strong>Dependências.</strong> Lote 03 cobre estilos compartilhados. Lotes 18 e 19 consomem as versões vigentes.</p>
+
+<p><strong>Aceite.</strong> Simular 503 de catálogos de maneira independente, filtros, erro de validação e perda só da resposta após commit. Confirmar um lançamento/uma trilha, mesmo ID na recarga, totais vigentes e ausência de corte do título em celular.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/pages/fuelingsPage/FuelingsPage.tsx">FuelingsPage.tsx</a> · <a href="../../frontend/src/pages/fuelingsPage/FuelingFormDialog.tsx">FuelingFormDialog.tsx</a> · <a href="../../frontend/src/services/fuelingsService.ts">fuelingsService.ts</a> · <a href="../../backend/src/services/fuelings.service.ts">fuelings.service.ts</a> · <a href="../../docs/plans/frota-64-api-abastecimentos-testes.html">frota-64-api-abastecimentos-testes.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L09</summary><button type="button" data-copy="L09" hidden>Copiar prompt L09</button><p class="copy-status" id="status-L09" role="status"></p><pre id="prompt-L09">Trabalhe somente no lote L09 · Abastecimento, recuperação e reenvio seguro do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L09 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T09-P01, T09-P02, T09-P03, T09-P04, T09-P05, T09-P06, T09-P07.
+
+Confirme a aderência do lote ao contrato e ao estado atual da base. Se surgir divergência, aplique a Regra da Dúvida.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L10" aria-labelledby="titulo-L10">
+<h3 id="titulo-L10">L10 · Documentos de veículos e vencimentos</h3>
+<p class="object">Gestor e Administrador localizam a data e o documento que motivaram o alerta e conseguem tratar o registro.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T04-P02" href="../tests/telas/20261122-1131/T04.md">T04-P02</a></p>
+<details><summary>Reincidências vinculadas</summary><ul><li>T04-P02 é a referência de <a class="issue" data-recorrencia="T10-P01" href="../tests/telas/20261122-1131/T10.md">T10-P01</a>.</li></ul></details>
+<h4>Solução recomendada</h4>
+<ol><li>Implemente a tela da FROTA-70 sobre os contratos de lista, detalhe, vencimentos, cadastro, correção, renovação e anulação. Reuse DataTable, FilterBar, FormField, StateFeedback e ConfirmDialog, preservando revisão, justificativa e vínculo histórico de renovação.</li><li>Permita abrir a tela já filtrada por situação e janela do alerta. Use a data de referência e a unidade de contagem que o backend documenta. Exiba tipo, placa, vencimento e situação. Preserve o tratamento de vencido e limite da janela, sem alterar as regras de alocação.</li></ol>
+<p><strong>Dependências.</strong> Lote 02 integra a rota após entrega. Lote 18 usa o recorte da nova tela no alerta.</p>
+
+<p><strong>Aceite.</strong> Abrir pelo menu e pelo alerta. Localizar um documento vencido, um a vencer, um no limite e um de fora. Cadastrar, renovar e anular dado fictício com reabertura por ID, verificar permissões de Gestor/Administrador e vedação aos demais.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../backend/src/routes/vehicle-documents.routes.ts">vehicle-documents.routes.ts</a> · <a href="../../backend/src/services/vehicle-documents.service.ts">vehicle-documents.service.ts</a> · <a href="../../docs/plans/frota-67-us09-gerenciar-documentos.html">frota-67-us09-gerenciar-documentos.html</a> · <a href="../../docs/modulos/FROTA.html">FROTA.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L10</summary><button type="button" data-copy="L10" hidden>Copiar prompt L10</button><p class="copy-status" id="status-L10" role="status"></p><pre id="prompt-L10">Trabalhe somente no lote L10 · Documentos de veículos e vencimentos do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L10 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T04-P02.
+
+Confirme a aderência do lote ao contrato e ao estado atual da base. Se surgir divergência, aplique a Regra da Dúvida.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L11" aria-labelledby="titulo-L11">
+<h3 id="titulo-L11">L11 · Multas e infrações no navegador</h3>
+<p class="object">Gestor e Administrador registram e consultam a multa e conseguem confirmar conscientemente o vínculo com a viagem.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T11-P01" href="../tests/telas/20261122-1131/T11.md">T11-P01</a></p>
+
+<h4>Solução recomendada</h4>
+<ol><li>Implemente FROTA-74 sobre lista, detalhe, registro, correção, situação e sugestões existentes. Reuse os componentes de frota, revisão otimista e <code>ConfirmDialog</code> para situações. Permita fluxo sem motorista se nenhum for sugerido, conforme contrato.</li><li>Mostre a fonte da sugestão e peça confirmação do vínculo com motorista e viagem. Use o resultado já calculado pela API a partir do intervalo efetivo e preserve justificativa e snapshots da época.</li></ol>
+<p><strong>Dependências.</strong> Lote 02 integra a rota após entrega. Use viagem fictícia concluída para o aceite de sugestão.</p>
+
+<p><strong>Aceite.</strong> Registrar com e sem motorista, testar instante dentro e fora de viagem, cancelar a confirmação sem gravar e reabrir a multa após mudar situação. Conferir filtros, revisão, trilha, RBAC e erros no mesmo ID.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../backend/src/routes/fines.routes.ts">fines.routes.ts</a> · <a href="../../backend/src/services/fines.service.ts">fines.service.ts</a> · <a href="../../docs/plans/frota-73-api-multas-infracoes.html">frota-73-api-multas-infracoes.html</a> · <a href="../../docs/plans/frota-75-testes-multas.html">frota-75-testes-multas.html</a> · <a href="../../docs/modulos/FROTA.html">FROTA.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L11</summary><button type="button" data-copy="L11" hidden>Copiar prompt L11</button><p class="copy-status" id="status-L11" role="status"></p><pre id="prompt-L11">Trabalhe somente no lote L11 · Multas e infrações no navegador do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L11 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T11-P01.
+
+Confirme a aderência do lote ao contrato e ao estado atual da base. Se surgir divergência, aplique a Regra da Dúvida.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L12" aria-labelledby="titulo-L12">
+<h3 id="titulo-L12">L12 · Criação e acompanhamento de solicitações</h3>
+<p class="object">O Solicitante abre um pedido persistido e acompanha pelo mesmo ID a aprovação, a rejeição, a alocação e a situação da viagem.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T12-P01" href="../tests/telas/20261122-1131/T12.md">T12-P01</a> <a class="issue" data-achado="T12-P02" href="../tests/telas/20261122-1131/T12.md">T12-P02</a> <a class="issue" data-achado="T12-P04" href="../tests/telas/20261122-1131/T12.md">T12-P04</a> <a class="issue" data-achado="T12-P05" href="../tests/telas/20261122-1131/T12.md">T12-P05</a> <a class="issue" data-achado="T12-P07" href="../tests/telas/20261122-1131/T12.md">T12-P07</a> <a class="issue" data-achado="T13-P01" href="../tests/telas/20261122-1131/T13.md">T13-P01</a> <a class="issue" data-achado="T13-P03" href="../tests/telas/20261122-1131/T13.md">T13-P03</a> <a class="issue" data-achado="T13-P04" href="../tests/telas/20261122-1131/T13.md">T13-P04</a> <a class="issue" data-achado="T13-P05" href="../tests/telas/20261122-1131/T13.md">T13-P05</a></p>
+<details><summary>Reincidências vinculadas</summary><ul><li>T12-P02 é a referência de <a class="issue" data-recorrencia="T07-P01" href="../tests/telas/20261122-1131/T07.md">T07-P01</a>.</li></ul></details>
+<h4>Solução recomendada</h4>
+<ol><li>Troque as linhas demonstrativas por consulta paginada de GET /requests e o detalhe autorizado. Use estado da URL para filtros que o contrato suporta, períodos inclusivos e faixa de resultados correta quando total for zero. Utilize dados de <code>trip</code> do detalhe para distinguir pedido agendado e viagem confirmada.</li><li>Consuma tipos de serviço ativos e faça POST /requests com os seis campos aceitos pelo DTO atual. Mostre sucesso somente após 201, com ID real. Uma falha de rede preserva entradas e orienta consultar antes de repetir. Para a ação com envio pendente, proteja contra duplo clique e avalie idempotência persistente do POST em proposta específica se necessária.</li><li>Associe os erros aos campos, corrija reflow/contraste/alvos e reaproveite a mesma tela canônica sob a guarda. Para reenvio, proponha operação explícita versionada que preserve motivo e eventos da rejeição, com autorização do titular e trilha atômica. A base oferece criação e leitura do titular, mais ações do gestor em rota própria.</li></ol>
+<p><strong>Dependências.</strong> Coordene rota e alias com lote 02, catálogo com lote 07 e passagens com lotes 13 a 15. Comece por criação e consulta com o contrato vigente. Se o item Nova Solicitação precisar de um evento de abertura, o lote 12 fornece a ação e o lote 02 cuida da ligação ao menu.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar significado e persistência de observação e quantidade de passageiros. O DTO atual omite ambos como entrada, e o domínio já registra quantidade. Proponha extensão compatível, preservando registros e padrões atuais.</li><li>Confirmar se a rejeição admite reenvio do mesmo pedido versionado ou um novo pedido vinculado. Recomenda-se preservar a trilha da decisão e separar localmente o rascunho da confirmação de envio.</li></ul></div>
+<p><strong>Aceite.</strong> Criar como Solicitante A, recarregar e comprovar o mesmo ID no Gestor. Solicitante B vê apenas seus dados. Aprovar, rejeitar e confirmar via rotas legítimas e consultar cada estado. Testar filtro, vazio, retorno, erro, envio repetido e teclado móvel. Retestar reenvio com a política confirmada.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/pages/SolicitacaoPage/SolicitacaoPage.tsx">SolicitacaoPage.tsx</a> · <a href="../../frontend/src/services/requestsService.ts">requestsService.ts</a> · <a href="../../backend/src/types/request.types.ts">request.types.ts</a> · <a href="../../backend/src/routes/requests.routes.ts">requests.routes.ts</a> · <a href="../../docs/plans/frota-79-be-api-de-solicitacao.html">frota-79-be-api-de-solicitacao.html</a> · <a href="../../docs/plans/frota-82-be-api-de-consulta.html">frota-82-be-api-de-consulta.html</a> · <a href="../../docs/modulos/VIAGENS.html">VIAGENS.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L12</summary><button type="button" data-copy="L12" hidden>Copiar prompt L12</button><p class="copy-status" id="status-L12" role="status"></p><pre id="prompt-L12">Trabalhe somente no lote L12 · Criação e acompanhamento de solicitações do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L12 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T12-P01, T12-P02, T12-P04, T12-P05, T12-P07, T13-P01, T13-P03, T13-P04, T13-P05.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L13" aria-labelledby="titulo-L13">
+<h3 id="titulo-L13">L13 · Análise de solicitações e decisão desatualizada</h3>
+<p class="object">O Gestor só decide após conferir o detalhe vigente e recupera a fila quando outro gestor já tomou a decisão.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T14-P01" href="../tests/telas/20261122-1131/T14.md">T14-P01</a> <a class="issue" data-achado="T14-P02" href="../tests/telas/20261122-1131/T14.md">T14-P02</a> <a class="issue" data-achado="T14-P03" href="../tests/telas/20261122-1131/T14.md">T14-P03</a> <a class="issue" data-achado="T14-P04" href="../tests/telas/20261122-1131/T14.md">T14-P04</a> <a class="issue" data-achado="T14-P06" href="../tests/telas/20261122-1131/T14.md">T14-P06</a></p>
+
+<h4>Solução recomendada</h4>
+<ol><li>Habilite decisão apenas com detalhe carregado e estado pendente. Ao receber 409, invalide a ação e reconsulte detalhe e fila, preservando contexto útil. Use o padrão existente de revisão e transação como autoridade.</li><li>Torne a ação de abrir detalhe encontrável sem depender de rolagem invisível. Ajuste os nomes da paginação em português e o status via StatusChip. Aponte a versão do contrato implementado (<code>reason</code>, situações e campos camelCase) na documentação que diverge.</li><li>Exiba o setor apenas se a origem cadastral e a projeção autorizada forem confirmadas. Se o requisito exigir a informação no momento do pedido, proponha campo compatível no snapshot, com ausência legível para pedidos anteriores.</li></ol>
+<p><strong>Dependências.</strong> Integração ponta a ponta com lote 12. Reusa os estados de consulta sem bloquear os ajustes sobre dados de QA existentes.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar a origem do setor do solicitante e se a informação deve ser histórica ou cadastral atual. Manter o contrato vigente enquanto a documentação do card for alinhada.</li></ul></div>
+<p><strong>Aceite.</strong> Com duas sessões de Gestor, falhar GET de detalhe, reabrir, aprovar e tentar rejeitar com a revisão antiga. Confirmar um único evento e ação indisponível após 409. Retestar setor conforme decisão, tabela com teclado e retorno do mesmo pedido à fila.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/pages/requestAnalysisPage/RequestAnalysisPage.tsx">RequestAnalysisPage.tsx</a> · <a href="../../frontend/src/services/requestsService.ts">requestsService.ts</a> · <a href="../../backend/src/routes/request-decisions.routes.ts">request-decisions.routes.ts</a> · <a href="../../backend/src/services/request-decisions.service.ts">request-decisions.service.ts</a> · <a href="../../docs/plans/frota-88-api-de-aprovacao-e-rejeicao.html">frota-88-api-de-aprovacao-e-rejeicao.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L13</summary><button type="button" data-copy="L13" hidden>Copiar prompt L13</button><p class="copy-status" id="status-L13" role="status"></p><pre id="prompt-L13">Trabalhe somente no lote L13 · Análise de solicitações e decisão desatualizada do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L13 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T14-P01, T14-P02, T14-P03, T14-P04, T14-P06.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L14" aria-labelledby="titulo-L14">
+<h3 id="titulo-L14">L14 · Agendamento, recálculo de disponibilidade e lotação</h3>
+<p class="object">Depois de uma disputa ou de manutenção, o Gestor vê por que o recurso saiu da seleção e mantém as escolhas ainda disponíveis.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T15-P01" href="../tests/telas/20261122-1131/T15.md">T15-P01</a> <a class="issue" data-achado="T15-P02" href="../tests/telas/20261122-1131/T15.md">T15-P02</a> <a class="issue" data-achado="T15-P04" href="../tests/telas/20261122-1131/T15.md">T15-P04</a></p>
+
+<h4>Solução recomendada</h4>
+<ol><li>Em 409 ou 422 de disponibilidade, desabilite a confirmação durante a reconsulta e compare as seleções pelos IDs e pelo intervalo efetivo. Mantenha somente os recursos ainda válidos. Traduza motivos estruturados em orientação, preserve a guarda transacional e as travas já existentes.</li><li>Associe erros aos campos de período e ajuste alvos, título e layout compacto. Preserve o pedido no retorno do conflito.</li><li>Para a lotação, a recomendação é usar passageiros persistidos e capacidade vigente no instante da alocação, dentro da transação. Preserve snapshots existentes e não reclassifique viagens antigas. A regra está pendente por ter ficado fora dos SDDs vigentes.</li></ol>
+<p><strong>Dependências.</strong> Lote 12 entrega pedido real e lote 13 entrega aprovação. Lote 18 pode reutilizar o recorte de agenda quando o contrato já der suporte.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar lotação, tratamento de zero/nulo e exceções por tipo/operação. Alinhar com os dados de passageiros do lote 12 antes de mudar disponibilidade e agendamento.</li></ul></div>
+<p><strong>Aceite.</strong> Disputar o mesmo recurso em duas sessões, repetir com horários contíguos e veículo em manutenção. Confirmar uma única gravação e mostrar recurso/motivo do conflito. Com regra aprovada, exercitar zero, igualdade, excesso e compatibilidade com registros anteriores.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/pages/gestor/schedulingPage/ScheduleTripPage.tsx">ScheduleTripPage.tsx</a> · <a href="../../frontend/src/services/schedulingService.ts">schedulingService.ts</a> · <a href="../../backend/src/services/availability.service.ts">availability.service.ts</a> · <a href="../../backend/src/services/trips.service.ts">trips.service.ts</a> · <a href="../../docs/plans/frota-96-disponibilidade-de-veiculo-e-motorista.html">frota-96-disponibilidade-de-veiculo-e-motorista.html</a> · <a href="../../docs/plans/frota-97-api-de-agendamento.html">frota-97-api-de-agendamento.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L14</summary><button type="button" data-copy="L14" hidden>Copiar prompt L14</button><p class="copy-status" id="status-L14" role="status"></p><pre id="prompt-L14">Trabalhe somente no lote L14 · Agendamento, recálculo de disponibilidade e lotação do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L14 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T15-P01, T15-P02, T15-P04.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L15" aria-labelledby="titulo-L15">
+<h3 id="titulo-L15">L15 · Execução e conferência de viagens</h3>
+<p class="object">Motorista e Gestor recebem confirmação acessível e conseguem reconciliar a mesma viagem depois de falha ou conflito.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T16-P01" href="../tests/telas/20261122-1131/T16.md">T16-P01</a> <a class="issue" data-achado="T16-P02" href="../tests/telas/20261122-1131/T16.md">T16-P02</a> <a class="issue" data-achado="T16-P03" href="../tests/telas/20261122-1131/T16.md">T16-P03</a> <a class="issue" data-achado="T17-P01" href="../tests/telas/20261122-1131/T17.md">T17-P01</a> <a class="issue" data-achado="T17-P02" href="../tests/telas/20261122-1131/T17.md">T17-P02</a> <a class="issue" data-achado="T17-P03" href="../tests/telas/20261122-1131/T17.md">T17-P03</a> <a class="issue" data-achado="T17-P04" href="../tests/telas/20261122-1131/T17.md">T17-P04</a> <a class="issue" data-achado="T17-P06" href="../tests/telas/20261122-1131/T17.md">T17-P06</a></p>
+
+<h4>Solução recomendada</h4>
+<ol><li>Reutilize o envio e a reconsulta já presentes em useMyTrips. Quando o resultado for incerto, preserve a leitura digitada e desabilite repetição até uma consulta bem-sucedida. Se gravou, mostre o estado persistido. Se a situação permite, ofereça nova tentativa explícita.</li><li>Na conferência, invalide o detalhe em 409, reconsulte a fila e anuncie o resultado uma vez. Use retorno de foco no aviso ou na próxima tarefa quando a linha sumir. Associe o erro de período aos campos e ajuste tabela, aviso, alvo de toque e status. Preserve as transições e a exigência de odômetro no serviço.</li><li>Sobre o comprovante, proponha consulta da viagem confirmada pelo mesmo ID e pelo perfil permitido, usando histórico e projeção existentes. O pedido e a viagem têm ciclos distintos. Se for preciso publicar um novo estado do pedido ou uma nova projeção, confirme o contrato com o lote 12.</li></ol>
+<p><strong>Dependências.</strong> Compartilha o par pedido/viagem com o lote 12 e a agenda com o lote 14. Lote 01 cobre sessão e descarte no fluxo comum.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar se o Gestor precisa de recibo consultável e quais dados de conclusão ficam visíveis a cada perfil. Recomenda-se primeiro reusar a situação da viagem vinculada e o histórico já gravado.</li></ul></div>
+<p><strong>Aceite.</strong> Com viagem de QA, simular falha após gravação, reconsultar e confirmar um único evento/odômetro. Repetir conflito entre gestores e leitura sem km. Conferir sucesso via NVDA, foco no retorno, períodos inválidos e largura de 320 px.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/hooks/useMyTrips.ts">useMyTrips.ts</a> · <a href="../../frontend/src/hooks/useTripConfirmations.ts">useTripConfirmations.ts</a> · <a href="../../frontend/src/pages/myTripsPage/TripExecutionDialog.tsx">TripExecutionDialog.tsx</a> · <a href="../../frontend/src/pages/tripConfirmationPage/TripConfirmationPage.tsx">TripConfirmationPage.tsx</a> · <a href="../../backend/src/services/trips.service.ts">trips.service.ts</a> · <a href="../../docs/plans/frota-100-tela-motorista-execucao-viagem.html">frota-100-tela-motorista-execucao-viagem.html</a> · <a href="../../docs/plans/frota-106-api-de-confirmacao-da-viagem.html">frota-106-api-de-confirmacao-da-viagem.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L15</summary><button type="button" data-copy="L15" hidden>Copiar prompt L15</button><p class="copy-status" id="status-L15" role="status"></p><pre id="prompt-L15">Trabalhe somente no lote L15 · Execução e conferência de viagens do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L15 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T16-P01, T16-P02, T16-P03, T17-P01, T17-P02, T17-P03, T17-P04, T17-P06.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L16" aria-labelledby="titulo-L16">
+<h3 id="titulo-L16">L16 · Registro, triagem e despacho na Central SVO</h3>
+<p class="object">A Central registra e confirma a ocorrência e encaminha o mesmo ID a uma equipe e viatura elegíveis.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T18-P01" href="../tests/telas/20261122-1131/T18.md">T18-P01</a> <a class="issue" data-achado="T18-P03" href="../tests/telas/20261122-1131/T18.md">T18-P03</a> <a class="issue" data-achado="T19-P01" href="../tests/telas/20261122-1131/T19.md">T19-P01</a></p>
+<details><summary>Reincidências vinculadas</summary><ul><li>T18-P03 é a referência de <a class="issue" data-recorrencia="T19-P02" href="../tests/telas/20261122-1131/T19.md">T19-P02</a>.</li></ul></details>
+<h4>Solução recomendada</h4>
+<ol><li>Na FROTA-109, implemente lista, detalhe, registro com os campos de triagem documentados e confirmação usando o contrato existente. Os perfis de consulta e escrita seguem os contratos do SVO. Atualize o título da aba e preserve conteúdo sensível fora do log e das capturas.</li><li>Na FROTA-116, parta da ocorrência confirmada, selecione equipe/viatura e use POST /svo/orders. Use somente dados operacionais necessários e reconsulte candidatos após 409. A disponibilidade definitiva permanece no serviço transacional com trava, trilha e ordem única.</li><li>O SDD da API excluiu listagem de equipes. Verifique fontes já autorizadas para opções. Se ausentes, proponha uma leitura mínima de candidatos de despacho com RBAC da Central, com os mesmos critérios de elegibilidade do serviço. A regra vigente permite mais de uma ordem para equipe ativa e limita a capacidade da viatura.</li></ol>
+<p><strong>Dependências.</strong> Dentro do lote, entregar primeiro FROTA-109 e em seguida FROTA-116. Lote 02 vincula o menu. Lote 17 revalida a passagem da ordem para a equipe.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Se faltar leitura de candidatos, confirmar o contrato e o acesso da consulta mínima antes de acrescentar endpoints. Qualquer edição adicional de triagem fora do contrato vigente precisa de decisão própria.</li></ul></div>
+<p><strong>Aceite.</strong> Criar e confirmar a mesma ocorrência pela UI, despachar e achar a ordem criada na equipe correspondente. Em paralelo controlado, testar ocorrência pendente, duplicidade, manutenção impeditiva vigente e última vaga com uma única ordem válida. Verificar RBAC, snapshots, sigilo e anúncio de proteção/reconsulta.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../backend/src/routes/svo-occurrences.routes.ts">svo-occurrences.routes.ts</a> · <a href="../../backend/src/routes/svo-orders.routes.ts">svo-orders.routes.ts</a> · <a href="../../backend/src/services/svo-orders.service.ts">svo-orders.service.ts</a> · <a href="../../docs/plans/frota-112-api-registro-solicitacao-svo.html">frota-112-api-registro-solicitacao-svo.html</a> · <a href="../../docs/plans/frota-115-117-geracao-ordens-svo.html">frota-115-117-geracao-ordens-svo.html</a> · <a href="../../docs/modulos/SVO.html">SVO.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L16</summary><button type="button" data-copy="L16" hidden>Copiar prompt L16</button><p class="copy-status" id="status-L16" role="status"></p><pre id="prompt-L16">Trabalhe somente no lote L16 · Registro, triagem e despacho na Central SVO do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L16 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T18-P01, T18-P03, T19-P01.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L17" aria-labelledby="titulo-L17">
+<h3 id="titulo-L17">L17 · Ordens SVO em campo e recuperação na Central</h3>
+<p class="object">A equipe revisa o encerramento antes de confirmar e recupera a consulta por teclado e toque. A Central mantém o foco no detalhe.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T20-P01" href="../tests/telas/20261122-1131/T20.md">T20-P01</a> <a class="issue" data-achado="T20-P02" href="../tests/telas/20261122-1131/T20.md">T20-P02</a> <a class="issue" data-achado="T20-P03" href="../tests/telas/20261122-1131/T20.md">T20-P03</a> <a class="issue" data-achado="T21-P01" href="../tests/telas/20261122-1131/T21.md">T21-P01</a> <a class="issue" data-achado="T21-P02" href="../tests/telas/20261122-1131/T21.md">T21-P02</a> <a class="issue" data-achado="T21-P03" href="../tests/telas/20261122-1131/T21.md">T21-P03</a> <a class="issue" data-achado="T22-P02" href="../tests/telas/20261122-1131/T22.md">T22-P02</a></p>
+<details><summary>Reincidências vinculadas</summary><ul><li>T20-P01 é a referência de <a class="issue" data-recorrencia="T22-P01" href="../tests/telas/20261122-1131/T22.md">T22-P01</a>.</li><li>T20-P02 é a referência de <a class="issue" data-recorrencia="T22-P03" href="../tests/telas/20261122-1131/T22.md">T22-P03</a>.</li></ul></details>
+<h4>Solução recomendada</h4>
+<ol><li>Faça o aviso parcial e a ação de recuperar empilharem em 320 px, com rótulo inteiro e área de toque. Ajuste seletores de situação e resultado. Use uma única região de anúncio para o resultado reconciliado, evitando status e alerta simultâneos com o mesmo texto.</li><li>Ao abrir a revisão, posicione o foco no título ou ação segura. Depois de erro, leve ao primeiro campo inválido. Ao recuperar detalhe, mantenha foco dentro do diálogo ou devolva a um acionador existente se fechá-lo. Preserve o bloqueio já implementado para resultado incerto e mantenha estados da equipe e autorização atuais.</li></ol>
+<p><strong>Dependências.</strong> Independente do lote 16 com massa sintética por API. Retestar a passagem real após a entrega de 16. A matriz administrativa fica no lote 02.</p>
+
+<p><strong>Aceite.</strong> Testar ordem realizada e não realizada no celular, confirmar que Enter na abertura da revisão não dispara o envio e contar um anúncio em NVDA. Simular reconsulta de lista e detalhe em 320 px, sem perda de foco, e validar o mesmo resultado no Acompanhamento.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/components/svo/SvoOrderList.tsx">SvoOrderList.tsx</a> · <a href="../../frontend/src/hooks/useSvoOrders.ts">useSvoOrders.ts</a> · <a href="../../frontend/src/components/svo/SvoOrderResultDialog.tsx">SvoOrderResultDialog.tsx</a> · <a href="../../frontend/src/components/svo/SvoOrderDetails.tsx">SvoOrderDetails.tsx</a> · <a href="../../docs/plans/frota-118-acompanhar-atendimento-svo.html">frota-118-acompanhar-atendimento-svo.html</a> · <a href="../../docs/plans/frota-122-registrar-resultado-svo.html">frota-122-registrar-resultado-svo.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L17</summary><button type="button" data-copy="L17" hidden>Copiar prompt L17</button><p class="copy-status" id="status-L17" role="status"></p><pre id="prompt-L17">Trabalhe somente no lote L17 · Ordens SVO em campo e recuperação na Central do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L17 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T20-P01, T20-P02, T20-P03, T21-P01, T21-P02, T21-P03, T22-P02.
+
+Confirme a aderência do lote ao contrato e ao estado atual da base. Se surgir divergência, aplique a Regra da Dúvida.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L18" aria-labelledby="titulo-L18">
+<h3 id="titulo-L18">L18 · Início e Dashboard com dados operacionais</h3>
+<p class="object">O Gestor enxerga os totais reais e consegue agir sobre a mesma seleção usada para exibi-los.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T04-P01" href="../tests/telas/20261122-1131/T04.md">T04-P01</a> <a class="issue" data-achado="T04-P03" href="../tests/telas/20261122-1131/T04.md">T04-P03</a> <a class="issue" data-achado="T23-P02" href="../tests/telas/20261122-1131/T23.md">T23-P02</a> <a class="issue" data-achado="T23-P04" href="../tests/telas/20261122-1131/T23.md">T23-P04</a> <a class="issue" data-achado="T23-P05" href="../tests/telas/20261122-1131/T23.md">T23-P05</a> <a class="issue" data-achado="T23-P06" href="../tests/telas/20261122-1131/T23.md">T23-P06</a></p>
+<details><summary>Reincidências vinculadas</summary><ul><li>T04-P01 é a referência de <a class="issue" data-recorrencia="T10-P02" href="../tests/telas/20261122-1131/T10.md">T10-P02</a>, <a class="issue" data-recorrencia="T23-P01" href="../tests/telas/20261122-1131/T23.md">T23-P01</a>.</li><li>T23-P04 é a referência de <a class="issue" data-recorrencia="T04-P09" href="../tests/telas/20261122-1131/T04.md">T04-P09</a>.</li></ul></details>
+<h4>Solução recomendada</h4>
+<ol><li>Crie consumo tipado do resumo e dos indicadores, via serviço e hook conforme os padrões do módulo. Reutilize cards e tabelas acessíveis. Exiba estado próprio para indisponibilidade, parcial, vazio e valores nulos. Conserve <code>pendingValidation</code> para fórmulas ainda propostas.</li><li>Valide datas antes de converter. A interface pode usar rótulos de dias civis inclusivos e convertê-los a [from, to) em America/Maceio no cliente, garantindo máximo de 366 dias aceitos pelo contrato. Grave o recorte nos parâmetros de navegação apropriados para recarga e retorno. Ajuste foco e alvos.</li><li>Rótulos de vencimento devem usar <code>alertDays</code>, contagem de documentos e estado do resumo confirmados. Ligue o alerta ao recorte do lote 10. Para “Ver agenda completa”, reutilize a consulta gerencial de viagens pelo horário agendado se seu contrato atender. Direcione para uma agenda real com dia/período preservados. A fila de confirmação fica para viagens finalizadas. Repasse o período anunciado no atalho de solicitações quando o contrato puder expressá-lo.</li></ol>
+<p><strong>Dependências.</strong> Pode integrar indicadores existentes agora. Link do alerta depende do lote 10. Recorte da agenda e arquitetura de navegação devem ser combinados com lotes 02 e 14.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar o recorte e os estados da agenda do Gestor se a consulta publicada não os especificar. Manter o selo de validação pendente para consumo e tempo de coleta. Visibilidade do Administrador segue a decisão do lote 02.</li></ul></div>
+<p><strong>Aceite.</strong> Reconciliar os recortes de 22 e 23/11 com massa fictícia e SQL de leitura. Limpar data em ambos os lados sem interromper a aplicação. Testar 366/367 dias, nenhum dado, data inválida, foco móvel, reabertura de recorte e atalhos por objeto. Medir a meta de 2 s no painel integrado, com seed e método declarados.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/pages/gestor/gestorPage/GestorPage.tsx">GestorPage.tsx</a> · <a href="../../frontend/src/pages/gestor/gestorPage/DashboardPage.tsx">DashboardPage.tsx</a> · <a href="../../backend/src/types/dashboard.types.ts">dashboard.types.ts</a> · <a href="../../backend/src/repositories/dashboard.repository.ts">dashboard.repository.ts</a> · <a href="../../backend/src/routes/dashboard.routes.ts">dashboard.routes.ts</a> · <a href="../../docs/manuais/indicadores-dashboard.md">indicadores-dashboard.md</a> · <a href="../../docs/plans/frota-129-consultas-agregadas-do-dashboard.html">frota-129-consultas-agregadas-do-dashboard.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L18</summary><button type="button" data-copy="L18" hidden>Copiar prompt L18</button><p class="copy-status" id="status-L18" role="status"></p><pre id="prompt-L18">Trabalhe somente no lote L18 · Início e Dashboard com dados operacionais do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L18 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T04-P01, T04-P03, T23-P02, T23-P04, T23-P05, T23-P06.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L19" aria-labelledby="titulo-L19">
+<h3 id="titulo-L19">L19 · Prévia, CSV e impressão de relatórios</h3>
+<p class="object">Prévia, CSV e impressão refletem o recorte conferido. A folha impressa continua identificável quando separada das demais.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T24-P01" href="../tests/telas/20261122-1131/T24.md">T24-P01</a> <a class="issue" data-achado="T24-P02" href="../tests/telas/20261122-1131/T24.md">T24-P02</a> <a class="issue" data-achado="T24-P03" href="../tests/telas/20261122-1131/T24.md">T24-P03</a> <a class="issue" data-achado="T24-P04" href="../tests/telas/20261122-1131/T24.md">T24-P04</a> <a class="issue" data-achado="T24-P05" href="../tests/telas/20261122-1131/T24.md">T24-P05</a> <a class="issue" data-achado="T25-P01" href="../tests/telas/20261122-1131/T25.md">T25-P01</a> <a class="issue" data-achado="T25-P02" href="../tests/telas/20261122-1131/T25.md">T25-P02</a> <a class="issue" data-achado="T25-P03" href="../tests/telas/20261122-1131/T25.md">T25-P03</a> <a class="issue" data-achado="T25-P05" href="../tests/telas/20261122-1131/T25.md">T25-P05</a></p>
+<details><summary>Reincidências vinculadas</summary><ul><li>T24-P03 é a referência de <a class="issue" data-recorrencia="T25-P04" href="../tests/telas/20261122-1131/T25.md">T25-P04</a>.</li></ul></details>
+<h4>Solução recomendada</h4>
+<ol><li>Guarde a seleção confirmada na prévia com período, filtros e ordem de colunas. Invalide a conferência ao mudar a seleção e ofereça nova prévia antes de exportar/imprimir. Preserve o contrato e o escopo do snapshot de cada consulta, distinguindo revisão de seleção de congelamento de linhas. Anuncie totais uma vez e associe erros às datas.</li><li>Use os metadados autorizados do mesmo relatório no cabeçalho da prévia e na impressão. Inclua emissão com fuso e identificação curta nas páginas seguintes, conserve cabeçalhos de tabela e evite quebra dentro de números e moeda. Restaure o foco no acionador após o diálogo nativo quando o navegador permitir, com fallback estável.</li><li>Para CSV, preserve a forma tabular dos consumidores atuais. Recomenda-se contrato de metadados versionado ou arquivo complementar associado ao mesmo recorte, escolhido com os consumidores. O evento <code>EXPORT</code> de impressão registra a preparação. A tela e o documento só afirmam o que o navegador consegue demonstrar.</li></ol>
+<p><strong>Dependências.</strong> Reusa os períodos documentados no lote 18. Lote 20 recebe a semântica de preparo da impressão na auditoria.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar o formato de metadados de CSV com os consumidores. Recomenda-se preservar o CSV existente e negociar extensão compatível com US22 antes de mudar bytes ou cabeçalhos.</li></ul></div>
+<p><strong>Aceite.</strong> Comparar uma seleção real de teste entre prévia, CSV e PDF. Alterar data, filtro e coluna e rever antes de emitir. Cancelar por Esc e conferir foco. Gerar multipágina e inspecionar última página e totais. Em banco descartável, testar fronteiras reais de prévia, CSV e impressão conforme o contrato, inclusive RBAC e colunas restritas.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../frontend/src/hooks/useReports.ts">useReports.ts</a> · <a href="../../frontend/src/pages/reportsPage/ReportsPage.tsx">ReportsPage.tsx</a> · <a href="../../frontend/src/pages/reportsPage/ReportPrintView.tsx">ReportPrintView.tsx</a> · <a href="../../backend/src/services/reports.service.ts">reports.service.ts</a> · <a href="../../backend/src/services/reports/export/report-exporter.strategy.ts">report-exporter.strategy.ts</a> · <a href="../../docs/manuais/relatorios-exportacoes.md">relatorios-exportacoes.md</a> · <a href="../../docs/plans/frota-132-us22-gerar-relatorios.html">frota-132-us22-gerar-relatorios.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L19</summary><button type="button" data-copy="L19" hidden>Copiar prompt L19</button><p class="copy-status" id="status-L19" role="status"></p><pre id="prompt-L19">Trabalhe somente no lote L19 · Prévia, CSV e impressão de relatórios do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L19 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T24-P01, T24-P02, T24-P03, T24-P04, T24-P05, T25-P01, T25-P02, T25-P03, T25-P05.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+<article class="lot" id="L20" aria-labelledby="titulo-L20">
+<h3 id="titulo-L20">L20 · Tela de Auditoria e projeção autorizada</h3>
+<p class="object">Gestor e Administrador localizam eventos de operação pela UI com fuso, filtros e projeções compatíveis com a finalidade de auditoria.</p>
+<p><strong>Achados de referência</strong> <a class="issue" data-achado="T26-P01" href="../tests/telas/20261122-1131/T26.md">T26-P01</a> <a class="issue" data-achado="T26-P03" href="../tests/telas/20261122-1131/T26.md">T26-P03</a> <a class="issue" data-achado="T26-P04" href="../tests/telas/20261122-1131/T26.md">T26-P04</a> <a class="issue" data-achado="T26-P05" href="../tests/telas/20261122-1131/T26.md">T26-P05</a></p>
+
+<h4>Solução recomendada</h4>
+<ol><li>Implemente a tela somente leitura da FROTA-142 sobre o GET atual usando DataTable, FilterBar, StateFeedback e detalhe com foco restaurado. Mostre fuso operacional, ator, ação e entidade. Ofereça navegação ao registro somente quando houver tela autorizada. Mantenha paginação e ordem definidas pela API.</li><li>Valide o limite do identificador no domínio antes do repositório. Use representação em string e comparação sem perda de precisão, preservando 400 para entrada inválida e o contrato para IDs válidos. Atualize a documentação que usa nomes de filtros antigos e mantenha os parâmetros publicados.</li><li>Trate justificativa livre de SVO na projeção de leitura após decisão de privacidade. A proposta é ocultar ou reduzir o texto em escopos onde os snapshots já são ocultos e identificar isso na resposta, mantendo audit.logs e os eventos históricos íntegros. Evite usar uma interface genérica para conceder acesso à narrativa operacional.</li></ol>
+<p><strong>Dependências.</strong> Lote 02 integra a rota da FROTA-142. Lotes 15, 17 e 19 fornecem cenários de confirmação, SVO e exportação.</p>
+<div class="notice-block"><strong>Decisões antes do SDD definitivo</strong><ul><li>Confirmar com o responsável pelo sigilo se <code>reason</code> do SVO deve ser omitido, reduzido ou exibido para papéis específicos. Recomenda-se restringir a projeção de texto livre enquanto se preserva o evento original.</li></ul></div>
+<p><strong>Aceite.</strong> Buscar eventos fictícios de conta, viagem, multa, SVO e relatório por filtros e paginação. Exercitar um limite válido e um inválido, máscaras de campos e ausência de escrita, verificando papéis permitidos e vedados. Distinguir preparo da impressão e arquivo salvo pela evidência do navegador.</p>
+<p class="sources"><strong>Fontes.</strong> <a href="../../backend/src/routes/audit-logs.routes.ts">audit-logs.routes.ts</a> · <a href="../../backend/src/services/audit-logs.service.ts">audit-logs.service.ts</a> · <a href="../../backend/src/repositories/audit-logs.repository.ts">audit-logs.repository.ts</a> · <a href="../../docs/plans/frota-141-api-de-consulta-de-auditoria.html">frota-141-api-de-consulta-de-auditoria.html</a> · <a href="../../docs/modulos/AUTENTICACAO_RBAC.html">AUTENTICACAO_RBAC.html</a></p>
+<details class="prompt"><summary>Prompt para o chat L20</summary><button type="button" data-copy="L20" hidden>Copiar prompt L20</button><p class="copy-status" id="status-L20" role="status"></p><pre id="prompt-L20">Trabalhe somente no lote L20 · Tela de Auditoria e projeção autorizada do Sistema Aratu.
+
+Abra docs/plans/qa-lotes-de-correcoes.html#L20 e leia o objetivo, os achados, a solução proposta, as fontes, as dependências e o aceite. Use os relatórios da campanha 20261122-1131 e confira o código na develop antes de decidir.
+
+Use os achados T26-P01, T26-P03, T26-P04, T26-P05.
+
+As decisões pendentes estão no lote. Confirme-as com o responsável antes de fechar o SDD das partes dependentes. Avance no escopo documentado que tiver aceite independente.
+
+Aplique principios. Prepare o /plano de execução com a branch específica conforme o Gitflow. Depois de aprovar a proposta do lote, use /implementar, /testar e /revisar no mesmo escopo. Reutilize o código existente e valide os IDs, perfis e critérios de aceite com dados fictícios. Ao entregar, registre a evidência, o estado dos achados e as dependências restantes.</pre></details>
+</article>
+</section>
+<section id="contratos">
+<h2>3. Dados, contratos e perfis</h2>
+<ul>
+<li>Confirme cada rota no código e cada escopo nos módulos. Use os seis perfis reais <code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code> e <code>EQUIPE_SVO</code>. A guarda de interface acompanha o RBAC do serviço e a propriedade do registro.</li>
+<li>As propostas priorizam os contratos e schemas existentes. Caso uma decisão aprovada exija campo ou rota nova, o SDD do lote deve descrever compatibilidade, efeito sobre registros antigos, migração e rollback aplicáveis em <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code> ou <code>audit</code>.</li>
+<li>Preserve trilha append-only, snapshots, revisões, códigos publicados, consultas parametrizadas e atomicidade das operações críticas. Mantenha formatação de horários na apresentação e critérios de data no contrato de cada domínio.</li>
+</ul>
+</section>
+<section id="aceite">
+<h2>4. Verificação e checklist pré-PR</h2>
+<ul>
+<li>Reproduzir o achado original com massa sintética, depois verificar o mesmo ID, perfil, fluxo normal e recarga. Registre quando uma resposta foi simulada e o que a simulação prova.</li>
+<li>Quando houver interface, percorrer os estados ideal, carregando, vazio, erro e parcial aplicáveis. Validar foco, teclado, leitor de tela, alvos de toque, contraste, reflow a 320 px e zoom de 200%. Use tema, FormField, DataTable, StateFeedback, StatusChip e ConfirmDialog onde estiverem no fluxo.</li>
+<li>Quando houver mudança no backend, testar bordas de entrada, RBAC, compatibilidade e estado persistido. Use fixture fictícia e banco de testes distinto da campanha. Nas mutações, prove unicidade e recuperação sob concorrência ou resultado incerto conforme o lote.</li>
+<li>Rodar <code>node docs/scripts/aratu-check.mjs</code> e as suítes pertinentes. Antes do PR para <code>develop</code>, relacione achados, critério de aceite, evidências e retestes. Atualize o manual ou o módulo dono somente quando o contrato ou o fluxo publicado mudar.</li>
+</ul>
+</section>
+<section id="principios">
+<h2>5. Princípios e fontes</h2>
+<p>A ordem de decisão segue os padrões do projeto, o escopo por perfil, a compatibilidade, a atomicidade e a idempotência. Depois, YAGNI, DRY, SOLID, KISS e Clean Code orientam a implementação. A Regra da Dúvida exige confirmação antes de fechar o SDD da parte dependente.</p>
+<p><a href="../../.agents/skills/principios/SKILL.md">SKILL.md</a> · <a href="../../.agents/skills/principios/references/planejamento.md">planejamento.md</a> · <a href="../../.agents/skills/principios/references/escopo-impacto.md">escopo-impacto.md</a> · <a href="../../.agents/skills/principios/references/dados.md">dados.md</a> · <a href="../../.agents/skills/principios/references/camadas.md">camadas.md</a> · <a href="../../.agents/skills/principios/references/acessibilidade.md">acessibilidade.md</a> · <a href="../../docs/manuais/padroes-projeto.md">padroes-projeto.md</a> · <a href="../../docs/manuais/padroes-frontend.md">padroes-frontend.md</a> · <a href="../../docs/manuais/padroes-backend.md">padroes-backend.md</a></p>
+</section>
+</main>
+<script>
+for (const button of document.querySelectorAll('[data-copy]')) {
+  button.hidden = false;
+  button.addEventListener('click', async () => {
+    const lot = button.dataset.copy;
+    const prompt = document.getElementById('prompt-' + lot);
+    const status = document.getElementById('status-' + lot);
+    try {
+      await navigator.clipboard.writeText(prompt.textContent);
+      status.textContent = 'Prompt copiado.';
+    } catch {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(prompt);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      status.textContent = 'Prompt selecionado. Pressione Ctrl+C para copiar.';
+    }
+  });
+}
+</script>
+</body>
+</html>
