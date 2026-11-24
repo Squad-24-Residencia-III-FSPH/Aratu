@@ -19,7 +19,11 @@ import { RequestServiceError } from '../src/types/request.types'
 
 const client = {} as PoolClient
 const actor: RequestActorSnapshot = {
-  id: '3', name: 'Solicitante Fictício', email: 'solicitante@example.test', role: 'SOLICITANTE',
+  id: '3',
+  name: 'Solicitante Fictício',
+  email: 'solicitante@example.test',
+  role: 'SOLICITANTE',
+  sector: 'Laboratório Central Fictício',
 }
 const serviceSnapshot: RequestServiceSnapshot = {
   id: '5', name: 'Transporte fictício', requiresTriage: false, requiresWeight: false,
@@ -39,6 +43,7 @@ function createSummary(overrides: Partial<RequestSummary> = {}): RequestSummary 
     destination: 'Unidade Centro',
     purpose: 'Reunião institucional',
     passengers: 2,
+    notes: null,
     status: 'PENDING',
     createdAt: '2026-11-05T12:00:00.000Z',
     updatedAt: '2026-11-05T12:00:00.000Z',
@@ -49,24 +54,40 @@ function createSummary(overrides: Partial<RequestSummary> = {}): RequestSummary 
 function createDetail(overrides: Partial<RequestDetail> = {}): RequestDetail {
   return {
     ...createSummary(),
+    requesterSector: 'Laboratório Central Fictício',
     decidedBy: null,
     decidedByName: null,
     decidedAt: null,
     decisionReason: null,
+    revision: 1,
+    events: [],
     trip: null,
     ...overrides,
   }
 }
 
-function setup(options: { serviceAvailable?: boolean; failAudit?: boolean } = {}) {
-  const saved: { input?: CreateRequestInput; actor?: RequestActorSnapshot; event?: CreateRequestEventInput } = {}
+function setup(options: {
+  serviceAvailable?: boolean
+  failAudit?: boolean
+  storedForUpdate?: TripRequest | null
+  resubmitRaceLost?: boolean
+  actorSnapshot?: RequestActorSnapshot
+} = {}) {
+  const saved: {
+    input?: CreateRequestInput
+    actor?: RequestActorSnapshot
+    event?: CreateRequestEventInput
+    events: CreateRequestEventInput[]
+    audits: Array<{ operation: string; reason?: string | null; after?: Record<string, unknown> | null }>
+  } = { events: [], audits: [] }
   const calls: Array<RequestListFilters & { requesterId?: string }> = []
   let detail: RequestDetail | null = createDetail()
   let receivedDetailArgs: { id: string; requesterId?: string } | null = null
+  let currentActor: RequestActorSnapshot = options.actorSnapshot ?? actor
 
   const repository: RequestsRepositoryContract = {
     async withTransaction<T>(work: (transaction: PoolClient) => Promise<T>): Promise<T> { return work(client) },
-    async findActorSnapshot(): Promise<RequestActorSnapshot> { return actor },
+    async findActorSnapshot(): Promise<RequestActorSnapshot> { return currentActor },
     async findActiveServiceForUpdate(): Promise<RequestServiceSnapshot | null> {
       return options.serviceAvailable === false ? null : serviceSnapshot
     },
@@ -74,11 +95,38 @@ function setup(options: { serviceAvailable?: boolean; failAudit?: boolean } = {}
       saved.input = input
       saved.actor = requester
       return {
-        id: '41', requesterId: requester.id, ...input, passengers: 1,
-        status: 'PENDING', requesterSnapshot: requester, serviceSnapshot: service,
+        id: '41',
+        requesterId: requester.id,
+        ...input,
+        status: 'PENDING',
+        revision: 1,
+        requesterSector: requester.sector ?? null,
+        requesterSnapshot: requester,
+        serviceSnapshot: service,
       }
     },
-    async createEvent(input): Promise<void> { saved.event = input },
+    async findByIdForUpdate(): Promise<TripRequest | null> {
+      return options.storedForUpdate ?? null
+    },
+    async resubmit(id, requesterId, expectedRevision, input, requester, service): Promise<TripRequest | null> {
+      if (options.resubmitRaceLost) return null
+      saved.input = input
+      saved.actor = requester
+      return {
+        id,
+        requesterId,
+        ...input,
+        status: 'PENDING',
+        revision: expectedRevision + 1,
+        requesterSector: requester.sector ?? null,
+        requesterSnapshot: requester,
+        serviceSnapshot: service,
+      }
+    },
+    async createEvent(input): Promise<void> {
+      saved.event = input
+      saved.events.push(input)
+    },
     async list(filters): Promise<PaginatedRequests> {
       calls.push(filters)
       return {
@@ -98,6 +146,7 @@ function setup(options: { serviceAvailable?: boolean; failAudit?: boolean } = {}
   const auditService: AuditLogger = {
     async recordAudit(input): Promise<AuditEntry> {
       if (options.failAudit) throw new Error('falha fictícia de auditoria')
+      saved.audits.push({ operation: input.operation, reason: input.reason ?? null, after: input.after ?? null })
       return {
         id: '1', userId: String(input.userId), table: input.table, recordId: String(input.recordId),
         operation: input.operation, before: input.before ?? null, after: input.after ?? null,
@@ -111,6 +160,7 @@ function setup(options: { serviceAvailable?: boolean; failAudit?: boolean } = {}
     saved,
     calls,
     setDetail(value: RequestDetail | null) { detail = value },
+    setActorSnapshot(value: RequestActorSnapshot) { currentActor = value },
     getDetailArgs() { return receivedDetailArgs },
   }
 }
@@ -255,4 +305,119 @@ test('não repassa escopo de solicitante para gestor no detalhe', async () => {
   await service.getRequest('10', { id: '4', role: 'GESTOR' })
 
   assert.deepEqual(getDetailArgs(), { id: '10' })
+})
+
+test('criação aceita passengers e notes opcionais mantendo compatibilidade com 6 campos', async () => {
+  const withExtras = setup()
+  await withExtras.service.createRequest({ ...futureRequest, passengers: 3, notes: '  Levar pasta fictícia  ' }, actor.id)
+  assert.equal(withExtras.saved.input?.passengers, 3)
+  assert.equal(withExtras.saved.input?.notes, 'Levar pasta fictícia')
+
+  const defaultPayload = setup()
+  await defaultPayload.service.createRequest(futureRequest, actor.id)
+  assert.equal(defaultPayload.saved.input?.passengers, 1)
+  assert.equal(defaultPayload.saved.input?.notes, null)
+
+  await assert.rejects(defaultPayload.service.createRequest({ ...futureRequest, passengers: 0 }, actor.id), isServiceError(400))
+  await assert.rejects(defaultPayload.service.createRequest({ ...futureRequest, notes: 123 }, actor.id), isServiceError(400))
+})
+
+test('reenvio versionado de solicitação rejeitada volta a PENDING preservando histórico e validando revisão', async () => {
+  const rejectedStored: TripRequest = {
+    id: '41',
+    requesterId: actor.id,
+    serviceId: '5',
+    requestedDate: '2099-12-01',
+    requestedTime: '08:30',
+    origin: 'Origem anterior',
+    destination: 'Destino anterior',
+    purpose: 'Finalidade anterior',
+    passengers: 1,
+    notes: null,
+    status: 'REJECTED',
+    revision: 2,
+    requesterSector: actor.sector ?? null,
+    requesterSnapshot: actor,
+    serviceSnapshot,
+  }
+
+  const context = setup({ storedForUpdate: rejectedStored })
+  const result = await context.service.resubmitRequest('41', {
+    ...futureRequest,
+    requestedTime: '10:30',
+    passengers: 4,
+    notes: 'Ajustado horário conforme orientação',
+    expectedRevision: 2,
+    reason: 'Horário ajustado para cobertura operacional',
+  }, actor.id)
+
+  assert.deepEqual(result, { id: '41', status: 'PENDING', revision: 3 })
+  assert.equal(context.saved.events.length, 1)
+  assert.equal(context.saved.events[0]?.eventType, 'RESUBMITTED')
+  assert.equal(context.saved.events[0]?.beforeState?.status, 'REJECTED')
+  assert.equal(context.saved.events[0]?.afterState.status, 'PENDING')
+  assert.equal(context.saved.events[0]?.reason, 'Horário ajustado para cobertura operacional')
+  assert.equal(context.saved.audits[0]?.operation, 'STATUS_CHANGE')
+
+  await assert.rejects(
+    setup({ storedForUpdate: rejectedStored }).service.resubmitRequest('41', {
+      ...futureRequest,
+      expectedRevision: 1,
+      reason: 'Tentativa obsoleta',
+    }, actor.id),
+    isServiceError(409),
+  )
+
+  await assert.rejects(
+    setup({ storedForUpdate: { ...rejectedStored, status: 'PENDING' } }).service.resubmitRequest('41', {
+      ...futureRequest,
+      expectedRevision: 2,
+      reason: 'Não rejeitada',
+    }, actor.id),
+    isServiceError(409),
+  )
+
+  await assert.rejects(
+    setup({ storedForUpdate: null }).service.resubmitRequest('41', {
+      ...futureRequest,
+      expectedRevision: 2,
+      reason: 'Outro titular',
+    }, actor.id),
+    isServiceError(404),
+  )
+
+  await assert.rejects(
+    setup({ storedForUpdate: rejectedStored }).service.resubmitRequest('41', {
+      ...futureRequest,
+      expectedRevision: 2,
+      reason: '   ',
+    }, actor.id),
+    isServiceError(400),
+  )
+})
+
+test('congela setor histórico do solicitante no snapshot e devolve null para pedidos antigos sem setor', async () => {
+  const context = setup({
+    actorSnapshot: {
+      id: '3',
+      name: 'Solicitante Fictício',
+      email: 'solicitante@example.test',
+      role: 'SOLICITANTE',
+      sector: 'Hemocentro Fictício',
+    },
+  })
+  await context.service.createRequest(futureRequest, '3')
+  assert.equal(context.saved.actor?.sector, 'Hemocentro Fictício')
+  assert.equal(context.saved.event?.afterState.requesterSector, 'Hemocentro Fictício')
+  assert.equal(context.saved.audits[0]?.after?.requesterSector, 'Hemocentro Fictício')
+
+  // Simula solicitação legada anterior sem setor no snapshot
+  context.setDetail(createDetail({ requesterSector: null }))
+  const legacyDetail = await context.service.getRequest('10', { id: '4', role: 'GESTOR' })
+  assert.equal(legacyDetail.requesterSector, null)
+
+  // Simula solicitação com setor histórico preservado no detalhe
+  context.setDetail(createDetail({ requesterSector: 'Hemocentro Fictício' }))
+  const snapshotDetail = await context.service.getRequest('10', { id: '4', role: 'GESTOR' })
+  assert.equal(snapshotDetail.requesterSector, 'Hemocentro Fictício')
 })

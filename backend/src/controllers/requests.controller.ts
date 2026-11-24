@@ -4,6 +4,7 @@ import type {
   RequestActor,
   RequestListFilters,
   RequestStatus,
+  ResubmitRequestBody,
 } from '../types/request.types'
 import { RequestServiceError } from '../types/request.types'
 import type { RequestsService } from '../services/requests.service'
@@ -18,6 +19,18 @@ function bodyRecord(body: unknown): CreateRequestBody {
     destination: value.destination,
     purpose: value.purpose,
     serviceId: value.serviceId,
+    passengers: value.passengers,
+    notes: value.notes,
+  }
+}
+
+function resubmitBodyRecord(body: unknown): ResubmitRequestBody {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return {}
+  const value = body as Record<string, unknown>
+  return {
+    ...bodyRecord(value),
+    expectedRevision: value.expectedRevision,
+    reason: value.reason,
   }
 }
 
@@ -71,6 +84,15 @@ export function createRequestsController(service: RequestsService) {
         next,
         () => service.createRequest(bodyRecord(req.body), req.usuario?.id ?? ''),
         201,
+      )
+    },
+
+    /** Reenvia uma solicitação rejeitada pelo próprio Solicitante com controle de revisão. */
+    resubmit(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return respondWithDomainErrors(
+        res,
+        next,
+        () => service.resubmitRequest(String(req.params.id), resubmitBodyRecord(req.body), req.usuario?.id ?? ''),
       )
     },
 

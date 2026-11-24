@@ -7,17 +7,23 @@ import type {
   CreateRequestInput,
   PaginatedRequests,
   RequestActor,
+  RequestActorSnapshot,
   RequestDetail,
   RequestListFilters,
   RequestStatus,
+  ResubmitRequestBody,
+  ResubmitRequestResult,
   TripRequest,
 } from '../types/request.types'
 
 const OPERATIONAL_TIME_ZONE = 'America/Maceio'
 const REQUEST_EVENT_REASON = 'Solicitação criada pelo Solicitante.'
-const AUDIT_OPERATION = 'CREATE'
+const AUDIT_CREATE_OPERATION = 'CREATE'
+const AUDIT_RESUBMIT_OPERATION = 'STATUS_CHANGE'
 const DEFAULT_PAGE_SIZE = 20
 const MAX_PAGE_SIZE = 100
+const MAX_NOTES_LENGTH = 1000
+const MAX_RESUBMIT_REASON_LENGTH = 500
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/
 const ID_PATTERN = /^[1-9]\d*$/
@@ -65,6 +71,59 @@ function assertDateIsNotPast(requestedDate: string, requestedTime: string): void
   }
 }
 
+function parsePassengers(value: unknown): number {
+  if (value === undefined || value === null || value === '') return 1
+  if (typeof value === 'number') {
+    if (Number.isInteger(value) && value >= 1) return value
+    throw new RequestServiceError(400, 'passengers deve ser um número inteiro maior ou igual a 1.')
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return 1
+    if (ID_PATTERN.test(trimmed)) {
+      const parsed = Number(trimmed)
+      if (Number.isSafeInteger(parsed) && parsed >= 1) return parsed
+    }
+  }
+  throw new RequestServiceError(400, 'passengers deve ser um número inteiro maior ou igual a 1.')
+}
+
+function parseNotes(value: unknown): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') {
+    throw new RequestServiceError(400, 'notes deve ser um texto.')
+  }
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return null
+  if (trimmed.length > MAX_NOTES_LENGTH) {
+    throw new RequestServiceError(400, `notes deve ter no máximo ${MAX_NOTES_LENGTH} caracteres.`)
+  }
+  return trimmed
+}
+
+function parseExpectedRevision(value: unknown): number {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 1) return value
+  if (typeof value === 'string' && ID_PATTERN.test(value.trim())) {
+    const parsed = Number(value.trim())
+    if (Number.isSafeInteger(parsed) && parsed >= 1) return parsed
+  }
+  throw new RequestServiceError(400, 'expectedRevision deve ser um número inteiro positivo.')
+}
+
+function parseResubmitReason(value: unknown): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new RequestServiceError(400, 'Informe a justificativa do reenvio.')
+  }
+  const trimmed = value.trim()
+  if (trimmed.length > MAX_RESUBMIT_REASON_LENGTH) {
+    throw new RequestServiceError(
+      400,
+      `A justificativa do reenvio deve ter no máximo ${MAX_RESUBMIT_REASON_LENGTH} caracteres.`,
+    )
+  }
+  return trimmed
+}
+
 function validateInput(body: CreateRequestBody): CreateRequestInput {
   const requestedDate = requiredText(body.requestedDate, 'requestedDate')
   const requestedTime = requiredText(body.requestedTime, 'requestedTime')
@@ -79,6 +138,18 @@ function validateInput(body: CreateRequestBody): CreateRequestInput {
     origin: requiredText(body.origin, 'origin'),
     destination: requiredText(body.destination, 'destination'),
     purpose: requiredText(body.purpose, 'purpose'),
+    passengers: parsePassengers(body.passengers),
+    notes: parseNotes(body.notes),
+  }
+}
+
+function toActorSnapshot(actor: RequestActorSnapshot): RequestActorSnapshot {
+  return {
+    id: actor.id,
+    name: actor.name,
+    email: actor.email,
+    role: actor.role,
+    sector: actor.sector ?? null,
   }
 }
 
@@ -93,7 +164,10 @@ function stateOf(request: TripRequest): Record<string, unknown> {
     destination: request.destination,
     purpose: request.purpose,
     passengers: request.passengers,
+    notes: request.notes,
     status: request.status,
+    revision: request.revision,
+    requesterSector: request.requesterSector,
     requesterSnapshot: request.requesterSnapshot,
     serviceSnapshot: request.serviceSnapshot,
   }
@@ -123,12 +197,13 @@ export class RequestsService {
       if (!service) throw new RequestServiceError(400, 'Tipo de serviço inexistente ou inativo.')
       assertDateIsNotPast(input.requestedDate, input.requestedTime)
 
-      const request = await this.repository.create(input, actor, service, client)
+      const actorSnapshot = toActorSnapshot(actor)
+      const request = await this.repository.create(input, actorSnapshot, service, client)
       await this.repository.createEvent({
         requestId: request.id,
         reportedBy: actor.name,
         registeredBy: actor.id,
-        actorSnapshot: { id: actor.id, name: actor.name, email: actor.email, role: actor.role },
+        actorSnapshot,
         reason: REQUEST_EVENT_REASON,
         afterState: request,
       }, client)
@@ -136,13 +211,100 @@ export class RequestsService {
         userId: actor.id,
         table: 'trip.requests',
         recordId: request.id,
-        operation: AUDIT_OPERATION,
+        operation: AUDIT_CREATE_OPERATION,
         before: null,
         after: stateOf(request),
-        actorSnapshot: { id: actor.id, name: actor.name, email: actor.email, role: actor.role },
+        actorSnapshot: { ...actorSnapshot },
         reason: REQUEST_EVENT_REASON,
       }, client)
       return { id: request.id, status: INITIAL_REQUEST_STATUS }
+    })
+  }
+
+  /**
+   * Reenvia uma solicitação rejeitada (`REJECTED` → `PENDING`) pelo próprio titular com controle otimista.
+   *
+   * Preserva integralmente os eventos anteriores (`CREATED`, `REJECTED`) na trilha append-only
+   * e registra um novo evento `RESUBMITTED` com justificativa e auditoria na mesma transação.
+   *
+   * @throws {RequestServiceError} 400 entrada/serviço inválidos, 401 conta inativa, 404 não encontrada no escopo, 409 revisão obsoleta ou status não rejeitado, 422 data passada.
+   */
+  async resubmitRequest(
+    id: string,
+    body: ResubmitRequestBody,
+    requesterId: string,
+  ): Promise<ResubmitRequestResult> {
+    if (!ID_PATTERN.test(id)) throw new RequestServiceError(400, 'Identificador de solicitação inválido.')
+    if (!ID_PATTERN.test(requesterId)) throw new RequestServiceError(401, 'Usuário autenticado inválido.')
+
+    const expectedRevision = parseExpectedRevision(body.expectedRevision)
+    const reason = parseResubmitReason(body.reason)
+    const input = validateInput(body)
+
+    return this.repository.withTransaction(async (client: PoolClient) => {
+      const actor = await this.repository.findActorSnapshot(requesterId, client)
+      if (!actor) throw new RequestServiceError(401, 'Sua conta não está ativa. Entre novamente ou procure a administração.')
+
+      const before = await this.repository.findByIdForUpdate(id, requesterId, client)
+      if (!before) throw new RequestServiceError(404, 'Solicitação não encontrada.')
+      if (before.status !== 'REJECTED') {
+        throw new RequestServiceError(409, 'Somente solicitações rejeitadas podem ser reenviadas.')
+      }
+      if (before.revision !== expectedRevision) {
+        throw new RequestServiceError(
+          409,
+          'A solicitação foi atualizada em outra ação. Recarregue os detalhes antes de reenviar.',
+        )
+      }
+
+      const service = await this.repository.findActiveServiceForUpdate(input.serviceId, client)
+      if (!service) throw new RequestServiceError(400, 'Tipo de serviço inexistente ou inativo.')
+      assertDateIsNotPast(input.requestedDate, input.requestedTime)
+
+      const actorSnapshot = toActorSnapshot(actor)
+      const after = await this.repository.resubmit(
+        id,
+        requesterId,
+        expectedRevision,
+        input,
+        actorSnapshot,
+        service,
+        client,
+      )
+      if (!after) {
+        throw new RequestServiceError(
+          409,
+          'A solicitação foi atualizada em outra ação. Recarregue os detalhes antes de reenviar.',
+        )
+      }
+
+      await this.repository.createEvent({
+        requestId: after.id,
+        eventType: 'RESUBMITTED',
+        reportedBy: actor.name,
+        registeredBy: actor.id,
+        actorSnapshot,
+        reason,
+        beforeState: before,
+        afterState: after,
+      }, client)
+
+      await this.auditService.recordAudit({
+        userId: actor.id,
+        table: 'trip.requests',
+        recordId: after.id,
+        operation: AUDIT_RESUBMIT_OPERATION,
+        before: stateOf(before),
+        after: stateOf(after),
+        actorSnapshot: { ...actorSnapshot },
+        reason,
+      }, client)
+
+      return {
+        id: after.id,
+        status: after.status,
+        revision: after.revision,
+      }
     })
   }
 

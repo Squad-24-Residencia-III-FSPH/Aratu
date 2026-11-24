@@ -1,617 +1,609 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import AddIcon from '@mui/icons-material/Add'
 import {
+  Alert,
   Box,
   Button,
   Paper,
-  TextField,
-  MenuItem,
-  Select,
-  FormControl,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Tooltip,
-  Pagination,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import SendIcon from '@mui/icons-material/Send';
-import RefreshIcon from '@mui/icons-material/Refresh';
+  Stack,
+  TablePagination,
+} from '@mui/material'
+import { resolveProfile } from '../../auth/profiles'
+import { useSessionDraft } from '../../auth/sessionDrafts'
+import { useAuth } from '../../auth/useAuth'
+import { accessibleControls } from '../../components/ui/accessibleControls'
+import DataTable from '../../components/ui/DataTable'
+import type { DataTableColumn } from '../../components/ui/DataTable'
+import FilterBar from '../../components/ui/FilterBar'
+import { FormField, FormSelect } from '../../components/ui/FormField'
+import PageHeader from '../../components/ui/PageHeader'
+import StateFeedback from '../../components/ui/StateFeedback'
+import StatusChip from '../../components/ui/StatusChip'
+import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONES } from '../../requests/requestPresentation'
+import { REQUEST_STATUSES } from '../../requests/requestTypes'
+import type { PaginatedRequests, RequestSummary } from '../../requests/requestTypes'
+import { listRequests } from '../../services/requestsService'
+import type { CreatedRequestResult, RequestDetailView, ResubmitRequestResult } from '../../services/requestsService'
+import { formatCalendarDate } from '../../utils/dates'
+import NewRequestDialog from './NewRequestDialog'
+import RequestDetailDialog from './RequestDetailDialog'
+import { EMPTY_REQUEST_FORM } from './requestFormValidation'
+import type { RequestFormValues, ResubmitTarget } from './requestFormValidation'
+import {
+  areRequestFiltersEqual,
+  buildRequestSearchParams,
+  EMPTY_REQUEST_FILTERS,
+  hasActiveRequestFilters,
+  parseRequestUrlState,
+  REQUEST_PAGE_SIZE_OPTIONS,
+  toApiRequestFilters,
+  validateFilterDateRange,
+} from './requestListFilters'
+import type { RequestFilterValues } from './requestListFilters'
 
-interface AndamentoStep {
-  titulo: string;
-  data: string;
-  concluido: boolean;
+const DOCUMENT_TITLE = 'Minhas solicitações — Aratu'
+const DEFAULT_LOAD_ERROR = 'Não foi possível carregar suas solicitações.'
+
+const STATUS_OPTIONS = REQUEST_STATUSES.map((value) => ({
+  value,
+  label: REQUEST_STATUS_LABELS[value],
+}))
+
+const REQUEST_COLUMNS: readonly DataTableColumn<RequestSummary>[] = [
+  { key: 'id', header: 'Nº', width: 88, render: (request) => <strong>#{request.id}</strong> },
+  { key: 'service', header: 'Tipo de serviço', render: (request) => request.serviceName },
+  { key: 'destination', header: 'Destino', render: (request) => request.destination },
+  {
+    key: 'dateTime',
+    header: 'Data e horário',
+    render: (request) => `${formatCalendarDate(request.requestedDate)} às ${request.requestedTime}`,
+  },
+  { key: 'purpose', header: 'Finalidade', render: (request) => request.purpose },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (request) => (
+      <StatusChip
+        label={REQUEST_STATUS_LABELS[request.status]}
+        tone={REQUEST_STATUS_TONES[request.status]}
+      />
+    ),
+  },
+]
+
+interface ConfirmedSnapshot {
+  filters: RequestFilterValues
+  page: number
+  pageSize: number
+  data: PaginatedRequests
 }
 
-interface Solicitacao {
-  id: string;
-  destino: string;
-  dataHora: string;
-  dataIso: string;
-  finalidade: string;
-  status: string;
-  veiculo: string;
-  origem: string;
-  passageiros: string;
-  necessidadeEspecial: string;
-  motivoRecusa: string;
-  andamento: AndamentoStep[];
+interface FetchState {
+  completedKey: string | null
+  confirmed: ConfirmedSnapshot | null
+  errorKey: string | null
+  errorMessage: string
 }
 
-function StatusChip({ status }: { status: string }) {
-  let bgcolor = '#e5e7eb';
-  let color = '#e55d00';
+const INITIAL_FETCH_STATE: FetchState = {
+  completedKey: null,
+  confirmed: null,
+  errorKey: null,
+  errorMessage: '',
+}
 
-  switch (status) {
-    case 'Pendente':
-      bgcolor = '#fef3c7';
-      color = '#d97706';
-      break;
-    case 'Aprovada':
-    case 'Concluída':
-      bgcolor = '#d1fae5';
-      color = '#059669';
-      break;
-    case 'Recusada':
-      bgcolor = '#fee2e2';
-      color = '#dc2626';
-      break;
-    default:
-      break;
+/** Tela do Solicitante para criação (`POST /requests`) e acompanhamento (`GET /requests` e `/requests/:id`). */
+export default function SolicitacaoPage() {
+  const { session } = useAuth()
+  return <SolicitacaoContent key={session?.token ?? 'anonymous'} />
+}
+
+function SolicitacaoContent() {
+  const { api, session } = useAuth()
+  const profile = session ? resolveProfile(session.perfil) : null
+  const allowed = profile === 'SOLICITANTE'
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlState = useMemo(() => parseRequestUrlState(searchParams), [searchParams])
+  const urlFilters = urlState.filters
+  const urlPage = urlState.page
+  const urlPageSize = urlState.pageSize
+
+  const [draftOverride, setDraftOverride] = useState<{
+    urlKey: string
+    values: RequestFilterValues
+    errors: { fromError?: string; toError?: string }
+  } | null>(null)
+
+  const [fetchState, setFetchState] = useState<FetchState>(INITIAL_FETCH_STATE)
+  const [reloadCount, setReloadCount] = useState(0)
+
+  const [newDialogLocalOpen, setNewDialogLocalOpen] = useState(false)
+  const [newFormDraft, setNewFormDraft, clearNewFormDraft] = useSessionDraft<RequestFormValues>(
+    'solicitacao:new-request-draft',
+    EMPTY_REQUEST_FORM,
+  )
+  const [resubmitTarget, setResubmitTarget] = useState<ResubmitTarget | null>(null)
+  const [selectedRequest, setSelectedRequest] = useState<{ id: string; seq: number } | null>(null)
+  const [notice, setNotice] = useState('')
+
+  const newButtonRef = useRef<HTMLButtonElement>(null)
+  const noticeRef = useRef<HTMLDivElement>(null)
+  const filterFromRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const filterToRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const detailTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const detailSeqRef = useRef(0)
+  const pendingFocusNoticeRef = useRef(false)
+  const pendingFocusTriggerRef = useRef(false)
+  const pendingDetailIdRef = useRef<string | null>(null)
+  const pendingResubmitDetailRef = useRef<RequestDetailView | null>(null)
+
+  const urlFiltersKey = useMemo(
+    () => `${urlFilters.status}|${urlFilters.from}|${urlFilters.to}|${urlFilters.service}`,
+    [urlFilters],
+  )
+  const draftFilters = draftOverride?.urlKey === urlFiltersKey ? draftOverride.values : urlFilters
+  const dateRangeErrors = draftOverride?.urlKey === urlFiltersKey ? draftOverride.errors : {}
+  const newDialogOpen = newDialogLocalOpen || (allowed && urlState.openNewRequested)
+
+  useEffect(() => {
+    const previousTitle = document.title
+    document.title = DOCUMENT_TITLE
+    return () => {
+      document.title = previousTitle
+    }
+  }, [])
+
+  const apiFilters = useMemo(
+    () => toApiRequestFilters(urlFilters, urlPage, urlPageSize),
+    [urlFilters, urlPage, urlPageSize],
+  )
+  const requestKey = useMemo(
+    () => JSON.stringify({ apiFilters, reloadCount }),
+    [apiFilters, reloadCount],
+  )
+
+  useEffect(() => {
+    if (!allowed) return
+    let current = true
+    void listRequests(api, apiFilters)
+      .then((data) => {
+        if (!current) return
+        setFetchState({
+          completedKey: requestKey,
+          confirmed: { filters: urlFilters, page: urlPage, pageSize: urlPageSize, data },
+          errorKey: null,
+          errorMessage: '',
+        })
+      })
+      .catch((error: unknown) => {
+        if (!current) return
+        setFetchState((previous) => ({
+          completedKey: null,
+          confirmed: previous.confirmed,
+          errorKey: requestKey,
+          errorMessage: error instanceof Error && error.message ? error.message : DEFAULT_LOAD_ERROR,
+        }))
+      })
+    return () => {
+      current = false
+    }
+  }, [allowed, api, apiFilters, requestKey, urlFilters, urlPage, urlPageSize])
+
+  const refreshListAndReport = useCallback(async (): Promise<boolean> => {
+    if (!allowed) return false
+    try {
+      const cleanFilters = EMPTY_REQUEST_FILTERS
+      const cleanApiFilters = toApiRequestFilters(cleanFilters, 1, urlPageSize)
+      const data = await listRequests(api, cleanApiFilters)
+      const nextKey = JSON.stringify({ apiFilters: cleanApiFilters, reloadCount })
+      setDraftOverride(null)
+      if (urlPage !== 1 || hasActiveRequestFilters(urlFilters)) {
+        if (urlState.openNewRequested) {
+          setNewDialogLocalOpen(true)
+        }
+        setSearchParams(buildRequestSearchParams(cleanFilters, 1, urlPageSize), { replace: true })
+      }
+      setFetchState({
+        completedKey: nextKey,
+        confirmed: { filters: cleanFilters, page: 1, pageSize: urlPageSize, data },
+        errorKey: null,
+        errorMessage: '',
+      })
+      return true
+    } catch {
+      return false
+    }
+  }, [allowed, api, reloadCount, setSearchParams, urlFilters, urlPage, urlPageSize, urlState.openNewRequested])
+
+  const loadError = fetchState.errorKey === requestKey ? fetchState.errorMessage : ''
+  const loading = allowed && loadError === '' && fetchState.completedKey !== requestKey
+  const confirmed = fetchState.confirmed
+  const rows = confirmed?.data.requests ?? []
+  const total = confirmed?.data.total ?? 0
+  const isStale = confirmed !== null && (
+    loading
+    || loadError !== ''
+    || !areRequestFiltersEqual(confirmed.filters, urlFilters)
+    || confirmed.page !== urlPage
+    || confirmed.pageSize !== urlPageSize
+  )
+  const hasFilters = hasActiveRequestFilters(urlFilters)
+
+  function syncUrl(nextFilters: RequestFilterValues, nextPage: number, nextPageSize: number) {
+    setSearchParams(buildRequestSearchParams(nextFilters, nextPage, nextPageSize))
+  }
+
+  function updateDraftFilters(
+    nextValues: RequestFilterValues,
+    nextErrors: { fromError?: string; toError?: string } = dateRangeErrors,
+  ) {
+    setDraftOverride({
+      urlKey: urlFiltersKey,
+      values: nextValues,
+      errors: nextErrors,
+    })
+  }
+
+  function handleApplyFilters(event: FormEvent) {
+    event.preventDefault()
+    const validation = validateFilterDateRange(draftFilters.from, draftFilters.to)
+    updateDraftFilters(draftFilters, validation)
+    if (validation.fromError) {
+      filterFromRef.current?.focus()
+      return
+    }
+    if (validation.toError) {
+      filterToRef.current?.focus()
+      return
+    }
+
+    const normalized: RequestFilterValues = {
+      ...draftFilters,
+      service: draftFilters.service.trim(),
+    }
+    setNotice('')
+    setDraftOverride(null)
+    syncUrl(normalized, 1, urlPageSize)
+  }
+
+  function handleClearFilters() {
+    setDraftOverride(null)
+    setNotice('')
+    syncUrl(EMPTY_REQUEST_FILTERS, 1, urlPageSize)
+    if (loadError !== '' && areRequestFiltersEqual(urlFilters, EMPTY_REQUEST_FILTERS)) {
+      setReloadCount((count) => count + 1)
+    }
+  }
+
+  function handleCloseNewDialog() {
+    pendingFocusTriggerRef.current = true
+    setNewDialogLocalOpen(false)
+    if (urlState.openNewRequested) {
+      setSearchParams(buildRequestSearchParams(urlFilters, urlPage, urlPageSize), { replace: true })
+    }
+  }
+
+  function handleCreated(created: CreatedRequestResult) {
+    pendingFocusNoticeRef.current = true
+    setNewDialogLocalOpen(false)
+    clearNewFormDraft()
+    setNotice(
+      `Solicitação #${created.id} enviada com sucesso e registrada como ${REQUEST_STATUS_LABELS[created.status]}. Acompanhe o andamento nesta lista.`,
+    )
+    if (urlPage !== 1 || hasFilters || urlState.openNewRequested) {
+      syncUrl(EMPTY_REQUEST_FILTERS, 1, urlPageSize)
+    } else {
+      setReloadCount((count) => count + 1)
+    }
+  }
+
+  function handleStartResubmit(detail: RequestDetailView) {
+    pendingResubmitDetailRef.current = detail
+    setSelectedRequest(null)
+    setNotice('')
+  }
+
+  function handleDetailDialogExited() {
+    const pendingDetail = pendingResubmitDetailRef.current
+    if (pendingDetail) {
+      pendingResubmitDetailRef.current = null
+      setNewFormDraft({
+        serviceId: pendingDetail.serviceId,
+        requestedDate: pendingDetail.requestedDate,
+        requestedTime: pendingDetail.requestedTime,
+        origin: pendingDetail.origin,
+        destination: pendingDetail.destination,
+        passengers: String(pendingDetail.passengers),
+        purpose: pendingDetail.purpose,
+        notes: pendingDetail.notes ?? '',
+      })
+      setResubmitTarget({
+        id: pendingDetail.id,
+        revision: pendingDetail.revision ?? 1,
+        rejectionReason: pendingDetail.decisionReason,
+      })
+      setNewDialogLocalOpen(true)
+      return
+    }
+    detailTriggerRef.current?.focus()
+  }
+
+  function handleResubmitted(result: ResubmitRequestResult) {
+    pendingFocusNoticeRef.current = true
+    setNewDialogLocalOpen(false)
+    clearNewFormDraft()
+    setNotice(
+      `Solicitação #${result.id} reenviada com sucesso (revisão ${result.revision}) e retornou para ${REQUEST_STATUS_LABELS[result.status]}.`,
+    )
+    if (urlPage !== 1 || hasFilters || urlState.openNewRequested) {
+      syncUrl(EMPTY_REQUEST_FILTERS, 1, urlPageSize)
+    } else {
+      setReloadCount((count) => count + 1)
+    }
+  }
+
+  function handleConflictRefresh(requestId: string) {
+    pendingDetailIdRef.current = requestId
+    setNewDialogLocalOpen(false)
+    clearNewFormDraft()
+    setReloadCount((count) => count + 1)
+  }
+
+  function handleNewDialogExited() {
+    if (resubmitTarget) {
+      setResubmitTarget(null)
+      clearNewFormDraft()
+    }
+    const pendingDetailId = pendingDetailIdRef.current
+    if (pendingDetailId) {
+      pendingDetailIdRef.current = null
+      detailSeqRef.current += 1
+      setSelectedRequest({ id: pendingDetailId, seq: detailSeqRef.current })
+      return
+    }
+    if (pendingFocusNoticeRef.current) {
+      pendingFocusNoticeRef.current = false
+      noticeRef.current?.focus()
+      return
+    }
+    if (pendingFocusTriggerRef.current) {
+      pendingFocusTriggerRef.current = false
+      newButtonRef.current?.focus()
+    }
+  }
+
+  if (!allowed) {
+    return (
+      <Box sx={{ maxWidth: 1200, mx: 'auto', minWidth: 0, ...accessibleControls }}>
+        <PageHeader title="Minhas Solicitações" breadcrumbs={['Início', 'Minhas Solicitações']} />
+        <StateFeedback
+          kind="forbidden"
+          title="Acesso restrito"
+          description="Esta tela é exclusiva para o perfil Solicitante."
+        />
+      </Box>
+    )
   }
 
   return (
-    <Box
-      component="span"
-      role="status"
-      sx={{
-        backgroundColor: bgcolor,
-        color: color,
-        px: 1.5,
-        py: 0.5,
-        borderRadius: '12px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        display: 'inline-block',
-      }}
-    >
-      {status}
-    </Box>
-  );
-}
-
-const mockRequests: Solicitacao[] = [
-  { 
-    id: 'SOL-241', 
-    destino: 'Hospital Santa Casa de Misericórdia', 
-    dataHora: '21/09/2026 — 14:00', 
-    dataIso: '2026-09-21',
-    finalidade: 'Consulta especializada', 
-    status: 'Pendente', 
-    veiculo: '—',
-    origem: 'FSPH — Unidade Central',
-    passageiros: '2',
-    necessidadeEspecial: 'Acessibilidade (cadeira de rodas)',
-    motivoRecusa: '',
-    andamento: [
-      { titulo: 'Solicitação enviada', data: '21/09 09:12', concluido: true },
-      { titulo: 'Em análise pelo Gestor de Frota', data: '21/09 09:15', concluido: true },
-      { titulo: 'Aprovação e Alocação', data: '—', concluido: false },
-      { titulo: 'Viagem Confirmada', data: '—', concluido: false },
-    ]
-  },
-  { 
-    id: 'SOL-201', 
-    destino: 'HPS', 
-    dataHora: '28/08/2026 — 09:00', 
-    dataIso: '2026-08-28',
-    finalidade: 'Visita técnica', 
-    status: 'Recusada', 
-    veiculo: '—',
-    origem: 'FSPH — Unidade Central',
-    passageiros: '1',
-    necessidadeEspecial: 'Nenhuma',
-    motivoRecusa: 'Veículos indisponíveis para o horário solicitado devido a manutenções preventivas na frota.',
-    andamento: [
-      { titulo: 'Solicitação enviada', data: '28/08 08:00', concluido: true },
-      { titulo: 'Recusada pelo Gestor de Frota', data: '28/08 09:30', concluido: true },
-    ]
-  },
-];
-
-export default function SolicitacaoPage() {
-  const [loading, setLoading] = useState(false);
-  const [requests, setRequests] = useState<Solicitacao[]>(mockRequests);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('todos');
-  const [dateFilter, setDateFilter] = useState('');
-  const [page, setPage] = useState(1);
-
-  const [selectedSolicitacao, setSelectedSolicitacao] = useState<Solicitacao | null>(null);
-  const [openModal, setOpenModal] = useState(false);
-  const [openNewModal, setOpenNewModal] = useState(false);
- 
-  const [openResendModal, setOpenResendModal] = useState(false);
-  const [justificativaReenvio, setJustificativaReenvio] = useState('');
-
-  const [novaData, setNovaData] = useState('');
-  const [novoHorario, setNovoHorario] = useState('');
-  const [novaOrigem, setNovaOrigem] = useState('FSPH — Unidade Central');
-  const [novoDestino, setNovoDestino] = useState('');
-  const [novaFinalidade, setNovaFinalidade] = useState('');
-  const [novosPassageiros, setNovosPassageiros] = useState('1');
-  const [novaNecessidade, setNovaNecessidade] = useState('Nenhuma');
-  const [novasObservacoes, setNovasObservacoes] = useState('');
-
-  const handleOpenDetails = (solicitacao: Solicitacao) => {
-    setSelectedSolicitacao(solicitacao);
-    setOpenModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setOpenModal(false);
-    setSelectedSolicitacao(null);
-  };
-
-  const handleCreateRequest = (e: React.FormEvent) => {
-    e.preventDefault();
-    const novaReq: Solicitacao = {
-      id: `SOL-${Math.floor(100 + Math.random() * 900)}`,
-      destino: novoDestino || 'Destino Padrão',
-      dataHora: `${novaData ? novaData.split('-').reverse().join('/') : '21/09/2026'} — ${novoHorario || '12:00'}`,
-      dataIso: novaData || '2026-09-21',
-      finalidade: novaFinalidade || 'Deslocamento',
-      status: 'Pendente',
-      veiculo: '—',
-      origem: novaOrigem,
-      passageiros: novosPassageiros,
-      necessidadeEspecial: novaNecessidade,
-      motivoRecusa: '',
-      andamento: [
-        { titulo: 'Solicitação enviada', data: 'Agora mesmo', concluido: true },
-        { titulo: 'Em análise pelo Gestor de Frota', data: '—', concluido: false },
-        { titulo: 'Aprovação e Alocação', data: '—', concluido: false },
-        { titulo: 'Viagem Confirmada', data: '—', concluido: false },
-      ]
-    };
-
-    setRequests([novaReq, ...requests]);
-    setOpenNewModal(false);
-    setNovaData('');
-    setNovoHorario('');
-    setNovoDestino('');
-    setNovaFinalidade('');
-    setNovosPassageiros('1');
-    setNovaNecessidade('Nenhuma');
-    setNovasObservacoes('');
-  };
-
-  const handleConfirmResend = () => {
-    if (!selectedSolicitacao) return;
-
-    const updatedRequests = requests.map((item) => {
-      if (item.id === selectedSolicitacao.id) {
-        return {
-          ...item,
-          status: 'Pendente',
-          motivoRecusa: '',
-          andamento: [
-            ...item.andamento,
-            { titulo: `Reenviada: ${justificativaReenvio}`, data: 'Agora mesmo', concluido: true },
-            { titulo: 'Em análise pelo Gestor de Frota', data: 'Pendente', concluido: false }
-          ]
-        };
-      }
-      return item;
-    });
-
-    setRequests(updatedRequests);
-    setOpenResendModal(false);
-    setOpenModal(false);
-    setJustificativaReenvio('');
-  };
-
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        // Chamada de dados simulada
-      } catch (error: unknown) {
-        console.error('Erro ao carregar solicitações', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
-
-  const filteredRequests = requests.filter((item) => {
-    const matchesSearch = 
-      item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.destino.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.finalidade.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'todos' || item.status.toLowerCase() === statusFilter.toLowerCase();
-    const matchesDate = !dateFilter || item.dataIso === dateFilter;
-    
-    return matchesSearch && matchesStatus && matchesDate;
-  });
-
-  return (
-    <Box sx={{ p: 3, maxWidth: '1200px', mx: 'auto' }} component="main" aria-label="Minhas Solicitações">
-      <Box sx={{ mb: 3 }}>
-        <Box component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary', display: 'block', mb: 0.5 }}>
-          Início &gt; Minhas Solicitações
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-          <Box component="h1" sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827', m: 0 }}>
-            Minhas Solicitações
-          </Box>
+    <Box sx={{ maxWidth: 1200, mx: 'auto', minWidth: 0, ...accessibleControls }}>
+      <PageHeader
+        title="Minhas Solicitações"
+        breadcrumbs={['Início', 'Minhas Solicitações']}
+        description="Acompanhe os seus pedidos de transporte institucional ou crie uma nova solicitação."
+        actions={(
           <Button
+            ref={newButtonRef}
             variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setOpenNewModal(true)}
-            sx={{
-              backgroundColor: '#FF6B00',
-              textTransform: 'none',
-              fontWeight: 600,
-              '&:hover': { backgroundColor: '#e55d00' },
+            startIcon={<AddIcon aria-hidden="true" />}
+            onClick={() => {
+              setNotice('')
+              setNewDialogLocalOpen(true)
             }}
-            aria-label="Criar nova solicitação"
+            sx={{ minHeight: 44, minWidth: 44 }}
           >
             Nova Solicitação
           </Button>
-        </Box>
+        )}
+      />
+
+      <Box
+        ref={noticeRef}
+        role="status"
+        aria-live="polite"
+        tabIndex={-1}
+        sx={{ '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.dark', outlineOffset: 2 } }}
+      >
+        {notice && (
+          <Alert severity="success" role="none" sx={{ mb: 2 }} onClose={() => setNotice('')}>
+            {notice}
+          </Alert>
+        )}
       </Box>
 
-      {/* Barra de Filtros */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          mb: 3,
-          borderRadius: 2,
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          gap: 2,
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          backgroundColor: '#ffffff',
-        }}
-      >
-        <TextField
-          placeholder="Buscar solicitação..."
-          size="small"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          sx={{ flexGrow: 1, minWidth: '240px' }}
-        />
-
-        <TextField
-          type="date"
-          size="small"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          sx={{ minWidth: '160px' }}
-        />
-
-        <FormControl size="small" sx={{ minWidth: '180px' }}>
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+      <Box component="form" noValidate onSubmit={handleApplyFilters}>
+        <FilterBar label="Filtros das suas solicitações">
+          <FormSelect
+            label="Situação"
+            value={draftFilters.status}
+            onChange={(status) => updateDraftFilters({ ...draftFilters, status: status as RequestFilterValues['status'] })}
+            options={STATUS_OPTIONS}
+            emptyLabel="Todas as situações"
             displayEmpty
-          >
-            <MenuItem value="todos">Todos os status</MenuItem>
-            <MenuItem value="pendente">Pendente</MenuItem>
-            <MenuItem value="aprovada">Aprovada</MenuItem>
-            <MenuItem value="concluída">Concluída</MenuItem>
-            <MenuItem value="recusada">Recusada</MenuItem>
-          </Select>
-        </FormControl>
-      </Paper>
-
-      {/* Tabela */}
-      <Paper elevation={0} sx={{ borderRadius: 2, border: '1px solid #e2e8f0', overflow: 'hidden', backgroundColor: '#ffffff' }}>
-        <TableContainer>
-          <Table aria-label="Tabela de listagem de solicitações">
-            <TableHead sx={{ backgroundColor: '#f8fafc' }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600, color: '#e55d00' }}>Nº</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#e55d00' }}>Destino</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#e55d00' }}>Data/Hora</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#e55d00' }}>Finalidade</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#e55d00' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#e55d00' }}>Veículo Alocado</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 600, color: '#e55d00' }}>Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                    <Box component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-                      Carregando solicitações...
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ) : filteredRequests.length > 0 ? (
-                filteredRequests.map((row) => (
-                  <TableRow key={row.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                    <TableCell component="th" scope="row" sx={{ fontWeight: 500, color: '#111827' }}>
-                      {row.id}
-                    </TableCell>
-                    <TableCell>{row.destino}</TableCell>
-                    <TableCell>{row.dataHora}</TableCell>
-                    <TableCell>{row.finalidade}</TableCell>
-                    <TableCell>
-                      <StatusChip status={row.status} />
-                    </TableCell>
-                    <TableCell>{row.veiculo}</TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Ver detalhes da solicitação">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleOpenDetails(row)}
-                          aria-label={`Ver detalhes da solicitação ${row.id}`}
-                        >
-                          <VisibilityIcon fontSize="small" color="action" />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                    <Box component="div" sx={{ fontSize: '1rem', fontWeight: 600, color: 'text.primary', mb: 1 }}>
-                      Nenhuma solicitação encontrada
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <Box
-          sx={{
-            p: 2,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderTop: '1px solid #e2e8f0',
-            backgroundColor: '#ffffff',
-            flexWrap: 'wrap',
-            gap: 2,
-          }}
-        >
-          <Box component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-            Mostrando 1–{filteredRequests.length} de {filteredRequests.length} registros
-          </Box>
-          <Pagination
-            count={1}
-            page={page}
-            onChange={(_, value) => setPage(value)}
-            color="primary"
-            shape="rounded"
-            size="small"
-            aria-label="Navegação por páginas"
+            sx={{ flex: 1, minWidth: { xs: 0, sm: 170 }, width: { xs: '100%', md: 'auto' } }}
           />
-        </Box>
-      </Paper>
-
-      {/* Nova Solicitação de Viagem */}
-      <Dialog open={openNewModal} onClose={() => setOpenNewModal(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.25rem' }}>Nova Solicitação de Viagem</DialogTitle>
-        <DialogContent dividers>
-          <Box component="form" onSubmit={handleCreateRequest} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            <Box sx={{ p: 2, backgroundColor: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: '0.875rem', color: '#c2410c' }}>
-               Preencha os dados abaixo. O Gestor de Frota analisará a solicitação e confirmará a disponibilidade de veículo e motorista.
-            </Box>
-
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              <Box sx={{ flex: '1 1 48%' }}>
-                <Box component="div" sx={{ fontSize: '0.813rem', fontWeight: 600, color: '#374151', mb: 0.5 }}>Data da Viagem *</Box>
-                <TextField type="date" size="small" fullWidth required value={novaData} onChange={(e) => setNovaData(e.target.value)} />
-              </Box>
-              <Box sx={{ flex: '1 1 48%' }}>
-                <Box component="div" sx={{ fontSize: '0.813rem', fontWeight: 600, color: '#374151', mb: 0.5 }}>Horário de Saída *</Box>
-                <TextField type="time" size="small" fullWidth required value={novoHorario} onChange={(e) => setNovoHorario(e.target.value)} />
-              </Box>
-            </Box>
-
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              <Box sx={{ flex: '1 1 48%' }}>
-                <Box component="div" sx={{ fontSize: '0.813rem', fontWeight: 600, color: '#374151', mb: 0.5 }}>Origem *</Box>
-                <TextField size="small" fullWidth value={novaOrigem} onChange={(e) => setNovaOrigem(e.target.value)} />
-              </Box>
-              <Box sx={{ flex: '1 1 48%' }}>
-                <Box component="div" sx={{ fontSize: '0.813rem', fontWeight: 600, color: '#374151', mb: 0.5 }}>Destino *</Box>
-                <TextField size="small" fullWidth required placeholder="Endereço completo de destino" value={novoDestino} onChange={(e) => setNovoDestino(e.target.value)} />
-              </Box>
-            </Box>
-
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              <Box sx={{ flex: '1 1 48%' }}>
-                <Box component="div" sx={{ fontSize: '0.813rem', fontWeight: 600, color: '#374151', mb: 0.5 }}>Finalidade / Motivo *</Box>
-                <TextField size="small" fullWidth required placeholder="Ex: Consulta especializada, Reunião..." value={novaFinalidade} onChange={(e) => setNovaFinalidade(e.target.value)} />
-              </Box>
-              <Box sx={{ flex: '1 1 48%' }}>
-                <Box component="div" sx={{ fontSize: '0.813rem', fontWeight: 600, color: '#374151', mb: 0.5 }}>Nº de Passageiros *</Box>
-                <TextField type="number" size="small" fullWidth required value={novosPassageiros} onChange={(e) => setNovosPassageiros(e.target.value)} />
-              </Box>
-            </Box>
-
-            <Box>
-              <Box component="div" sx={{ fontSize: '0.813rem', fontWeight: 600, color: '#374151', mb: 0.5 }}>Necessidades Especiais</Box>
-              <FormControl size="small" fullWidth>
-                <Select value={novaNecessidade} onChange={(e) => setNovaNecessidade(e.target.value)}>
-                  <MenuItem value="Nenhuma">Nenhuma</MenuItem>
-                  <MenuItem value="Acessibilidade (cadeira de rodas)">Acessibilidade (cadeira de rodas)</MenuItem>
-                  <MenuItem value="Transporte de material/equipamento">Transporte de material/equipamento</MenuItem>
-                  <MenuItem value="Veículo de maior capacidade">Veículo de maior capacidade</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-
-            <Box>
-              <Box component="div" sx={{ fontSize: '0.813rem', fontWeight: 600, color: '#374151', mb: 0.5 }}>Observações Adicionais</Box>
-              <TextField multiline rows={3} size="small" fullWidth placeholder="Insira detalhes extras se necessário..." value={novasObservacoes} onChange={(e) => setNovasObservacoes(e.target.value)} />
-            </Box>
-
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
-              <Button onClick={() => setOpenNewModal(false)} variant="outlined" sx={{ textTransform: 'none', color: '#374151', borderColor: '#d1d5db' }}>
-                Cancelar
-              </Button>
-              <Button type="submit" variant="contained" startIcon={<SendIcon />} sx={{ backgroundColor: '#FF6B00', '&:hover': { backgroundColor: '#e55d00' }, textTransform: 'none' }}>
-                Enviar Solicitação
-              </Button>
-            </Box>
-          </Box>
-        </DialogContent>
-      </Dialog>
-
-      {/* Detalhes, Motivo de Recusa e Reenvio */}
-      <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Detalhes da Solicitação {selectedSolicitacao?.id}</DialogTitle>
-        <DialogContent dividers>
-          {selectedSolicitacao && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {selectedSolicitacao.status === 'Recusada' && (
-                <Box sx={{ p: 2, backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 1.5 }}>
-                  <Box component="div" sx={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#dc2626', mb: 0.5 }}>
-                    ⚠️ Solicitação Recusada pelo Gestor
-                  </Box>
-                  <Box component="div" sx={{ fontSize: '0.813rem', color: '#7f1d1d' }}>
-                    <strong>Motivo:</strong> {selectedSolicitacao.motivoRecusa || 'Nenhum motivo especificado.'}
-                  </Box>
-                </Box>
-              )}
-
-              <Box>
-                <Box component="div" sx={{ fontSize: '1rem', fontWeight: 'bold', color: '#111827', mb: 2 }}>
-                  Detalhes
-                </Box>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                  <Box sx={{ flex: '1 1 45%' }}>
-                    <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Data/Hora</Box>
-                    <Box component="div" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>{selectedSolicitacao.dataHora}</Box>
-                  </Box>
-                  <Box sx={{ flex: '1 1 45%' }}>
-                    <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Origem</Box>
-                    <Box component="div" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>{selectedSolicitacao.origem}</Box>
-                  </Box>
-                  <Box sx={{ flex: '1 1 45%' }}>
-                    <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Destino</Box>
-                    <Box component="div" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>{selectedSolicitacao.destino}</Box>
-                  </Box>
-                  <Box sx={{ flex: '1 1 45%' }}>
-                    <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Passageiros</Box>
-                    <Box component="div" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>{selectedSolicitacao.passageiros}</Box>
-                  </Box>
-                  <Box sx={{ flex: '1 1 45%' }}>
-                    <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Finalidade</Box>
-                    <Box component="div" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>{selectedSolicitacao.finalidade}</Box>
-                  </Box>
-                  <Box sx={{ flex: '1 1 45%' }}>
-                    <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Necessidade Especial</Box>
-                    <Box component="div" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>{selectedSolicitacao.necessidadeEspecial}</Box>
-                  </Box>
-                </Box>
-              </Box>
-
-              <Box>
-                <Box component="div" sx={{ fontSize: '1rem', fontWeight: 'bold', color: '#111827', mb: 2, mt: 1 }}>
-                  Andamento
-                </Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pl: 1, position: 'relative' }}>
-                  {selectedSolicitacao.andamento.map((step: AndamentoStep, index: number) => (
-                    <Box key={index} sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                      <Box 
-                        sx={{ 
-                          width: 12, 
-                          height: 12, 
-                          borderRadius: '50%', 
-                          bgcolor: step.concluido ? (selectedSolicitacao.status === 'Recusada' && index === selectedSolicitacao.andamento.length - 1 ? '#dc2626' : 'primary.main') : 'grey.400', 
-                          mt: 0.5,
-                          zIndex: 1
-                        }} 
-                      />
-                      <Box>
-                        <Box component="div" sx={{ fontSize: '0.875rem', fontWeight: step.concluido ? 'bold' : 'normal', color: step.concluido ? 'text.primary' : 'text.secondary' }}>
-                          {step.titulo}
-                        </Box>
-                        <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                          {step.data}
-                        </Box>
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2 }}>
-          {selectedSolicitacao?.status === 'Recusada' ? (
-            <Button 
-              variant="contained" 
-              startIcon={<RefreshIcon />}
-              onClick={() => setOpenResendModal(true)}
-              sx={{ backgroundColor: '#FF6B00', '&:hover': { backgroundColor: '#e55d00' }, textTransform: 'none' }}
-            >
-              Reenviar Solicitação
+          <FormField
+            label="Data inicial"
+            type="date"
+            value={draftFilters.from}
+            onChange={(from) => updateDraftFilters({ ...draftFilters, from }, {})}
+            error={dateRangeErrors.fromError}
+            inputRef={filterFromRef}
+            sx={{ flex: 1, minWidth: { xs: 0, sm: 165 }, width: { xs: '100%', md: 'auto' } }}
+          />
+          <FormField
+            label="Data final"
+            type="date"
+            value={draftFilters.to}
+            onChange={(to) => updateDraftFilters({ ...draftFilters, to }, {})}
+            error={dateRangeErrors.toError}
+            inputRef={filterToRef}
+            sx={{ flex: 1, minWidth: { xs: 0, sm: 165 }, width: { xs: '100%', md: 'auto' } }}
+          />
+          <FormField
+            label="Tipo de serviço"
+            value={draftFilters.service}
+            onChange={(service) => updateDraftFilters({ ...draftFilters, service })}
+            placeholder="Filtrar por serviço"
+            maxLength={120}
+            sx={{ flex: 1, minWidth: { xs: 0, sm: 180 }, width: { xs: '100%', md: 'auto' } }}
+          />
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', minWidth: 0 }}>
+            <Button type="submit" variant="contained" sx={{ minHeight: 44, minWidth: 44 }}>
+              Aplicar filtros
             </Button>
-          ) : <Box />}
+            <Button
+              type="button"
+              variant="outlined"
+              onClick={handleClearFilters}
+              sx={{ minHeight: 44, minWidth: 44 }}
+            >
+              Limpar
+            </Button>
+          </Stack>
+        </FilterBar>
+      </Box>
 
-          <Button onClick={handleCloseModal} variant="contained" sx={{ backgroundColor: '#FF6B00', '&:hover': { backgroundColor: '#e55d00' }, textTransform: 'none' }}>
-            Fechar
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Resposta do gestor */}
-      <Dialog open={openResendModal} onClose={() => setOpenResendModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Reenviar Solicitação {selectedSolicitacao?.id}</DialogTitle>
-        <DialogContent dividers>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box component="div" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-              Justifique o motivo pelo qual esta solicitação deve ser aceita ou reanalisada pela frota:
-            </Box>
-            <TextField
-              multiline
-              rows={4}
-              size="small"
-              fullWidth
-              required
-              placeholder="Ex: A consulta é de caráter de urgência e não pode ser reagendada..."
-              value={justificativaReenvio}
-              onChange={(e) => setJustificativaReenvio(e.target.value)}
+      {loadError && confirmed === null ? (
+        <StateFeedback
+          kind="error"
+          title="Não foi possível carregar suas solicitações."
+          description={loadError}
+          actionLabel="Tentar novamente"
+          onAction={() => setReloadCount((count) => count + 1)}
+        />
+      ) : (
+        <>
+          {loadError && isStale && (
+            <StateFeedback
+              kind="partial"
+              title={notice ? 'A solicitação foi enviada, mas a lista pode estar desatualizada.' : 'A lista exibida pode estar desatualizada.'}
+              description={loadError}
+              actionLabel="Tentar novamente"
+              onAction={() => setReloadCount((count) => count + 1)}
             />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenResendModal(false)} variant="outlined" sx={{ textTransform: 'none', color: '#374151' }}>
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleConfirmResend} 
-            variant="contained" 
-            disabled={!justificativaReenvio.trim()}
-            sx={{ backgroundColor: '#FF6B00', '&:hover': { backgroundColor: '#e55d00' }, textTransform: 'none' }}
-          >
-            Confirmar Reenvio
-          </Button>
-        </DialogActions>
-      </Dialog>
+          )}
+
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', maxWidth: '100%' }}>
+            <DataTable
+              caption="Solicitações de transporte institucional"
+              columns={REQUEST_COLUMNS}
+              rows={rows}
+              rowKey={(request) => request.id}
+              busy={loading}
+              minWidth={760}
+              paperSx={{ border: 0, boxShadow: 'none' }}
+              loadingContent={<StateFeedback kind="loading" title="Carregando suas solicitações..." />}
+              emptyContent={
+                hasFilters ? (
+                  <StateFeedback
+                    kind="empty"
+                    title="Nenhuma solicitação encontrada para os filtros atuais."
+                    description="Ajuste os filtros de situação, período ou serviço para ampliar a busca."
+                    actionLabel="Limpar filtros"
+                    onAction={handleClearFilters}
+                    centered
+                  />
+                ) : (
+                    <StateFeedback
+                    kind="empty"
+                    title="Você ainda não enviou solicitações de viagem."
+                    description="Clique em Nova Solicitação para pedir um transporte institucional."
+                    actionLabel="Nova Solicitação"
+                    onAction={() => {
+                      setNotice('')
+                      setNewDialogLocalOpen(true)
+                    }}
+                    centered
+                  />
+                )
+              }
+              renderActions={(request) => (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={(event) => {
+                    detailTriggerRef.current = event.currentTarget
+                    detailSeqRef.current += 1
+                    setSelectedRequest({ id: request.id, seq: detailSeqRef.current })
+                  }}
+                  aria-label={`Ver detalhes da solicitação #${request.id} para ${request.destination}`}
+                  sx={{ minHeight: 44, minWidth: 44, whiteSpace: 'nowrap' }}
+                >
+                  Ver detalhes
+                </Button>
+              )}
+            />
+
+            <TablePagination
+              component="div"
+              count={total}
+              page={Math.max(0, urlPage - 1)}
+              onPageChange={(_event, nextPage) => syncUrl(urlFilters, nextPage + 1, urlPageSize)}
+              rowsPerPage={urlPageSize}
+              onRowsPerPageChange={(event) => syncUrl(urlFilters, 1, Number(event.target.value))}
+              rowsPerPageOptions={[...REQUEST_PAGE_SIZE_OPTIONS]}
+              labelRowsPerPage="Solicitações por página:"
+              labelDisplayedRows={({ from, to, count }) => (count === 0 ? '0 de 0' : `${from}–${to} de ${count}`)}
+              getItemAriaLabel={(type) => (type === 'next' ? 'Ir para a próxima página' : 'Ir para a página anterior')}
+              sx={{
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                '& .MuiTablePagination-toolbar': {
+                  flexWrap: 'wrap',
+                  justifyContent: 'flex-end',
+                  gap: 1,
+                  px: { xs: 1, sm: 2 },
+                },
+                '& .MuiTablePagination-spacer': {
+                  display: 'none',
+                },
+                '& .MuiTablePagination-select': {
+                  minHeight: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                },
+              }}
+            />
+          </Paper>
+        </>
+      )}
+
+      <NewRequestDialog
+        open={newDialogOpen}
+        api={api}
+        draft={newFormDraft}
+        resubmitTarget={resubmitTarget}
+        onChangeDraft={setNewFormDraft}
+        onClose={handleCloseNewDialog}
+        onExited={handleNewDialogExited}
+        onCreated={handleCreated}
+        onResubmitted={handleResubmitted}
+        onConflictRefresh={handleConflictRefresh}
+        onRefreshList={refreshListAndReport}
+      />
+
+      <RequestDetailDialog
+        requestId={selectedRequest?.id ?? null}
+        openSeq={selectedRequest?.seq ?? 0}
+        api={api}
+        onClose={() => setSelectedRequest(null)}
+        onExited={handleDetailDialogExited}
+        onResubmit={handleStartResubmit}
+      />
     </Box>
-  );
+  )
 }

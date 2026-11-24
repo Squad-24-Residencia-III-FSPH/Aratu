@@ -30,6 +30,7 @@ export function createRequestsRouter(
   router.get('/', authenticate, currentUser, authorizeRoles(REQUEST_READ_ROLES), controller.list)
   router.get('/:id', authenticate, currentUser, authorizeRoles(REQUEST_READ_ROLES), controller.getById)
   router.post('/', authenticate, currentUser, authorizeRoles(REQUEST_CREATION_ROLES), controller.create)
+  router.post('/:id/resubmit', authenticate, currentUser, authorizeRoles(REQUEST_CREATION_ROLES), controller.resubmit)
 
   return router
 }

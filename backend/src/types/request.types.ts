@@ -28,6 +28,14 @@ export interface CreateRequestBody {
   destination?: unknown
   purpose?: unknown
   serviceId?: unknown
+  passengers?: unknown
+  notes?: unknown
+}
+
+/** Campos recebidos no reenvio versionado de solicitação rejeitada. */
+export interface ResubmitRequestBody extends CreateRequestBody {
+  expectedRevision?: unknown
+  reason?: unknown
 }
 
 /** Dados normalizados da solicitação, prontos para persistência. */
@@ -38,6 +46,14 @@ export interface CreateRequestInput {
   destination: string
   purpose: string
   serviceId: string
+  passengers: number
+  notes: string | null
+}
+
+/** Dados normalizados para reenvio versionado da solicitação. */
+export interface ResubmitRequestInput extends CreateRequestInput {
+  expectedRevision: number
+  reason: string
 }
 
 /** Ator autenticado preservado no contexto histórico da solicitação. */
@@ -46,6 +62,7 @@ export interface RequestActorSnapshot {
   name: string
   email: string
   role: UserRole
+  sector?: string | null
 }
 
 /** Serviço ativo copiado para o contexto vigente no momento da solicitação. */
@@ -68,19 +85,40 @@ export interface TripRequest {
   destination: string
   purpose: string
   passengers: number
+  notes: string | null
   status: RequestStatus
+  revision: number
+  requesterSector: string | null
   requesterSnapshot: RequestActorSnapshot
   serviceSnapshot: RequestServiceSnapshot
 }
 
-/** Evento imutável que registra a abertura da solicitação. */
+/** Evento imutável registrado na trilha da solicitação. */
 export interface CreateRequestEventInput {
   requestId: string
+  eventType?: 'CREATED' | 'RESUBMITTED'
   reportedBy: string
   registeredBy: string
   actorSnapshot: RequestActorSnapshot
   reason: string
+  beforeState?: TripRequest | null
   afterState: TripRequest
+}
+
+/** Evento histórico resumido retornado no detalhe da solicitação. */
+export interface RequestEventSummary {
+  id: string
+  eventType: string
+  occurredAt: string
+  reportedBy: string
+  reason: string
+}
+
+/** Resultado retornado após reenvio versionado da solicitação. */
+export interface ResubmitRequestResult {
+  id: string
+  status: RequestStatus
+  revision: number
 }
 
 /** Filtros aceitos pela consulta paginada de solicitações. */
@@ -122,6 +160,7 @@ export interface RequestSummary {
   destination: string
   purpose: string
   passengers: number
+  notes?: string | null
   status: RequestStatus
   createdAt: string
   updatedAt: string
@@ -147,12 +186,15 @@ export interface RequestTrip {
   }
 }
 
-/** Detalhe completo de uma solicitação, incluindo decisão e viagem. */
+/** Detalhe completo de uma solicitação, incluindo setor histórico, decisão, revisão, eventos e viagem. */
 export interface RequestDetail extends RequestSummary {
+  requesterSector: string | null
   decidedBy: string | null
   decidedByName: string | null
   decidedAt: string | null
   decisionReason: string | null
+  revision?: number
+  events?: RequestEventSummary[]
   trip: RequestTrip | null
 }
 

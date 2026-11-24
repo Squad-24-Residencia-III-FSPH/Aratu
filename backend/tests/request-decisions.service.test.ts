@@ -122,3 +122,18 @@ test('id inválido retorna 400, inexistente 404 e motivo não textual 400', asyn
   await assert.rejects(context.service.approve('99', {}, manager.id), domainError(404))
   await assert.rejects(context.service.approve('41', { reason: 5 as unknown as string }, manager.id), domainError(400))
 })
+
+test('decisão não sobrescreve metadados históricos do solicitante e registra auditoria atômica', async () => {
+  const context = setup()
+  const result = await context.service.approve('41', { reason: 'Setor conferido' }, manager.id)
+  assert.equal(result.status, 'APPROVED')
+  assert.equal(context.events[0]?.beforeState.requesterId, '3')
+  assert.equal(context.events[0]?.afterState.requesterId, '3')
+  assert.deepEqual(context.audits[0]?.after, {
+    status: 'APPROVED',
+    decidedBy: '8',
+    decidedAt: DECIDED_AT,
+    decisionReason: 'Setor conferido',
+    revision: 2,
+  })
+})
