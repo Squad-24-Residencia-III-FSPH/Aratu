@@ -270,7 +270,7 @@ function postResult(id: string, body: unknown, role: UserRole | null = 'EQUIPE_S
 
 function user(role: UserRole = 'ATENDENTE_SVO'): RbacTestUser { return users.get(role)! }
 
-function call(body: unknown, role: UserRole | null = 'ATENDENTE_SVO', token?: string, url = baseUrl): Promise<Response> {
+function call(body: unknown, role: UserRole | null = 'GESTOR', token?: string, url = baseUrl): Promise<Response> {
   return fetch(`${url}/svo/orders`, {
     method: 'POST', headers: { 'Content-Type': 'application/json',
       ...(role ? { Authorization: `Bearer ${token ?? user(role).token}` } : {}) },
@@ -372,8 +372,8 @@ after(async () => {
   await closeTestPool()
 })
 
-test('ORD-01/15: atendente e administrador criam OPEN, OPENED e CREATE sem alterar ocorrência/veículo', async () => {
-  for (const role of ['ATENDENTE_SVO', 'ADMINISTRADOR'] as const) {
+test('ORD-01/15: gestor e administrador criam OPEN, OPENED e CREATE sem alterar ocorrência/veículo', async () => {
+  for (const role of ['GESTOR', 'ADMINISTRADOR'] as const) {
     const input = await eligible()
     const beforeState = await databaseState() as unknown[][]
     const result = await json(await call(input, role), 201)
@@ -503,9 +503,9 @@ test('ORD-06: referências, IDs e JSON inválidos não gravam nem ecoam dados', 
   } finally { console.error = original }
 })
 
-test('ORD-07: RBAC atual, conta ativa e tokens válidos são obrigatórios', async () => {
+test('ORD-07: somente gestor e administrador geram ordens; conta ativa e tokens válidos são obrigatórios', async () => {
   const input = await eligible()
-  for (const role of ['GESTOR', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
+  for (const role of ['ATENDENTE_SVO', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
     await rejectsWithoutWrite(() => call(input, role), 403)
     await rejectsWithoutWrite(() => call({ occurrenceId: MISSING_ID }, role), 403)
   }
@@ -514,9 +514,9 @@ test('ORD-07: RBAC atual, conta ativa e tokens válidos são obrigatórios', asy
   const expired = generateRbacUserToken(user(), RBAC_JWT_CONFIG.secret, { expiresIn: -1 })
   await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO', expired), 401)
   await pool.query('UPDATE auth.users SET active = false WHERE id = $1', [user().id])
-  await rejectsWithoutWrite(() => call(input), 401)
+  await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO'), 401)
   await pool.query('UPDATE auth.users SET active = true, role_id = $2 WHERE id = $1', [user().id, user('GESTOR').roleId])
-  await rejectsWithoutWrite(() => call(input), 403)
+  await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO'), 403)
   const missingToken = generateRbacUserToken({ id: MISSING_ID, role: 'ATENDENTE_SVO' })
   await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO', missingToken), 401)
 })
@@ -623,7 +623,7 @@ test('ORD-11/14: falha de auditoria desfaz tudo, sanitiza logs e permite nova te
   })
   const logs: unknown[] = []; const original = console.error; console.error = (...args: unknown[]) => { logs.push(args) }
   try {
-    await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO', undefined, broken.url), 500)
+    await rejectsWithoutWrite(() => call(input, 'GESTOR', undefined, broken.url), 500)
     assert.equal(logs.length, 1)
     assert.doesNotMatch(JSON.stringify(logs), /SENTINELA|22P02|stack|detail/)
     assert.match(JSON.stringify(logs), /CREATE_ORDER/)
@@ -642,7 +642,7 @@ test('ORD-12: falha SQL no evento faz rollback real e libera a conexão', async 
     new VehiclesRepository(pool), new AuditService(new AuditRepository(pool)))
   const state = await databaseState()
   for (let attempt = 0; attempt < 11; attempt++) {
-    await assert.rejects(service.createOrder(input, user().id), (error: unknown) =>
+    await assert.rejects(service.createOrder(input, user('GESTOR').id), (error: unknown) =>
       typeof error === 'object' && error !== null && 'code' in error && error.code === '22P02')
   }
   assert.deepEqual(await databaseState(), state)
@@ -710,7 +710,7 @@ test('ORD-03: constraint real de unicidade é traduzida após rollback', async (
   const service = new SvoOrdersService(new SvoOccurrencesRepository(pool), new SkipEarlyDuplicateCheck(),
     new VehiclesRepository(pool), new AuditService(new AuditRepository(pool)))
   const state = await databaseState()
-  await assert.rejects(service.createOrder(input, user().id), (error: unknown) =>
+  await assert.rejects(service.createOrder(input, user('GESTOR').id), (error: unknown) =>
     error instanceof SvoOrderServiceError && error.code === 'ORDER_ALREADY_EXISTS')
   assert.deepEqual(await databaseState(), state)
 })
