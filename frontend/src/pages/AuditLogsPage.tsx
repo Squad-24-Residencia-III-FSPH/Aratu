@@ -90,7 +90,7 @@ export default function AuditLogsPage() {
   const data = result.kind === 'ready' ? result.data : null
   return (
     <Box sx={{ width: '100%', minWidth: 0, '& :is(button, a, pre):focus-visible': { outline: `2px solid ${theme.palette.text.primary}`, outlineOffset: 2 } }}>
-      <PageHeader title="Registros de auditoria" breadcrumbs={['Início', 'Auditoria']}
+      <PageHeader title="Registros de auditoria"
         description="Consulte as operações registradas no sistema. Os dados sensíveis são protegidos pela API." />
       <Typography color="text.secondary" sx={{ mb: 2 }}>Horário de Maceió ({AUDIT_TIME_ZONE}). O período pode abranger até {AUDIT_MAX_PERIOD_DAYS} dias.</Typography>
       <Box component="form" onSubmit={event => {

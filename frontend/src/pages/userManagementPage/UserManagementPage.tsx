@@ -506,7 +506,6 @@ export default function UserManagementPage() {
           <Box sx={{ flex: '1 1 240px', minWidth: { xs: '100%', sm: 240 } }}>
             <FormField
               label="Buscar usuários por nome ou e-mail"
-              hideLabel
               value={search}
               onChange={updateSearch}
               placeholder="Buscar por nome ou e-mail..."
@@ -521,7 +520,6 @@ export default function UserManagementPage() {
           <Box sx={{ width: { xs: '100%', sm: 190 } }}>
             <FormSelect
               label="Filtrar por perfil"
-              hideLabel
               value={roleFilter}
               onChange={updateRoleFilter}
               options={profiles.map((profile) => ({
@@ -537,7 +535,6 @@ export default function UserManagementPage() {
           <Box sx={{ width: { xs: '100%', sm: 150 } }}>
             <FormSelect
               label="Filtrar por situação"
-              hideLabel
               value={statusFilter}
               onChange={updateStatusFilter}
               options={[

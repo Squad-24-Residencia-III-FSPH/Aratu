@@ -1,12 +1,12 @@
-.corpo-pagina,
-.corpo-pagina * {
+.pageBody,
+.pageBody * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-.corpo-pagina {
+.pageBody {
     display: flex;
     width: 100%;
     min-height: 100svh;
@@ -16,7 +16,7 @@
     color: #000;
 }
 
-.cabecalho-lateral {
+.sideHeader {
     width: 50%;
     background-color: #FF6B00;
     color: #ffffff;
@@ -28,7 +28,7 @@
     justify-content: center; 
 }
 
-.cabecalho-lateral::after {
+.sideHeader::after {
     box-sizing: content-box;
     content: "";
     position: absolute;
@@ -42,25 +42,25 @@
     pointer-events: none;
 }
 
-.conteudo-destaque {
+.featureContent {
     max-width: 480px;
 }
 
-.conteudo-destaque h2 {
+.featureContent h2 {
     font-size: 32px;
     font-weight: 700;
     line-height: 1.2;
     margin-bottom: 16px;
 }
 
-.conteudo-destaque p {
+.featureContent p {
     font-size: 14px;
     line-height: 1.5;
     opacity: 0.9;
 }
 
 /* Lado Direito */
-.conteudo-principal {
+.mainContent {
     width: 50%;
     background-color: #ffffff;
     display: flex;
@@ -69,23 +69,23 @@
     padding: 40px;
 }
 
-.caixa-login {
+.loginCard {
     width: 100%;
     max-width: 380px;
 }
 
-.cabecalho-login {
+.loginHeader {
     margin-bottom: 24px;
 }
 
-.cabecalho-login h1 {
+.loginHeader h1 {
     font-size: 20px;
     font-weight: 700;
     color: #111827;
     margin-bottom: 6px;
 }
 
-.cabecalho-login p {
+.loginHeader p {
     font-size: 13px;
     color: #6b7280;
 }
@@ -101,12 +101,12 @@
     height: auto;
 }
 
-.formulario-login .grupo-campo {
+.loginForm .formGroup {
     display: flex;
     margin-bottom: 16px;
 }
 
-.grupo-campo label {
+.formGroup label {
     display: block;
     font-size: 12px;
     font-weight: 500;
@@ -116,30 +116,11 @@
     letter-spacing: normal;
 }
 
-.grupo-campo :global(.MuiOutlinedInput-root) {
-    height: 39px;
-    min-height: 0;
-    font-size: 13px;
-    line-height: normal;
-    color: #1f2937;
-}
-
-.grupo-campo :global(.MuiOutlinedInput-input) {
-    height: auto;
-    padding: 10px 12px;
-    line-height: normal;
-}
-
-.grupo-campo :global(.MuiOutlinedInput-input)::placeholder {
-    color: #9ca3af;
-    opacity: 1;
-}
-
-.grupo-campo label span {
+.formGroup label span {
     color: #ef4444;
 }
 
-.formulario-login .botao-entrar {
+.loginForm .submitButton {
     width: 100%;
     background-color: #FF6B00;
     color: #ffffff;
@@ -151,34 +132,33 @@
     cursor: pointer;
     margin-top: 8px;
     gap: 10px;
-    height: 39px;
-    min-height: 0;
+    min-height: 44px;
     line-height: normal;
     letter-spacing: normal;
     transition: background-color 0.2s;
 }
 
-.formulario-login .botao-entrar:hover {
+.loginForm .submitButton:hover {
     background-color: #FF6B00;
 }
 
-.formulario-login .botao-entrar:disabled {
+.loginForm .submitButton:disabled {
     background-color: #e5e7eb;
     color: #4b5563;
 }
 
-.rodape-login {
+.loginFooter {
     text-align: center;
     margin-top: 24px;
 }
 
-.rodape-login .link-esqueci-senha {
+.loginFooter .forgotPasswordLink {
     display: inline-block;
     font-size: 12px;
     color: #FF6B00;
     text-decoration: none;
     margin-bottom: 24px;
-    min-height: 0;
+    min-height: 44px;
     padding: 0;
     line-height: normal;
     letter-spacing: normal;
@@ -186,20 +166,20 @@
     vertical-align: baseline;
 }
 
-.link-esqueci-senha:hover {
+.forgotPasswordLink:hover {
     text-decoration: underline;
 }
 
-.rodape-login .informacao-seguranca {
+.loginFooter .securityInfo {
     font-size: 11px;
     color: #9ca3af;
     line-height: normal;
     letter-spacing: normal;
 }
 
-.mensagem-login { margin-bottom: 16px; text-align: left; }
+.loginMessage { margin-bottom: 16px; text-align: left; }
 
-.somente-leitor {
+.screenReaderOnly {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -212,19 +192,19 @@
 
 /* O formulário pode rolar em telas baixas e quando o teclado do celular abre. */
 @media (max-width: 767px) {
-    .cabecalho-lateral { display: none; }
-    .conteudo-principal { width: 100%; padding: 40px 24px; }
+    .sideHeader { display: none; }
+    .mainContent { width: 100%; padding: 40px 24px; }
     .logo { margin-bottom: 48px; }
     .logo img { max-width: 160px; }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-    .cabecalho-lateral, .conteudo-principal { padding: 32px; }
-    .conteudo-destaque h2 { font-size: 28px; }
+    .sideHeader, .mainContent { padding: 32px; }
+    .featureContent h2 { font-size: 28px; }
 }
 
 @media (max-height: 650px) {
-    .conteudo-principal { padding-top: 24px; padding-bottom: 24px; }
+    .mainContent { padding-top: 24px; padding-bottom: 24px; }
     .logo { margin-bottom: 24px; }
     .logo img { max-width: 130px; }
 }

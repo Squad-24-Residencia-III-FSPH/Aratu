@@ -59,44 +59,51 @@ export default function LoginPage() {
   }
 
   return (
-    <Box className={styles['corpo-pagina']}>
-      <Box component="aside" className={styles['cabecalho-lateral']} aria-label="Sobre o Aratu">
-        <section className={styles['conteudo-destaque']}>
+    <Box className={styles['pageBody']}>
+      <Box component="aside" className={styles['sideHeader']} aria-label="Sobre o Aratu">
+        <section className={styles['featureContent']}>
           <h2>Gestão de frota e operação SVO em um só lugar.</h2>
           <p>Uma operação simples, segura e conectada às necessidades de quem cuida da saúde pública.</p>
         </section>
       </Box>
-      <Box component="main" className={styles['conteudo-principal']}>
-        <section className={styles['caixa-login']} aria-labelledby="titulo-login">
+      <Box component="main" className={styles['mainContent']}>
+        <section className={styles['loginCard']} aria-labelledby="titulo-login">
           <div className={styles['logo']}><img src={logo} alt="Aratu" /></div>
-          <header className={styles['cabecalho-login']}>
+          <header className={styles['loginHeader']}>
             <h1 id="titulo-login">Acesse o Aratu</h1>
             <p>Use suas credenciais institucionais para continuar.</p>
           </header>
-          <Box component="form" className={styles['formulario-login']} onSubmit={handleSubmit} noValidate aria-busy={loading}>
-            <FormControl fullWidth required error={Boolean(errors.email)} className={styles['grupo-campo']}>
+          <Box component="form" className={styles['loginForm']} onSubmit={handleSubmit} noValidate aria-busy={loading}>
+            <FormControl fullWidth required error={Boolean(errors.email)} className={styles['formGroup']}
+              sx={{ '& .MuiFormLabel-asterisk': { color: '#ef4444' } }}>
               <FormLabel htmlFor={emailId}>E-mail institucional</FormLabel>
               <OutlinedInput
                 id={emailId} name="email" type="email" autoComplete="username"
                 placeholder="usuario@fsph.gov.br" value={email} inputRef={emailInput}
                 disabled={loading} inputProps={{ 'aria-describedby': errors.email ? `${emailId}-error` : undefined, 'aria-invalid': Boolean(errors.email) }}
+                sx={{ height: 44, minHeight: 44, fontSize: '0.8125rem', lineHeight: 'normal', color: '#1f2937',
+                  '& .MuiOutlinedInput-input': { height: 'auto', padding: '10px 12px', lineHeight: 'normal' },
+                  '& .MuiOutlinedInput-input::placeholder': { color: '#9ca3af', opacity: 1 } }}
                 onChange={(event) => { setEmail(event.target.value); setErrors((previous) => ({ ...previous, email: undefined })); setError('') }}
               />
               {errors.email && <FormHelperText id={`${emailId}-error`} role="alert">{errors.email}</FormHelperText>}
             </FormControl>
-            <FormControl fullWidth required error={Boolean(errors.senha)} className={styles['grupo-campo']}>
+            <FormControl fullWidth required error={Boolean(errors.senha)} className={styles['formGroup']}
+              sx={{ '& .MuiFormLabel-asterisk': { color: '#ef4444' } }}>
               <FormLabel htmlFor={passwordId}>Senha</FormLabel>
               <OutlinedInput
                 id={passwordId} name="senha" type="password" autoComplete="current-password"
                 value={senha} inputRef={passwordInput} disabled={loading}
                 inputProps={{ 'aria-describedby': errors.senha ? `${passwordId}-error` : undefined, 'aria-invalid': Boolean(errors.senha) }}
+                sx={{ height: 44, minHeight: 44, fontSize: '0.8125rem', lineHeight: 'normal', color: '#1f2937',
+                  '& .MuiOutlinedInput-input': { height: 'auto', padding: '10px 12px', lineHeight: 'normal' } }}
                 onChange={(event) => { setSenha(event.target.value); setErrors((previous) => ({ ...previous, senha: undefined })); setError('') }}
               />
               {errors.senha && <FormHelperText id={`${passwordId}-error`} role="alert">{errors.senha}</FormHelperText>}
             </FormControl>
-            {error && <Alert severity="error" className={styles['mensagem-login']}>{error}</Alert>}
-            {!error && notice && <Alert severity="info" role="status" className={styles['mensagem-login']}>{notice}</Alert>}
-            <Button type="submit" variant="contained" fullWidth disabled={loading} className={styles['botao-entrar']}>
+            {error && <Alert severity="error" className={styles['loginMessage']}>{error}</Alert>}
+            {!error && notice && <Alert severity="info" role="status" className={styles['loginMessage']}>{notice}</Alert>}
+            <Button type="submit" variant="contained" fullWidth disabled={loading} className={styles['submitButton']}>
               {loading && <CircularProgress size={18} color="inherit" aria-label="Aguardando resposta" />}
               {loading ? preparing ? 'Preparando acesso…' : 'Entrando…' : 'Entrar'}
             </Button>
@@ -104,13 +111,13 @@ export default function LoginPage() {
               <Typography role="status">Preparando o acesso. Isso pode levar cerca de um minuto.</Typography>
               <Button type="button" onClick={() => signInController.current?.abort()}>Cancelar espera</Button>
             </Box>}
-            <span role="status" className={styles['somente-leitor']}>{loading && !preparing ? 'Autenticando. Aguarde.' : ''}</span>
-            <footer className={styles['rodape-login']}>
-              <Link component="button" type="button" className={styles['link-esqueci-senha']} onClick={() => setRecoveryInfo(true)} disabled={loading}>
+            <span role="status" className={styles['screenReaderOnly']}>{loading && !preparing ? 'Autenticando. Aguarde.' : ''}</span>
+            <footer className={styles['loginFooter']}>
+              <Link component="button" type="button" className={styles['forgotPasswordLink']} onClick={() => setRecoveryInfo(true)} disabled={loading} sx={{ minHeight: 44 }}>
                 Esqueci minha senha
               </Link>
-              {recoveryInfo && <Alert severity="info" className={styles['mensagem-login']}>A recuperação de senha ainda não está disponível.</Alert>}
-              <Typography component="p" className={styles['informacao-seguranca']}>Aratu · Ambiente seguro FSPH</Typography>
+              {recoveryInfo && <Alert severity="info" className={styles['loginMessage']}>A recuperação de senha ainda não está disponível.</Alert>}
+              <Typography component="p" className={styles['securityInfo']}>Aratu · Ambiente seguro FSPH</Typography>
             </footer>
           </Box>
         </section>

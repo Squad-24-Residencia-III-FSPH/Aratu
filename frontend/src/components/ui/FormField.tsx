@@ -114,7 +114,7 @@ export function FormField({
           ...(inputMode ? { inputMode } : {}),
         },
         inputLabel: {
-          shrink: true,
+          shrink: !hideLabel,
           ...(hideLabel ? { sx: visuallyHiddenLabel } : {}),
         },
       }}
@@ -192,7 +192,7 @@ export function FormSelect(props: FormSelectProps) {
           },
         },
         inputLabel: {
-          shrink: true,
+          shrink: !props.hideLabel,
           ...(props.hideLabel ? { sx: visuallyHiddenLabel } : {}),
         },
       }}
