@@ -58,7 +58,7 @@ import { SvoOccurrencesService } from './services/svo-occurrences.service'
 import { createSvoOccurrencesRouter, svoErrorHandler } from './routes/svo-occurrences.routes'
 import { SvoOrdersRepository } from './repositories/svo-orders.repository'
 import { SvoOrdersService } from './services/svo-orders.service'
-import { createSvoOrdersRouter, svoOrderErrorHandler } from './routes/svo-orders.routes'
+import { createSvoDispatchCandidatesRouter, createSvoOrdersRouter, svoOrderErrorHandler } from './routes/svo-orders.routes'
 import { ReportsRepository } from './repositories/reports.repository'
 import { ReportsService } from './services/reports.service'
 import { ReportRegistry } from './services/reports/report-registry'
@@ -176,6 +176,7 @@ export function createApp({
     const svoOrdersService = new SvoOrdersService(
       new SvoOccurrencesRepository(pool), new SvoOrdersRepository(), vehiclesRepository, auditService,
     )
+    app.use('/svo/dispatch-candidates', createSvoDispatchCandidatesRouter(svoOrdersService, jwtConfig, currentUsersRepository))
     app.use('/svo/orders', createSvoOrdersRouter(svoOrdersService, jwtConfig, currentUsersRepository))
   }
   if (rolesRepository && auditService && userRepository instanceof UsersRepository) {
@@ -183,6 +184,7 @@ export function createApp({
     app.use('/users', createUsersRouter(usersService, jwtConfig))
   }
   app.use('/svo/occurrences', svoErrorHandler)
+  app.use('/svo/dispatch-candidates', svoOrderErrorHandler)
   app.use('/svo/orders', svoOrderErrorHandler)
   app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (res.headersSent) {

@@ -1,6 +1,8 @@
 import type { PoolClient } from 'pg'
 import { SVO_ORDER_OCCUPYING_STATUSES } from '../types/svo-order.types'
-import type { NewSvoOrder, OpenSvoOrderEvent, SvoOrderRecord, SvoTeamSnapshot } from '../types/svo-order.types'
+import type {
+  NewSvoOrder, OpenSvoOrderEvent, SvoDispatchCandidateTeam, SvoDispatchCandidateVehicleRow, SvoOrderRecord, SvoTeamSnapshot,
+} from '../types/svo-order.types'
 import type {
   SvoOrderState, SvoOrderReadRow, SvoOrderDetailRow, SvoOrderMembership,
   SvoOrderStatus, SvoOrderTransition, SvoOrderStatusEvent,
@@ -19,6 +21,8 @@ export interface SvoOrdersRepositoryContract {
   updateStatus(order: SvoOrderState, status: SvoOrderTransition, time: Date, client: PoolClient): Promise<boolean>
   updateResult(after: SvoOrderState, expectedRevision: number, time: Date, client: PoolClient): Promise<boolean>
   createStatusEvent(event: SvoOrderStatusEvent, client: PoolClient): Promise<void>
+  listActiveTeams(client: PoolClient): Promise<SvoDispatchCandidateTeam[]>
+  listEligibleVehiclesForDispatch(client: PoolClient): Promise<SvoDispatchCandidateVehicleRow[]>
 }
 
 /** Consultas parametrizadas usam o cliente transacional; cada operação obtém as travas do seu domínio. */
@@ -163,5 +167,51 @@ export class SvoOrdersRepository implements SvoOrdersRepositoryContract {
       [order.id, order.openedAt, actor.name, actor.id, JSON.stringify(actor), reason,
         evidenceDescription, JSON.stringify(order)],
     )
+  }
+
+  /** Lista equipes SVO ativas para seleção de despacho na Central SVO. */
+  async listActiveTeams(client: PoolClient): Promise<SvoDispatchCandidateTeam[]> {
+    const result = await client.query<SvoDispatchCandidateTeam>(
+      `SELECT id::text AS id, name
+         FROM svo.teams
+        WHERE active = true
+        ORDER BY name ASC, id ASC`,
+    )
+    return result.rows
+  }
+
+  /**
+   * Consulta viaturas disponíveis para operação SVO e transporte de corpos sem
+   * manutenção impeditiva ativa, incluindo a contagem de ordens que ocupam vaga.
+   */
+  async listEligibleVehiclesForDispatch(client: PoolClient): Promise<SvoDispatchCandidateVehicleRow[]> {
+    const result = await client.query<SvoDispatchCandidateVehicleRow>(
+      `SELECT v.id::text AS id,
+              v.license_plate AS plate,
+              v.brand,
+              v.model,
+              v.body_limit AS "bodyLimit",
+              (
+                SELECT count(o.id)::integer
+                  FROM svo.execution_orders o
+                 WHERE o.vehicle_id = v.id
+                   AND o.status = ANY($1::text[])
+              ) AS "occupyingOrders"
+         FROM fleet.vehicles v
+        WHERE v.status = 'AVAILABLE'
+          AND v.operation_type = 'SVO'
+          AND 'BODY' = ANY(v.categories)
+          AND v.body_limit > 0
+          AND NOT EXISTS (
+            SELECT 1
+              FROM fleet.maintenance_orders m
+             WHERE m.vehicle_id = v.id
+               AND m.blocks_vehicle = true
+               AND m.status IN ('OPEN', 'IN_PROGRESS')
+          )
+        ORDER BY v.license_plate ASC, v.id ASC`,
+      [SVO_ORDER_OCCUPYING_STATUSES],
+    )
+    return result.rows
   }
 }

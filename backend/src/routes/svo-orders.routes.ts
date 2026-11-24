@@ -16,6 +16,22 @@ const ERROR_STATUS: Record<SvoOrderErrorCode, number> = {
   VEHICLE_UNAVAILABLE: 409, CAPACITY_EXCEEDED: 409, INVALID_TRANSITION: 409,
 }
 
+/**
+ * Cria a consulta `GET /svo/dispatch-candidates` restrita aos perfis de escrita da Central SVO.
+ * Deve ser montada em `app.ts` antes de rotas parametrizadas com `/:id`.
+ */
+export function createSvoDispatchCandidatesRouter(
+  service: SvoOrdersService,
+  jwt: JwtConfig,
+  users: Pick<UsersRepositoryContract, 'findById'>,
+): Router {
+  const router = Router()
+  router.use(createAuthMiddleware(jwt.secret), createCurrentUserMiddleware(users))
+  const controller = createSvoOrdersController(service)
+  router.get('/', authorizeRoles(SVO_WRITE_ROLES), controller.dispatchCandidates)
+  return router
+}
+
 /** Usa o perfil cadastral atual antes de permitir acesso aos dados restritos do SVO. */
 export function createSvoOrdersRouter(service: SvoOrdersService, jwt: JwtConfig, users: Pick<UsersRepositoryContract, 'findById'>): Router {
   const router = Router()
@@ -40,13 +56,15 @@ export function svoOrderErrorHandler(error: unknown, req: Request, res: Response
     res.status(400).json({ erro: 'O corpo da requisição deve conter JSON válido.' })
     return
   }
-  const operation = req.method === 'PATCH' ? 'UPDATE_STATUS'
-    : req.method === 'GET' ? 'READ_ORDER'
-      : /\/result\/?$/.test(req.path) ? 'RECORD_RESULT' : 'CREATE_ORDER'
+  const operation = req.baseUrl === '/svo/dispatch-candidates' ? 'READ_DISPATCH_CANDIDATES'
+    : req.method === 'PATCH' ? 'UPDATE_STATUS'
+      : req.method === 'GET' ? 'READ_ORDER'
+        : /\/result\/?$/.test(req.path) ? 'RECORD_RESULT' : 'CREATE_ORDER'
   console.error({ code: 'SVO_ORDER_FAILED', operation, time: new Date().toISOString() })
-  const message = operation === 'READ_ORDER' ? 'Não foi possível consultar as ordens. Tente novamente.'
-    : operation === 'UPDATE_STATUS' ? 'Não foi possível confirmar a atualização da ordem. Consulte a situação antes de tentar novamente.'
-      : operation === 'RECORD_RESULT' ? 'Não foi possível confirmar o encerramento da ordem. Consulte a situação antes de tentar novamente.'
-        : 'Não foi possível concluir a geração da ordem. Confirme o resultado com a central antes de tentar novamente.'
+  const message = operation === 'READ_DISPATCH_CANDIDATES' ? 'Não foi possível consultar os candidatos de despacho. Tente novamente.'
+    : operation === 'READ_ORDER' ? 'Não foi possível consultar as ordens. Tente novamente.'
+      : operation === 'UPDATE_STATUS' ? 'Não foi possível confirmar a atualização da ordem. Consulte a situação antes de tentar novamente.'
+        : operation === 'RECORD_RESULT' ? 'Não foi possível confirmar o encerramento da ordem. Consulte a situação antes de tentar novamente.'
+          : 'Não foi possível concluir a geração da ordem. Confirme o resultado com a central antes de tentar novamente.'
   res.status(500).json({ erro: message })
 }

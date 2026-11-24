@@ -3,6 +3,9 @@ import type { SvoOrdersService } from '../services/svo-orders.service'
 
 export function createSvoOrdersController(service: SvoOrdersService) {
   return {
+    async dispatchCandidates(req: Request, res: Response): Promise<void> {
+      res.json(await service.listDispatchCandidates(req.usuario!.id))
+    },
     async list(req: Request, res: Response): Promise<void> {
       res.json(await service.listOrders(req.query, req.usuario!.id))
     },
