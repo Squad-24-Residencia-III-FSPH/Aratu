@@ -1,7 +1,9 @@
 import type { Pool, PoolClient } from 'pg'
 import type {
   CreateTripData,
+  CreateDirectTripData,
   DriverTrip,
+  DirectTripRegistration,
   SchedulableRequest,
   SchedulingEventMetadata,
   Trip,
@@ -19,6 +21,9 @@ export interface TripsRepositoryContract {
   withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
   findRequestForUpdate(requestId: string, client: PoolClient): Promise<SchedulableRequest | null>
   createTrip(data: CreateTripData, client: PoolClient): Promise<Trip>
+  findActiveServiceForDirect?(serviceId: string, client: PoolClient): Promise<{ id: string; name: string } | null>
+  findDirectTripRegistration?(actorId: string, creationKey: string, client?: PoolClient): Promise<DirectTripRegistration | null>
+  createDirectTrip?(data: CreateDirectTripData, client: PoolClient): Promise<Trip>
   markRequestScheduled(requestId: string, client: PoolClient): Promise<SchedulableRequest | null>
   createTripEvent(eventType: TripEventType, before: Trip | null, after: Trip, metadata: SchedulingEventMetadata, client: PoolClient): Promise<void>
   createRequestEvent(before: SchedulableRequest, after: SchedulableRequest, metadata: SchedulingEventMetadata, client: PoolClient): Promise<void>
@@ -99,6 +104,66 @@ export class TripsRepository implements TripsRepositoryContract {
     )
     const trip = result.rows[0]
     if (!trip) throw new Error('A criação da viagem não retornou os dados esperados.')
+    return trip
+  }
+
+  /** Confirma que o catálogo continua ativo enquanto o Gestor cria a viagem direta. */
+  async findActiveServiceForDirect(serviceId: string, client: PoolClient): Promise<{ id: string; name: string } | null> {
+    const result = await client.query<{ id: string; name: string }>(
+      `SELECT id::text AS id, name
+         FROM fleet.services
+        WHERE id = $1 AND active = true
+        FOR SHARE`, [serviceId],
+    )
+    return result.rows[0] ?? null
+  }
+
+  /** Localiza o resultado anterior de uma chave idempotente sem consultar o vínculo de solicitação. */
+  async findDirectTripRegistration(
+    actorId: string,
+    creationKey: string,
+    client?: PoolClient,
+  ): Promise<DirectTripRegistration | null> {
+    const result = await (client ?? this.pool).query<Trip & { creationPayload: Record<string, unknown> | null }>(
+      `SELECT t.id::text AS id, t.request_id::text AS "requestId",
+              t.vehicle_id::text AS "vehicleId", t.driver_id::text AS "driverId",
+              t.scheduled_start AS "scheduledStart", t.scheduled_end AS "scheduledEnd", t.status,
+              t.start_km AS "startKm", t.end_km AS "endKm", t.started_at AS "startedAt",
+              t.finished_at AS "finishedAt", t.revision, t.created_at AS "createdAt",
+              t.context_snapshot AS "directContext", t.creation_payload AS "creationPayload",
+              t.special_requirements_acknowledged AS "specialRequirementsAcknowledged",
+              t.evidence_description AS "evidenceDescription"
+         FROM trip.trips t
+        WHERE t.created_by = $1 AND t.creation_key = $2`, [actorId, creationKey],
+    )
+    const row = result.rows[0]
+    if (!row || !row.creationPayload || !row.directContext) return null
+    return { trip: row, creationPayload: row.creationPayload }
+  }
+
+  /** Grava uma viagem direta e sua chave de reenvio na mesma transação do histórico e da auditoria. */
+  async createDirectTrip(data: CreateDirectTripData, client: PoolClient): Promise<Trip> {
+    const result = await client.query<Trip>(
+      `INSERT INTO trip.trips (
+         request_id, service_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status,
+         vehicle_snapshot, driver_snapshot, context_snapshot, creation_key, creation_payload,
+         created_by, special_requirements_acknowledged, evidence_description
+       ) VALUES (NULL, $1, $2, $3, $4, $5, 'SCHEDULED', $6::jsonb, $7::jsonb, $8::jsonb,
+                 $9, $10::jsonb, $11, $12, $13)
+       RETURNING id::text AS id, request_id::text AS "requestId", vehicle_id::text AS "vehicleId",
+                 driver_id::text AS "driverId", scheduled_start AS "scheduledStart",
+                 scheduled_end AS "scheduledEnd", status, start_km AS "startKm", end_km AS "endKm",
+                 started_at AS "startedAt", finished_at AS "finishedAt", revision, created_at AS "createdAt",
+                 context_snapshot AS "directContext", creation_payload AS "creationPayload",
+                 special_requirements_acknowledged AS "specialRequirementsAcknowledged",
+                 evidence_description AS "evidenceDescription"`,
+      [data.serviceId, data.vehicleId, data.driverId, data.scheduledStart, data.scheduledEnd,
+        JSON.stringify(data.vehicleSnapshot), JSON.stringify(data.driverSnapshot),
+        JSON.stringify(data.directContext), data.creationKey, JSON.stringify(data.creationPayload),
+        data.createdBy, data.specialRequirementsAcknowledged, data.evidenceDescription],
+    )
+    const trip = result.rows[0]
+    if (!trip) throw new Error('A criação direta da viagem não retornou os dados esperados.')
     return trip
   }
 
@@ -272,9 +337,12 @@ export class TripsRepository implements TripsRepositoryContract {
     const result = await this.pool.query<DriverTrip>(
       `SELECT t.id::text AS id, t.status, t.scheduled_start AS "scheduledStart", t.scheduled_end AS "scheduledEnd",
               t.start_km AS "startKm", t.started_at AS "startedAt",
-              r.origin, r.destination, r.purpose, v.license_plate AS "vehicleLicensePlate"
+              COALESCE(t.context_snapshot ->> 'origin', t.request_snapshot ->> 'origin', r.origin) AS origin,
+              COALESCE(t.context_snapshot ->> 'destination', t.request_snapshot ->> 'destination', r.destination) AS destination,
+              COALESCE(t.context_snapshot ->> 'purpose', t.request_snapshot ->> 'purpose', r.purpose) AS purpose,
+              v.license_plate AS "vehicleLicensePlate"
          FROM trip.trips t
-         JOIN trip.requests r ON r.id = t.request_id
+         LEFT JOIN trip.requests r ON r.id = t.request_id
          JOIN fleet.vehicles v ON v.id = t.vehicle_id
         WHERE t.driver_id = $1
           AND t.status IN ('SCHEDULED', 'IN_PROGRESS')
@@ -303,15 +371,17 @@ export class TripsRepository implements TripsRepositoryContract {
   /** Lista viagens para conferência; `from`/`to` são datas de Aracaju sobre o início agendado (`to` inclusivo). */
   async listTrips(filters: TripListFilters): Promise<TripSummary[]> {
     const result = await this.pool.query<TripSummary>(
-      `SELECT t.id::text AS id, t.request_id::text AS "requestId", t.status,
+      `SELECT t.id::text AS id, t.request_id::text AS "requestId",
+              (t.request_id IS NULL) AS "createdDirectly", t.status,
               t.scheduled_start AS "scheduledStart", t.scheduled_end AS "scheduledEnd",
               t.started_at AS "startedAt", t.finished_at AS "finishedAt",
               t.start_km AS "startKm", t.end_km AS "endKm",
               v.license_plate AS "vehicleLicensePlate", d.name AS "driverName",
-              r.origin, r.destination,
+              COALESCE(t.context_snapshot ->> 'origin', t.request_snapshot ->> 'origin', r.origin) AS origin,
+              COALESCE(t.context_snapshot ->> 'destination', t.request_snapshot ->> 'destination', r.destination) AS destination,
               t.confirmed_by::text AS "confirmedBy", t.confirmed_at AS "confirmedAt"
          FROM trip.trips t
-         JOIN trip.requests r ON r.id = t.request_id
+         LEFT JOIN trip.requests r ON r.id = t.request_id
          JOIN fleet.vehicles v ON v.id = t.vehicle_id
          JOIN fleet.drivers d ON d.id = t.driver_id
         WHERE ($1::text IS NULL OR t.status = $1)

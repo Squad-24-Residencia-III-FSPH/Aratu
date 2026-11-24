@@ -15,13 +15,14 @@ import { listTripAgenda } from '../../services/tripAgendaService'
 import { TRIP_AGENDA_STATUSES, TRIP_AGENDA_STATUS_LABELS, TRIP_AGENDA_STATUS_TONES } from '../../trips/tripAgendaTypes'
 import type { TripAgendaItem, TripAgendaStatus } from '../../trips/tripAgendaTypes'
 import { TRIP_CONFIRMATION_PATH } from '../../trips/tripConfirmationTypes'
+import { TRIP_SCHEDULING_PATH } from '../../trips/tripSchedulingAccess'
 import { formatDateTime } from '../../utils/dates'
 
 const STATUS_OPTIONS = TRIP_AGENDA_STATUSES.map((value) => ({ value, label: TRIP_AGENDA_STATUS_LABELS[value] }))
 
 const COLUMNS: readonly DataTableColumn<TripAgendaItem>[] = [
   { key: 'start', header: 'Início previsto', width: 160, render: (trip) => formatDateTime(trip.scheduledStart) },
-  { key: 'request', header: 'Solicitação', width: 120, render: (trip) => `#${trip.requestId}` },
+  { key: 'request', header: 'Origem', width: 170, render: (trip) => trip.createdDirectly ? 'Criada pelo gestor' : `Solicitação #${trip.requestId}` },
   { key: 'route', header: 'Origem e destino', render: (trip) => `${trip.origin} → ${trip.destination}` },
   { key: 'vehicle', header: 'Veículo', width: 130, render: (trip) => trip.vehicleLicensePlate },
   { key: 'driver', header: 'Motorista', width: 180, render: (trip) => trip.driverName },
@@ -39,7 +40,7 @@ function AgendaCard({ trip }: { trip: TripAgendaItem }) {
         <EntityCard.Status><StatusChip label={TRIP_AGENDA_STATUS_LABELS[trip.status]} tone={TRIP_AGENDA_STATUS_TONES[trip.status]} /></EntityCard.Status>
       </EntityCard.Header>
       <EntityCard.Body>
-        <Typography variant="body2">Solicitação #{trip.requestId}</Typography>
+        <Typography variant="body2">{trip.createdDirectly ? 'Criada pelo gestor' : `Solicitação #${trip.requestId}`}</Typography>
         <Typography variant="body2">Início previsto: {formatDateTime(trip.scheduledStart)}</Typography>
         <Typography variant="body2">Veículo: {trip.vehicleLicensePlate}</Typography>
         <Typography variant="body2">Motorista: {trip.driverName}</Typography>
@@ -123,7 +124,10 @@ export default function TripAgendaPage() {
   return (
     <Box sx={{ minWidth: 0 }}>
       <PageHeader title="Agenda de viagens" description="Consulte viagens agendadas, em execução, concluídas, conferidas ou canceladas." actions={(
-        <Button component={RouterLink} to={TRIP_CONFIRMATION_PATH} variant="contained" sx={{ minHeight: 48, width: { xs: '100%', sm: 'auto' } }}>Conferir finalizadas</Button>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Button component={RouterLink} to={`${TRIP_SCHEDULING_PATH}?mode=direct`} variant="contained" sx={{ minHeight: 48, width: { xs: '100%', sm: 'auto' } }}>Criar viagem</Button>
+          <Button component={RouterLink} to={TRIP_CONFIRMATION_PATH} variant="outlined" sx={{ minHeight: 48, width: { xs: '100%', sm: 'auto' } }}>Conferir finalizadas</Button>
+        </Stack>
       )} />
       <FilterBar label="Filtros da agenda">
         <Box sx={{ flex: '1 1 160px', minWidth: { xs: '100%', sm: 160 } }}><FormField label="De" type="date" value={from} onChange={setFrom} /></Box>

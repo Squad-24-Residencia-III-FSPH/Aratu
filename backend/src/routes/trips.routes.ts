@@ -25,6 +25,7 @@ export function createTripsRouter(
   const authorizeExecution = authorizeRoles(EXECUTION_ROLES)
 
   router.post('/', authenticate, currentUser, authorizeScheduling, controller.schedule)
+  router.post('/direct', authenticate, currentUser, authorizeScheduling, controller.createDirect)
   router.get('/', authenticate, currentUser, authorizeTripRead, controller.list)
   router.post('/:id/confirm', authenticate, currentUser, authorizeScheduling, controller.confirm)
   router.get('/mine', authenticate, currentUser, authorizeExecution, controller.listMine)

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, Checkbox, FormControlLabel, Paper, Stack, Typography } from '@mui/material'
 import EventAvailableIcon from '@mui/icons-material/EventAvailable'
 import { useSearchParams } from 'react-router-dom'
+import DirectTripPage from './DirectTripPage'
 import DataTable from '../../../components/ui/DataTable'
 import type { DataTableColumn } from '../../../components/ui/DataTable'
 import { FormField, FormSelect } from '../../../components/ui/FormField'
@@ -17,8 +18,7 @@ import {
   listAvailableDrivers,
   listAvailableVehicles,
 } from '../../../services/schedulingService'
-
-const OPERATIONAL_TIME_ZONE = 'America/Maceio'
+import { operationalDateTimeToIso } from '../../../time/operationalTime'
 
 interface PeriodValue {
   start: string
@@ -47,44 +47,10 @@ const REQUEST_COLUMNS: readonly DataTableColumn<ApprovedRequestSummary>[] = [
   { key: 'purpose', header: 'Finalidade', render: (request) => request.purpose },
 ]
 
-function operationalParts(timestamp: number): Record<string, string> {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: OPERATIONAL_TIME_ZONE,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
-  }).formatToParts(new Date(timestamp))
-  return Object.fromEntries(parts.map(({ type, value }) => [type, value]))
-}
-
-function offsetMinutesAt(timestamp: number): number {
-  const parts = operationalParts(timestamp)
-  const wallTime = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day),
-    Number(parts.hour), Number(parts.minute), Number(parts.second))
-  return Math.round((wallTime - timestamp) / 60_000)
-}
-
 /** Converte o horário local informado para ISO 8601 no fuso operacional da FSPH. */
 function toOperationalIso(value: string): string | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value)
-  if (!match) return null
-  const [, yearText, monthText, dayText, hourText, minuteText] = match
-  const year = Number(yearText)
-  const month = Number(monthText)
-  const day = Number(dayText)
-  const hour = Number(hourText)
-  const minute = Number(minuteText)
-  const wallTime = Date.UTC(year, month - 1, day, hour, minute)
-  const firstOffset = offsetMinutesAt(wallTime)
-  const timestamp = wallTime - firstOffset * 60_000
-  const actualOffset = offsetMinutesAt(timestamp)
-  const actualParts = operationalParts(timestamp)
-  if (actualOffset !== firstOffset || Number(actualParts.year) !== year
-    || Number(actualParts.month) !== month || Number(actualParts.day) !== day
-    || Number(actualParts.hour) !== hour || Number(actualParts.minute) !== minute) return null
-  const sign = actualOffset < 0 ? '-' : '+'
-  const absoluteOffset = Math.abs(actualOffset)
-  const offset = `${sign}${String(Math.floor(absoluteOffset / 60)).padStart(2, '0')}:${String(absoluteOffset % 60).padStart(2, '0')}`
-  return `${value}:00${offset}`
+  if (!value) return null
+  try { return operationalDateTimeToIso(value) } catch { return null }
 }
 
 function formatError(error: unknown): string {
@@ -102,6 +68,12 @@ function fieldValue(label: string, value: string) {
 
 /** Agenda solicitações aprovadas com veículos e motoristas disponíveis no período escolhido. */
 export default function ScheduleTripPage() {
+  const [routeSearchParams] = useSearchParams()
+  if (routeSearchParams.get('mode') === 'direct') return <DirectTripPage />
+  return <ApprovedRequestSchedulePage />
+}
+
+function ApprovedRequestSchedulePage() {
   const { api, session } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestIdFromUrl = searchParams.get('requestId')
@@ -266,8 +238,10 @@ export default function ScheduleTripPage() {
     <Box>
       <PageHeader
         title="Agendar viagem"
-        breadcrumbs={['Início', 'Agendar viagem']}
         description="Escolha uma solicitação aprovada e aloque recursos disponíveis para o período previsto."
+        actions={<Button variant="outlined" onClick={() => setSearchParams({ mode: 'direct' })} sx={{ minHeight: 44 }}>
+          Criar viagem sem solicitação
+        </Button>}
       />
 
       {successMessage && (

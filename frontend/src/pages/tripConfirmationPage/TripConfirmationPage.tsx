@@ -34,8 +34,8 @@ function DetailValue({ label, value }: { label: string; value: string }) {
 
 const COLUMNS: readonly DataTableColumn<TripConfirmationItem>[] = [
   {
-    key: 'request', header: 'Solicitação', width: 200,
-    render: (trip) => <Stack spacing={0.25}><Typography sx={{ fontWeight: 600 }}>#{trip.requestId}</Typography><Typography variant="body2" color="text.secondary">{trip.origin} → {trip.destination}</Typography></Stack>,
+    key: 'request', header: 'Origem', width: 200,
+    render: (trip) => <Stack spacing={0.25}><Typography sx={{ fontWeight: 600 }}>{trip.createdDirectly ? 'Criada pelo gestor' : `Solicitação #${trip.requestId}`}</Typography><Typography variant="body2" color="text.secondary">{trip.origin} → {trip.destination}</Typography></Stack>,
   },
   { key: 'vehicle', header: 'Veículo', width: 140, render: (trip) => trip.vehicleLicensePlate },
   { key: 'driver', header: 'Motorista', width: 180, render: (trip) => trip.driverName },
@@ -93,7 +93,6 @@ export default function TripConfirmationPage() {
     <Box>
       <PageHeader
         title="Confirmar viagens"
-        breadcrumbs={['Início', 'Conferência']}
         description="Confira os registros das viagens finalizadas antes de confirmar a conclusão."
       />
 
@@ -151,7 +150,7 @@ export default function TripConfirmationPage() {
           <DialogContent dividers>
             <Stack spacing={2.5}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-                <Box><Typography variant="body2" color="text.secondary">Solicitação</Typography><Typography variant="h6">#{selectedTrip.requestId} · {selectedTrip.origin} → {selectedTrip.destination}</Typography></Box>
+                <Box><Typography variant="body2" color="text.secondary">{selectedTrip.createdDirectly ? 'Origem da viagem' : 'Solicitação'}</Typography><Typography variant="h6">{selectedTrip.createdDirectly ? 'Criada pelo gestor' : `#${selectedTrip.requestId}`} · {selectedTrip.origin} → {selectedTrip.destination}</Typography></Box>
                 <StatusChip label="Finalizada" tone="warning" />
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' }, gap: 2 }}>

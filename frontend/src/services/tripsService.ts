@@ -2,7 +2,7 @@ import type { ApiRequest } from '../api/client.ts'
 import { SESSION_EXPIRED } from '../auth/token.ts'
 import { DRIVER_TRIP_STATUSES, TripRequestError } from '../trips/tripTypes.ts'
 import type { TripConfirmationFilters, TripConfirmationItem, TripConfirmationResult } from '../trips/tripConfirmationTypes.ts'
-import type { DriverTrip, DriverTripStatus, ScheduleTripInput, Trip, TripRequestErrorKind } from '../trips/tripTypes.ts'
+import type { DirectTripInput, DriverTrip, DriverTripStatus, ScheduleTripInput, Trip, TripRequestErrorKind } from '../trips/tripTypes.ts'
 
 const NETWORK_MESSAGE = 'Não foi possível se comunicar com o servidor. Verifique a conexão.'
 const INVALID_RESPONSE_MESSAGE = 'A resposta do servidor não pôde ser confirmada.'
@@ -91,7 +91,7 @@ function parseDriverTrip(value: unknown): DriverTrip {
 function parseTrip(value: unknown): Trip {
   if (!isRecord(value)
     || !isString(value.id)
-    || !isString(value.requestId)
+    || !isNullable(value.requestId, isString)
     || !isString(value.vehicleId)
     || !isString(value.driverId)
     || !isIsoDate(value.scheduledStart)
@@ -125,7 +125,8 @@ function parseTrip(value: unknown): Trip {
 function parseTripConfirmationItem(value: unknown): TripConfirmationItem {
   if (!isRecord(value)
     || !isString(value.id)
-    || !isString(value.requestId)
+    || !isNullable(value.requestId, isString)
+    || typeof value.createdDirectly !== 'boolean'
     || value.status !== 'FINISHED'
     || !isIsoDate(value.scheduledStart)
     || !isIsoDate(value.scheduledEnd)
@@ -144,6 +145,7 @@ function parseTripConfirmationItem(value: unknown): TripConfirmationItem {
   return {
     id: value.id,
     requestId: value.requestId,
+    createdDirectly: value.createdDirectly,
     status: 'FINISHED',
     scheduledStart: value.scheduledStart,
     scheduledEnd: value.scheduledEnd,
@@ -252,6 +254,23 @@ export async function scheduleTrip(api: ApiRequest, input: ScheduleTripInput): P
   const trip = parseTrip(await response.json().catch(() => null))
   if (trip.requestId !== input.requestId || trip.vehicleId !== input.vehicleId
     || trip.driverId !== input.driverId || trip.status !== 'SCHEDULED') {
+    throw new TripRequestError('invalidResponse', INVALID_RESPONSE_MESSAGE)
+  }
+  return trip
+}
+
+/** Cria viagem iniciada pelo Gestor; a chave preserva o resultado se a resposta se perder. */
+export async function createDirectTrip(api: ApiRequest, input: DirectTripInput, idempotencyKey: string): Promise<Trip> {
+  const response = await send(api, '/trips/direct', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) throw await failureFrom(response)
+  const trip = parseTrip(await response.json().catch(() => null))
+  if (trip.requestId !== null || trip.vehicleId !== input.vehicleId
+    || trip.driverId !== input.driverId
+    || !['SCHEDULED', 'IN_PROGRESS', 'FINISHED', 'CONFIRMED', 'CANCELED'].includes(trip.status)) {
     throw new TripRequestError('invalidResponse', INVALID_RESPONSE_MESSAGE)
   }
   return trip

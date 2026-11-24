@@ -6,12 +6,14 @@ import {
   DEFAULT_CONFIRMATION_REASON,
   DEFAULT_EXECUTION_REASONS,
   DEFAULT_SCHEDULING_REASON,
+  DirectTripContext,
   SCHEDULING_STATUSES,
   TRIP_STATUSES,
   TripServiceError,
 } from '../types/trip.types'
 import type {
   ConfirmTripInput,
+  CreateDirectTripInput,
   DriverTrip,
   TripConfirmation,
   TripListFilters,
@@ -33,6 +35,8 @@ import type { AvailabilityService } from './availability.service'
 const ID_PATTERN = /^[1-9]\d*$/
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const MAX_ODOMETER_KM = 2_147_483_647
+const MAX_PASSENGERS = 2_147_483_647
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const MISSING_EVIDENCE_MESSAGE = 'Viagem sem evidências do odômetro não pode ser confirmada'
 const IN_PROGRESS_CONFLICT_MESSAGE = 'Já existe viagem em andamento com este veículo ou motorista.'
 
@@ -88,6 +92,26 @@ function describe(subject: string, reasons: AvailabilityReason[]): string {
 
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505'
+}
+
+function directText(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new TripServiceError(400, `${field} é obrigatório.`)
+  }
+  return value.trim()
+}
+
+function optionalDirectText(value: unknown, field: string): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') throw new TripServiceError(400, `${field} deve ser um texto.`)
+  return value.trim() || null
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+  if (typeof value !== 'object' || value === null) return JSON.stringify(value) ?? 'null'
+  const record = value as Record<string, unknown>
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')}}`
 }
 
 /** Viagens: agendamento pelo Gestor e execução (início e término) pelo Motorista alocado. */
@@ -198,6 +222,151 @@ export class TripsService {
       if (isUniqueViolation(error)) throw new TripServiceError(409, 'Esta solicitação já possui viagem agendada.')
       throw error
     }
+  }
+
+  /** Cria uma viagem por decisão do Gestor sem fabricar uma solicitação de outro usuário. */
+  async createDirectTrip(input: CreateDirectTripInput, managerId: string, idempotencyKey: unknown): Promise<Trip> {
+    if (Object.hasOwn(input, 'requestId')) {
+      throw new TripServiceError(400, 'A criação direta não aceita requestId.')
+    }
+    if (typeof idempotencyKey !== 'string' || !UUID_PATTERN.test(idempotencyKey)) {
+      throw new TripServiceError(400, 'Informe um UUID válido no cabeçalho Idempotency-Key.')
+    }
+    const creationKey = idempotencyKey.toLowerCase()
+    const serviceId = requireId(input.serviceId, 'serviceId')
+    const vehicleId = requireId(input.vehicleId, 'vehicleId')
+    const driverId = requireId(input.driverId, 'driverId')
+    const period = this.parseTripPeriod(input.scheduledStart, input.scheduledEnd)
+    const origin = directText(input.origin, 'origin')
+    const destination = directText(input.destination, 'destination')
+    const purpose = directText(input.purpose, 'purpose')
+    const passengers = input.passengers
+    if (typeof passengers !== 'number' || !Number.isSafeInteger(passengers)
+      || passengers < 1 || passengers > MAX_PASSENGERS) {
+      throw new TripServiceError(400, 'Informe uma quantidade válida de passageiros.')
+    }
+    const specialRequirements = optionalDirectText(input.specialRequirements, 'specialRequirements')
+    const notes = optionalDirectText(input.notes, 'notes')
+    if (input.specialRequirementsAcknowledged !== undefined && typeof input.specialRequirementsAcknowledged !== 'boolean') {
+      throw new TripServiceError(400, 'specialRequirementsAcknowledged deve ser um valor booleano.')
+    }
+    if (input.evidenceDescription !== undefined && input.evidenceDescription !== null
+      && typeof input.evidenceDescription !== 'string') {
+      throw new TripServiceError(400, 'evidenceDescription deve ser um texto.')
+    }
+    const specialRequirementsAcknowledged = input.specialRequirementsAcknowledged === true
+    const evidenceDescription = optionalDirectText(input.evidenceDescription, 'evidenceDescription')
+    if (specialRequirements && !specialRequirementsAcknowledged) {
+      throw new TripServiceError(422, 'Confirme a conferência das necessidades especiais antes de agendar a viagem.')
+    }
+    if (specialRequirements && !evidenceDescription) {
+      throw new TripServiceError(422, 'Registre como as necessidades especiais serão atendidas antes de agendar a viagem.')
+    }
+    if (!specialRequirements && (specialRequirementsAcknowledged || evidenceDescription)) {
+      throw new TripServiceError(400, 'A conferência especial só pode ser registrada quando houver necessidade especial.')
+    }
+    const reason = optionalReason(input.reason, DEFAULT_SCHEDULING_REASON)
+    const directContext: DirectTripContext = {
+      serviceId,
+      serviceName: '',
+      origin,
+      destination,
+      purpose,
+      passengers,
+      specialRequirements,
+      notes,
+    }
+    const creationPayload = {
+      serviceId, vehicleId, driverId,
+      scheduledStart: period.start.toISOString(), scheduledEnd: period.end.toISOString(),
+      origin, destination, purpose, passengers, specialRequirements, notes,
+      specialRequirementsAcknowledged, evidenceDescription, reason,
+    }
+    const findRegistration = this.repository.findDirectTripRegistration
+    const createDirectTrip = this.repository.createDirectTrip
+    const findService = this.repository.findActiveServiceForDirect
+    if (!findRegistration || !createDirectTrip || !findService) {
+      throw new TripServiceError(500, 'A criação direta ainda não está disponível no serviço de viagens.')
+    }
+
+    const previous = await findRegistration.call(this.repository, managerId, creationKey)
+    if (previous) return this.replayDirectTrip(previous.creationPayload, creationPayload, previous.trip)
+    if (period.start < this.now()) {
+      throw new TripServiceError(422, 'O início da viagem não pode estar no passado.')
+    }
+
+    try {
+      return await this.repository.withTransaction(async (client) => {
+        const actor = await this.requireActor(managerId, client)
+        const service = await findService.call(this.repository, serviceId, client)
+        if (!service) throw new TripServiceError(404, 'Tipo de serviço não encontrado ou inativo.')
+        directContext.serviceName = service.name
+
+        const vehicle = await this.availability.assessVehicle(vehicleId, serviceId, period, client)
+        if (!vehicle) throw new TripServiceError(404, 'Veículo não encontrado.')
+        if (passengers > vehicle.seats) {
+          throw new TripServiceError(422,
+            `O veículo comporta ${vehicle.seats} passageiros, mas a viagem informa ${passengers}.`,
+            'INSUFFICIENT_CAPACITY')
+        }
+        const driver = await this.availability.assessDriver(driverId, period, client)
+        if (!driver) throw new TripServiceError(404, 'Motorista não encontrado.')
+        this.assertAvailable(vehicle.reasons, driver.reasons)
+
+        const trip = await createDirectTrip.call(this.repository, {
+          requestId: null,
+          serviceId,
+          vehicleId,
+          driverId,
+          scheduledStart: period.start,
+          scheduledEnd: period.end,
+          vehicleSnapshot: vehicle,
+          driverSnapshot: driver,
+          directContext,
+          creationKey,
+          creationPayload,
+          specialRequirementsAcknowledged,
+          evidenceDescription,
+          createdBy: actor.id,
+        }, client)
+        const metadata: SchedulingEventMetadata = {
+          reportedBy: actor.name, registeredBy: actor.id, actorSnapshot: actor, reason,
+        }
+        await this.repository.createTripEvent('SCHEDULED', null, trip, metadata, client)
+        await this.auditService.recordAudit({
+          userId: actor.id,
+          table: 'trip.trips',
+          recordId: trip.id,
+          operation: 'CREATE',
+          before: null,
+          after: {
+            id: trip.id, requestId: null, serviceId, vehicleId, driverId,
+            scheduledStart: trip.scheduledStart, scheduledEnd: trip.scheduledEnd,
+            status: trip.status, context: directContext,
+            vehicleLicensePlate: vehicle.licensePlate, driverName: driver.name,
+          },
+          actorSnapshot: { id: actor.id, name: actor.name, email: actor.email, role: actor.role },
+          reason,
+        }, client)
+        return trip
+      })
+    } catch (error) {
+      const registration = await findRegistration.call(this.repository, managerId, creationKey)
+      if (registration) return this.replayDirectTrip(registration.creationPayload, creationPayload, registration.trip)
+      if (isUniqueViolation(error)) throw new TripServiceError(409, 'O veículo, motorista ou chave de criação conflitou com outra viagem.')
+      throw error
+    }
+  }
+
+  private replayDirectTrip(
+    storedPayload: Record<string, unknown>,
+    requestedPayload: Record<string, unknown>,
+    trip: Trip,
+  ): Trip {
+    if (stableJson(storedPayload) !== stableJson(requestedPayload)) {
+      throw new TripServiceError(409, 'Esta chave de criação já foi usada com outros dados.')
+    }
+    return trip
   }
 
   /**
@@ -387,15 +556,20 @@ export class TripsService {
   }
 
   private validatePeriod(start: unknown, end: unknown): Period {
+    const period = this.parseTripPeriod(start, end)
+    if (period.start < this.now()) {
+      throw new TripServiceError(422, 'O início da viagem não pode estar no passado.')
+    }
+    return period
+  }
+
+  private parseTripPeriod(start: unknown, end: unknown): Period {
     let period: Period
     try {
       period = parsePeriod(start, end)
     } catch (error) {
       if (error instanceof AvailabilityError) throw new TripServiceError(error.statusCode, error.message)
       throw error
-    }
-    if (period.start < this.now()) {
-      throw new TripServiceError(422, 'O início da viagem não pode estar no passado.')
     }
     return period
   }

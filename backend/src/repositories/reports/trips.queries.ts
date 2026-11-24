@@ -13,8 +13,8 @@ export const tripsReportQueries: Readonly<Record<string, ReportQuerySpec>> = {
   'trips-executions': {
     dateExpression: 't.scheduled_start',
     orderBy: 't.scheduled_start DESC, t.id DESC',
-    source: 'trip.trips t JOIN trip.requests r ON r.id = t.request_id JOIN fleet.vehicles v ON v.id = t.vehicle_id JOIN fleet.drivers d ON d.id = t.driver_id',
-    expressions: { id: 't.id::text', scheduledStart: 't.scheduled_start', scheduledEnd: 't.scheduled_end', licensePlate: plate, driverName: "COALESCE(NULLIF(t.driver_snapshot->>'name', ''), d.name)", origin: 'r.origin', destination: 'r.destination', status: 't.status', distanceKm: '(t.end_km - t.start_km)', startKm: 't.start_km', endKm: 't.end_km', startedAt: 't.started_at', finishedAt: 't.finished_at', confirmedAt: 't.confirmed_at' },
+    source: 'trip.trips t LEFT JOIN trip.requests r ON r.id = t.request_id JOIN fleet.vehicles v ON v.id = t.vehicle_id JOIN fleet.drivers d ON d.id = t.driver_id',
+    expressions: { id: 't.id::text', scheduledStart: 't.scheduled_start', scheduledEnd: 't.scheduled_end', licensePlate: plate, driverName: "COALESCE(NULLIF(t.driver_snapshot->>'name', ''), d.name)", origin: "COALESCE(t.context_snapshot->>'origin', t.request_snapshot->>'origin', r.origin)", destination: "COALESCE(t.context_snapshot->>'destination', t.request_snapshot->>'destination', r.destination)", status: 't.status', distanceKm: '(t.end_km - t.start_km)', startKm: 't.start_km', endKm: 't.end_km', startedAt: 't.started_at', finishedAt: 't.finished_at', confirmedAt: 't.confirmed_at' },
     filterExpressions: { status: 't.status', licensePlatePrefix: plate }
   }
 }

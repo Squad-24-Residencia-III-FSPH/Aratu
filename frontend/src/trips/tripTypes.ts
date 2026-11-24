@@ -22,7 +22,7 @@ export interface DriverTrip {
 /** Viagem devolvida pelos POSTs de início e término (contrato FROTA-99). */
 export interface Trip {
   id: string
-  requestId: string
+  requestId: string | null
   vehicleId: string
   driverId: string
   scheduledStart: string
@@ -83,6 +83,24 @@ export interface ScheduleTripInput {
   scheduledEnd: string
   specialRequirementsAcknowledged?: boolean
   evidenceDescription?: string | null
+}
+
+/** Dados operacionais que o Gestor registra ao iniciar uma viagem sem solicitação. */
+export interface DirectTripInput {
+  serviceId: string
+  vehicleId: string
+  driverId: string
+  scheduledStart: string
+  scheduledEnd: string
+  origin: string
+  destination: string
+  purpose: string
+  passengers: number
+  specialRequirements: string | null
+  notes: string | null
+  specialRequirementsAcknowledged: boolean
+  evidenceDescription: string | null
+  reason?: string
 }
 
 /** Recortes de apresentação do conjunto de viagens já autorizado pela API. */
