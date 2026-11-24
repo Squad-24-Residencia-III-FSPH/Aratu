@@ -144,15 +144,35 @@ test('mostra estado parcial quando a decisão foi salva e a atualização da lis
   await waitFor(() => assert.equal(screen.queryByText('A decisão foi registrada, mas a lista pode estar desatualizada.'), null))
 })
 
-test('preserva o erro da API quando outro Gestor já analisou a solicitação', async () => {
+test('preserva o erro da API e atualiza detalhe e fila quando outro Gestor já analisou a solicitação', async () => {
   let listCalls = 0
+  let decided = false
   const api = async (path) => {
     if (path.startsWith('/requests?')) {
       listCalls += 1
-      return Response.json({ requests: [request], total: 1, page: 1, pageSize: 20, totalPages: 1 })
+      return Response.json({
+        requests: decided ? [] : [request],
+        total: decided ? 0 : 1,
+        page: 1,
+        pageSize: 20,
+        totalPages: decided ? 0 : 1,
+      })
     }
-    if (path === '/requests/41') return Response.json(request)
+    if (path === '/requests/41') {
+      return Response.json(
+        decided
+          ? {
+              ...request,
+              status: 'APPROVED',
+              decidedBy: '2',
+              decidedByName: 'Outro Gestor Fictício',
+              decidedAt: '2026-11-24T10:00:00.000Z',
+            }
+          : request,
+      )
+    }
     if (path === '/requests/41/approve') {
+      decided = true
       return Response.json({ erro: 'Esta solicitação já foi analisada por outro Gestor.' }, { status: 409 })
     }
     throw new Error(`Rota de teste inesperada: ${path}`)
@@ -166,8 +186,10 @@ test('preserva o erro da API quando outro Gestor já analisou a solicitação', 
   await user.click(within(dialog).getByRole('button', { name: 'Aprovar solicitação' }))
 
   const error = await within(dialog).findByRole('alert')
-  assert.equal(error.textContent, 'Esta solicitação já foi analisada por outro Gestor.')
-  assert.equal(listCalls, 1)
-  await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
-  assert.ok(await screen.findByRole('button', { name: 'Solicitação selecionada 41' }))
+  assert.match(error.textContent ?? '', /Esta solicitação já foi analisada por outro Gestor\./)
+  assert.equal(within(dialog).getByRole('button', { name: 'Aprovar solicitação' }).disabled, true)
+  await waitFor(() => assert.equal(listCalls, 2))
+  await user.click(within(dialog).getByRole('button', { name: 'Fechar' }))
+  assert.ok(await screen.findByText('Outro Gestor Fictício'))
+  assert.equal(screen.getByRole('button', { name: 'Aprovar solicitação' }).disabled, true)
 })
