@@ -13,13 +13,22 @@ import { SVO_ORDERS_PATH } from '../svo/svoOrderTypes.ts'
 import { canAnalyzeRequests, REQUEST_ANALYSIS_PATH } from '../requests/requestAccess.ts'
 import { canAccessReports } from '../reports/reportAccess.ts'
 import { REPORTS_PATH } from '../reports/reportTypes.ts'
+import { canManageVehicleDocuments, VEHICLE_DOCUMENTS_PATH } from '../types/vehicleDocument.ts'
+import { canManageFines, FINES_PATH } from '../types/fine.ts'
+import { canReadSvoOccurrences, SVO_OCCURRENCES_PATH } from '../types/svoOccurrence.ts'
+import { AUDIT_LOGS_PATH, canAccessAuditLogs } from '../types/auditLog.ts'
+import { canAccessDashboard, canAccessTripAgenda, TRIP_AGENDA_PATH } from '../types/dashboard.ts'
+
+export const SOLICITANTE_ALIAS_PATH = '/minhas-solicitacoes'
+export const AUDIT_LOGS_ALIAS_PATH = '/audit-logs'
 
 type RouteDecision =
   | { kind: 'login' }
   | { kind: 'reports'; profile: Profile }
-  | { kind: 'redirect'; to: string }
+  | { kind: 'redirect'; to: string; preserveSearch?: boolean }
   | { kind: 'home'; profile: Profile }
-  | { kind: 'dashboard'; profile: 'GESTOR' }
+  | { kind: 'dashboard'; profile: Profile }
+  | { kind: 'trip-agenda'; profile: 'GESTOR' }
   | { kind: 'profile-permissions'; profile: 'ADMINISTRADOR' }
   | { kind: 'vehicles'; profile: Profile }
   | { kind: 'maintenance'; profile: Profile }
@@ -28,8 +37,12 @@ type RouteDecision =
   | { kind: 'trip-confirmation'; profile: 'GESTOR' }
   | { kind: 'service-types'; profile: Profile }
   | { kind: 'trip-scheduling'; profile: Profile }
-  | { kind: 'svo-orders'; profile: 'ATENDENTE_SVO' | 'GESTOR' }
+  | { kind: 'svo-orders'; profile: 'ATENDENTE_SVO' | 'GESTOR' | 'ADMINISTRADOR' }
+  | { kind: 'svo-occurrences'; profile: Profile }
   | { kind: 'request-analysis'; profile: 'GESTOR' }
+  | { kind: 'vehicle-documents'; profile: Profile }
+  | { kind: 'fines'; profile: Profile }
+  | { kind: 'audit-logs'; profile: Profile }
 
 export function resolveRoute(session: AuthSession | null, path: string, now = Date.now()): RouteDecision {
   const profile = session && resolveProfile(session.perfil)
@@ -38,12 +51,38 @@ export function resolveRoute(session: AuthSession | null, path: string, now = Da
     return path === '/login' ? { kind: 'login' } : { kind: 'redirect', to: '/login' }
   }
   const home = PROFILE_HOMES[profile].path
+  if (path === SOLICITANTE_ALIAS_PATH) {
+    return profile === 'SOLICITANTE'
+      ? { kind: 'redirect', to: PROFILE_HOMES.SOLICITANTE.path, preserveSearch: true }
+      : { kind: 'redirect', to: home }
+  }
+  if (path === AUDIT_LOGS_ALIAS_PATH) {
+    return canAccessAuditLogs(profile)
+      ? { kind: 'redirect', to: AUDIT_LOGS_PATH, preserveSearch: true }
+      : { kind: 'redirect', to: home }
+  }
+  if (path === AUDIT_LOGS_PATH) {
+    return canAccessAuditLogs(profile) ? { kind: 'audit-logs', profile } : { kind: 'redirect', to: home }
+  }
+  if (path === VEHICLE_DOCUMENTS_PATH) {
+    return canManageVehicleDocuments(profile) ? { kind: 'vehicle-documents', profile } : { kind: 'redirect', to: home }
+  }
+  if (path === FINES_PATH) {
+    return canManageFines(profile) ? { kind: 'fines', profile } : { kind: 'redirect', to: home }
+  }
+  if (path === SVO_OCCURRENCES_PATH) {
+    if (!canReadSvoOccurrences(profile)) return { kind: 'redirect', to: home }
+    return path === home ? { kind: 'home', profile } : { kind: 'svo-occurrences', profile }
+  }
+  if (path === TRIP_AGENDA_PATH) {
+    return canAccessTripAgenda(profile) ? { kind: 'trip-agenda', profile: 'GESTOR' } : { kind: 'redirect', to: home }
+  }
   if (path === GESTOR_DASHBOARD_PATH) {
-    return profile === 'GESTOR' ? { kind: 'dashboard', profile } : { kind: 'redirect', to: home }
+    return canAccessDashboard(profile) ? { kind: 'dashboard', profile } : { kind: 'redirect', to: home }
   }
   if (path === REPORTS_PATH) return canAccessReports(profile) ? { kind: 'reports', profile } : { kind: 'redirect', to: home }
   if (path === SVO_ORDERS_PATH) {
-    return profile === 'ATENDENTE_SVO' || profile === 'GESTOR'
+    return profile === 'ATENDENTE_SVO' || profile === 'GESTOR' || profile === 'ADMINISTRADOR'
       ? { kind: 'svo-orders', profile }
       : { kind: 'redirect', to: home }
   }

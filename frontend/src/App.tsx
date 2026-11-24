@@ -2,8 +2,8 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import Layout from './components/layout';
 import GestorPage from './pages/gestor/gestorPage/GestorPage';
 import GestorDashboardPage from './pages/gestor/gestorPage/DashboardPage';
+import TripAgendaPage from './pages/gestor/gestorPage/TripAgendaPage';
 import LoginPage from './pages/loginPage/LoginPage';
-import PlaceholderPage from './pages/placeholderPage/PlaceholderPage';
 import ProfilePermissionsPage from './pages/profilePermissionsPage/ProfilePermissionsPage';
 import SolicitacaoPage from './pages/SolicitacaoPage/SolicitacaoPage';
 import VehiclesPage from './pages/gestor/vehiclesPage/VehiclesPage';
@@ -23,6 +23,10 @@ import SvoTeamOrdersPage from './pages/svoOrdersPage/SvoTeamOrdersPage';
 import SvoOrdersPage from './pages/svoOrdersPage/SvoOrdersPage';
 import RequestAnalysisPage from './pages/requestAnalysisPage/RequestAnalysisPage';
 import ReportsPage from './pages/reportsPage/ReportsPage';
+import VehicleDocumentsPage from './pages/vehicleDocumentsPage/VehicleDocumentsPage';
+import FinesPage from './pages/finesPage/FinesPage';
+import SvoOccurrencesPage from './pages/svoOccurrencesPage/SvoOccurrencesPage';
+import AuditLogsPage from './pages/auditLogsPage/AuditLogsPage';
 
 function LoginRoute() {
   const { session } = useAuth();
@@ -34,61 +38,49 @@ function LoginRoute() {
 }
 
 function ProfileHome({ profile }: { profile: Profile }) {
-  if (profile === 'GESTOR') return <GestorPage />;
-  if (profile === 'ADMINISTRADOR') return <UserManagementPage />;
-  if (profile === 'MOTORISTA') return <MyTripsPage />;
-  if (profile === 'SOLICITANTE') return <SolicitacaoPage />;
-  if (profile === 'EQUIPE_SVO') return <SvoTeamOrdersPage />;
-  return <PlaceholderPage title={PROFILE_HOMES[profile].title} />;
+  switch (profile) {
+    case 'GESTOR':
+      return <GestorPage />;
+    case 'ADMINISTRADOR':
+      return <UserManagementPage />;
+    case 'MOTORISTA':
+      return <MyTripsPage />;
+    case 'SOLICITANTE':
+      return <SolicitacaoPage />;
+    case 'ATENDENTE_SVO':
+      return <SvoOccurrencesPage />;
+    case 'EQUIPE_SVO':
+      return <SvoTeamOrdersPage />;
+  }
 }
 
 function PrivateRoute() {
   const { session } = useAuth();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const decision = resolveRoute(session, pathname);
-  if (decision.kind === 'redirect') return <Navigate to={decision.to} replace />;
+  if (decision.kind === 'redirect') {
+    const target = decision.preserveSearch ? `${decision.to}${search}` : decision.to;
+    return <Navigate to={target} replace />;
+  }
   if (decision.kind === 'login') return <Navigate to="/login" replace />;
-  if (decision.kind === 'profile-permissions') {
-    return (
-      <Layout>
-        <ProfilePermissionsPage />
-      </Layout>
-    );
-  }
-  if (decision.kind === 'vehicles') {
-    return (
-      <Layout>
-        <VehiclesPage />
-      </Layout>
-    );
-  }
+  if (decision.kind === 'profile-permissions') return <Layout><ProfilePermissionsPage /></Layout>;
+  if (decision.kind === 'vehicles') return <Layout><VehiclesPage /></Layout>;
   if (decision.kind === 'maintenance') return <Layout><MaintenancePage /></Layout>;
   if (decision.kind === 'reports') return <Layout><ReportsPage /></Layout>;
-  if (decision.kind === 'drivers') {
-    return (
-      <Layout>
-        <DriversPage />
-      </Layout>
-    );
-  }
-  if (decision.kind === 'fuelings') {
-    return (
-      <Layout>
-        <FuelingsPage />
-      </Layout>
-    );
-  }
+  if (decision.kind === 'drivers') return <Layout><DriversPage /></Layout>;
+  if (decision.kind === 'fuelings') return <Layout><FuelingsPage /></Layout>;
   if (decision.kind === 'trip-confirmation') return <Layout><TripConfirmationPage /></Layout>;
-  if (decision.kind === 'service-types') return <Layout><ServicesPage /></Layout>
-  if (decision.kind === 'trip-scheduling') return <Layout><ScheduleTripPage /></Layout>
-  if (decision.kind === 'dashboard') return <Layout><GestorDashboardPage /></Layout>
-  if (decision.kind === 'svo-orders') return <Layout><SvoOrdersPage /></Layout>
-  if (decision.kind === 'request-analysis') return <Layout><RequestAnalysisPage /></Layout>
-  return (
-    <Layout>
-      <ProfileHome profile={decision.profile} />
-    </Layout>
-  );
+  if (decision.kind === 'service-types') return <Layout><ServicesPage /></Layout>;
+  if (decision.kind === 'trip-scheduling') return <Layout><ScheduleTripPage /></Layout>;
+  if (decision.kind === 'dashboard') return <Layout><GestorDashboardPage /></Layout>;
+  if (decision.kind === 'trip-agenda') return <Layout><TripAgendaPage /></Layout>;
+  if (decision.kind === 'svo-orders') return <Layout><SvoOrdersPage /></Layout>;
+  if (decision.kind === 'svo-occurrences') return <Layout><SvoOccurrencesPage /></Layout>;
+  if (decision.kind === 'request-analysis') return <Layout><RequestAnalysisPage /></Layout>;
+  if (decision.kind === 'vehicle-documents') return <Layout><VehicleDocumentsPage /></Layout>;
+  if (decision.kind === 'fines') return <Layout><FinesPage /></Layout>;
+  if (decision.kind === 'audit-logs') return <Layout><AuditLogsPage /></Layout>;
+  return <Layout><ProfileHome profile={decision.profile} /></Layout>;
 }
 
 export default function App() {
@@ -101,14 +93,6 @@ export default function App() {
     >
       <Routes>
         <Route path="/login" element={<LoginRoute />} />
-        <Route
-          path="/minhas-solicitacoes"
-          element={
-            <Layout>
-              <SolicitacaoPage />
-            </Layout>
-          }
-        />
         <Route path="*" element={<PrivateRoute />} />
       </Routes>
     </HashRouter>
