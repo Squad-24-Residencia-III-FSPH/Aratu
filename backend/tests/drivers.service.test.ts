@@ -7,9 +7,11 @@ import type {
   Driver,
   DriverActorSnapshot,
   DriverFilters,
+  DriverHistoryEvent,
   DriverMutationResult,
   DriverStatus,
   DriverUserAccount,
+  EligibleDriverAccount,
   NormalizedDriverAttributes,
 } from '../src/types/driver.types'
 import { DriverServiceError } from '../src/types/driver.types'
@@ -46,7 +48,11 @@ function createDriver(overrides: Partial<Driver> = {}): Driver {
   }
 }
 
-function setup(initial: Driver | null = createDriver(), accounts: DriverUserAccount[] = []) {
+function setup(
+  initial: Driver | null = createDriver(),
+  accounts: DriverUserAccount[] = [],
+  eligibleAccounts: EligibleDriverAccount[] = [],
+) {
   let stored: Driver | null = initial
   const events: CreateDriverEventInput[] = []
   const audits: AuditEntry[] = []
@@ -61,6 +67,23 @@ function setup(initial: Driver | null = createDriver(), accounts: DriverUserAcco
     async findByUserId(userId: string): Promise<Driver | null> { return stored?.userId === userId ? stored : null },
     async findUserAccount(userId: string): Promise<DriverUserAccount | null> {
       return accounts.find((account) => account.id === userId) ?? null
+    },
+    async listEligibleAccounts(driverId?: string): Promise<EligibleDriverAccount[]> {
+      return eligibleAccounts.filter((account) => !stored?.userId || stored.userId !== account.id || stored.id === driverId)
+    },
+    async listHistoryEvents(driverId: string): Promise<DriverHistoryEvent[]> {
+      return events
+        .filter((item) => item.driverId === driverId)
+        .map((item, index) => ({
+          id: String(index + 1),
+          eventType: item.eventType,
+          occurredAt: new Date('2026-01-01T00:00:00Z'),
+          reportedBy: item.reportedBy,
+          reason: item.reason,
+          actorName: item.actorSnapshot.name,
+          actorRole: item.actorSnapshot.role,
+        }))
+        .reverse()
     },
     async create(attributes: NormalizedDriverAttributes, status: DriverStatus): Promise<Driver> {
       stored = createDriver({ ...attributes, id: '32', status })
@@ -244,4 +267,34 @@ test('filtro de situação inválido, id malformado e motorista ausente', async 
 test('mutações exigem reportedBy e reason', async () => {
   const context = setup(null)
   await assert.rejects(context.service.createDriver({ ...newDriver, reason: ' ' }, actor.id), domainError(400))
+})
+
+test('listEligibleAccounts valida driverId e retorna projeção mínima', async () => {
+  const eligible: EligibleDriverAccount[] = [
+    { id: '50', name: 'Motorista Um', email: 'm1@example.test' },
+    { id: '53', name: 'Motorista Livre', email: 'm2@example.test' },
+  ]
+  const context = setup(createDriver({ id: '31', userId: '50' }), [], eligible)
+  assert.deepEqual(await context.service.listEligibleAccounts(), [
+    { id: '53', name: 'Motorista Livre', email: 'm2@example.test' },
+  ])
+  assert.deepEqual(await context.service.listEligibleAccounts('31'), eligible)
+  await assert.rejects(context.service.listEligibleAccounts('abc'), domainError(400))
+})
+
+test('getDriverDetails e listDriverEvents retornam histórico sanitizado sem snapshots', async () => {
+  const context = setup(null)
+  const created = await context.service.createDriver(newDriver, actor.id)
+  const details = await context.service.getDriverDetails(created.id)
+  const events = await context.service.listDriverEvents(created.id)
+  assert.equal(details.id, created.id)
+  assert.equal(details.events.length, 1)
+  assert.deepEqual(events, details.events)
+  assert.equal(events[0]?.eventType, 'CREATED')
+  assert.equal(events[0]?.actorName, actor.name)
+  assert.equal(events[0]?.actorRole, actor.role)
+  assert.equal('beforeState' in (events[0] as unknown as Record<string, unknown>), false)
+  assert.equal('afterState' in (events[0] as unknown as Record<string, unknown>), false)
+  await assert.rejects(context.service.listDriverEvents('abc'), domainError(400))
+  await assert.rejects(context.service.listDriverEvents('999'), domainError(404))
 })

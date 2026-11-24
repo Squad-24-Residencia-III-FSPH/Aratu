@@ -13,7 +13,10 @@ import { DriverServiceError } from '../src/types/driver.types'
 import type {
   CreateDriverInput,
   Driver,
+  DriverDetails,
+  DriverHistoryEvent,
   DriverStatus,
+  EligibleDriverAccount,
   UpdateDriverInput,
 } from '../src/types/driver.types'
 import type { UserRole } from '../src/types/auth'
@@ -627,4 +630,65 @@ test('IT-DRV-14: preservação histórica e ausência de exclusão física', asy
     [driver.id],
   )
   assert.equal(stored.rows[0]?.total, 1)
+})
+
+test('IT-DRV-15: GET /drivers/eligible-accounts respeita RBAC, filtro de vínculo e driverId em edição', async () => {
+  const gestor = getUser('GESTOR')
+  const admin = getUser('ADMINISTRADOR')
+  const motorista = getUser('MOTORISTA')
+  const solicitante = getUser('SOLICITANTE')
+
+  const anon = await api('/drivers/eligible-accounts')
+  assert.equal(anon.status, 401)
+  const forbidden = await api('/drivers/eligible-accounts', { token: solicitante.token })
+  assert.equal(forbidden.status, 403)
+  const badDriverId = await api('/drivers/eligible-accounts?driverId=abc', { token: gestor.token })
+  assert.equal(badDriverId.status, 400)
+
+  const initialRes = await api('/drivers/eligible-accounts', { token: gestor.token })
+  assert.equal(initialRes.status, 200)
+  const initialAccounts = (await initialRes.json()) as EligibleDriverAccount[]
+  assert.deepEqual(initialAccounts.map((item) => item.id), [motorista.id])
+  assert.deepEqual(Object.keys(initialAccounts[0] ?? {}).sort(), ['email', 'id', 'name'])
+
+  const linked = await createDriver(admin.token, { userId: motorista.id })
+
+  const afterLinkRes = await api('/drivers/eligible-accounts', { token: gestor.token })
+  assert.equal(afterLinkRes.status, 200)
+  assert.deepEqual(await afterLinkRes.json(), [])
+
+  const editRes = await api(`/drivers/eligible-accounts?driverId=${linked.id}`, { token: gestor.token })
+  assert.equal(editRes.status, 200)
+  const editAccounts = (await editRes.json()) as EligibleDriverAccount[]
+  assert.deepEqual(editAccounts.map((item) => item.id), [motorista.id])
+})
+
+test('IT-DRV-16: GET /drivers/:id e /drivers/:id/events expõem histórico sanitizado sem snapshots de CPF/CNH', async () => {
+  const gestor = getUser('GESTOR')
+  const solicitante = getUser('SOLICITANTE')
+  const driver = await createDriver(gestor.token)
+  await changeStatus(gestor.token, driver.id, 'AWAY', driver.revision, 'Gestão QA', 'Férias programadas')
+
+  const forbidden = await api(`/drivers/${driver.id}/events`, { token: solicitante.token })
+  assert.equal(forbidden.status, 403)
+
+  const detailRes = await api(`/drivers/${driver.id}`, { token: gestor.token })
+  assert.equal(detailRes.status, 200)
+  const detail = (await detailRes.json()) as DriverDetails
+  assert.equal(detail.events.length, 2)
+  assert.deepEqual(detail.events.map((e) => e.eventType), ['STATUS_CHANGED', 'CREATED'])
+
+  const eventsRes = await api(`/drivers/${driver.id}/events`, { token: gestor.token })
+  assert.equal(eventsRes.status, 200)
+  const events = (await eventsRes.json()) as DriverHistoryEvent[]
+  assert.equal(events.length, 2)
+  assert.equal(events[0]?.reason, 'Férias programadas')
+  assert.equal(events[0]?.actorName, gestor.name)
+  assert.equal(events[0]?.actorRole, 'GESTOR')
+  for (const event of events) {
+    assert.deepEqual(
+      Object.keys(event).sort(),
+      ['actorName', 'actorRole', 'eventType', 'id', 'occurredAt', 'reason', 'reportedBy'],
+    )
+  }
 })

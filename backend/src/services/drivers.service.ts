@@ -12,8 +12,11 @@ import type {
   Driver,
   DriverActorSnapshot,
   DriverAttributes,
+  DriverDetails,
   DriverFilters,
+  DriverHistoryEvent,
   DriverStatus,
+  EligibleDriverAccount,
   NormalizedDriverAttributes,
   UpdateDriverInput,
 } from '../types/driver.types'
@@ -125,7 +128,18 @@ export class DriversService {
   }
 
   /**
-   * Busca o detalhe de um motorista.
+   * Lista projeção mínima das contas `MOTORISTA` ativas e disponíveis para vínculo,
+   * incluindo opcionalmente a conta do motorista em edição sem expor `/users`.
+   *
+   * @throws {DriverServiceError} 400 quando `driverId` é informado em formato inválido.
+   */
+  async listEligibleAccounts(driverId?: string): Promise<EligibleDriverAccount[]> {
+    if (driverId !== undefined) this.validateId(driverId)
+    return this.repository.listEligibleAccounts(driverId)
+  }
+
+  /**
+   * Busca o estado vigente de um motorista.
    *
    * @throws {DriverServiceError} 400 para id malformado e 404 quando não existe.
    */
@@ -134,6 +148,27 @@ export class DriversService {
     const driver = await this.repository.findById(id)
     if (!driver) throw new DriverServiceError(404, 'Motorista não encontrado.')
     return driver
+  }
+
+  /**
+   * Busca o detalhe do motorista acompanhado da linha do tempo operacional sanitizada.
+   *
+   * @throws {DriverServiceError} 400 para id malformado e 404 quando não existe.
+   */
+  async getDriverDetails(id: string): Promise<DriverDetails> {
+    const driver = await this.getDriver(id)
+    const events = await this.repository.listHistoryEvents(id)
+    return { ...driver, events }
+  }
+
+  /**
+   * Lista o histórico sanitizado de eventos do motorista sem expor snapshots de CPF/CNH.
+   *
+   * @throws {DriverServiceError} 400 para id malformado e 404 quando não existe.
+   */
+  async listDriverEvents(id: string): Promise<DriverHistoryEvent[]> {
+    await this.getDriver(id)
+    return this.repository.listHistoryEvents(id)
   }
 
   /**

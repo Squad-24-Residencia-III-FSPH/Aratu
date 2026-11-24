@@ -1,5 +1,6 @@
 .page {
   width: 100%;
+  min-width: 0;
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 16px 32px;
@@ -20,6 +21,6 @@
 
 @media (max-width: 480px) {
   .page {
-    padding: 0 4px 20px;
+    padding: 0 4px 16px;
   }
 }

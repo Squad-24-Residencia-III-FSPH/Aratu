@@ -15,6 +15,8 @@ export function createDriversRouter(service: DriversService, jwtConfig: JwtConfi
   router.use(createAuthMiddleware(jwtConfig.secret), authorizeRoles(DRIVER_MANAGER_ROLES))
 
   router.get('/', controller.list)
+  router.get('/eligible-accounts', controller.listEligibleAccounts)
+  router.get('/:id/events', controller.listEvents)
   router.get('/:id', controller.getById)
   router.post('/', controller.create)
   router.put('/:id', controller.update)

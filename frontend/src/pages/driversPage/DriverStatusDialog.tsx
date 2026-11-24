@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert } from '@mui/material'
+import { accessibleControls } from '../../components/ui/accessibleControls'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { FormField } from '../../components/ui/FormField'
 import type { ApiRequest } from '../../api/client'
 import { DriverRequestError } from '../../drivers/driverTypes'
 import type { Driver } from '../../drivers/driverTypes'
 import { changeDriverStatus } from '../../services/driversService'
+import { sanitizeCpfFromMessage } from './driverFormHelper'
 
 interface DriverStatusDialogProps {
   api: ApiRequest
@@ -21,11 +23,24 @@ export default function DriverStatusDialog({ api, driver, reportedBy, onSaved, o
   const [reasonError, setReasonError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [focusReasonSeq, setFocusReasonSeq] = useState(0)
+  const reasonRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const activating = driver.status !== 'ACTIVE'
+
+  useEffect(() => {
+    if (focusReasonSeq === 0) return
+    const input = reasonRef.current
+    if (!input) return
+    input.focus()
+    if (typeof input.scrollIntoView === 'function') {
+      input.scrollIntoView({ block: 'nearest' })
+    }
+  }, [focusReasonSeq])
 
   async function confirmStatus() {
     if (!reason.trim()) {
       setReasonError('Informe a justificativa da mudança de situação.')
+      setFocusReasonSeq((current) => current + 1)
       return
     }
     setSaving(true)
@@ -39,9 +54,10 @@ export default function DriverStatusDialog({ api, driver, reportedBy, onSaved, o
       })
       onSaved(saved)
     } catch (error) {
-      setSubmitError(error instanceof DriverRequestError || error instanceof Error
+      const rawMessage = error instanceof DriverRequestError || error instanceof Error
         ? error.message
-        : 'Não foi possível alterar a situação do motorista.')
+        : 'Não foi possível alterar a situação do motorista.'
+      setSubmitError(sanitizeCpfFromMessage(rawMessage))
     } finally {
       setSaving(false)
     }
@@ -59,7 +75,9 @@ export default function DriverStatusDialog({ api, driver, reportedBy, onSaved, o
       onCancel={onCancel}
       loading={saving}
       danger={!activating}
+      sx={accessibleControls}
       paperSx={{ borderRadius: 2 }}
+      actionsSx={{ p: { xs: 1.5, sm: 2 }, flexWrap: 'wrap', gap: 1 }}
     >
       {submitError && <Alert severity="error" role="alert" sx={{ mt: 2 }}>{submitError}</Alert>}
       <FormField
@@ -74,6 +92,8 @@ export default function DriverStatusDialog({ api, driver, reportedBy, onSaved, o
         required
         multiline
         minRows={2}
+        inputRef={reasonRef}
+        sx={{ mt: 2 }}
       />
     </ConfirmDialog>
   )

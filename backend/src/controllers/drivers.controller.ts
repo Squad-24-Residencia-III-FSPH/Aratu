@@ -43,8 +43,19 @@ export function createDriversController(service: DriversService) {
       return respondWithDomainErrors(res, next, () => service.listDrivers(filters))
     },
 
+    listEligibleAccounts(req: Request, res: Response, next: NextFunction): Promise<void> {
+      const driverId = typeof req.query.driverId === 'string' && req.query.driverId.trim()
+        ? req.query.driverId.trim()
+        : undefined
+      return respondWithDomainErrors(res, next, () => service.listEligibleAccounts(driverId))
+    },
+
     getById(req: Request, res: Response, next: NextFunction): Promise<void> {
-      return respondWithDomainErrors(res, next, () => service.getDriver(String(req.params.id)))
+      return respondWithDomainErrors(res, next, () => service.getDriverDetails(String(req.params.id)))
+    },
+
+    listEvents(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return respondWithDomainErrors(res, next, () => service.listDriverEvents(String(req.params.id)))
     },
 
     create(req: Request, res: Response, next: NextFunction): Promise<void> {
