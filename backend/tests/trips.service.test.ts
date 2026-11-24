@@ -28,7 +28,7 @@ function setup(options: {
     : options.request
   const vehicle = options.vehicle === null ? null : {
     id: '1', licensePlate: 'ABC1234', brand: null, model: null, categories: ['PASSENGER' as const],
-    seats: 4, bodyLimit: 0, status: 'AVAILABLE' as const, compatible: true, hasConflict: false, ...options.vehicle,
+    seats: 4, bodyLimit: 0, operationType: 'ADMINISTRATIVE' as const, status: 'AVAILABLE' as const, compatible: true, hasConflict: false, ...options.vehicle,
   }
   const driver = options.driver === null ? null : {
     id: '7', name: 'Motorista Fictício', cnhCategory: 'D' as const, cnhExpiresAt: '2099-12-31',
@@ -40,6 +40,9 @@ function setup(options: {
 
   const availabilityRepository: AvailabilityRepositoryContract = {
     async serviceExists(): Promise<boolean> { return true },
+    async findRequestPassengers(): Promise<{ passengers: number | null } | null> {
+      return request ? { passengers: request.passengers ?? null } : null
+    },
     async listVehicleFacts(): Promise<VehicleAvailabilityFacts[]> { return vehicle ? [vehicle] : [] },
     async listDriverFacts(): Promise<DriverAvailabilityFacts[]> { return driver ? [driver] : [] },
     async lockVehicle(): Promise<boolean> { events.push('lock:vehicle'); return vehicle !== null },
@@ -142,4 +145,53 @@ test('indisponibilidade de cadastro retorna 422 e prevalece sobre o conflito', a
 test('veículo ou motorista inexistente retorna 404', async () => {
   await assert.rejects(setup({ vehicle: null }).service.scheduleTrip(input, manager.id), domainError(404, 'Veículo'))
   await assert.rejects(setup({ driver: null }).service.scheduleTrip(input, manager.id), domainError(404, 'Motorista'))
+})
+
+test('lotação no agendamento: bloqueia excesso/zero com 422 e aceita igualdade, legado e exceção SVO/carga', async () => {
+  await assert.rejects(
+    setup({
+      request: { id: '41', requesterId: '3', serviceId: '5', passengers: 3, status: 'APPROVED', revision: 2 },
+      vehicle: { seats: 2 },
+    }).service.scheduleTrip(input, manager.id),
+    domainError(422, 'passageiros'),
+  )
+
+  await assert.rejects(
+    setup({
+      request: { id: '41', requesterId: '3', serviceId: '5', passengers: 0, status: 'APPROVED', revision: 2 },
+      vehicle: { seats: 0, categories: ['PASSENGER'], operationType: 'ADMINISTRATIVE' },
+    }).service.scheduleTrip(input, manager.id),
+    domainError(422, 'passageiros'),
+  )
+
+  await assert.rejects(
+    setup({
+      request: { id: '41', requesterId: '3', serviceId: '5', passengers: null, status: 'APPROVED', revision: 2 },
+      vehicle: { seats: 0, categories: ['OTHER'], operationType: 'ADMINISTRATIVE' },
+    }).service.scheduleTrip(input, manager.id),
+    domainError(422, 'passageiros'),
+  )
+
+  const exactFit = setup({
+    request: { id: '41', requesterId: '3', serviceId: '5', passengers: 4, status: 'APPROVED', revision: 2 },
+    vehicle: { seats: 4 },
+  })
+  const tripExact = await exactFit.service.scheduleTrip(input, manager.id)
+  assert.equal(tripExact.status, 'SCHEDULED')
+  assert.equal(exactFit.created[0]?.vehicleSnapshot.seats, 4)
+
+  const svoBody = setup({
+    request: { id: '41', requesterId: '3', serviceId: '5', passengers: 2, status: 'APPROVED', revision: 2 },
+    vehicle: { seats: 0, categories: ['BODY'], operationType: 'SVO' },
+  })
+  const tripSvo = await svoBody.service.scheduleTrip(input, manager.id)
+  assert.equal(tripSvo.status, 'SCHEDULED')
+
+  await assert.rejects(
+    setup({
+      request: { id: '41', requesterId: '3', serviceId: '5', passengers: 2, status: 'APPROVED', revision: 2 },
+      vehicle: { seats: 1, categories: ['PASSENGER', 'BODY'], operationType: 'SVO' },
+    }).service.scheduleTrip(input, manager.id),
+    domainError(422, 'passageiros'),
+  )
 })

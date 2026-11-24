@@ -1,11 +1,12 @@
 import type { CnhCategory, DriverStatus } from './driver.types'
-import type { VehicleCategory, VehicleStatus } from './vehicle.types'
+import type { VehicleCategory, VehicleOperationType, VehicleStatus } from './vehicle.types'
 
 /** Motivos estáveis de indisponibilidade; a tela os traduz para o Gestor. */
 export const AVAILABILITY_REASONS = {
   conflict: 'CONFLICT',
   maintenance: 'MAINTENANCE',
   incompatible: 'INCOMPATIBLE',
+  capacityExceeded: 'CAPACITY_EXCEEDED',
   away: 'AWAY',
   cnhExpired: 'CNH_EXPIRED',
   inactive: 'INACTIVE',
@@ -27,6 +28,7 @@ export interface VehicleAvailabilityFacts {
   categories: VehicleCategory[]
   seats: number
   bodyLimit: number
+  operationType: VehicleOperationType
   status: VehicleStatus
   compatible: boolean
   hasConflict: boolean
@@ -59,6 +61,8 @@ export interface AvailabilityQuery {
   start?: unknown
   end?: unknown
   serviceId?: unknown
+  requestId?: unknown
+  passengers?: unknown
 }
 
 /** Erro de domínio convertido pela camada HTTP em resposta REST apropriada. */

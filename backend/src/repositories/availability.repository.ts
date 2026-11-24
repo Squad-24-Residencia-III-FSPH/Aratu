@@ -8,6 +8,7 @@ import type {
 /** Contrato de leitura dos fatos de disponibilidade, usado pelo service e por testes isolados. */
 export interface AvailabilityRepositoryContract {
   serviceExists(serviceId: string, client?: PoolClient): Promise<boolean>
+  findRequestPassengers(requestId: string, client?: PoolClient): Promise<{ passengers: number | null } | null>
   listVehicleFacts(serviceId: string, period: Period, vehicleId: string | null, client?: PoolClient): Promise<VehicleAvailabilityFacts[]>
   listDriverFacts(period: Period, driverId: string | null, client?: PoolClient): Promise<DriverAvailabilityFacts[]>
   lockVehicle(vehicleId: string, client: PoolClient): Promise<boolean>
@@ -30,6 +31,16 @@ export class AvailabilityRepository implements AvailabilityRepositoryContract {
     return (result.rowCount ?? 0) > 0
   }
 
+  /** Lê os passageiros persistidos da solicitação para validar lotação sem alterar histórico. */
+  async findRequestPassengers(requestId: string, client?: PoolClient): Promise<{ passengers: number | null } | null> {
+    const executor = client ?? this.pool
+    const result = await executor.query<{ passengers: number | null }>(
+      'SELECT passengers FROM trip.requests WHERE id = $1 LIMIT 1',
+      [requestId],
+    )
+    return result.rows[0] ?? null
+  }
+
   /** Lista veículos não inativos; com `vehicleId`, devolve só ele, mesmo inativo. */
   async listVehicleFacts(
     serviceId: string,
@@ -40,7 +51,7 @@ export class AvailabilityRepository implements AvailabilityRepositoryContract {
     const executor = client ?? this.pool
     const result = await executor.query<VehicleAvailabilityFacts>(
       `SELECT v.id::text AS id, v.license_plate AS "licensePlate", v.brand, v.model, v.categories,
-              v.seats, v.body_limit AS "bodyLimit", v.status,
+              v.seats, v.body_limit AS "bodyLimit", v.operation_type AS "operationType", v.status,
               EXISTS (
                 SELECT 1 FROM fleet.vehicle_services vs
                  WHERE vs.vehicle_id = v.id AND vs.service_id = $1 AND vs.is_active

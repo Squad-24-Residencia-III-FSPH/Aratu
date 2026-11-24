@@ -57,7 +57,7 @@ export class TripsRepository implements TripsRepositoryContract {
   /** Trava a solicitação para que dois agendamentos não a consumam ao mesmo tempo. */
   async findRequestForUpdate(requestId: string, client: PoolClient): Promise<SchedulableRequest | null> {
     const result = await client.query<SchedulableRequest>(
-      `SELECT id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId", status, revision
+      `SELECT id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId", passengers, status, revision
          FROM trip.requests
         WHERE id = $1
           FOR UPDATE`,
@@ -99,7 +99,7 @@ export class TripsRepository implements TripsRepositoryContract {
               revision = revision + 1,
               updated_at = clock_timestamp()
         WHERE id = $1 AND status = 'APPROVED'
-        RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId", status, revision`,
+        RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId", passengers, status, revision`,
       [requestId],
     )
     return result.rows[0] ?? null

@@ -45,6 +45,35 @@ function requireId(value: unknown, message: string): string {
 }
 
 /**
+ * Resolve o total de passageiros exigido na alocação a partir do valor persistido na solicitação.
+ * Registros antigos ou com valor nulo/zero assumem o mínimo operacional de 1 passageiro.
+ */
+export function resolveRequiredPassengers(value: number | null | undefined): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 ? value : 1
+}
+
+function parseOptionalPassengers(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null
+  if (typeof value === 'number') {
+    if (Number.isInteger(value) && value >= 1) return value
+    throw new AvailabilityError(400, 'passengers deve ser um número inteiro maior ou igual a 1.')
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    if (ID_PATTERN.test(trimmed)) {
+      const parsed = Number(trimmed)
+      if (Number.isSafeInteger(parsed) && parsed >= 1) return parsed
+    }
+  }
+  throw new AvailabilityError(400, 'passengers deve ser um número inteiro maior ou igual a 1.')
+}
+
+function requiresSeatCapacity(vehicle: Pick<VehicleAvailabilityFacts, 'categories' | 'operationType'>): boolean {
+  return vehicle.categories.includes('PASSENGER') || vehicle.operationType === 'ADMINISTRATIVE'
+}
+
+/**
  * Regra única de disponibilidade de veículos e motoristas num período (FSPH/SVO).
  *
  * Usada pelas consultas da tela e, com trava, dentro da transação do agendamento,
@@ -61,8 +90,9 @@ export class AvailabilityService {
 
   /**
    * Lista os veículos não inativos com disponibilidade e motivos para o tipo de serviço e o período.
+   * Quando informado `requestId` ou `passengers`, valida também a lotação vigente de assentos.
    *
-   * @throws {AvailabilityError} 400 parâmetros inválidos e 404 tipo de serviço inexistente.
+   * @throws {AvailabilityError} 400 parâmetros inválidos e 404 tipo de serviço ou solicitação inexistente.
    */
   async listVehicles(query: AvailabilityQuery): Promise<VehicleAvailability[]> {
     const period = parsePeriod(query.start, query.end)
@@ -70,8 +100,9 @@ export class AvailabilityService {
     if (!(await this.repository.serviceExists(serviceId))) {
       throw new AvailabilityError(404, 'Tipo de serviço não encontrado.')
     }
+    const requiredPassengers = await this.resolveQueryPassengers(query)
     const facts = await this.repository.listVehicleFacts(serviceId, period, null)
-    return facts.map((item) => this.toVehicleAvailability(item))
+    return facts.map((item) => this.toVehicleAvailability(item, requiredPassengers))
   }
 
   /**
@@ -90,10 +121,16 @@ export class AvailabilityService {
    *
    * @returns A avaliação, ou `null` quando o veículo não existe.
    */
-  async assessVehicle(vehicleId: string, serviceId: string, period: Period, client: PoolClient): Promise<VehicleAvailability | null> {
+  async assessVehicle(
+    vehicleId: string,
+    serviceId: string,
+    period: Period,
+    client: PoolClient,
+    requiredPassengers: number | null = null,
+  ): Promise<VehicleAvailability | null> {
     if (!(await this.repository.lockVehicle(vehicleId, client))) return null
     const [facts] = await this.repository.listVehicleFacts(serviceId, period, vehicleId, client)
-    return facts ? this.toVehicleAvailability(facts) : null
+    return facts ? this.toVehicleAvailability(facts, requiredPassengers) : null
   }
 
   /**
@@ -107,11 +144,27 @@ export class AvailabilityService {
     return facts ? this.toDriverAvailability(facts, period) : null
   }
 
-  private toVehicleAvailability({ compatible, hasConflict, ...vehicle }: VehicleAvailabilityFacts): VehicleAvailability {
+  private async resolveQueryPassengers(query: AvailabilityQuery): Promise<number | null> {
+    if (query.requestId !== undefined && query.requestId !== null && query.requestId !== '') {
+      const requestId = requireId(query.requestId, 'requestId deve ser um identificador válido.')
+      const found = await this.repository.findRequestPassengers(requestId)
+      if (!found) throw new AvailabilityError(404, 'Solicitação não encontrada.')
+      return resolveRequiredPassengers(found.passengers)
+    }
+    return parseOptionalPassengers(query.passengers)
+  }
+
+  private toVehicleAvailability(
+    { compatible, hasConflict, ...vehicle }: VehicleAvailabilityFacts,
+    requiredPassengers: number | null,
+  ): VehicleAvailability {
     const reasons: AvailabilityReason[] = []
     if (vehicle.status === 'INACTIVE') reasons.push(AVAILABILITY_REASONS.inactive)
     if (vehicle.status === 'IN_MAINTENANCE') reasons.push(AVAILABILITY_REASONS.maintenance)
     if (!compatible) reasons.push(AVAILABILITY_REASONS.incompatible)
+    if (requiredPassengers !== null && requiresSeatCapacity(vehicle) && vehicle.seats < requiredPassengers) {
+      reasons.push(AVAILABILITY_REASONS.capacityExceeded)
+    }
     if (hasConflict) reasons.push(AVAILABILITY_REASONS.conflict)
     return { ...vehicle, available: reasons.length === 0, reasons }
   }

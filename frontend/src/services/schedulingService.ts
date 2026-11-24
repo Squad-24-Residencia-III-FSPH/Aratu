@@ -110,11 +110,14 @@ async function readError(response: Response, fallback: string): Promise<TripRequ
 }
 
 async function getJson<T>(api: ApiRequest, path: string, fallback: string,
-  parse: (value: unknown) => T): Promise<T> {
+  parse: (value: unknown) => T, signal?: AbortSignal): Promise<T> {
   let response: Response
   try {
-    response = await api(path)
+    response = await api(path, signal ? { signal } : undefined)
   } catch (error) {
+    if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+      throw error
+    }
     if (error instanceof Error && error.message === SESSION_EXPIRED) {
       throw new TripRequestError('session', SESSION_EXPIRED, 401)
     }
@@ -131,7 +134,7 @@ async function getJson<T>(api: ApiRequest, path: string, fallback: string,
  * percorre todas as páginas para que nenhuma solicitação deixe de aparecer no
  * seletor da tela de agendamento.
  */
-export async function listApprovedRequests(api: ApiRequest): Promise<ApprovedRequestSummary[]> {
+export async function listApprovedRequests(api: ApiRequest, signal?: AbortSignal): Promise<ApprovedRequestSummary[]> {
   const approved: ApprovedRequestSummary[] = []
 
   for (let page = 1; ; page += 1) {
@@ -145,6 +148,7 @@ export async function listApprovedRequests(api: ApiRequest): Promise<ApprovedReq
       `/requests?${query}`,
       'Não foi possível carregar as solicitações aprovadas.',
       parseRequestsPage,
+      signal,
     )
     approved.push(...current.requests.map(parseApprovedRequest))
     // Uma página vazia encerra a leitura mesmo que `totalPages` divirja do
@@ -155,22 +159,36 @@ export async function listApprovedRequests(api: ApiRequest): Promise<ApprovedReq
   return approved
 }
 
-/** Consulta candidatos de veículo, mantendo os motivos de compatibilidade e agenda da API. */
-export async function listAvailableVehicles(api: ApiRequest, start: string, end: string,
-  serviceId: string): Promise<VehicleAvailability[]> {
+/** Opções adicionais da consulta de disponibilidade de veículos (compatível com filtros de lotação). */
+export interface VehicleAvailabilityQueryOptions {
+  requestId?: string
+  passengers?: number
+}
+
+/** Consulta candidatos de veículo, mantendo os motivos de compatibilidade, lotação e agenda da API. */
+export async function listAvailableVehicles(
+  api: ApiRequest,
+  start: string,
+  end: string,
+  serviceId: string,
+  signal?: AbortSignal,
+  options?: VehicleAvailabilityQueryOptions,
+): Promise<VehicleAvailability[]> {
   const query = new URLSearchParams({ start, end, serviceId })
+  if (options?.requestId) query.set('requestId', options.requestId)
+  else if (options?.passengers !== undefined) query.set('passengers', String(options.passengers))
   return getJson(api, `/vehicles/available?${query}`, 'Não foi possível consultar os veículos disponíveis.', (value) => {
     if (!Array.isArray(value)) throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
     return value.map(parseVehicleAvailability)
-  })
+  }, signal)
 }
 
 /** Consulta candidatos de motorista, incluindo CNH e conflitos de agenda. */
 export async function listAvailableDrivers(api: ApiRequest, start: string,
-  end: string): Promise<DriverAvailability[]> {
+  end: string, signal?: AbortSignal): Promise<DriverAvailability[]> {
   const query = new URLSearchParams({ start, end })
   return getJson(api, `/drivers/available?${query}`, 'Não foi possível consultar os motoristas disponíveis.', (value) => {
     if (!Array.isArray(value)) throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
     return value.map(parseDriverAvailability)
-  })
+  }, signal)
 }

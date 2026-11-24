@@ -22,8 +22,8 @@ async function respondWithDomainErrors<T>(
 export function createAvailabilityController(service: AvailabilityService) {
   return {
     listVehicles(req: Request, res: Response, next: NextFunction): Promise<void> {
-      const { start, end, serviceId } = req.query
-      return respondWithDomainErrors(res, next, () => service.listVehicles({ start, end, serviceId }))
+      const { start, end, serviceId, requestId, passengers } = req.query
+      return respondWithDomainErrors(res, next, () => service.listVehicles({ start, end, serviceId, requestId, passengers }))
     },
 
     listDrivers(req: Request, res: Response, next: NextFunction): Promise<void> {

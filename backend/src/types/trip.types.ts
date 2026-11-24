@@ -136,6 +136,7 @@ export interface SchedulableRequest {
   id: string
   requesterId: string
   serviceId: string
+  passengers?: number | null
   status: string
   revision: number
 }
