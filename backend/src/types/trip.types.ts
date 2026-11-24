@@ -80,6 +80,8 @@ export interface ScheduleTripInput {
   scheduledStart?: unknown
   scheduledEnd?: unknown
   reason?: unknown
+  specialRequirementsAcknowledged?: unknown
+  evidenceDescription?: unknown
 }
 
 /** Corpo bruto de `POST /trips/:id/start`. */
@@ -109,6 +111,9 @@ export interface Trip {
   finishedAt: Date | null
   revision: number
   createdAt: Date
+  requestSnapshot?: SchedulableRequest
+  specialRequirementsAcknowledged?: boolean
+  evidenceDescription?: string | null
 }
 
 /** Viagem exibida ao Motorista em `GET /trips/mine`. */
@@ -138,6 +143,14 @@ export interface SchedulableRequest {
   serviceId: string
   status: string
   revision: number
+  requestedDate: string
+  requestedTime: string
+  origin: string
+  destination: string
+  purpose: string
+  passengers: number
+  specialRequirements: string | null
+  notes: string | null
 }
 
 /** Dados validados para gravar a viagem. */
@@ -149,6 +162,9 @@ export interface CreateTripData {
   scheduledEnd: Date
   vehicleSnapshot: VehicleAvailability
   driverSnapshot: DriverAvailability
+  requestSnapshot: SchedulableRequest
+  specialRequirementsAcknowledged: boolean
+  evidenceDescription: string | null
 }
 
 /** Snapshot público do usuário autenticado preservado no histórico. */
@@ -181,10 +197,12 @@ export interface TripOdometerReading {
 /** Erro de domínio convertido pela camada HTTP em resposta REST apropriada. */
 export class TripServiceError extends Error {
   readonly statusCode: number
+  readonly code: 'INSUFFICIENT_CAPACITY' | 'ACCOUNT_UNAVAILABLE' | undefined
 
-  constructor(statusCode: number, message: string) {
+  constructor(statusCode: number, message: string, code?: 'INSUFFICIENT_CAPACITY' | 'ACCOUNT_UNAVAILABLE') {
     super(message)
     this.name = 'TripServiceError'
     this.statusCode = statusCode
+    this.code = code
   }
 }

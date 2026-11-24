@@ -54,6 +54,17 @@ export function createVehiclesController(service: VehiclesService) {
       return respondWithDomainErrors(res, next, () => service.getVehicle(String(req.params.id)))
     },
 
+    /** Retorna uma página da história imutável do veículo. */
+    history(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return respondWithDomainErrors(res, next, () => service.getVehicleHistory(String(req.params.id), {
+        page: req.query.page,
+        pageSize: req.query.pageSize,
+        eventType: req.query.eventType,
+        from: req.query.from,
+        to: req.query.to,
+      }))
+    },
+
     /** Cria veículo e retorna HTTP 201 após persistir histórico e auditoria. */
     create(req: Request, res: Response, next: NextFunction): Promise<void> {
       const input = bodyRecord(req.body) as unknown as CreateVehicleInput

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { PoolClient } from 'pg'
 import type {
+  AvailabilityRequest,
   DriverAvailabilityFacts,
   Period,
   VehicleAvailabilityFacts,
@@ -24,13 +25,15 @@ function vehicle(overrides: Partial<VehicleAvailabilityFacts> = {}): VehicleAvai
 function driver(overrides: Partial<DriverAvailabilityFacts> = {}): DriverAvailabilityFacts {
   return {
     id: '7', name: 'Motorista Fictício', cnhCategory: 'D', cnhExpiresAt: '2099-12-31',
-    status: 'ACTIVE', hasConflict: false, ...overrides,
+    status: 'ACTIVE', hasConflict: false, accountEligible: true, ...overrides,
   }
 }
 
-function setup(vehicles: VehicleAvailabilityFacts[], drivers: DriverAvailabilityFacts[], serviceExists = true) {
+function setup(vehicles: VehicleAvailabilityFacts[], drivers: DriverAvailabilityFacts[], serviceExists = true,
+  request: AvailabilityRequest | null = null) {
   const locked: string[] = []
   const repository: AvailabilityRepositoryContract = {
+    async findRequestForAvailability(): Promise<AvailabilityRequest | null> { return request },
     async serviceExists(): Promise<boolean> { return serviceExists },
     async listVehicleFacts(_serviceId: string, _period: Period, vehicleId: string | null): Promise<VehicleAvailabilityFacts[]> {
       return vehicleId ? vehicles.filter((item) => item.id === vehicleId) : vehicles.filter((item) => item.status !== 'INACTIVE')
@@ -74,6 +77,14 @@ test('veículos trazem disponibilidade e motivos acumulados', async () => {
   assert.equal('compatible' in (result[0] ?? {}), false)
 })
 
+test('pedido com requestId inclui impedimento por capacidade insuficiente', async () => {
+  const approvedRequest = { id: '41', serviceId: '5', status: 'APPROVED', passengers: 5, specialRequirements: null, revision: 2 }
+  const { service } = setup([vehicle({ seats: 4 })], [], true, approvedRequest)
+  const result = await service.listVehicles({ ...query, requestId: '41' })
+  assert.equal(result[0]?.available, false)
+  assert.deepEqual(result[0]?.reasons, ['INSUFFICIENT_CAPACITY'])
+})
+
 test('consulta de veículos exige serviceId válido (400) e existente (404)', async () => {
   await assert.rejects(setup([], []).service.listVehicles({ ...query, serviceId: undefined }), domainError(400))
   await assert.rejects(setup([], []).service.listVehicles({ ...query, serviceId: 'abc' }), domainError(400))
@@ -96,6 +107,14 @@ test('motoristas: afastado, CNH vencendo antes do fim da viagem e conflito', asy
     ['4', true, []],
     ['5', false, ['CNH_EXPIRED', 'CONFLICT']],
   ])
+})
+
+test('motorista sem conta ativa vinculada fica indisponível para agendamento', async () => {
+  const approvedRequest = { id: '41', serviceId: '5', status: 'APPROVED', passengers: 1, specialRequirements: null, revision: 1 }
+  const { service } = setup([], [driver({ accountEligible: false })], true, approvedRequest)
+  const result = await service.listDrivers({ ...query, requestId: '41' })
+  assert.equal(result[0]?.available, false)
+  assert.deepEqual(result[0]?.reasons, ['ACCOUNT_UNAVAILABLE'])
 })
 
 test('avaliação para o agendamento trava o registro e reconhece inativos', async () => {

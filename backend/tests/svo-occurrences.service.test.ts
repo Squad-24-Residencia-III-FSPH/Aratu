@@ -16,6 +16,7 @@ function harness() {
   const occurrence: SvoOccurrenceDetail = {
     ...svoInput(), id: '9007199254740993', status: 'PENDING', receivedAt: time, createdAt: time,
     notes: null, attendantId: actor.id, revision: 1, triagedAt: null, triagedBy: null, updatedAt: time,
+    dispatchRequestedAt: null, dispatchRequestedBy: null, dispatchWaitReason: null, executionOrderId: null,
   }
   const calls: string[] = []
   const events: CreateSvoEventInput[] = []
@@ -34,10 +35,13 @@ function harness() {
     async findById() { calls.push('read'); return occurrence },
     async findByIdForUpdate() { calls.push('lock'); return occurrence },
     async list() { return [] },
-    async confirm(_id, actorId, instant, transaction) {
+    async confirm(_id, confirmActor, instant, transaction) {
       assert.equal(transaction, client); calls.push('confirm')
-      return { ...occurrence, status: 'CONFIRMED', triagedAt: instant, triagedBy: actorId, revision: 2 }
+      return { ...occurrence, status: 'CONFIRMED', triagedAt: instant, triagedBy: confirmActor.id,
+        dispatchRequestedAt: instant, dispatchRequestedBy: confirmActor.id, revision: 2 }
     },
+    async setDispatchIntent() { return occurrence },
+    async setDispatchWaitReason() { return occurrence },
     async createEvent(event, transaction) { assert.equal(transaction, client); calls.push('event'); events.push(event) },
   }
   const audit: AuditLogger = {
@@ -60,7 +64,10 @@ test('SVO unit: criação usa relógio do banco, mesmo cliente e projeção mín
   assert.equal(h.events[0]?.afterState.requesterType, 'FAMILY')
   assert.equal(h.events[0]?.afterState.notes, svoInput().notes)
   assert.equal(h.events[0]?.occurredAt, h.time)
-  assert.deepEqual(Object.keys(h.audits[0]!.after!).sort(), ['id', 'receivedAt', 'revision', 'status', 'triagedAt', 'triagedBy'].sort())
+  assert.deepEqual(Object.keys(h.audits[0]!.after!).sort(), [
+    'id', 'receivedAt', 'revision', 'status', 'triagedAt', 'triagedBy',
+    'dispatchRequestedAt', 'dispatchRequestedBy', 'dispatchWaitReason', 'executionOrderId',
+  ].sort())
   assert.ok(!JSON.stringify(h.audits).includes('SENTINELA_'))
 })
 
@@ -99,8 +106,8 @@ test('SVO unit: notes vazias viram null, sem coerção de tipos', async () => {
 test('SVO unit: confirmação decide sob lock, retorna após commit e não exige histórico legado', async () => {
   const h = harness()
   h.occurrence.evidenceDescription = null
-  const result = await h.service.confirmOccurrence(h.occurrence.id, {}, '1')
-  assert.deepEqual(h.calls, ['begin', 'actor', 'lock', 'confirm', 'event', 'audit', 'commit'])
+  const result = await h.service.confirmOccurrence(h.occurrence.id, { expectedRevision: 1 }, '1')
+  assert.deepEqual(h.calls, ['begin', 'actor', 'lock', 'confirm', 'event', 'event', 'audit', 'commit'])
   assert.equal(result.triagedAt, h.events[0]?.occurredAt)
   assert.equal(h.events[0]?.beforeState?.evidenceDescription, null)
   assert.equal(h.audits[0]?.operation, 'STATUS_CHANGE')
@@ -109,11 +116,11 @@ test('SVO unit: confirmação decide sob lock, retorna após commit e não exige
 test('SVO unit: FSM e dados armazenados incompletos não produzem escrita', async () => {
   for (const status of ['CONFIRMED', 'CANCELED'] as const) {
     const h = harness(); h.occurrence.status = status
-    await assert.rejects(h.service.confirmOccurrence('1', undefined, '1'), code('INVALID_TRANSITION'))
+    await assert.rejects(h.service.confirmOccurrence('1', { expectedRevision: 1 }, '1'), code('INVALID_TRANSITION'))
     assert.ok(!h.calls.includes('confirm'))
   }
   const h = harness(); h.occurrence.location = ''
-  await assert.rejects(h.service.confirmOccurrence('1', {}, '1'), code('INVALID_INPUT'))
+  await assert.rejects(h.service.confirmOccurrence('1', { expectedRevision: 1 }, '1'), code('INVALID_INPUT'))
   assert.ok(!h.calls.includes('confirm'))
 })
 
@@ -121,11 +128,11 @@ test('SVO unit: conta é revalidada dentro da transação para ambas as escritas
   for (const confirm of [false, true]) {
     for (const role of ['GESTOR', 'EQUIPE_SVO', 'SOLICITANTE', 'MOTORISTA'] as const) {
       const h = harness(); h.actor.role = role
-      await assert.rejects(confirm ? h.service.confirmOccurrence('1', {}, '1') : h.service.createOccurrence(svoInput(), '1'), code('ACCESS_DENIED'))
+      await assert.rejects(confirm ? h.service.confirmOccurrence('1', { expectedRevision: 1 }, '1') : h.service.createOccurrence(svoInput(), '1'), code('ACCESS_DENIED'))
       assert.deepEqual(h.calls, ['begin', 'actor', 'rollback'])
     }
     const h = harness(); h.repository.findActorSnapshot = async () => null
-    await assert.rejects(confirm ? h.service.confirmOccurrence('1', {}, '1') : h.service.createOccurrence(svoInput(), '1'), code('ACCOUNT_UNAVAILABLE'))
+    await assert.rejects(confirm ? h.service.confirmOccurrence('1', { expectedRevision: 1 }, '1') : h.service.createOccurrence(svoInput(), '1'), code('ACCOUNT_UNAVAILABLE'))
   }
 })
 
@@ -140,7 +147,7 @@ test('SVO unit: falha de evento, auditoria ou commit nunca retorna sucesso', asy
         const transaction = h.repository.withTransaction.bind(h.repository)
         h.repository.withTransaction = async (work) => { await transaction(work); throw error }
       }
-      await assert.rejects(confirm ? h.service.confirmOccurrence('1', {}, '1') : h.service.createOccurrence(svoInput(), '1'), error)
+      await assert.rejects(confirm ? h.service.confirmOccurrence('1', { expectedRevision: 1 }, '1') : h.service.createOccurrence(svoInput(), '1'), error)
       if (point !== 'commit') assert.equal(h.calls.at(-1), 'rollback')
     }
   }
@@ -155,7 +162,7 @@ test('SVO unit: IDs preservam BIGINT e confirmação não aceita corpo extra', a
   }
   const h = harness(); h.repository.findById = async () => null; h.repository.findByIdForUpdate = async () => null
   await assert.rejects(h.service.getOccurrence('9223372036854775807'), code('NOT_FOUND'))
-  await assert.rejects(h.service.confirmOccurrence('1', {}, '1'), code('NOT_FOUND'))
+  await assert.rejects(h.service.confirmOccurrence('1', { expectedRevision: 1 }, '1'), code('NOT_FOUND'))
 })
 
 test('SVO unit: filtros rejeitam normalização e usam limites civis de Maceio', async () => {

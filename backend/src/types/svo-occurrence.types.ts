@@ -6,6 +6,8 @@ export const SVO_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELED'] as const
 export type SvoStatus = typeof SVO_STATUSES[number]
 export const SVO_WRITE_ROLES = ['ATENDENTE_SVO', 'ADMINISTRADOR'] as const
 export const SVO_READ_ROLES = [...SVO_WRITE_ROLES, 'GESTOR'] as const
+export const SVO_TRIAGE_ROLES = ['ATENDENTE_SVO', 'ADMINISTRADOR'] as const
+export const SVO_MAINTAIN_ROLES = ['GESTOR', 'ADMINISTRADOR'] as const
 export const SVO_TRANSITIONS: Record<SvoStatus, readonly SvoStatus[]> = {
   PENDING: ['CONFIRMED'], CONFIRMED: [], CANCELED: [],
 }
@@ -36,6 +38,10 @@ export interface SvoOccurrenceSummary {
   receivedAt: Date
   createdAt: Date
   revision: number
+  dispatchRequestedAt?: Date | null
+  dispatchRequestedBy?: string | null
+  dispatchWaitReason?: 'NO_TEAM' | 'NO_VEHICLE' | null
+  executionOrderId?: string | null
 }
 
 export interface SvoOccurrenceDetail extends SvoOccurrenceSummary {
@@ -51,7 +57,10 @@ export interface SvoOccurrenceDetail extends SvoOccurrenceSummary {
 }
 
 export type SvoCreationResult = Pick<SvoOccurrenceSummary, 'id' | 'status' | 'receivedAt' | 'createdAt' | 'revision'>
-export type SvoConfirmationResult = Pick<SvoOccurrenceDetail, 'id' | 'status' | 'triagedAt' | 'triagedBy' | 'revision'>
+export type SvoDispatchResult =
+  | { status: 'DISPATCHED'; orderId: string; teamId: string; vehicleId: string; revision: number }
+  | { status: 'WAITING'; reason: 'NO_TEAM' | 'NO_VEHICLE'; revision: number }
+export type SvoConfirmationResult = Pick<SvoOccurrenceDetail, 'id' | 'status' | 'triagedAt' | 'triagedBy' | 'revision'> & { dispatch?: SvoDispatchResult }
 export interface SvoListFilters {
   status: SvoStatus | null
   from: Date | null
@@ -60,7 +69,7 @@ export interface SvoListFilters {
 
 export interface CreateSvoEventInput {
   occurrenceId: string
-  eventType: 'RECEIVED' | 'CONFIRMED'
+  eventType: 'RECEIVED' | 'CONFIRMED' | 'DISPATCH_REQUESTED' | 'DISPATCH_ATTEMPTED' | 'DISPATCHED' | 'DISPATCH_WAITING'
   occurredAt: Date
   reportedBy: string
   actorSnapshot: SvoActorSnapshot
@@ -70,7 +79,7 @@ export interface CreateSvoEventInput {
   afterState: SvoOccurrenceDetail
 }
 
-export type SvoErrorCode = 'INVALID_INPUT' | 'ACCOUNT_UNAVAILABLE' | 'ACCESS_DENIED' | 'NOT_FOUND' | 'INVALID_TRANSITION'
+export type SvoErrorCode = 'INVALID_INPUT' | 'ACCOUNT_UNAVAILABLE' | 'ACCESS_DENIED' | 'NOT_FOUND' | 'INVALID_TRANSITION' | 'CONFLICT'
 
 /** Erro semântico do domínio; a tradução HTTP pertence à borda. */
 export class SvoOccurrenceServiceError extends Error {

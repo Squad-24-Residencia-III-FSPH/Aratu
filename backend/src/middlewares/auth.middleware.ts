@@ -81,6 +81,7 @@ export function createCurrentUserMiddleware(users: Pick<UsersRepositoryContract,
       return
     }
     req.usuario = { id: user.id, perfil: user.role }
+    res.locals.authenticatedUserName = user.name
     next()
   }
 }

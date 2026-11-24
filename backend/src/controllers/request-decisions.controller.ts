@@ -36,5 +36,10 @@ export function createRequestDecisionsController(service: RequestDecisionsServic
       const input = bodyRecord(req.body) as RequestDecisionInput
       return respondWithDomainErrors(res, next, () => service.reject(String(req.params.id), input, req.usuario?.id ?? ''))
     },
+
+    returnForCorrection(req: Request, res: Response, next: NextFunction): Promise<void> {
+      const input = bodyRecord(req.body) as RequestDecisionInput
+      return respondWithDomainErrors(res, next, () => service.returnForCorrection(String(req.params.id), input, req.usuario?.id ?? ''))
+    },
   }
 }

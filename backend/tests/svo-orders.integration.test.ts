@@ -689,6 +689,8 @@ test('ORD repository: INSERT e evento respeitam cliente e rollback explícito', 
       occurrenceSnapshot: afterState.occurrenceSnapshot as Parameters<SvoOrdersRepository['create']>[0]['occurrenceSnapshot'],
       teamSnapshot: afterState.teamSnapshot as Parameters<SvoOrdersRepository['create']>[0]['teamSnapshot'],
       vehicleSnapshot: afterState.vehicleSnapshot as Parameters<SvoOrdersRepository['create']>[0]['vehicleSnapshot'],
+      teamShiftId: null,
+      allocationSnapshot: null,
     }, client)
     await repository.createOpenedEvent({ order, actor: { id: user().id, name: user().name, email: user().email, role: user().role },
       reason: 'Verificação fictícia de transação.', evidenceDescription: 'Teste sintético.' }, client)
@@ -703,7 +705,7 @@ test('ORD-03: constraint real de unicidade é traduzida após rollback', async (
   const input = await eligible(2)
   await json(await call(input), 201)
   class SkipEarlyDuplicateCheck extends SvoOrdersRepository {
-    override async findByOccurrenceId(): Promise<string | null> { return null }
+    override async findByOccurrenceId(): Promise<{ id: string; teamId: string; vehicleId: string } | null> { return null }
   }
   const service = new SvoOrdersService(new SvoOccurrencesRepository(pool), new SkipEarlyDuplicateCheck(),
     new VehiclesRepository(pool), new AuditService(new AuditRepository(pool)))

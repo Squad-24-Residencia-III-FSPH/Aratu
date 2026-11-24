@@ -27,6 +27,8 @@ function createRequest(overrides: Partial<DecidableRequest> = {}): DecidableRequ
     destination: 'Unidade fictícia',
     purpose: 'Reunião de teste',
     passengers: 2,
+    specialRequirements: null,
+    notes: null,
     status: 'PENDING',
     decidedBy: null,
     decidedAt: null,
@@ -45,8 +47,9 @@ function setup(initial: DecidableRequest | null = createRequest()) {
   const repository: RequestDecisionsRepositoryContract = {
     async withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> { return work(fakeClient) },
     async findByIdForUpdate(id: string): Promise<DecidableRequest | null> { return stored?.id === id ? stored : null },
-    async saveDecision(id: string, decision: RequestDecision, deciderId: string, reason: string | null): Promise<DecidableRequest | null> {
-      if (!stored || stored.id !== id || stored.status !== 'PENDING') return null
+    async saveDecision(id: string, decision: RequestDecision, deciderId: string, reason: string | null, _client, expectedRevision): Promise<DecidableRequest | null> {
+      if (!stored || stored.id !== id || stored.status !== 'PENDING'
+        || (expectedRevision !== undefined && stored.revision !== expectedRevision)) return null
       stored = { ...stored, status: decision, decidedBy: deciderId, decidedAt: DECIDED_AT, decisionReason: reason, revision: stored.revision + 1 }
       return stored
     },
@@ -102,6 +105,30 @@ test('rejeição exige justificativa (400) e grava REJECTED com o motivo', async
   assert.equal(result.status, 'REJECTED')
   assert.equal(result.decisionReason, 'Sem veículo para a data')
   assert.equal(context.events[0]?.eventType, 'REJECTED')
+})
+
+test('devolução exige motivo e revisão vigente, preserva a observação no evento', async () => {
+  const context = setup()
+  await assert.rejects(context.service.returnForCorrection('41', { expectedRevision: 1 }, manager.id), domainError(400))
+  await assert.rejects(context.service.returnForCorrection('41', { reason: 'Corrija a origem' }, manager.id), domainError(400))
+
+  const result = await context.service.returnForCorrection('41', {
+    reason: '  Confirme o endereço de origem  ', expectedRevision: 1,
+  }, manager.id)
+  assert.equal(result.status, 'RETURNED')
+  assert.equal(result.revision, 2)
+  assert.equal(result.decisionReason, 'Confirme o endereço de origem')
+  assert.equal(context.events[0]?.eventType, 'RETURNED')
+  assert.equal(context.events[0]?.reason, 'Confirme o endereço de origem')
+})
+
+test('decisão com revisão obsoleta retorna conflito sem evento', async () => {
+  const context = setup()
+  await assert.rejects(
+    context.service.returnForCorrection('41', { reason: 'Revise os dados', expectedRevision: 3 }, manager.id),
+    domainError(409),
+  )
+  assert.equal(context.events.length, 0)
 })
 
 test('solicitação já analisada retorna 409 e não gera novo histórico', async () => {

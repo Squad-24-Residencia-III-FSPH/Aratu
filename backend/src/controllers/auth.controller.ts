@@ -61,6 +61,18 @@ export function createAuthController(authService: AuthService) {
       await authService.logout(req.usuario)
       res.status(200).json({ mensagem: 'Logout realizado. Apague o token armazenado no cliente.' })
     },
+    /** Retorna somente a identidade e o perfil revalidados no cadastro atual. */
+    me: (
+      req: Request<ParamsDictionary, unknown, unknown>,
+      res: Response<unknown>,
+    ): void => {
+      if (!req.usuario) {
+        res.status(401).json({ erro: 'Autenticação necessária.' })
+        return
+      }
+      const nome = typeof res.locals.authenticatedUserName === 'string' ? res.locals.authenticatedUserName : ''
+      res.status(200).json({ id: req.usuario.id, nome, perfil: req.usuario.perfil })
+    },
   }
 }
 

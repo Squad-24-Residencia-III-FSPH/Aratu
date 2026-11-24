@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import { createProfileController } from '../controllers/profile.controller'
-import { createAuthMiddleware } from '../middlewares/auth.middleware'
+import { createAuthMiddleware, createCurrentUserMiddleware } from '../middlewares/auth.middleware'
 import { authorizeRoles } from '../middlewares/rbac.middleware'
 import type { ProfileServiceContract } from '../services/profile.service'
+import type { UsersRepositoryContract } from '../repositories/users.repository'
 
 /**
  * Cria o roteador Express com o endpoint de listagem de perfis RBAC.
@@ -17,14 +18,17 @@ import type { ProfileServiceContract } from '../services/profile.service'
 export function createProfileRouter(
   profileService: ProfileServiceContract,
   jwtSecret: string,
+  users?: Pick<UsersRepositoryContract, 'findById'>,
 ): Router {
   const router = Router()
   const controller = createProfileController(profileService)
   const authenticate = createAuthMiddleware(jwtSecret)
+  const currentUser = users ? [createCurrentUserMiddleware(users)] : []
 
   router.get(
     '/',
     authenticate,
+    ...currentUser,
     authorizeRoles(['ADMINISTRADOR']),
     controller.list,
   )

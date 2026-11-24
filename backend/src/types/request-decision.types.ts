@@ -1,12 +1,15 @@
 /** Situações de `trip.requests` envolvidas na análise do Gestor. */
 export const REQUEST_DECISION_STATUSES = {
   pending: 'PENDING',
+  returned: 'RETURNED',
   approved: 'APPROVED',
   rejected: 'REJECTED',
 } as const
 
 /** Resultado possível de uma análise. */
-export type RequestDecision = typeof REQUEST_DECISION_STATUSES.approved | typeof REQUEST_DECISION_STATUSES.rejected
+export type RequestDecision = typeof REQUEST_DECISION_STATUSES.returned
+  | typeof REQUEST_DECISION_STATUSES.approved
+  | typeof REQUEST_DECISION_STATUSES.rejected
 
 /** Motivo gravado no histórico quando o Gestor aprova sem justificar. */
 export const DEFAULT_APPROVAL_REASON = 'Solicitação aprovada'
@@ -22,6 +25,8 @@ export interface DecidableRequest {
   destination: string
   purpose: string
   passengers: number
+  specialRequirements: string | null
+  notes: string | null
   status: string
   decidedBy: string | null
   decidedAt: Date | null
@@ -43,7 +48,8 @@ export interface RequestDecisionResult {
 
 /** Corpo aceito pelos endpoints de decisão. */
 export interface RequestDecisionInput {
-  reason?: string | null
+  reason?: unknown
+  expectedRevision?: unknown
 }
 
 /** Snapshot público do Gestor autenticado preservado no histórico. */

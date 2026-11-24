@@ -10,7 +10,7 @@ import { SVO_READ_ROLES, SVO_WRITE_ROLES, SvoOccurrenceServiceError } from '../t
 import type { SvoErrorCode } from '../types/svo-occurrence.types'
 
 const ERROR_STATUS: Record<SvoErrorCode, number> = {
-  INVALID_INPUT: 400, ACCOUNT_UNAVAILABLE: 401, ACCESS_DENIED: 403, NOT_FOUND: 404, INVALID_TRANSITION: 409,
+  INVALID_INPUT: 400, ACCOUNT_UNAVAILABLE: 401, ACCESS_DENIED: 403, NOT_FOUND: 404, INVALID_TRANSITION: 409, CONFLICT: 409,
 }
 
 /** Revalida a conta antes do RBAC, sem conceder privilégios à EQUIPE_SVO. */
