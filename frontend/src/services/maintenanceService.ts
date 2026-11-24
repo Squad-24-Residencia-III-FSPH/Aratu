@@ -7,7 +7,14 @@ import type {
 
 export class MaintenanceRequestError extends Error {
   readonly status: number
-  constructor(status: number, message: string) { super(message); this.status = status; this.name = 'MaintenanceRequestError' }
+  readonly blockingOrderId?: string
+
+  constructor(status: number, message: string, blockingOrderId?: string) {
+    super(message)
+    this.status = status
+    this.name = 'MaintenanceRequestError'
+    this.blockingOrderId = blockingOrderId
+  }
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -40,8 +47,16 @@ function parseOrder(value: unknown): MaintenanceOrder {
 async function request(api: ApiRequest, path: string, options?: RequestInit): Promise<unknown> {
   const response = await api(path, options)
   const body: unknown = await response.json().catch(() => null)
-  if (!response.ok) throw new MaintenanceRequestError(response.status,
-    record(body) && typeof body.erro === 'string' ? body.erro : 'Não foi possível concluir a operação. Tente novamente.')
+  if (!response.ok) {
+    const message = record(body) && typeof body.erro === 'string'
+      ? body.erro
+      : 'Não foi possível concluir a operação. Tente novamente.'
+    const rawBlockingId = record(body) ? body.blockingOrderId : undefined
+    const blockingOrderId = typeof rawBlockingId === 'string' && /^\d+$/.test(rawBlockingId)
+      ? rawBlockingId
+      : undefined
+    throw new MaintenanceRequestError(response.status, message, blockingOrderId)
+  }
   return body
 }
 export function buildMaintenanceQuery(filters: MaintenanceFilters): string {
