@@ -2,7 +2,6 @@ import { useEffect, useId, useReducer, useState } from 'react'
 import {
   Alert,
   Box,
-  Breadcrumbs,
   Button,
   Card,
   CardContent,
@@ -21,6 +20,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
+import PageHeader from '../../components/ui/PageHeader'
 import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings'
 import AssignmentInd from '@mui/icons-material/AssignmentInd'
 import DirectionsCar from '@mui/icons-material/DirectionsCar'
@@ -123,15 +123,8 @@ export function ProfilePermissionsView({
   }
 
   return (
-    <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
-      <Breadcrumbs aria-label="Navegação estrutural" sx={{ mb: 2 }}>
-        <Typography color="text.secondary" variant="body2">Administração</Typography>
-        <Typography color="text.primary" variant="body2">Perfis e Permissões</Typography>
-      </Breadcrumbs>
-
-      <Typography component="h1" variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
-        Perfis e Permissões
-      </Typography>
+    <Box sx={{ width: '100%', minWidth: 0 }}>
+      <PageHeader title="Perfis e Permissões" />
 
       {renderProfileFeedback()}
 

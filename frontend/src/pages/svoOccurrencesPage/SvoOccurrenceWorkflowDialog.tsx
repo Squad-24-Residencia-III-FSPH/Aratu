@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography,
   useMediaQuery, useTheme,
@@ -7,6 +8,7 @@ import {
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import StateFeedback from '../../components/ui/StateFeedback'
 import StatusChip from '../../components/ui/StatusChip'
+import { SVO_ORDERS_PATH } from '../../svo/svoOrderTypes'
 import {
   formatSvoOccurrenceDateTime, SVO_OCCURRENCE_STATUS_LABELS, SVO_OCCURRENCE_STATUS_TONES,
   SVO_REQUESTER_TYPE_LABELS,
@@ -88,7 +90,19 @@ export default function SvoOccurrenceWorkflowDialog({
               </Box>
               {occurrence.status === 'CONFIRMED' && (
                 <Alert severity="info" role="note">
-                  Os dados recebidos foram conferidos. Esta confirmação não registra uma triagem clínica.
+            Os dados recebidos foram conferidos pelo atendente. O encaminhamento é informacional e não registra uma triagem clínica.
+                </Alert>
+              )}
+              {occurrence.executionOrderId && (
+                <Alert severity="success" role="status">
+                  Ordem #{occurrence.executionOrderId} criada pela seleção automática de equipe e viatura. Acompanhe em <Link to={SVO_ORDERS_PATH}>ordens SVO</Link>.
+                </Alert>
+              )}
+              {occurrence.dispatchWaitReason && (
+                <Alert severity="warning" role="status">
+                  A solicitação está aguardando despacho: {occurrence.dispatchWaitReason === 'NO_TEAM'
+                    ? 'não há equipe elegível no plantão atual.'
+                    : 'não há viatura elegível com vaga disponível.'} O gestor de frota pode solicitar uma nova avaliação quando os recursos mudarem.
                 </Alert>
               )}
               <Box component="dl" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 2, m: 0 }}>

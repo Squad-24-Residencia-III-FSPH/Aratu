@@ -48,7 +48,7 @@ export default function Topbar({ isCompactViewport, navigationExpanded, onMenuTo
               width: 44,
               height: 44,
               alignSelf: 'center',
-              display: 'grid',
+              display: isCompactViewport ? 'none' : 'grid',
               placeItems: 'center',
               '&:hover': { backgroundColor: 'rgba(17, 24, 39, 0.08)' },
               '&.Mui-focusVisible': { outline: '2px solid #111827', outlineOffset: 2 },

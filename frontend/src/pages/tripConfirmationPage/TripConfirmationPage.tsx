@@ -51,7 +51,9 @@ const COLUMNS: readonly DataTableColumn<TripConfirmationItem>[] = [
 /** Permite ao Gestor conferir os dados disponíveis e confirmar viagens finalizadas pela API FROTA-106. */
 export default function TripConfirmationPage() {
   const { api, session } = useAuth()
-  const allowed = session !== null && resolveProfile(session.perfil) === 'GESTOR'
+  const profile = session ? resolveProfile(session.perfil) : null
+  const allowed = profile === 'GESTOR' || profile === 'ADMINISTRADOR'
+  const canOperate = profile === 'GESTOR'
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [vehicle, setVehicle] = useState('')
@@ -91,13 +93,16 @@ export default function TripConfirmationPage() {
     <Box>
       <PageHeader
         title="Confirmar viagens"
-        breadcrumbs={['Início', 'Viagens', 'Conferência']}
+        breadcrumbs={['Início', 'Conferência']}
         description="Confira os registros das viagens finalizadas antes de confirmar a conclusão."
       />
 
       {!allowed && <StateFeedback kind="forbidden" title="Acesso restrito" description="Seu perfil não tem permissão para consultar ou confirmar viagens." />}
 
       {allowed && <>
+        {!canOperate && <Alert severity="info" role="note" sx={{ mb: 2 }}>
+          A consulta está disponível para manutenção e supervisão. A confirmação operacional é feita pelo Gestor.
+        </Alert>}
         {state.success && <Alert severity="success" role="status" sx={{ mb: 2 }}>{state.success}</Alert>}
         {state.partialError && <StateFeedback kind="partial" title="A confirmação foi registrada." description={state.partialError} actionLabel="Atualizar listagem" onAction={state.refresh} />}
 
@@ -170,14 +175,14 @@ export default function TripConfirmationPage() {
           </DialogContent>
           <DialogActions sx={{ p: 2, flexWrap: 'wrap' }}>
             <Button onClick={() => setSelectedId(null)} sx={{ minHeight: 44 }}>Fechar</Button>
-            <Button
+            {canOperate && <Button
               variant="contained"
               color="success"
               startIcon={<CheckIcon aria-hidden="true" />}
               disabled={!canConfirmTrip(selectedTrip) || state.confirmingId === selectedTrip.id}
               onClick={() => setConfirmOpen(true)}
               sx={{ minHeight: 44 }}
-            >Confirmar viagem</Button>
+            >Confirmar viagem</Button>}
           </DialogActions>
         </Dialog>}
 

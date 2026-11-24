@@ -153,6 +153,50 @@ test('expiração limpa sessão; temporizador A não remove sessão B', (t) => {
   assert.match(view.auth().notice, /expirou/)
 })
 
+test('renova token somente após login e identidade/perfil atuais coincidirem', async () => {
+  const prior = sessionFor('GESTOR')
+  const renewed = { ...prior, token: tokenFor('GESTOR', 7200), nome: 'Nome retornado no login' }
+  const requests = []
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url: String(url), options })
+    if (String(url).endsWith('/auth/login')) return Response.json(renewed)
+    if (String(url).endsWith('/auth/me')) return Response.json({ id: '1', nome: 'Pessoa de teste', perfil: 'GESTOR' })
+    return new Response(null, { status: 404 })
+  }
+  const view = mount(prior)
+  await act(async () => { await view.auth().renewSession(credentials) })
+  assert.equal(view.auth().session.token, renewed.token)
+  assert.equal(view.auth().session.nome, 'Pessoa de teste')
+  assert.deepEqual(JSON.parse(window.localStorage.getItem(KEY)), view.auth().session)
+  assert.deepEqual(requests.map(({ url }) => url), ['/api/auth/login', '/api/auth/me'])
+  assert.equal(requests[1].options.headers.Authorization, `Bearer ${renewed.token}`)
+  assert.equal(JSON.stringify(JSON.parse(window.localStorage.getItem(KEY))).includes('senha-ficticia'), false)
+})
+
+test('renovação com conta ou perfil diferente limpa a sessão anterior', async () => {
+  const prior = sessionFor('GESTOR')
+  const other = sessionFor('MOTORISTA', 7200)
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith('/auth/login')) return Response.json(other)
+    return Response.json({ id: '1', nome: 'Pessoa de teste', perfil: 'MOTORISTA' })
+  }
+  const view = mount(prior)
+  await act(async () => { await view.auth().renewSession(credentials) })
+  assert.equal(view.auth().session, null)
+  assert.equal(window.localStorage.getItem(KEY), null)
+  assert.match(view.auth().notice, /conta ou o perfil mudou/i)
+})
+
+test('aviso para renovar a sessão é apresentado dois minutos antes do vencimento', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const view = mount({ ...sessionFor(), token: tokenFor('GESTOR', 150) })
+  assert.equal(view.auth().renewalPrompt, false)
+  act(() => t.mock.timers.tick(29_900))
+  assert.equal(view.auth().renewalPrompt, false)
+  act(() => t.mock.timers.tick(200))
+  assert.equal(view.auth().renewalPrompt, true)
+})
+
 test('escrita bloqueada impede login; remoção bloqueada não restaura memória', async (t) => {
   const view = mount()
   globalThis.fetch = async () => Response.json(sessionFor())

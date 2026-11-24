@@ -5,6 +5,7 @@ import {
   createSvoOccurrence,
   getSvoOccurrence,
   listSvoOccurrences,
+  retrySvoDispatch,
 } from '../src/services/svoOccurrencesService.ts'
 import { SvoOccurrenceRequestError } from '../src/svo/svoOccurrenceTypes.ts'
 import { jsonResponse } from './svo-orders.fixture.mjs'
@@ -63,7 +64,7 @@ test('criação envia apenas o DTO real, normaliza texto opcional e valida a res
   }), { kind: 'invalidResponse' })
 })
 
-test('confirmação envia corpo vazio e exige transição e revisão devolvidas pela API', async () => {
+test('confirmação envia revisão atual e exige transição e revisão devolvidas pela API', async () => {
   let call
   const result = await confirmSvoOccurrence(async (path, init) => {
     call = { path, init }
@@ -71,7 +72,7 @@ test('confirmação envia corpo vazio e exige transição e revisão devolvidas 
   }, detail())
   assert.equal(call.path, '/svo/occurrences/41/confirm')
   assert.equal(call.init.method, 'POST')
-  assert.deepEqual(JSON.parse(call.init.body), {})
+  assert.deepEqual(JSON.parse(call.init.body), { expectedRevision: 1 })
   assert.equal(result.status, 'CONFIRMED')
   await assert.rejects(confirmSvoOccurrence(async () => jsonResponse({
     id: '41', status: 'CONFIRMED', triagedAt: '2026-11-18T12:20:00.000Z', triagedBy: '7', revision: 1,
@@ -84,6 +85,22 @@ test('preserva mensagem de erro da API inclusive em falha 500', async () => {
       status: '', from: '', to: '',
     }), (error) => error instanceof SvoOccurrenceRequestError && error.message === 'Mensagem pública da API.')
   }
+})
+
+test('nova tentativa de despacho envia revisão e interpreta a fila ou ordem automática', async () => {
+  let call
+  const waiting = await retrySvoDispatch(async (path, init) => {
+    call = { path, init }
+    return jsonResponse({ status: 'WAITING', reason: 'NO_VEHICLE', revision: 4 })
+  }, { ...detail(), revision: 3, dispatchRequestedAt: '2026-11-24T12:00:00Z', executionOrderId: null })
+  assert.equal(call.path, '/svo/orders/dispatch/41')
+  assert.equal(JSON.parse(call.init.body).expectedRevision, 3)
+  assert.equal(waiting.status, 'WAITING')
+  assert.equal(waiting.reason, 'NO_VEHICLE')
+  const assigned = await retrySvoDispatch(async () => jsonResponse({
+    status: 'DISPATCHED', orderId: '51', teamId: '7', vehicleId: '9', revision: 4,
+  }), { ...detail(), revision: 3, dispatchRequestedAt: '2026-11-24T12:00:00Z', executionOrderId: null })
+  assert.deepEqual(assigned, { status: 'DISPATCHED', orderId: '51', teamId: '7', vehicleId: '9', revision: 4 })
 })
 
 test('identifica status e rota quando a resposta HTTP não contém { erro }', async () => {

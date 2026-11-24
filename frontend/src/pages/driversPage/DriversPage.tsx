@@ -12,6 +12,7 @@ import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined'
 import EditOutlined from '@mui/icons-material/EditOutlined'
 import BlockOutlined from '@mui/icons-material/BlockOutlined'
 import ReplayOutlined from '@mui/icons-material/ReplayOutlined'
+import HistoryOutlined from '@mui/icons-material/HistoryOutlined'
 import { useAuth } from '../../auth/useAuth'
 import { resolveProfile } from '../../auth/profiles'
 import PageHeader from '../../components/ui/PageHeader'
@@ -30,6 +31,8 @@ import { getDriver, listDrivers } from '../../services/driversService'
 import DriverDetailsDialog from './DriverDetailsDialog'
 import DriverFormDialog from './DriverFormDialog'
 import DriverStatusDialog from './DriverStatusDialog'
+import EntityHistoryDialog from '../../components/ui/EntityHistoryDialog'
+import { listDriverHistory } from '../../services/entityHistoryService'
 import styles from './DriversPage.module.css'
 
 type FormDialogState = { mode: 'create' } | { mode: 'edit'; driver: Driver }
@@ -108,6 +111,11 @@ export default function DriversPage() {
   const [formDialog, setFormDialog] = useState<FormDialogState | null>(null)
   const [statusDriver, setStatusDriver] = useState<Driver | null>(null)
   const [details, setDetails] = useState<{ driver: Driver | null; loading: boolean; error: string } | null>(null)
+  const [historyDriver, setHistoryDriver] = useState<Driver | null>(null)
+  const loadDriverHistory = useCallback((historyPage: number) => {
+    if (!historyDriver) return Promise.reject(new Error('Selecione um motorista para consultar o histórico.'))
+    return listDriverHistory(api, historyDriver.id, historyPage)
+  }, [api, historyDriver])
   const [notice, setNotice] = useState('')
 
   useEffect(() => {
@@ -308,6 +316,13 @@ export default function DriversPage() {
                         <VisibilityOutlined aria-hidden="true" />
                       </IconButton>
                       <IconButton
+                        aria-label={`Consultar histórico de ${driver.name}`}
+                        onClick={() => setHistoryDriver(driver)}
+                        sx={{ width: 44, height: 44 }}
+                      >
+                        <HistoryOutlined aria-hidden="true" />
+                      </IconButton>
+                      <IconButton
                         aria-label={`Editar ${driver.name}`}
                         onClick={() => setFormDialog({ mode: 'edit', driver })}
                         disabled={!canWrite}
@@ -392,6 +407,11 @@ export default function DriversPage() {
           onClose={() => setDetails(null)}
         />
       )}
+      {historyDriver && <EntityHistoryDialog
+        title={`Histórico do motorista ${historyDriver.name}`}
+        loadPage={loadDriverHistory}
+        onClose={() => setHistoryDriver(null)}
+      />}
     </Box>
   )
 }

@@ -1,6 +1,16 @@
 import type { ApiRequest } from '../api/client'
 import { REQUEST_STATUSES } from '../requests/requestTypes'
-import type { PaginatedRequests, RequestDetail, RequestListFilters, RequestStatus, RequestSummary, RequestTrip } from '../requests/requestTypes'
+import type {
+  PaginatedRequestHistory,
+  PaginatedRequests,
+  RequestDetail,
+  RequestHistoryItem,
+  RequestListFilters,
+  RequestStatus,
+  RequestSubmission,
+  RequestSummary,
+  RequestTrip,
+} from '../requests/requestTypes'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -23,7 +33,10 @@ function isSummary(value: unknown): value is RequestSummary {
     && typeof value.destination === 'string'
     && typeof value.purpose === 'string'
     && Number.isInteger(value.passengers)
+    && isNullableText(value.specialRequirements)
+    && isNullableText(value.notes)
     && REQUEST_STATUSES.some(status => status === value.status)
+    && Number.isInteger(value.revision)
     && typeof value.createdAt === 'string'
     && typeof value.updatedAt === 'string'
 }
@@ -39,6 +52,7 @@ function isRequestTrip(value: unknown): value is RequestTrip {
 
 function parseRequestDetail(value: unknown): RequestDetail {
   if (!isSummary(value) || !isRecord(value)
+    || !Number.isInteger(value.revision)
     || !isNullableText(value.decidedBy)
     || !isNullableText(value.decidedByName)
     || !isNullableText(value.decidedAt)
@@ -80,12 +94,69 @@ export async function getRequest(api: ApiRequest, id: string): Promise<RequestDe
   return parseRequestDetail(await parseResponse(response, 'Não foi possível carregar a solicitação. Tente novamente.'))
 }
 
+/** Cria uma solicitação persistida pelo Solicitante autenticado. */
+export async function createRequest(api: ApiRequest, input: RequestSubmission): Promise<{ id: string; status: RequestStatus }> {
+  const response = await api('/requests', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+  })
+  const body = await parseResponse(response, 'Não foi possível enviar a solicitação. Tente novamente.')
+  if (!isRecord(body) || typeof body.id !== 'string' || !REQUEST_STATUSES.some(status => status === body.status)) {
+    throw new Error('O servidor não confirmou a solicitação. Atualize a lista antes de tentar novamente.')
+  }
+  return body as { id: string; status: RequestStatus }
+}
+
+/** Reenvia os campos corrigidos usando a revisão que o Solicitante consultou. */
+export async function resubmitRequest(
+  api: ApiRequest,
+  id: string,
+  expectedRevision: number,
+  input: RequestSubmission,
+): Promise<RequestDetail> {
+  const response = await api(`/requests/${encodeURIComponent(id)}/resubmit`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expectedRevision, ...input }),
+  })
+  return parseRequestDetail(await parseResponse(response, 'Não foi possível reenviar a solicitação. Atualize os dados antes de tentar novamente.'))
+}
+
+/** Busca a história imutável de decisões e versões da solicitação. */
+export async function getRequestHistory(api: ApiRequest, id: string, page = 1, pageSize = 20): Promise<PaginatedRequestHistory> {
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  const response = await api(`/requests/${encodeURIComponent(id)}/history?${query}`)
+  const body = await parseResponse(response, 'Não foi possível carregar o histórico da solicitação.')
+  if (!isRecord(body) || !Array.isArray(body.items) || !body.items.every(isRequestHistoryItem)
+    || !Number.isInteger(body.total) || !Number.isInteger(body.page)
+    || !Number.isInteger(body.pageSize) || !Number.isInteger(body.totalPages)) {
+    throw new Error('Não foi possível interpretar o histórico da solicitação.')
+  }
+  return body as unknown as PaginatedRequestHistory
+}
+
+function isRequestHistoryItem(value: unknown): value is RequestHistoryItem {
+  return isRecord(value) && typeof value.id === 'string' && typeof value.eventType === 'string'
+    && typeof value.occurredAt === 'string' && typeof value.registeredAt === 'string'
+    && typeof value.reportedBy === 'string' && typeof value.registeredBy === 'string'
+    && isRecord(value.actorSnapshot) && typeof value.reason === 'string'
+    && (value.beforeState === null || isRecord(value.beforeState)) && isRecord(value.afterState)
+}
+
 /** Registra a decisão do Gestor e preserva a mensagem de domínio retornada pela API. */
-export async function decideRequest(api: ApiRequest, id: string, decision: 'approve' | 'reject', reason?: string): Promise<void> {
+export async function decideRequest(
+  api: ApiRequest,
+  id: string,
+  decision: 'approve' | 'reject' | 'return',
+  reason?: string,
+  expectedRevision?: number,
+): Promise<void> {
+  const payload = {
+    ...(reason === undefined ? {} : { reason }),
+    ...(expectedRevision === undefined ? {} : { expectedRevision }),
+  }
   const response = await api(`/requests/${encodeURIComponent(id)}/${decision}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(reason === undefined ? {} : { reason }),
+    body: JSON.stringify(payload),
   })
   await parseResponse(response, 'Não foi possível registrar a decisão. Tente novamente.')
 }

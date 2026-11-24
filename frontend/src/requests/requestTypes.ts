@@ -1,4 +1,4 @@
-export const REQUEST_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'SCHEDULED', 'CANCELED'] as const
+export const REQUEST_STATUSES = ['PENDING', 'RETURNED', 'APPROVED', 'REJECTED', 'SCHEDULED', 'CANCELED'] as const
 
 export type RequestStatus = typeof REQUEST_STATUSES[number]
 
@@ -14,7 +14,10 @@ export interface RequestSummary {
   destination: string
   purpose: string
   passengers: number
+  specialRequirements: string | null
+  notes: string | null
   status: RequestStatus
+  revision: number
   createdAt: string
   updatedAt: string
 }
@@ -34,6 +37,39 @@ export interface RequestDetail extends RequestSummary {
   decidedAt: string | null
   decisionReason: string | null
   trip: RequestTrip | null
+}
+
+export interface RequestSubmission {
+  requestedDate: string
+  requestedTime: string
+  origin: string
+  destination: string
+  purpose: string
+  serviceId: string
+  passengers: number
+  specialRequirements: string | null
+  notes: string | null
+}
+
+export interface RequestHistoryItem {
+  id: string
+  eventType: string
+  occurredAt: string
+  registeredAt: string
+  reportedBy: string
+  registeredBy: string
+  actorSnapshot: { id: string; name: string; email: string; role: string }
+  reason: string
+  beforeState: Record<string, unknown> | null
+  afterState: Record<string, unknown>
+}
+
+export interface PaginatedRequestHistory {
+  items: RequestHistoryItem[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 export interface RequestListFilters {

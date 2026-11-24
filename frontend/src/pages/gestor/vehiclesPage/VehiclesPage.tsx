@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, Stack } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
 import EditIcon from '@mui/icons-material/Edit'
+import HistoryIcon from '@mui/icons-material/History'
 import { useAuth } from '../../../auth/useAuth'
 import { resolveProfile } from '../../../auth/profiles'
 import DataTable from '../../../components/ui/DataTable'
@@ -33,6 +34,8 @@ import type {
 } from '../../../vehicles/vehicleTypes'
 import VehicleFormDialog from './VehicleFormDialog'
 import VehicleStatusDialog from './VehicleStatusDialog'
+import EntityHistoryDialog from '../../../components/ui/EntityHistoryDialog'
+import { listVehicleHistory } from '../../../services/entityHistoryService'
 
 interface FilterValues {
   status: VehicleStatus | ''
@@ -115,6 +118,11 @@ export default function VehiclesPage() {
     { mode: 'create' } | { mode: 'edit'; vehicle: Vehicle } | null
   >(null)
   const [statusVehicle, setStatusVehicle] = useState<Vehicle | null>(null)
+  const [historyVehicle, setHistoryVehicle] = useState<Vehicle | null>(null)
+  const loadVehicleHistory = useCallback((page: number) => {
+    if (!historyVehicle) return Promise.reject(new Error('Selecione um veículo para consultar o histórico.'))
+    return listVehicleHistory(api, historyVehicle.id, page)
+  }, [api, historyVehicle])
 
   const filters = useMemo(() => toVehicleFilters(filterValues), [filterValues])
   const filtersActive = Boolean(filterValues.status || filterValues.category
@@ -341,6 +349,15 @@ export default function VehiclesPage() {
                       </Button>
                       <Button
                         size="small"
+                        startIcon={<HistoryIcon aria-hidden="true" />}
+                        onClick={() => setHistoryVehicle(vehicle)}
+                        aria-label={`Ver histórico do veículo ${vehicle.licensePlate}`}
+                        sx={{ minHeight: 44 }}
+                      >
+                        Histórico
+                      </Button>
+                      <Button
+                        size="small"
                         startIcon={<AutorenewIcon aria-hidden="true" />}
                         onClick={() => setStatusVehicle(vehicle)}
                         aria-label={`Alterar situação do veículo ${vehicle.licensePlate}`}
@@ -395,6 +412,11 @@ export default function VehiclesPage() {
           onConflict={handleConflict}
         />
       )}
+      {historyVehicle && <EntityHistoryDialog
+        title={`Histórico do veículo ${historyVehicle.licensePlate}`}
+        loadPage={loadVehicleHistory}
+        onClose={() => setHistoryVehicle(null)}
+      />}
     </Box>
   )
 }

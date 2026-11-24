@@ -31,6 +31,10 @@ export interface SvoOccurrenceSummary {
   receivedAt: string
   createdAt: string
   revision: number
+  dispatchRequestedAt?: string | null
+  dispatchRequestedBy?: string | null
+  dispatchWaitReason?: 'NO_TEAM' | 'NO_VEHICLE' | null
+  executionOrderId?: string | null
 }
 
 export interface SvoOccurrenceDetail extends SvoOccurrenceSummary {
@@ -59,6 +63,9 @@ export interface SvoOccurrenceConfirmationResult {
   triagedAt: string
   triagedBy: string
   revision: number
+  dispatch?:
+    | { status: 'DISPATCHED'; orderId: string; teamId: string; vehicleId: string; revision: number }
+    | { status: 'WAITING'; reason: 'NO_TEAM' | 'NO_VEHICLE'; revision: number }
 }
 
 export type SvoOccurrenceErrorKind =
