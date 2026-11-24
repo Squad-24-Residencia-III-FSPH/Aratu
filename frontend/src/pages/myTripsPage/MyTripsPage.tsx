@@ -5,15 +5,15 @@ import { EntityCard } from '../../components/ui/EntityCard'
 import { FormSelect } from '../../components/ui/FormField'
 import PageHeader from '../../components/ui/PageHeader'
 import StateFeedback from '../../components/ui/StateFeedback'
-import StatusChip from '../../components/ui/StatusChip'
 import { useMyTrips } from '../../hooks/useMyTrips'
 import {
   ACTION_LABELS, formatDateTime, formatKm, NEXT_ACTION, selectTrips,
-  TRIP_FILTER_LABELS, TRIP_STATUS_LABELS, TRIP_STATUS_TONES,
+  TRIP_FILTER_LABELS,
 } from '../../trips/tripPresentation'
 import { TRIP_FILTERS } from '../../trips/tripTypes'
 import type { DriverTrip, TripFilter } from '../../trips/tripTypes'
 import TripExecutionDialog from './TripExecutionDialog'
+import TripStatusChip from './TripStatusChip'
 
 const DOCUMENT_TITLE = 'Minhas viagens — Aratu'
 const FILTER_OPTIONS = TRIP_FILTERS.map((value) => ({ value, label: TRIP_FILTER_LABELS[value] }))
@@ -81,9 +81,23 @@ function MyTripsContent() {
         actions={
           <>
             <Box sx={{ minWidth: { sm: 220 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-              <FormSelect label="Exibir" value={filter} onChange={(value) => { if (isTripFilter(value)) setFilter(value) }} options={FILTER_OPTIONS} />
+              <FormSelect
+                label="Exibir"
+                value={filter}
+                onChange={(value) => { if (isTripFilter(value)) setFilter(value) }}
+                options={FILTER_OPTIONS}
+                sx={{
+                  '& .MuiOutlinedInput-root': { minHeight: 44 },
+                  '& .MuiOutlinedInput-root .MuiSelect-select': {
+                    minHeight: 44,
+                    boxSizing: 'border-box',
+                    display: 'flex',
+                    alignItems: 'center',
+                  },
+                }}
+              />
             </Box>
-            <Button variant="outlined" color="inherit" onClick={trips.refresh} disabled={trips.loading} sx={{ minHeight: 44 }}>
+            <Button variant="outlined" color="inherit" onClick={trips.refresh} disabled={trips.loading} sx={{ minHeight: 44, minWidth: 44 }}>
               {trips.loading && trips.trips !== null ? 'Atualizando...' : 'Atualizar'}
             </Button>
           </>
@@ -91,7 +105,7 @@ function MyTripsContent() {
       />
 
       <Box ref={resultRef} role="status" aria-live="polite" tabIndex={-1} sx={{ '&:focus-visible': { outline: '2px solid #115e59', outlineOffset: 2 } }}>
-        {result && <Alert severity="success" sx={{ mb: 2 }}>{result.message}</Alert>}
+        {result && <Alert severity="success" role="none" sx={{ mb: 2 }}>{result.message}</Alert>}
       </Box>
 
       {trips.stale && (
@@ -136,7 +150,7 @@ function TripCard({ trip, disabled, onAction }: TripCardProps) {
     <EntityCard>
       <EntityCard.Header title={trip.destination}>
         <EntityCard.Status>
-          <StatusChip label={TRIP_STATUS_LABELS[trip.status]} tone={TRIP_STATUS_TONES[trip.status]} />
+          <TripStatusChip status={trip.status} />
         </EntityCard.Status>
       </EntityCard.Header>
       <EntityCard.Body>

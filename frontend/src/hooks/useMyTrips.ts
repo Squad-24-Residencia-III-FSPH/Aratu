@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiRequest } from '../api/client'
 import { finishTrip, listMyTrips, startTrip } from '../services/tripsService'
-import { confirmationMessage, NEXT_ACTION, operationalDay, parseKmInput } from '../trips/tripPresentation'
+import {
+  confirmationMessage, formatDateTime, formatKm, NEXT_ACTION, operationalDay, parseKmInput, TRIP_STATUS_LABELS,
+} from '../trips/tripPresentation'
 import { isOutcomeUncertain, TripRequestError } from '../trips/tripTypes'
 import type { DriverTrip, Trip, TripExecutionAction } from '../trips/tripTypes'
 
@@ -26,6 +28,10 @@ export interface ExecutionDraft {
   denied: boolean
   /** Aguarda uma consulta bem-sucedida da lista após conflito ou ausência antes de permitir novo envio. */
   reconciling: boolean
+  /** Resultado da reconciliação após falha incerta de rede/5xx. */
+  reconciledOutcome: 'PENDING' | 'PERSISTED' | null
+  /** Mensagem de status após reconsulta bem-sucedida de um envio incerto. */
+  reconciliationNotice: string
 }
 
 /** Resultado confirmado pelo servidor, anunciado ao usuário. */
@@ -81,6 +87,7 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
   const resultKey = useRef(0)
   const submittingRef = useRef(false)
   const reconcilingRef = useRef(false)
+  const uncertainRef = useRef(false)
 
   const fetchList = useCallback((): Promise<ListOutcome> => {
     const sequence = ++listSequence.current
@@ -93,10 +100,51 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
   const settleList = useCallback((outcome: ListOutcome, failureMessage?: string) => {
     if (outcome.sequence !== listSequence.current) return
     if (outcome.trips) {
+      const tripsSnapshot = outcome.trips
       reconcilingRef.current = false
-      setTrips(outcome.trips)
+      uncertainRef.current = false
+      setTrips(tripsSnapshot)
       setListError('')
-      setExecution((current) => current && current.reconciling ? { ...current, reconciling: false } : current)
+      setExecution((current) => {
+        if (!current || (!current.reconciling && !current.uncertain)) return current
+        if (current.uncertain) {
+          const found = tripsSnapshot.find((candidate) => candidate.id === current.tripId) ?? null
+          if (!found) {
+            return {
+              ...current,
+              reconciling: false,
+              uncertain: false,
+              submitError: '',
+              reconciledOutcome: null,
+              reconciliationNotice: '',
+            }
+          }
+          if (NEXT_ACTION[found.status] === current.action) {
+            const startDetail = current.action === 'FINISH' && found.startKm !== null
+              ? ` (km inicial registrado: ${formatKm(found.startKm)})`
+              : ''
+            return {
+              ...current,
+              reconciling: false,
+              uncertain: false,
+              submitError: '',
+              reconciledOutcome: 'PENDING',
+              reconciliationNotice: `Situação atualizada: a viagem #${found.id} continua ${TRIP_STATUS_LABELS[found.status].toLowerCase()}${startDetail}. Confira a quilometragem e confirme novamente se desejar tentar de novo.`,
+            }
+          }
+          const startedWhen = found.startedAt ? ` em ${formatDateTime(found.startedAt)}` : ''
+          const startedKm = found.startKm !== null ? ` com ${formatKm(found.startKm)}` : ''
+          return {
+            ...current,
+            reconciling: false,
+            uncertain: false,
+            submitError: '',
+            reconciledOutcome: 'PERSISTED',
+            reconciliationNotice: `Situação atualizada: a viagem #${found.id} já consta no servidor como ${TRIP_STATUS_LABELS[found.status]}${startedWhen}${startedKm}.`,
+          }
+        }
+        return { ...current, reconciling: false }
+      })
     } else {
       setListError(failureMessage ?? errorMessage(outcome.error))
     }
@@ -136,6 +184,7 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
   function openExecution(tripId: string, action: TripExecutionAction) {
     if (submittingRef.current) return
     reconcilingRef.current = false
+    uncertainRef.current = false
     setResult(null)
     setExecution({
       tripId,
@@ -146,12 +195,15 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
       uncertain: false,
       denied: false,
       reconciling: false,
+      reconciledOutcome: null,
+      reconciliationNotice: '',
     })
   }
 
   function closeExecution() {
     if (submittingRef.current) return
     reconcilingRef.current = false
+    uncertainRef.current = false
     setExecution(null)
   }
 
@@ -165,6 +217,7 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
     const needsReconciliation = kind === 'conflict' || kind === 'notFound' || kind === 'forbidden'
     const message = error instanceof TripRequestError ? error.message : 'Ocorreu um erro inesperado.'
     if (needsReconciliation) reconcilingRef.current = true
+    if (uncertain) uncertainRef.current = true
     setExecution((current) => current && {
       ...current,
       fieldError: kind === 'validation' ? message : '',
@@ -172,6 +225,8 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
       uncertain,
       denied: kind === 'forbidden',
       reconciling: current.reconciling || needsReconciliation,
+      reconciledOutcome: null,
+      reconciliationNotice: '',
     })
     if (needsReconciliation) {
       setLoading(true)
@@ -188,10 +243,11 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
     || Boolean(executionIssue)
     || execution.denied
     || execution.reconciling
+    || execution.uncertain
     || stale
 
   async function submitExecution() {
-    if (!execution || submittingRef.current || reconcilingRef.current || confirmBlocked || !activeTrip) return
+    if (!execution || submittingRef.current || reconcilingRef.current || uncertainRef.current || confirmBlocked || !activeTrip) return
     const km = parseKmInput(execution.kmText)
     if (!km.ok) {
       setExecution({ ...execution, fieldError: km.error })
@@ -199,7 +255,14 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
     }
     submittingRef.current = true
     setSubmitting(true)
-    setExecution({ ...execution, fieldError: '', submitError: '', uncertain: false })
+    setExecution({
+      ...execution,
+      fieldError: '',
+      submitError: '',
+      uncertain: false,
+      reconciledOutcome: null,
+      reconciliationNotice: '',
+    })
     let confirmed: Trip
     try {
       confirmed = execution.action === 'START'
