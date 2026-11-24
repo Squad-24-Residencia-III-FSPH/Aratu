@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Box, Button, Typography } from '@mui/material'
 import type { OrderResultDraft } from '../../hooks/useSvoOrders'
 import { MISSING_DISPATCH, SVO_ORDER_LABELS } from '../../svo/svoOrderPresentation'
 import type { SvoOrderResult } from '../../svo/svoOrderTypes'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import { FormField, FormSelect } from '../ui/FormField'
+import { SVO_FOCUS_SX, SVO_SELECT_FIELD_SX, SVO_TEXT_FIELD_SX } from './svoOrderStyles'
 
 /** Propriedades do diálogo de registro e confirmação de resultado da ordem SVO. */
 export interface SvoOrderResultDialogProps {
@@ -32,13 +33,6 @@ export interface SvoOrderResultDialogProps {
   onReconcile: () => void
 }
 
-const FOCUS_SX = { '& :focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 } }
-const FIELD_SX = {
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'text.primary' },
-  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'text.primary' },
-  '& .MuiInputLabel-root.Mui-focused': { color: 'text.primary' },
-}
-
 /**
  * Formulário e revisão de encerramento da ordem SVO em dois passos no mesmo diálogo,
  * preservando o rascunho em memória e garantindo foco acessível (WCAG 2.2 AA).
@@ -57,25 +51,66 @@ export default function SvoOrderResultDialog({
   onReconcile,
 }: SvoOrderResultDialogProps) {
   const formRef = useRef<HTMLDivElement>(null)
+  const confirmAnchorRef = useRef<HTMLDivElement>(null)
+  const reasonRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const prevStepRef = useRef<OrderResultDraft['step'] | null>(null)
+  const [reviewAttempt, setReviewAttempt] = useState(0)
   const options = draft.order.allowedResults.map((value) => ({ value, label: SVO_ORDER_LABELS[value] }))
   const busy = submitting || reconciling
 
+  function handleReview(): void {
+    setReviewAttempt((count) => count + 1)
+    onReview()
+  }
+
   useEffect(() => {
-    if (draft.step !== 'form') return
+    const stepChanged = prevStepRef.current !== draft.step
+    prevStepRef.current = draft.step
+
+    if (draft.step === 'confirm') {
+      if (!stepChanged) return
+      // Move foco imediatamente para a ação segura, impedindo envio acidental por duplo Enter na abertura.
+      const focusSafeAction = () => {
+        const dialog = confirmAnchorRef.current?.closest('[role="dialog"]')
+        const buttons = dialog ? Array.from(dialog.querySelectorAll<HTMLButtonElement>('.MuiDialogActions-root button')) : []
+        const cancelButton = buttons.find((button) => button.textContent?.includes('Voltar ao formulário')) ?? buttons[0]
+        if (cancelButton && !cancelButton.disabled) cancelButton.focus()
+      }
+      focusSafeAction()
+      const frame = requestAnimationFrame(() => {
+        const dialog = confirmAnchorRef.current?.closest('[role="dialog"]')
+        const active = document.activeElement
+        const confirmButton = dialog?.querySelector<HTMLButtonElement>('.MuiDialogActions-root button:last-of-type')
+        if (!active || active === document.body || active === confirmButton) focusSafeAction()
+      })
+      return () => cancelAnimationFrame(frame)
+    }
+
+    const hasValidationError = Boolean(draft.resultError || draft.reasonError)
+    if (!stepChanged && !hasValidationError) return
+
     const frame = requestAnimationFrame(() => {
+      if (draft.resultError) {
+        formRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus()
+        return
+      }
+      if (draft.reasonError && reasonRef.current) {
+        reasonRef.current.focus()
+        return
+      }
       formRef.current?.querySelector<HTMLElement>('[role="combobox"], input, textarea')?.focus()
     })
     return () => cancelAnimationFrame(frame)
-  }, [draft.step])
+  }, [draft.step, draft.resultError, draft.reasonError, reviewAttempt])
 
   if (draft.step === 'confirm') {
     return (
       <ConfirmDialog
         open
         title={`Confirmar encerramento da ordem #${draft.order.id}`}
-        sx={FOCUS_SX}
+        sx={SVO_FOCUS_SX}
         description={
-          <>
+          <Box ref={confirmAnchorRef}>
             <Typography>Local do despacho: {draft.order.dispatch.location ?? MISSING_DISPATCH}</Typography>
             <Typography sx={{ mt: 1 }}>Resultado: {draft.result ? SVO_ORDER_LABELS[draft.result] : ''}</Typography>
             {draft.result === 'NOT_PERFORMED' && (
@@ -85,7 +120,7 @@ export default function SvoOrderResultDialog({
             <Typography sx={{ mt: 1 }}>
               Após confirmar, a ordem não poderá mais ser alterada e o horário atual do servidor será registrado.
             </Typography>
-          </>
+          </Box>
         }
         confirmLabel="Confirmar encerramento"
         cancelLabel="Voltar ao formulário"
@@ -112,7 +147,7 @@ export default function SvoOrderResultDialog({
     <ConfirmDialog
       open
       title={`Encerrar ordem #${draft.order.id}`}
-      sx={FOCUS_SX}
+      sx={SVO_FOCUS_SX}
       description={
         <>
           <Typography>Local do despacho: {draft.order.dispatch.location ?? MISSING_DISPATCH}</Typography>
@@ -124,7 +159,7 @@ export default function SvoOrderResultDialog({
       confirmLabel="Revisar encerramento"
       cancelLabel="Cancelar"
       confirmDisabled={disabled || draft.blocked}
-      onConfirm={onReview}
+      onConfirm={handleReview}
       onCancel={onClose}
     >
       <Box ref={formRef} sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -138,7 +173,7 @@ export default function SvoOrderResultDialog({
           disabled={disabled || busy}
           error={draft.resultError}
           options={options}
-          sx={FIELD_SX}
+          sx={SVO_SELECT_FIELD_SX}
           onChange={(value) => onChange({ result: value as SvoOrderResult | '' })}
         />
         {draft.result === 'NOT_PERFORMED' && (
@@ -147,10 +182,11 @@ export default function SvoOrderResultDialog({
             required
             multiline
             minRows={2}
+            inputRef={reasonRef}
             value={draft.failureReason}
             disabled={disabled || busy}
             error={draft.reasonError}
-            sx={FIELD_SX}
+            sx={SVO_TEXT_FIELD_SX}
             onChange={(value) => onChange({ failureReason: value })}
           />
         )}
@@ -161,7 +197,7 @@ export default function SvoOrderResultDialog({
           value={draft.notes}
           disabled={disabled || busy}
           helperText="Opcional"
-          sx={FIELD_SX}
+          sx={SVO_TEXT_FIELD_SX}
           onChange={(value) => onChange({ notes: value })}
         />
       </Box>

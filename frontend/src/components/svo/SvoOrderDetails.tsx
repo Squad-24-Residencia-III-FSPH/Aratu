@@ -1,8 +1,9 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material'
-import { useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import type { SvoOrderDetail } from '../../svo/svoOrderTypes'
 import { formatDateTime, MISSING_DISPATCH, MISSING_RECORD, SVO_ORDER_LABELS } from '../../svo/svoOrderPresentation'
 import StateFeedback from '../ui/StateFeedback'
+import { SVO_ALERT_ACTION_SX, SVO_ALERT_STACKED_SX, SVO_FOCUS_SX } from './svoOrderStyles'
 
 /** Detalhe sob demanda; separa o contexto imutável do despacho do cadastro atual. */
 interface SvoOrderDetailsProps {
@@ -16,17 +17,34 @@ interface SvoOrderDetailsProps {
 
 export default function SvoOrderDetails({ id, order, loading, error, onRetry, onClose }: SvoOrderDetailsProps) {
   const titleId = useId()
+  const titleRef = useRef<HTMLHeadingElement>(null)
   const occurrence = order?.occurrenceSnapshot
   const hasClosingInfo = Boolean(
     order && (order.result !== null || order.closedAt !== null || order.status === 'COMPLETED'
       || order.status === 'NOT_PERFORMED' || order.failureReason !== null || order.notes !== null || order.closedBy !== null),
   )
+
+  // Mantém o foco dentro do diálogo quando o botão de recuperação sai do DOM durante a nova consulta.
+  useEffect(() => {
+    const keepFocusInsideDialog = () => {
+      const dialog = titleRef.current?.closest('[role="dialog"]')
+      if (!dialog) return
+      const active = document.activeElement
+      if (!active || active === document.body || !dialog.contains(active)) {
+        titleRef.current?.focus()
+      }
+    }
+    keepFocusInsideDialog()
+    const frame = requestAnimationFrame(keepFocusInsideDialog)
+    return () => cancelAnimationFrame(frame)
+  }, [loading, error, order])
+
   return <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby={titleId}
-    sx={{ '& :focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 } }}>
-    <DialogTitle id={titleId}>Detalhes da ordem #{id}</DialogTitle>
+    sx={SVO_FOCUS_SX}>
+    <DialogTitle id={titleId} ref={titleRef} tabIndex={-1}>Detalhes da ordem #{id}</DialogTitle>
     <DialogContent sx={{ overflowWrap: 'anywhere' }} aria-busy={loading}>
       {loading ? <StateFeedback kind="loading" title="Carregando detalhe..." />
-        : error ? <StateFeedback kind="error" title="Não foi possível consultar o detalhe." description={error} actionLabel="Tentar detalhe novamente" onAction={onRetry} />
+        : error ? <StateFeedback kind="error" title="Não foi possível consultar o detalhe." description={error} actionLabel="Tentar detalhe novamente" sx={SVO_ALERT_STACKED_SX} actionSx={SVO_ALERT_ACTION_SX} onAction={onRetry} />
           : order && <>
             <Typography component="h2" variant="h6">Contexto do despacho</Typography>
             <Typography>Local: {order.dispatch.location ?? MISSING_DISPATCH}</Typography>

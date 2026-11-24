@@ -13,6 +13,7 @@ import StatusChip from '../ui/StatusChip'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import SvoOrderDetails from './SvoOrderDetails'
 import SvoOrderResultDialog from './SvoOrderResultDialog'
+import { SVO_ALERT_ACTION_SX, SVO_ALERT_STACKED_SX, SVO_FOCUS_SX, SVO_SELECT_FIELD_SX } from './svoOrderStyles'
 
 /** A página configura a operação ou a consulta; a API fornece as ações efetivamente autorizadas. */
 interface SvoOrderListProps { api: ApiRequest; operational: boolean }
@@ -21,7 +22,6 @@ const FILTER_OPTIONS = [
   { value: 'ACTIVE', label: 'Ativas' },
   ...SVO_ORDER_STATUSES.map((value) => ({ value, label: SVO_ORDER_LABELS[value] })),
 ]
-const FOCUS_SX = { '& :focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 } }
 
 export default function SvoOrderList({ api, operational }: SvoOrderListProps) {
   const state = useSvoOrders(api, operational)
@@ -53,11 +53,11 @@ export default function SvoOrderList({ api, operational }: SvoOrderListProps) {
   function content() {
     if (state.orders === null) return state.loading
       ? <StateFeedback kind="loading" title="Carregando ordens..." />
-      : <StateFeedback kind="error" title="Não foi possível carregar as ordens." description={state.listError} actionLabel="Tentar novamente" onAction={() => { void state.reload() }} />
+      : <StateFeedback kind="error" title="Não foi possível carregar as ordens." description={state.listError} actionLabel="Tentar novamente" sx={SVO_ALERT_STACKED_SX} actionSx={SVO_ALERT_ACTION_SX} onAction={() => { void state.reload() }} />
     if (state.orders.length === 0) return <StateFeedback kind="empty"
       title={state.filter === 'ACTIVE' ? (operational ? 'Nenhuma ordem ativa para sua equipe' : 'Nenhuma ordem ativa disponível')
         : state.filter ? 'Nenhuma ordem encontrada para esta situação' : operational ? 'Nenhuma ordem disponível para sua equipe' : 'Nenhuma ordem disponível'}
-      actionLabel={state.filter ? 'Limpar filtro' : 'Atualizar'} onAction={() => { if (state.filter) state.changeFilter(''); else void state.reload() }} />
+      actionLabel={state.filter ? 'Limpar filtro' : 'Atualizar'} sx={SVO_ALERT_STACKED_SX} actionSx={SVO_ALERT_ACTION_SX} onAction={() => { if (state.filter) state.changeFilter(''); else void state.reload() }} />
     return state.orders.map((order) => <OrderCard key={order.id} order={order} operational={operational}
       disabled={busy || state.loading || state.stale || Boolean(state.uncertainId)}
       onDetail={(trigger) => { triggerRef.current = trigger; void state.openDetail(order.id) }}
@@ -65,7 +65,7 @@ export default function SvoOrderList({ api, operational }: SvoOrderListProps) {
       onResult={(trigger) => { triggerRef.current = trigger; state.openResult(order) }} />)
   }
 
-  return <Box sx={{ maxWidth: 960, minWidth: 0, overflowWrap: 'anywhere', ...FOCUS_SX,
+  return <Box sx={{ maxWidth: 960, minWidth: 0, overflowWrap: 'anywhere', ...SVO_FOCUS_SX,
     '& .MuiChip-root': { height: 'auto', minHeight: 26, maxWidth: '100%' },
     '& .MuiChip-label': { whiteSpace: 'normal', py: 0.5 } }}>
     <PageHeader title={title} titleVariant="h4"
@@ -73,9 +73,7 @@ export default function SvoOrderList({ api, operational }: SvoOrderListProps) {
       actions={<>
         <Box sx={{ minWidth: { sm: 210 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
           <FormSelect label="Situação" value={state.filter} emptyLabel="Todas" displayEmpty options={FILTER_OPTIONS}
-            sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'text.primary' },
-              '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'text.primary' },
-              '& .MuiInputLabel-root.Mui-focused': { color: 'text.primary' } }}
+            sx={SVO_SELECT_FIELD_SX}
             disabled={busy} onChange={(value) => { if (value === '' || value === 'ACTIVE' || SVO_ORDER_STATUSES.some((status) => status === value)) state.changeFilter(value as typeof state.filter) }} />
         </Box>
         <Button variant="outlined" color="inherit" sx={{ borderColor: 'text.primary' }} disabled={state.loading || busy} onClick={() => { void state.reload() }}>
@@ -83,26 +81,26 @@ export default function SvoOrderList({ api, operational }: SvoOrderListProps) {
         </Button>
       </>} />
     <Box ref={resultRef} role="status" aria-live="polite" tabIndex={-1}>
-      {state.result && <Alert severity="success" sx={{ mb: 2 }}>{state.result}</Alert>}
+      {state.result && <Alert severity="success" role="presentation" sx={{ mb: 2 }}>{state.result}</Alert>}
     </Box>
     {state.orders !== null && state.stale && <StateFeedback kind="partial" title="A lista pode estar desatualizada."
-      description={state.listError} actionLabel="Atualizar consulta" onAction={() => { void state.reload() }} />}
+      description={state.listError} actionLabel="Atualizar consulta" sx={SVO_ALERT_STACKED_SX} actionSx={SVO_ALERT_ACTION_SX} onAction={() => { void state.reload() }} />}
     {state.uncertainId && !state.draft && !state.resultDraft && <StateFeedback kind="partial" title={`O resultado da ordem #${state.uncertainId} é incerto.`}
-      description="Consulte a situação antes de escolher uma nova ação." actionLabel="Consultar situação" onAction={() => { void state.reconcile() }} />}
+      description="Consulte a situação antes de escolher uma nova ação." actionLabel="Consultar situação" sx={SVO_ALERT_STACKED_SX} actionSx={SVO_ALERT_ACTION_SX} onAction={() => { void state.reconcile() }} />}
     <Box component="section" aria-labelledby={headingId} aria-busy={state.loading}>
       <Typography ref={listHeadingRef} id={headingId} component="h2" variant="h6" tabIndex={-1} sx={{ mb: 2 }}>Ordens {state.filter === 'ACTIVE' ? '— Ativas' : state.filter ? `— ${SVO_ORDER_LABELS[state.filter]}` : '— Todas'}</Typography>
       {content()}
     </Box>
     {detail && <SvoOrderDetails id={detail.id} order={detail.data} loading={detail.loading} error={detail.error}
       onRetry={() => { void state.openDetail(detail.id) }} onClose={state.closeDetail} />}
-    {draft && <ConfirmDialog open title={SVO_ACTION_LABELS[draft.action]} sx={FOCUS_SX}
+    {draft && <ConfirmDialog open title={SVO_ACTION_LABELS[draft.action]} sx={SVO_FOCUS_SX}
       description={<>{orderConfirmation(draft.order.id, draft.action)}<Typography sx={{ mt: 1 }}>Local do despacho: {draft.order.dispatch.location ?? MISSING_DISPATCH}</Typography></>}
       confirmLabel={SVO_ACTION_LABELS[draft.action]} cancelLabel="Voltar" loading={state.submitting}
       confirmDisabled={draft.blocked || state.loading || state.stale || Boolean(state.uncertainId)}
       onConfirm={() => { void state.submit() }} onCancel={state.closeAction} autoFocusCancel>
       {draft.error && <Alert severity="error" sx={{ mt: 2 }}>{draft.error}</Alert>}
       {draft.blocked && !state.uncertainId && <Typography sx={{ mt: 1 }}>Volte à lista atualizada e escolha novamente a ação disponível.</Typography>}
-      {state.uncertainId && <Button color="inherit" disabled={busy} onClick={() => { void state.reconcile() }}>{state.reconciling ? 'Consultando...' : 'Consultar situação'}</Button>}
+      {state.uncertainId && <Button color="inherit" disabled={busy} sx={{ mt: 1, minHeight: 44 }} onClick={() => { void state.reconcile() }}>{state.reconciling ? 'Consultando...' : 'Consultar situação'}</Button>}
     </ConfirmDialog>}
     {resultDraft && <SvoOrderResultDialog draft={resultDraft} submitting={state.submitting} reconciling={state.reconciling}
       uncertain={Boolean(state.uncertainId)} disabled={state.loading || state.stale || Boolean(state.uncertainId)}
