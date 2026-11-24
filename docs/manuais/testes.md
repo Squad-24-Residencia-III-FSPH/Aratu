@@ -78,3 +78,10 @@ Antes de aprovar qualquer tarefa que crie ou altere telas no `frontend/`, execut
    - Aplique zoom de 200% no navegador e simule tela móvel para validar que não há corte de texto ou sobreposição de botões, e que os alvos de toque para motoristas possuem ao menos **44×44px**.
 5. **Verificação de Contraste e Semântica Visual:**
    - Confirme que nenhum status de veículo, viagem ou chamado do SVO depende exclusivamente de cor.
+
+
+## 6. Registro de execução — correções gerais e responsividade (24/11/2026)
+
+A implementação incluiu cobertura focada para reautenticação, rotas/navegação por perfil, agenda, serviços de multas/documentos e histórico, além dos serviços de domínio alterados. Na rodada de execução, 14 arquivos focados de teste frontend passaram; 11 arquivos de serviço/backend focados passaram, com novas repetições de SVO/equipe/histórico também aprovadas. ESLint e verificações TypeScript do frontend/backend passaram. A validação completa permanece aberta: a API respondeu `GET /` com 200, mas `GET /health/ready` retornou 503 (`{"status":"unavailable"}`); `docker compose ps` foi negado pelo socket Docker, as duas migrations novas não foram aplicadas e a instalação local do frontend está sem `@mui/x-charts` apesar da dependência declarada. O build frontend falha porque `@mui/x-charts` está declarada mas ausente de `node_modules` e do cache. O `aratu-check` e a suíte frontend completa não retornaram resumo nesta sessão; não declarar aceite com base apenas nos testes focados.
+
+Para o aceite responsivo, registrar medidas/evidências em 320px, 200% de zoom e aparelho real, com navegação por teclado/leitor de tela, áreas seguras e teclado virtual. Verificar uso com a mão direita e manter alternativa equivalente para mão esquerda. Conferir ao menos as jornadas solicitante → correção/reenvio → gestor → motorista → conferência e atendente SVO → despacho automático/fila → equipe SVO.

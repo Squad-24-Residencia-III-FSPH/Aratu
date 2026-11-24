@@ -43,14 +43,16 @@ e do **Serviço de Verificação de Óbito (SVO)**.
 
 ---
 
-### Os perfis de usuário do sistema (`role` em Inglês `UPPER_SNAKE_CASE`)
+### Os perfis reais do Sistema Aratu
 
-1. **`ADMIN` (Administrador):** Acesso global para parametrização do sistema, cadastro de setores, serviços e usuários.
-2. **`MANAGER` / `FLEET_MANAGER` (Gestor de Frota / Aprovador):** Avalia solicitações de transporte, aprova/recusa, configura políticas de aprovação, cria viagens e aloca veículos e motoristas.
-3. **`REQUESTER` (Solicitante — FSPH):** Cria e acompanha pedidos de transporte institucional para sua respectiva unidade/setor.
-4. **`OPERATOR` / `SVO_OPERATOR` (Operador de Frota / Equipe SVO):** Opera atendimento de solicitações alocadas, coleta, entrega, devolução e fluxos do SVO com sigilo absoluto.
-5. **`TRIAGE` (Triagem):** Confirma triagem obrigatória em serviços que exigem validação prévia (`requires_triage`).
-6. **`DRIVER` (Motorista):** Acessa escala de viagens atribuídas, registra início/conclusão de viagem e informa hodômetro.
+Use os valores existentes em `auth.users.role`; aliases de outros sistemas ou perfis genéricos não fazem parte do contrato:
+
+1. **`ADMINISTRADOR`:** mantém contas enquanto não há integração com o diretório corporativo e tem acesso amplo para manutenção/supervisão. Não é aprovador substituto nem etapa necessária das rotinas de frota ou SVO.
+2. **`GESTOR`:** responde pela operação da frota e do SVO: veículos, motoristas, equipes e plantões, aprovação/alocação institucional, despacho e resolução da fila sem recurso.
+3. **`SOLICITANTE`:** cria e acompanha pedidos institucionais próprios; corrige e reenvia pedidos devolvidos com observação, preservando versões e histórico.
+4. **`MOTORISTA`:** consulta e executa viagens atribuídas à sua conta ativa, registrando início, hodômetro e conclusão.
+5. **`ATENDENTE_SVO`:** recebe solicitações SVO da população, verifica informações e conclui a triagem administrativa; não mantém equipes, plantões ou viaturas.
+6. **`EQUIPE_SVO`:** recebe e executa as ordens atribuídas à equipe, sem assumir a triagem de entrada nem a gestão da escala.
 
 ---
 

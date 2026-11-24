@@ -539,5 +539,6 @@
 </table>
 <p>Os cenários usam somente nomes, unidades e finalidades fictícios. Executar com <code>npx tsx --test --test-concurrency=1 tests/requests.integration.test.ts</code> ou incluir no <code>npm test</code>.</p>
 
+<section id="implementation-update-2026-11-24"><h2>Atualização de implementação — 24/11/2026</h2><p>O solicitante cria e consulta pedidos persistidos. O gestor distingue devolver para correção (com observação e versões preservadas) de recusar definitivamente; o solicitante pode editar os dados da viagem e reenviar sem limite artificial. A agenda do gestor consulta viagens por situação e período, incluindo estados finais. A alocação verifica capacidade e exige conta ativa vinculada ao motorista; requisitos especiais ficam sujeitos à conferência explícita do gestor até existir catálogo de adaptações.</p><p>A migration <code>202611240001_extend_trip_requests_for_corrections.sql</code> precisa ser aplicada e validada antes da homologação no banco.</p></section>
 </body>
 </html>
