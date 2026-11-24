@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import type { ReactNode } from 'react'
 import {
   Button,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@mui/material'
 import type { ButtonProps, SxProps, Theme } from '@mui/material'
+import { accessibleControls } from './accessibleControls'
 
 export interface ConfirmDialogProps {
   open: boolean
@@ -38,7 +39,32 @@ export interface ConfirmDialogProps {
   sx?: SxProps<Theme>
 }
 
-/** Diálogo de confirmação acessível, com foco preso e fechamento por `Esc`. */
+const baseDialogButtonSx = {
+  minHeight: 44,
+  minWidth: 44,
+  scrollMarginTop: '80px',
+  '&.Mui-focusVisible, &:focus-visible': {
+    outline: '3px solid #b94700',
+    outlineOffset: 2,
+  },
+} as const
+
+function mergeSx(base: SxProps<Theme>, custom?: SxProps<Theme>): SxProps<Theme> {
+  if (!custom) return base
+  return [
+    ...(Array.isArray(base) ? base : [base]),
+    ...(Array.isArray(custom) ? custom : [custom]),
+  ]
+}
+
+function restoreTriggerFocus(target: HTMLElement | null) {
+  const active = document.activeElement
+  if ((!active || active === document.body) && target?.isConnected) {
+    target.focus()
+  }
+}
+
+/** Diálogo de confirmação acessível, com foco preso, fechamento por `Esc` e devolução garantida de foco. */
 export default function ConfirmDialog({
   open,
   title,
@@ -63,6 +89,41 @@ export default function ConfirmDialog({
   confirmSx,
 }: ConfirmDialogProps) {
   const baseId = useId()
+  const paperRef = useRef<HTMLDivElement | null>(null)
+  const returnFocusToRef = useRef<HTMLElement | null>(null)
+  const isOpenRef = useRef(open)
+
+  useEffect(() => {
+    isOpenRef.current = open
+    if (open || typeof document === 'undefined') return
+
+    const captureFocusedElement = () => {
+      const active = document.activeElement
+      if (active instanceof HTMLElement && active !== document.body && !paperRef.current?.contains(active)) {
+        returnFocusToRef.current = active
+      }
+    }
+
+    captureFocusedElement()
+    document.addEventListener('focusin', captureFocusedElement)
+    return () => {
+      document.removeEventListener('focusin', captureFocusedElement)
+    }
+  }, [open])
+
+  useEffect(() => {
+    return () => {
+      if (isOpenRef.current && !onExited) {
+        const target = returnFocusToRef.current
+        queueMicrotask(() => restoreTriggerFocus(target))
+      }
+    }
+  }, [onExited])
+
+  function handleExited() {
+    onExited?.()
+    restoreTriggerFocus(returnFocusToRef.current)
+  }
 
   return (
     <Dialog
@@ -72,10 +133,13 @@ export default function ConfirmDialog({
       aria-describedby={`${baseId}-description`}
       fullWidth
       maxWidth="xs"
-      sx={sx}
+      sx={mergeSx(accessibleControls, sx)}
       slotProps={{
-        ...(paperSx ? { paper: { sx: paperSx } } : {}),
-        transition: { onEntered, ...(onExited ? { onExited } : {}) },
+        paper: {
+          ref: paperRef,
+          sx: mergeSx({ scrollMarginTop: '80px' }, paperSx),
+        },
+        transition: { onEntered, onExited: handleExited },
       }}
     >
       <DialogTitle id={`${baseId}-title`}>{title}</DialogTitle>
@@ -91,7 +155,7 @@ export default function ConfirmDialog({
           disabled={loading}
           color="inherit"
           autoFocus={autoFocusCancel}
-          sx={cancelSx ?? { minHeight: 44 }}
+          sx={mergeSx(baseDialogButtonSx, cancelSx)}
         >
           {cancelLabel}
         </Button>
@@ -101,7 +165,7 @@ export default function ConfirmDialog({
           variant="contained"
           color={confirmColor ?? (danger ? 'error' : 'primary')}
           aria-busy={loading ? 'true' : undefined}
-          sx={confirmSx ?? { minHeight: 44 }}
+          sx={mergeSx(baseDialogButtonSx, confirmSx)}
         >
           {loading ? loadingLabel : confirmLabel}
         </Button>

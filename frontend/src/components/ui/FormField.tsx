@@ -38,6 +38,47 @@ const visuallyHiddenLabel = {
   border: 0,
 }
 
+const baseFieldSx = {
+  '& .MuiOutlinedInput-root': {
+    minHeight: 44,
+    scrollMarginTop: '80px',
+  },
+  '& .MuiOutlinedInput-input, & .MuiSelect-select': {
+    minHeight: 44,
+    boxSizing: 'border-box',
+    scrollMarginTop: '80px',
+  },
+  '& .MuiSelect-select': {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  '& .MuiOutlinedInput-root:not(.Mui-disabled):not(.Mui-error) .MuiOutlinedInput-notchedOutline': {
+    borderColor: '#6b7280',
+  },
+  '& .MuiOutlinedInput-root.Mui-focused:not(.Mui-error) .MuiOutlinedInput-notchedOutline': {
+    borderColor: '#b94700',
+    borderWidth: 2,
+  },
+  '& .MuiInputLabel-root:not(.Mui-error):not(.Mui-disabled)': {
+    color: '#374151',
+  },
+  '& .MuiInputLabel-root.Mui-focused:not(.Mui-error)': {
+    color: '#b94700',
+  },
+  '& .MuiFormHelperText-root:not(.Mui-error)': {
+    color: '#4b5563',
+  },
+  '& [role="combobox"]:focus-visible, & [role="combobox"].Mui-focusVisible': {
+    outline: '3px solid #b94700',
+    outlineOffset: 2,
+  },
+} as const
+
+function mergeFieldSx(sx?: SxProps<Theme>): SxProps<Theme> {
+  if (!sx) return baseFieldSx
+  return [baseFieldSx, ...(Array.isArray(sx) ? sx : [sx])]
+}
+
 interface FeedbackIds {
   describedBy: string | undefined
   helperContent: ReactNode
@@ -60,7 +101,7 @@ function useFeedbackIds(error?: string, helperText?: string): FeedbackIds {
   return { describedBy, helperContent }
 }
 
-/** Campo de texto acessível com rótulo persistente e erro associado. */
+/** Campo de texto acessível com rótulo persistente, alvo mínimo de 44px e erro associado. */
 export function FormField({
   label,
   value,
@@ -104,7 +145,7 @@ export function FormField({
       placeholder={placeholder}
       autoFocus={autoFocus}
       inputRef={inputRef}
-      sx={sx}
+      sx={mergeFieldSx(sx)}
       slotProps={{
         ...(startAdornment ? { input: { startAdornment } } : {}),
         htmlInput: {
@@ -157,7 +198,7 @@ interface MultipleSelectProps extends FormSelectBaseProps {
 
 export type FormSelectProps = SingleSelectProps | MultipleSelectProps
 
-/** Select acessível com rótulo, erro e suporte a múltipla seleção. */
+/** Select acessível com rótulo, alvo mínimo de 44px, erro e suporte a múltipla seleção. */
 export function FormSelect(props: FormSelectProps) {
   const id = useId()
   const { describedBy, helperContent } = useFeedbackIds(props.error, props.helperText)
@@ -181,7 +222,7 @@ export function FormSelect(props: FormSelectProps) {
       fullWidth
       size="small"
       autoFocus={props.autoFocus}
-      sx={props.sx}
+      sx={mergeFieldSx(props.sx)}
       slotProps={{
         select: {
           multiple,
