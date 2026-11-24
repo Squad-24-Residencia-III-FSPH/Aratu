@@ -28,7 +28,12 @@ const invalid = (): SvoOccurrenceRequestError => new SvoOccurrenceRequestError('
 function parseSummary(value: unknown): SvoOccurrenceSummary {
   if (!record(value) || !id(value.id) || !SVO_REQUESTER_TYPES.some((type) => type === value.requesterType)
     || !string(value.location) || !SVO_OCCURRENCE_STATUSES.some((status) => status === value.status)
-    || !iso(value.receivedAt) || !iso(value.createdAt) || !revision(value.revision)) throw invalid()
+    || !iso(value.receivedAt) || !iso(value.createdAt) || !revision(value.revision)
+    || !(value.dispatchRequestedAt === undefined || value.dispatchRequestedAt === null || iso(value.dispatchRequestedAt))
+    || !(value.dispatchRequestedBy === undefined || value.dispatchRequestedBy === null || id(value.dispatchRequestedBy))
+    || !(value.dispatchWaitReason === undefined || value.dispatchWaitReason === null
+      || value.dispatchWaitReason === 'NO_TEAM' || value.dispatchWaitReason === 'NO_VEHICLE')
+    || !(value.executionOrderId === undefined || value.executionOrderId === null || id(value.executionOrderId))) throw invalid()
   return {
     id: value.id,
     requesterType: value.requesterType as SvoOccurrenceSummary['requesterType'],
@@ -37,6 +42,10 @@ function parseSummary(value: unknown): SvoOccurrenceSummary {
     receivedAt: value.receivedAt,
     createdAt: value.createdAt,
     revision: value.revision,
+    dispatchRequestedAt: value.dispatchRequestedAt === undefined ? null : value.dispatchRequestedAt as string | null,
+    dispatchRequestedBy: value.dispatchRequestedBy === undefined ? null : value.dispatchRequestedBy as string | null,
+    dispatchWaitReason: value.dispatchWaitReason === undefined ? null : value.dispatchWaitReason as SvoOccurrenceSummary['dispatchWaitReason'],
+    executionOrderId: value.executionOrderId === undefined ? null : value.executionOrderId as string | null,
   }
 }
 
@@ -138,15 +147,37 @@ export async function confirmSvoOccurrence(
   occurrence: SvoOccurrenceDetail,
 ): Promise<SvoOccurrenceConfirmationResult> {
   const value = await request(api, `/svo/occurrences/${encodeURIComponent(occurrence.id)}/confirm`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedRevision: occurrence.revision }),
   })
   if (!record(value) || value.id !== occurrence.id || value.status !== 'CONFIRMED'
-    || !iso(value.triagedAt) || !id(value.triagedBy) || value.revision !== occurrence.revision + 1) throw invalid()
+    || !iso(value.triagedAt) || !id(value.triagedBy) || !revision(value.revision) || value.revision <= occurrence.revision
+    || (value.dispatch !== undefined && (!record(value.dispatch)
+      || (value.dispatch.status === 'DISPATCHED'
+        ? (!id(value.dispatch.orderId) || !id(value.dispatch.teamId) || !id(value.dispatch.vehicleId) || value.dispatch.revision !== value.revision)
+        : value.dispatch.status !== 'WAITING' || (value.dispatch.reason !== 'NO_TEAM' && value.dispatch.reason !== 'NO_VEHICLE')
+          || value.dispatch.revision !== value.revision)))) throw invalid()
   return {
     id: value.id,
     status: 'CONFIRMED',
     triagedAt: value.triagedAt,
     triagedBy: value.triagedBy,
     revision: value.revision,
+    ...(record(value.dispatch) ? { dispatch: value.dispatch as SvoOccurrenceConfirmationResult['dispatch'] } : {}),
   }
+}
+
+/** Reavalia automaticamente a seleção de recursos para uma ocorrência em espera. */
+export async function retrySvoDispatch(api: ApiRequest, occurrence: SvoOccurrenceSummary): Promise<SvoOccurrenceConfirmationResult['dispatch']> {
+  const value = await request(api, `/svo/orders/dispatch/${encodeURIComponent(occurrence.id)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expectedRevision: occurrence.revision, reason: 'Gestor solicitou nova seleção automática após revisar a disponibilidade operacional.' }),
+  })
+  if (!record(value)) throw invalid()
+  if (value.status === 'DISPATCHED' && id(value.orderId) && id(value.teamId) && id(value.vehicleId) && revision(value.revision)) {
+    return { status: 'DISPATCHED', orderId: value.orderId, teamId: value.teamId, vehicleId: value.vehicleId, revision: value.revision }
+  }
+  if (value.status === 'WAITING' && (value.reason === 'NO_TEAM' || value.reason === 'NO_VEHICLE') && revision(value.revision)) {
+    return { status: 'WAITING', reason: value.reason, revision: value.revision }
+  }
+  throw invalid()
 }

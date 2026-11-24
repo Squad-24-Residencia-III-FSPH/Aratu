@@ -56,6 +56,7 @@ function setup() {
       } finally { release() }
     },
     async list() { return [vehicle] },
+    async history(_id, filters) { return { items: [], total: 0, page: filters.page, pageSize: filters.pageSize, totalPages: 0 } },
     async findById(id) { return id === vehicle.id ? vehicle : null },
     async findByIdForUpdate(id) { return id === vehicle.id ? vehicle : null },
     async findByLicensePlate() { return null },

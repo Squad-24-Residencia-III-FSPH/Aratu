@@ -1,4 +1,5 @@
 import type { Pool } from 'pg'
+import { randomUUID } from 'node:crypto'
 
 /** CPFs sintéticos válidos apenas matematicamente (LGPD: nenhum pertence a pessoa real conhecida). */
 export const FICTITIOUS_CPFS = [
@@ -46,6 +47,29 @@ export function insertDriver(
     `INSERT INTO fleet.drivers (name, cpf, cnh_number, cnh_category, cnh_expires_at, status, user_id)
      VALUES ($1, $2, $3, 'D', $4::date, $5, $6) RETURNING id::text AS id`,
     [name, cpf, `CNH-${cpf}`, cnhExpiresAt, status, userId],
+  )
+}
+
+/** Cria uma conta MOTORISTA ativa fictícia para vincular a um condutor disponível no cenário. */
+export async function insertDriverAccount(pool: Pool): Promise<string> {
+  const roleResult = await pool.query<{ roleId: string; passwordHash: string }>(
+    `SELECT u.role_id::text AS "roleId", u.password_hash AS "passwordHash"
+       FROM auth.users u
+       JOIN auth.roles r ON r.id = u.role_id
+      WHERE r.name = 'MOTORISTA' AND u.active = true
+      ORDER BY u.id
+      LIMIT 1`,
+  )
+  const fixtureAccount = roleResult.rows[0]
+  if (!fixtureAccount) throw new Error('A conta MOTORISTA fictícia não foi provisionada.')
+
+  const identifier = randomUUID()
+  return insertReturningId(
+    pool,
+    `INSERT INTO auth.users (name, email, password_hash, role_id, active)
+     VALUES ($1, $2, $3, $4, true) RETURNING id::text AS id`,
+    [`Motorista vinculado fictício QA ${identifier}`, `motorista-vinculado-${identifier}@example.test`,
+      fixtureAccount.passwordHash, fixtureAccount.roleId],
   )
 }
 

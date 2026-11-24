@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiRequest } from '../api/client.ts'
 import {
-  confirmSvoOccurrence, createSvoOccurrence, getSvoOccurrence, listSvoOccurrences,
+  confirmSvoOccurrence, createSvoOccurrence, getSvoOccurrence, listSvoOccurrences, retrySvoDispatch,
 } from '../services/svoOccurrencesService.ts'
 import { SvoOccurrenceRequestError } from '../svo/svoOccurrenceTypes.ts'
 import type {
@@ -39,6 +39,8 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
   const [confirming, setConfirming] = useState(false)
   const [confirmationError, setConfirmationError] = useState('')
   const [confirmationBlocked, setConfirmationBlocked] = useState(false)
+  const [dispatchingId, setDispatchingId] = useState<string | null>(null)
+  const [dispatchError, setDispatchError] = useState('')
   const [permissionDenied, setPermissionDenied] = useState(false)
   const [notice, setNotice] = useState('')
   const listSequence = useRef(0)
@@ -183,7 +185,12 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
       setDetail((current) => current?.id === result.id && current.data
         ? { ...current, data: { ...current.data, status: result.status, triagedAt: result.triagedAt, triagedBy: result.triagedBy, revision: result.revision } }
         : current)
-      setNotice(`Solicitação #${result.id} confirmada após conferência dos dados recebidos.`)
+      const dispatchNotice = result.dispatch?.status === 'DISPATCHED'
+        ? ` Ordem #${result.dispatch.orderId} encaminhada automaticamente para a equipe e viatura selecionadas.`
+        : result.dispatch?.status === 'WAITING'
+          ? ` A solicitação aguarda despacho: ${result.dispatch.reason === 'NO_TEAM' ? 'não há equipe elegível no plantão.' : 'não há viatura elegível com vaga.'}`
+          : ''
+      setNotice(`Solicitação #${result.id} confirmada após conferência dos dados recebidos.${dispatchNotice}`)
       const refreshed = await reload('A confirmação foi concluída, mas a lista não pôde ser atualizada. Atualize a consulta.')
       if (!refreshed && mounted.current && epoch === lifecycle.current) {
         setPartialWarning('A confirmação foi concluída, mas a lista pode estar desatualizada. Atualize a consulta.')
@@ -207,6 +214,39 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
     }
   }, [api, reload])
 
+  const retryDispatch = useCallback(async (occurrence: SvoOccurrenceSummary): Promise<boolean> => {
+    if (sending.current || occurrence.status !== 'CONFIRMED' || !occurrence.dispatchRequestedAt || occurrence.executionOrderId) return false
+    sending.current = true
+    setDispatchingId(occurrence.id)
+    setDispatchError('')
+    setNotice('')
+    const epoch = lifecycle.current
+    try {
+      const result = await retrySvoDispatch(api, occurrence)
+      if (!mounted.current || epoch !== lifecycle.current) return false
+      setNotice(result?.status === 'DISPATCHED'
+        ? `Ordem #${result.orderId} criada automaticamente para a solicitação #${occurrence.id}.`
+        : `A solicitação #${occurrence.id} continua aguardando recurso elegível.`)
+      const refreshed = await reload('A tentativa foi registrada, mas a fila não pôde ser atualizada. Recarregue antes de tentar novamente.')
+      if (!refreshed && mounted.current && epoch === lifecycle.current) {
+        setPartialWarning('A tentativa foi registrada; consulte a fila antes de repetir a ação.')
+      }
+      return true
+    } catch (error) {
+      if (!mounted.current || epoch !== lifecycle.current) return false
+      setDispatchError(message(error))
+      const kind = error instanceof SvoOccurrenceRequestError ? error.kind : 'network'
+      if (kind === 'forbidden') setPermissionDenied(true)
+      if (uncertain(error) || kind === 'conflict' || kind === 'notFound') await reload()
+      return false
+    } finally {
+      if (mounted.current && epoch === lifecycle.current) {
+        sending.current = false
+        setDispatchingId(null)
+      }
+    }
+  }, [api, reload])
+
   function clearCreateError(): void { setCreateError('') }
   function clearConfirmationError(): void {
     setConfirmationError('')
@@ -216,7 +256,8 @@ export function useSvoOccurrences(api: ApiRequest, initialStatus: SvoOccurrenceF
   return {
     occurrences, filters, loading, listError, listErrorKind, partialWarning, detail,
     creating, createError, confirming, confirmationError, confirmationBlocked,
+    dispatchingId, dispatchError,
     permissionDenied, notice, reload, changeFilters, openDetail, closeDetail,
-    register, confirm, clearCreateError, clearConfirmationError,
+    register, confirm, retryDispatch, clearCreateError, clearConfirmationError,
   }
 }

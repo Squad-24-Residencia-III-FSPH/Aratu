@@ -50,6 +50,7 @@ export interface SvoOrderDetail extends SvoOrderSummary {
   occurrenceSnapshot: SvoOrderOccurrenceSnapshot | null
   teamSnapshot: SvoTeamSnapshot | null
   vehicleSnapshot: SvoOrderVehicleSnapshot | null
+  allocationSnapshot: SvoAllocationSnapshot | null
 }
 /** Metadado interno de autorização; nunca integra a resposta HTTP. */
 export interface SvoOrderReadRow extends Omit<SvoOrderSummary, 'allowedTransitions' | 'allowedResults'> { teamActive: boolean }
@@ -60,6 +61,7 @@ export interface SvoOrderDetailRow extends SvoOrderReadRow {
   occurrenceSnapshot: SvoOrderOccurrenceSnapshot | null
   teamSnapshot: SvoTeamSnapshot | null
   vehicleSnapshot: SvoOrderVehicleSnapshot | null
+  allocationSnapshot: SvoAllocationSnapshot | null
 }
 export interface SvoOrderMembership { active: boolean; joinedAt: Date; leftAt: Date | null }
 export interface UpdateSvoOrderStatusInput { status: SvoOrderStatus; revision: number }
@@ -83,9 +85,26 @@ export interface CreateSvoOrderInput {
   occurrenceId: string
   teamId: string
   vehicleId: string
+  expectedRevision?: number
+  reason?: string
 }
 export interface SvoOrderCreationResult { id: string; status: typeof SVO_ORDER_INITIAL_STATUS }
 export interface SvoTeamSnapshot { id: string; name: string; active: boolean; revision: number }
+export interface SvoAllocationSnapshot {
+  teamShiftId: string
+  shiftStartsAt: Date | string
+  shiftEndsAt: Date | string
+  teamActiveOrderCount: number
+  teamLastDispatchAt: Date | string | null
+  selectionRule: 'LOWEST_ACTIVE_ORDERS_THEN_LONGEST_WITHOUT_DISPATCH' | 'MANUAL_MANAGER_OVERRIDE'
+}
+export interface SvoDispatchTeamCandidate extends SvoTeamSnapshot {
+  shiftId: string
+  shiftStartsAt: Date
+  shiftEndsAt: Date
+  activeOrderCount: number
+  lastDispatchAt: Date | null
+}
 export type SvoOrderOccurrenceSnapshot = Pick<SvoOccurrenceDetail,
   'id' | 'status' | 'revision' | 'requesterName' | 'requesterPhone' | 'requesterType' | 'location' |
   'description' | 'notes' | 'receivedAt' | 'triagedAt' | 'triagedBy' | 'attendantId' | 'evidenceDescription'>
@@ -99,6 +118,8 @@ export interface NewSvoOrder extends CreateSvoOrderInput {
   occurrenceSnapshot: SvoOrderOccurrenceSnapshot
   teamSnapshot: SvoTeamSnapshot
   vehicleSnapshot: SvoOrderVehicleSnapshot
+  teamShiftId: string | null
+  allocationSnapshot: SvoAllocationSnapshot | null
 }
 export interface SvoOrderRecord extends NewSvoOrder { id: string }
 export interface OpenSvoOrderEvent {
@@ -108,7 +129,8 @@ export interface OpenSvoOrderEvent {
   evidenceDescription: string
 }
 export type SvoOrderErrorCode = 'INVALID_INPUT' | 'ACCOUNT_UNAVAILABLE' | 'ACCESS_DENIED' | 'NOT_FOUND' |
-  'OCCURRENCE_NOT_CONFIRMED' | 'ORDER_ALREADY_EXISTS' | 'TEAM_UNAVAILABLE' | 'VEHICLE_UNAVAILABLE' | 'CAPACITY_EXCEEDED' | 'INVALID_TRANSITION'
+  'OCCURRENCE_NOT_CONFIRMED' | 'ORDER_ALREADY_EXISTS' | 'TEAM_UNAVAILABLE' | 'VEHICLE_UNAVAILABLE' | 'CAPACITY_EXCEEDED' | 'INVALID_TRANSITION' |
+  'NO_TEAM' | 'NO_VEHICLE' | 'CONFLICT' | 'DISPATCH_NOT_REQUESTED'
 
 /** Mantém erros de domínio independentes do protocolo HTTP. */
 export class SvoOrderServiceError extends Error {

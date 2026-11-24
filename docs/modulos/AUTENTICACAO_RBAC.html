@@ -743,5 +743,6 @@
   </li>
 </ul>
 
+<section id="implementation-update-2026-11-24"><h2>Atualização de implementação — 24/11/2026</h2><p>A consulta autenticada <code>GET /auth/me</code> revalida identidade e perfil. A interface avisa antes da expiração e permite reautenticação explícita; a continuidade preserva o contexto somente quando a identidade e o perfil continuam os mesmos. O administrador mantém contas enquanto não há integração AD, com acesso amplo de manutenção sem tornar sua atuação uma etapa operacional. A aplicação precisa validar migrations/rotas no Compose antes do aceite final.</p></section>
 </body>
 </html>

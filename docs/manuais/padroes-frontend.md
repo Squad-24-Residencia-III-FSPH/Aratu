@@ -9,10 +9,12 @@ Este documento define as diretrizes de desenvolvimento de interface, componentes
 Toda tela do Aratu é desenhada a partir da rotina operacional real dos profissionais da **FSPH** e do **SVO**, e nunca como um espelho direto das colunas do banco de dados:
 
 1. **Identifique o perfil e o contexto de uso:**
-   - **Motorista (`DRIVER` — campo/pátio):** utiliza smartphone ou tablet sob sol forte ou à noite. Exige alvos de toque de no mínimo **44×44px**, alto contraste e formulários diretos.
-   - **Gestor de Frota (`MANAGER` — central):** utiliza desktop com teclado e mouse. Exige tabelas semânticas densas, filtros rápidos e visão clara de disponibilidade.
-   - **Operador / Equipe SVO (`OPERATOR` / `TRIAGE` — plantão/acolhimento):** lida com situações sensíveis de verificação de óbito e liberação de corpos. Exige máxima prevenção de erros, confirmações explícitas e sigilo visual.
-   - **Solicitante FSPH (`REQUESTER` — setores/unidades):** uso esporádico. Exige telas autoexplicativas, instruções de preenchimento claras e acompanhamento simples do pedido.
+   - **Motorista (`MOTORISTA` — campo/pátio):** utiliza smartphone ou tablet sob sol forte ou à noite. Exige alvos de toque de no mínimo **44×44px**, alto contraste e formulários diretos.
+   - **Gestor de Frota (`GESTOR` — central):** utiliza desktop com teclado e mouse para gerir frota, equipes/plantões SVO, despacho e fila de recursos; a interface móvel também deve permitir consulta e ações essenciais.
+   - **Atendente SVO (`ATENDENTE_SVO` — acolhimento e triagem administrativa):** recebe solicitações da população, verifica informações e registra a triagem para evitar trotes e obter dados necessários. Não mantém equipes, plantões ou viaturas e não realiza procedimentos clínicos.
+   - **Equipe SVO (`EQUIPE_SVO` — execução):** recebe e executa ordens atribuídas, com ações de operação claras e proteção contra encerramento acidental.
+   - **Solicitante FSPH (`SOLICITANTE` — setores/unidades):** uso esporádico. Exige telas autoexplicativas, instruções de preenchimento claras e acompanhamento simples do pedido.
+   - **Administrador (`ADMINISTRADOR` — manutenção do sistema):** mantém contas e tem acesso global para manutenção e supervisão. Não é uma etapa obrigatória dos fluxos operacionais, que pertencem aos perfis responsáveis.
 
 ---
 
@@ -129,6 +131,15 @@ Toda tela ou listagem que consome dados assíncronos da API deve implementar exp
 - **Tamanho do Alvo (2.5.8):** mínimo absoluto de **24×24px** em desktop e **44×44px** em telas móveis operacionais (motoristas e pátio).
 - **Anúncio de Mensagens de Status (4.1.3):** feedbacks assíncronos (toast/alerta de sucesso ou despacho) devem utilizar `role="status"` ou `aria-live="polite"`.
 - **Autenticação Acessível (3.3.8) e Entrada Não Redundante (3.3.7):** nunca bloquear colar senha nos campos de login e não exigir que o usuário redigite dados já informados no mesmo passo a passo.
+
+## 7. Layout responsivo e uso com uma mão
+
+- Em telas estreitas, priorize cartões com conteúdo e ações essenciais em vez de tabelas comprimidas; mantenha tabelas apenas em uma região com rolagem horizontal identificável quando a comparação tabular for necessária.
+- Use o container, a tipografia, os espaçamentos e os controles do tema compartilhado. Evite cada página definir largura, fonte ou margem principal de forma isolada.
+- Ações frequentes ficam numa faixa inferior alcançável pelo polegar direito, com alvos de pelo menos **44×44px** e área segura do sistema operacional. Não esconda navegação, foco ou conteúdo atrás de barras fixas.
+- Formulários no celular ficam em uma coluna, preservam rascunho durante a navegação para detalhes e colocam a ação primária perto da parte inferior sem cobrir campos ou teclado virtual.
+- Não dependa de swipe, hover, arrastar ou alcance de uma zona fixa: a interface também precisa funcionar com a mão esquerda, teclado, leitor de tela, zoom e orientação horizontal.
+- Verifique largura de **320px**, zoom de 200%, áreas seguras, teclado virtual e foco visível. Ergonomia final precisa ser observada em aparelhos reais; uma regra CSS não comprova alcance físico.
 
 ---
 

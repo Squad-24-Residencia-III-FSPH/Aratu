@@ -59,9 +59,9 @@ const initialFormValues: UserFormValues = {
 
 const colors = {
   primary: '#FF6B00',
-  heading: '#1e293b',
-  text: '#475569',
-  secondary: '#64748b',
+  heading: '#111827',
+  text: '#374151',
+  secondary: '#4b5563',
   border: '#e2e8f0',
   tableHeader: '#f8fafc',
 }
@@ -449,10 +449,7 @@ export default function UserManagementPage() {
     <Box className={styles.page}>
       <PageHeader
         title="Gerenciar usuários"
-        titleVariant="h4"
-        titleSx={{ color: colors.heading, fontSize: { xs: '1.5rem', sm: '2rem' } }}
-        breadcrumbs={['Início', 'Usuários']}
-        breadcrumbsSx={{ mb: 2, color: colors.secondary, fontSize: '0.85rem' }}
+        titleSx={{ color: colors.heading }}
         eyebrow="Administração do sistema"
         description="Cadastre, edite e controle a situação das contas e seus perfis de acesso."
         descriptionSx={{ color: colors.secondary, mt: 0.5 }}
@@ -516,7 +513,7 @@ export default function UserManagementPage() {
               startAdornment={<Search sx={{ color: colors.secondary, fontSize: 20, mr: 1 }} />}
               sx={{
                 ...fieldSx,
-                '& .MuiInputBase-root': { fontSize: '0.875rem' },
+                '& .MuiInputBase-root': { fontSize: '1rem' },
               }}
             />
           </Box>
@@ -611,7 +608,7 @@ export default function UserManagementPage() {
           headerCellSx={{
             backgroundColor: colors.tableHeader,
             color: colors.secondary,
-            fontSize: '0.8rem',
+            fontSize: '0.875rem',
             borderBottom: `1px solid ${colors.border}`,
             py: 1.75,
           }}
@@ -665,10 +662,10 @@ export default function UserManagementPage() {
             flexWrap: 'wrap',
             gap: 1.5,
             color: colors.secondary,
-            fontSize: '0.8rem',
+            fontSize: '0.875rem',
           }}
         >
-          <Typography variant="body2" sx={{ color: colors.secondary, fontSize: '0.8rem' }}>
+          <Typography variant="body2" sx={{ color: colors.secondary, fontSize: '0.875rem' }}>
             {total === 0 ? 'Nenhum registro' : `${total} usuário(s) encontrado(s)`}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -683,7 +680,7 @@ export default function UserManagementPage() {
             >
               Anterior
             </Button>
-            <Typography variant="body2" sx={{ color: colors.secondary, fontSize: '0.8rem' }}>
+            <Typography variant="body2" sx={{ color: colors.secondary, fontSize: '0.875rem' }}>
               Página {page} de {Math.max(1, totalPages)}
             </Typography>
             <Button

@@ -12,7 +12,9 @@ export interface SvoOccurrencesRepositoryContract {
   list(filters: SvoListFilters): Promise<SvoOccurrenceSummary[]>
   findById(id: string, client?: PoolClient): Promise<SvoOccurrenceDetail | null>
   findByIdForUpdate(id: string, client: PoolClient): Promise<SvoOccurrenceDetail | null>
-  confirm(id: string, actorId: string, time: Date, client: PoolClient): Promise<SvoOccurrenceDetail>
+  confirm(id: string, actor: SvoActorSnapshot, time: Date, client: PoolClient): Promise<SvoOccurrenceDetail>
+  setDispatchIntent(id: string, actor: SvoActorSnapshot, time: Date, client: PoolClient): Promise<SvoOccurrenceDetail>
+  setDispatchWaitReason(id: string, reason: 'NO_TEAM' | 'NO_VEHICLE' | null, time: Date, client: PoolClient): Promise<SvoOccurrenceDetail>
   createEvent(input: CreateSvoEventInput, client: PoolClient): Promise<void>
 }
 
@@ -68,13 +70,16 @@ export class SvoOccurrencesRepository implements SvoOccurrencesRepositoryContrac
 
   async list(filters: SvoListFilters): Promise<SvoOccurrenceSummary[]> {
     const result = await this.pool.query<SvoOccurrenceSummary>(
-      `SELECT id::text AS id, requester_type AS "requesterType", location, status,
-              received_at AS "receivedAt", created_at AS "createdAt", revision
-         FROM svo.occurrences
-        WHERE ($1::text IS NULL OR status = $1)
-          AND ($2::timestamptz IS NULL OR received_at >= $2)
-          AND ($3::timestamptz IS NULL OR received_at < $3)
-        ORDER BY received_at DESC, id DESC`, [filters.status, filters.from, filters.until],
+      `SELECT o.id::text AS id, o.requester_type AS "requesterType", o.location, o.status,
+              o.received_at AS "receivedAt", o.created_at AS "createdAt", o.revision,
+              o.dispatch_requested_at AS "dispatchRequestedAt", o.dispatch_requested_by::text AS "dispatchRequestedBy",
+              o.dispatch_wait_reason AS "dispatchWaitReason",
+              (SELECT x.id::text FROM svo.execution_orders x WHERE x.occurrence_id = o.id) AS "executionOrderId"
+         FROM svo.occurrences o
+        WHERE ($1::text IS NULL OR o.status = $1)
+          AND ($2::timestamptz IS NULL OR o.received_at >= $2)
+          AND ($3::timestamptz IS NULL OR o.received_at < $3)
+        ORDER BY o.received_at DESC, o.id DESC`, [filters.status, filters.from, filters.until],
     )
     return result.rows
   }
@@ -83,6 +88,9 @@ export class SvoOccurrencesRepository implements SvoOccurrencesRepositoryContrac
     const result = await (client ?? this.pool).query<SvoOccurrenceDetail>(
       `SELECT o.id::text AS id, o.requester_type AS "requesterType", o.location, o.status,
               o.received_at AS "receivedAt", o.created_at AS "createdAt", o.revision,
+              o.dispatch_requested_at AS "dispatchRequestedAt", o.dispatch_requested_by::text AS "dispatchRequestedBy",
+              o.dispatch_wait_reason AS "dispatchWaitReason",
+              (SELECT x.id::text FROM svo.execution_orders x WHERE x.occurrence_id = o.id) AS "executionOrderId",
               o.requester_name AS "requesterName", o.requester_phone AS "requesterPhone",
               o.description, o.notes, o.attendant_id::text AS "attendantId",
               o.triaged_at AS "triagedAt", o.triaged_by::text AS "triagedBy", o.updated_at AS "updatedAt",
@@ -102,13 +110,38 @@ export class SvoOccurrencesRepository implements SvoOccurrencesRepositoryContrac
     return result.rows.length ? this.findById(id, client) : null
   }
 
-  async confirm(id: string, actorId: string, time: Date, client: PoolClient): Promise<SvoOccurrenceDetail> {
+  async confirm(id: string, actor: SvoActorSnapshot, time: Date, client: PoolClient): Promise<SvoOccurrenceDetail> {
     await client.query(
       `UPDATE svo.occurrences SET status = 'CONFIRMED', triaged_by = $2, triaged_at = $3,
-              updated_at = $3, revision = revision + 1 WHERE id = $1`, [id, actorId, time],
+              dispatch_requested_at = $3, dispatch_requested_by = $2, dispatch_actor_snapshot = $4::jsonb,
+              dispatch_wait_reason = NULL, updated_at = $3, revision = revision + 1 WHERE id = $1`,
+      [id, actor.id, time, JSON.stringify(actor)],
     )
     const occurrence = await this.findById(id, client)
     if (!occurrence) throw new Error('Falha ao recuperar a ocorrência confirmada.')
+    return occurrence
+  }
+
+  async setDispatchIntent(id: string, actor: SvoActorSnapshot, time: Date, client: PoolClient): Promise<SvoOccurrenceDetail> {
+    await client.query(
+      `UPDATE svo.occurrences SET dispatch_requested_at = COALESCE(dispatch_requested_at, $2),
+          dispatch_requested_by = COALESCE(dispatch_requested_by, $3),
+          dispatch_actor_snapshot = COALESCE(dispatch_actor_snapshot, $4::jsonb),
+          updated_at = $2, revision = revision + 1
+        WHERE id = $1 AND status = 'CONFIRMED'`, [id, time, actor.id, JSON.stringify(actor)],
+    )
+    const occurrence = await this.findById(id, client)
+    if (!occurrence) throw new Error('Falha ao recuperar a intenção de despacho.')
+    return occurrence
+  }
+
+  async setDispatchWaitReason(id: string, reason: 'NO_TEAM' | 'NO_VEHICLE' | null, time: Date, client: PoolClient): Promise<SvoOccurrenceDetail> {
+    await client.query(
+      `UPDATE svo.occurrences SET dispatch_wait_reason = $2, updated_at = $3, revision = revision + 1
+        WHERE id = $1 AND status = 'CONFIRMED'`, [id, reason, time],
+    )
+    const occurrence = await this.findById(id, client)
+    if (!occurrence) throw new Error('Falha ao recuperar a situação de despacho.')
     return occurrence
   }
 

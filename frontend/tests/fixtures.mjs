@@ -10,6 +10,6 @@ export function tokenFor(perfil = 'GESTOR', seconds = 3600, claims = {}) {
   return header + '.' + payload + '.' + signature
 }
 
-export function sessionFor(perfil = 'GESTOR', seconds = 3600) {
-  return { token: tokenFor(perfil, seconds), nome: 'Pessoa de teste', perfil }
+export function sessionFor(perfil = 'GESTOR', seconds = 3600, claims = {}) {
+  return { token: tokenFor(perfil, seconds, claims), nome: 'Pessoa de teste', perfil }
 }

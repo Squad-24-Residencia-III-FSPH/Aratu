@@ -595,7 +595,7 @@ test('IT-DRV-13: atomicidade e rollback em falhas de transação', async () => {
 
   assert.equal(response.status, 401)
   assert.deepEqual(await response.json(), {
-    erro: 'Usuário autenticado não está ativo ou não existe.',
+    erro: 'Sua conta não está ativa. Entre novamente ou procure a administração.',
   })
 
   const drivers = await pool.query<{ total: number }>(

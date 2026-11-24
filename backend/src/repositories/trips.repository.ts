@@ -57,7 +57,10 @@ export class TripsRepository implements TripsRepositoryContract {
   /** Trava a solicitação para que dois agendamentos não a consumam ao mesmo tempo. */
   async findRequestForUpdate(requestId: string, client: PoolClient): Promise<SchedulableRequest | null> {
     const result = await client.query<SchedulableRequest>(
-      `SELECT id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId", status, revision
+      `SELECT id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
+              status, revision, to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
+              to_char(requested_time, 'HH24:MI') AS "requestedTime", origin, destination, purpose,
+              passengers, special_requirements AS "specialRequirements", notes
          FROM trip.requests
         WHERE id = $1
           FOR UPDATE`,
@@ -70,12 +73,17 @@ export class TripsRepository implements TripsRepositoryContract {
   async createTrip(data: CreateTripData, client: PoolClient): Promise<Trip> {
     const result = await client.query<Trip>(
       `INSERT INTO trip.trips (
-         request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status, vehicle_snapshot, driver_snapshot
-       ) VALUES ($1, $2, $3, $4, $5, 'SCHEDULED', $6::jsonb, $7::jsonb)
+         request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status,
+         vehicle_snapshot, driver_snapshot, request_snapshot,
+         special_requirements_acknowledged, evidence_description
+       ) VALUES ($1, $2, $3, $4, $5, 'SCHEDULED', $6::jsonb, $7::jsonb, $8::jsonb, $9, $10)
        RETURNING id::text AS id, request_id::text AS "requestId", vehicle_id::text AS "vehicleId",
                  driver_id::text AS "driverId", scheduled_start AS "scheduledStart",
                  scheduled_end AS "scheduledEnd", status, start_km AS "startKm", end_km AS "endKm",
-                 started_at AS "startedAt", finished_at AS "finishedAt", revision, created_at AS "createdAt"`,
+                 started_at AS "startedAt", finished_at AS "finishedAt", revision, created_at AS "createdAt",
+                 request_snapshot AS "requestSnapshot",
+                 special_requirements_acknowledged AS "specialRequirementsAcknowledged",
+                 evidence_description AS "evidenceDescription"`,
       [
         data.requestId,
         data.vehicleId,
@@ -84,6 +92,9 @@ export class TripsRepository implements TripsRepositoryContract {
         data.scheduledEnd,
         JSON.stringify(data.vehicleSnapshot),
         JSON.stringify(data.driverSnapshot),
+        JSON.stringify(data.requestSnapshot),
+        data.specialRequirementsAcknowledged,
+        data.evidenceDescription,
       ],
     )
     const trip = result.rows[0]
@@ -99,7 +110,10 @@ export class TripsRepository implements TripsRepositoryContract {
               revision = revision + 1,
               updated_at = clock_timestamp()
         WHERE id = $1 AND status = 'APPROVED'
-        RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId", status, revision`,
+        RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
+                  status, revision, to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
+                  to_char(requested_time, 'HH24:MI') AS "requestedTime", origin, destination, purpose,
+                  passengers, special_requirements AS "specialRequirements", notes`,
       [requestId],
     )
     return result.rows[0] ?? null

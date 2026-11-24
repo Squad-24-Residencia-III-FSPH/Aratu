@@ -20,6 +20,8 @@ import type {
   UpdateVehicleInput,
 } from '../types/vehicle.types'
 import type { VehiclesRepositoryContract } from '../repositories/vehicles.repository'
+import type { EntityHistoryPage, EntityHistoryQueryInput } from '../types/entity-history.types'
+import { EntityHistoryQueryError, normalizeEntityHistoryFilters } from './entity-history'
 
 const LICENSE_PLATE_PATTERN = /^(?:[A-Z]{3}\d{4}|[A-Z]{3}\d[A-Z]\d{2})$/
 const MIN_VEHICLE_YEAR = 1980
@@ -98,6 +100,19 @@ export class VehiclesService {
     const vehicle = await this.repository.findById(id)
     if (!vehicle) throw new VehicleServiceError(404, 'Veículo não encontrado.')
     return vehicle
+  }
+
+  /** Lista uma página da história já gravada para o veículo. */
+  async getVehicleHistory(id: string, input: EntityHistoryQueryInput): Promise<EntityHistoryPage> {
+    this.validateId(id)
+    let filters
+    try { filters = normalizeEntityHistoryFilters(input) }
+    catch (error) {
+      if (error instanceof EntityHistoryQueryError) throw new VehicleServiceError(400, error.message)
+      throw error
+    }
+    if (!await this.repository.findById(id)) throw new VehicleServiceError(404, 'Veículo não encontrado.')
+    return this.repository.history(id, filters)
   }
 
   /** Valida e cadastra um veículo, o evento inicial e a auditoria atomicamente. */

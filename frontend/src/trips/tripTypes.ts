@@ -47,6 +47,8 @@ export interface ApprovedRequestSummary {
   destination: string
   purpose: string
   passengers: number
+  specialRequirements: string | null
+  revision: number
   status: 'APPROVED'
 }
 
@@ -79,6 +81,8 @@ export interface ScheduleTripInput {
   driverId: string
   scheduledStart: string
   scheduledEnd: string
+  specialRequirementsAcknowledged?: boolean
+  evidenceDescription?: string | null
 }
 
 /** Recortes de apresentação do conjunto de viagens já autorizado pela API. */

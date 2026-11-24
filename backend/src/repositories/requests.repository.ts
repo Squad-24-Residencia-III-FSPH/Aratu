@@ -2,10 +2,13 @@ import type { Pool, PoolClient } from 'pg'
 import { INITIAL_REQUEST_STATUS } from '../types/request.types'
 import type {
   CreateRequestEventInput,
+  CreateRequestLifecycleEventInput,
   CreateRequestInput,
   PaginatedRequests,
+  PaginatedRequestHistory,
   RequestActorSnapshot,
   RequestDetail,
+  RequestHistoryItem,
   RequestListFilters,
   RequestServiceSnapshot,
   RequestSummary,
@@ -18,6 +21,7 @@ type RequestListQuery = RequestListFilters & { requesterId?: string }
 
 /** Linha da consulta de detalhe antes da montagem do objeto `trip`. */
 interface RequestDetailRow extends RequestSummary {
+  revision: number
   decidedBy: string | null
   decidedByName: string | null
   decidedAt: string | null
@@ -43,6 +47,17 @@ export interface RequestsRepositoryContract {
   createEvent(input: CreateRequestEventInput, client: PoolClient): Promise<void>
   list(filters: RequestListQuery): Promise<PaginatedRequests>
   findById(id: string, requesterId?: string): Promise<RequestDetail | null>
+  findByIdForUpdate(id: string, client: PoolClient): Promise<TripRequest | null>
+  resubmit(
+    id: string,
+    expectedRevision: number,
+    input: CreateRequestInput,
+    actor: RequestActorSnapshot,
+    service: RequestServiceSnapshot,
+    client: PoolClient,
+  ): Promise<TripRequest | null>
+  createLifecycleEvent(input: CreateRequestLifecycleEventInput, client: PoolClient): Promise<void>
+  listHistory(id: string, page: number, pageSize: number): Promise<PaginatedRequestHistory>
 }
 
 const LIST_CONDITIONS = `
@@ -65,7 +80,10 @@ SELECT r.id::text AS id,
        r.destination,
        r.purpose,
        r.passengers,
+       r.special_requirements AS "specialRequirements",
+       r.notes,
        r.status,
+       r.revision,
        r.created_at AS "createdAt",
        r.updated_at AS "updatedAt"
   FROM trip.requests r
@@ -94,7 +112,10 @@ SELECT r.id::text AS id,
        r.destination,
        r.purpose,
        r.passengers,
+       r.special_requirements AS "specialRequirements",
+       r.notes,
        r.status,
+       r.revision,
        r.decided_by::text AS "decidedBy",
        du.name AS "decidedByName",
        r.decided_at AS "decidedAt",
@@ -217,15 +238,17 @@ export class RequestsRepository implements RequestsRepositoryContract {
     const result = await client.query<TripRequest>(
       `INSERT INTO trip.requests (
          requester_id, service_id, requested_date, requested_time, origin, destination, purpose,
-         status, requester_snapshot, service_snapshot
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb)
+         passengers, special_requirements, notes, status, requester_snapshot, service_snapshot
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb)
        RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
                  to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
                  to_char(requested_time, 'HH24:MI') AS "requestedTime",
-                 origin, destination, purpose, passengers, status,
-                 requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"`,
+                 origin, destination, purpose, passengers,
+                 special_requirements AS "specialRequirements", notes, status,
+                 revision, requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"`,
       [actor.id, input.serviceId, input.requestedDate, input.requestedTime,
-        input.origin, input.destination, input.purpose, INITIAL_REQUEST_STATUS,
+        input.origin, input.destination, input.purpose, input.passengers,
+        input.specialRequirements, input.notes, INITIAL_REQUEST_STATUS,
         JSON.stringify(actor), JSON.stringify(service)],
     )
     const request = result.rows[0]
@@ -242,6 +265,102 @@ export class RequestsRepository implements RequestsRepositoryContract {
       [input.requestId, input.reportedBy, input.registeredBy, JSON.stringify(input.actorSnapshot), input.reason,
         JSON.stringify(input.afterState)],
     )
+  }
+
+  /** Bloqueia a versão atual para validar proprietário, estado e revisão antes do reenvio. */
+  async findByIdForUpdate(id: string, client: PoolClient): Promise<TripRequest | null> {
+    const result = await client.query<TripRequest>(
+      `SELECT id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
+              to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
+              to_char(requested_time, 'HH24:MI') AS "requestedTime",
+              origin, destination, purpose, passengers,
+              special_requirements AS "specialRequirements", notes, status, revision,
+              requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"
+         FROM trip.requests
+        WHERE id = $1
+        FOR UPDATE`,
+      [id],
+    )
+    return result.rows[0] ?? null
+  }
+
+  /** Atualiza somente uma versão devolvida e ainda vigente, mantendo o estado anterior no evento. */
+  async resubmit(
+    id: string,
+    expectedRevision: number,
+    input: CreateRequestInput,
+    actor: RequestActorSnapshot,
+    service: RequestServiceSnapshot,
+    client: PoolClient,
+  ): Promise<TripRequest | null> {
+    const result = await client.query<TripRequest>(
+      `UPDATE trip.requests
+          SET service_id = $1,
+              requested_date = $2,
+              requested_time = $3,
+              origin = $4,
+              destination = $5,
+              purpose = $6,
+              passengers = $7,
+              special_requirements = $8,
+              notes = $9,
+              status = 'PENDING',
+              decided_by = NULL,
+              decided_at = NULL,
+              decision_reason = NULL,
+              requester_snapshot = $10::jsonb,
+              service_snapshot = $11::jsonb,
+              revision = revision + 1,
+              updated_at = clock_timestamp()
+        WHERE id = $12 AND requester_id = $13 AND status = 'RETURNED' AND revision = $14
+        RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
+                  to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
+                  to_char(requested_time, 'HH24:MI') AS "requestedTime",
+                  origin, destination, purpose, passengers,
+                  special_requirements AS "specialRequirements", notes, status,
+                  revision, requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"`,
+      [input.serviceId, input.requestedDate, input.requestedTime, input.origin, input.destination, input.purpose,
+        input.passengers, input.specialRequirements, input.notes, JSON.stringify(actor), JSON.stringify(service),
+        id, actor.id, expectedRevision],
+    )
+    return result.rows[0] ?? null
+  }
+
+  /** Registra a nova versão sem alterar ou remover eventos anteriores. */
+  async createLifecycleEvent(
+    input: CreateRequestLifecycleEventInput,
+    client: PoolClient,
+  ): Promise<void> {
+    await client.query(
+      `INSERT INTO trip.request_events (
+         request_id, event_type, occurred_at, reported_by, registered_by,
+         actor_snapshot, reason, before_state, after_state
+       ) VALUES ($1, $2, clock_timestamp(), $3, $4, $5::jsonb, $6, $7::jsonb, $8::jsonb)`,
+      [input.requestId, input.eventType, input.reportedBy, input.registeredBy,
+        JSON.stringify(input.actorSnapshot), input.reason, JSON.stringify(input.beforeState),
+        JSON.stringify(input.afterState)],
+    )
+  }
+
+  /** Retorna os eventos append-only mais antigos primeiro para leitura cronológica do fluxo. */
+  async listHistory(id: string, page: number, pageSize: number): Promise<PaginatedRequestHistory> {
+    const offset = (page - 1) * pageSize
+    const count = await this.pool.query<{ total: string }>(
+      'SELECT COUNT(*)::text AS total FROM trip.request_events WHERE request_id = $1', [id],
+    )
+    const result = await this.pool.query<RequestHistoryItem>(
+      `SELECT id::text AS id, event_type AS "eventType", occurred_at AS "occurredAt",
+              registered_at AS "registeredAt", reported_by AS "reportedBy",
+              registered_by::text AS "registeredBy", actor_snapshot AS "actorSnapshot", reason,
+              before_state AS "beforeState", after_state AS "afterState"
+         FROM trip.request_events
+        WHERE request_id = $1
+        ORDER BY occurred_at ASC, id ASC
+        LIMIT $2 OFFSET $3`,
+      [id, pageSize, offset],
+    )
+    const total = Number.parseInt(count.rows[0]?.total ?? '0', 10)
+    return { items: result.rows, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
   }
 
   /**
@@ -306,7 +425,10 @@ export class RequestsRepository implements RequestsRepositoryContract {
       destination: row.destination,
       purpose: row.purpose,
       passengers: row.passengers,
+      specialRequirements: row.specialRequirements,
+      notes: row.notes,
       status: row.status,
+      revision: row.revision,
       decidedBy: row.decidedBy,
       decidedByName: row.decidedByName,
       decidedAt: row.decidedAt,

@@ -66,8 +66,12 @@ partir da estrutura das tabelas do banco de dados:
     ou em iluminação precária. Exige alvos de toque grandes (mínimo 44×44px), alto contraste e passos rápidos.
   - O gestor na central opera em desktop com teclado e mouse, necessitando de tabelas densas,
     filtros ágeis e visão ampla da frota.
-  - A equipe do SVO lida com situações delicadas de acolhimento e liberação de corpos, exigindo
-    máxima clareza, respeito e prevenção rigorosa de erros em laudos e identificação.
+  - O atendente SVO recebe pedidos da população, verifica informações para reduzir trotes e registra
+    a triagem administrativa; não mantém equipes/plantões, não executa ordens nem realiza procedimento clínico.
+  - O gestor mantém frota, motoristas, equipes e plantões SVO, analisa pedidos institucionais e resolve a fila
+    de despacho quando faltar recurso.
+  - A equipe SVO executa as ordens atribuídas, com ações de operação claras e confirmação contra encerramento acidental.
+  - O administrador mantém contas e acessa áreas para supervisão/manutenção; não é operador necessário do fluxo.
 - **Qualidade de uso prioritária:**
   - *Segurança no uso:* Ações irreversíveis (ex: cancelar chamado em andamento, liberar corpo,
     registrar avaria crítica) exigem confirmação explícita com o resumo do impacto.
@@ -107,11 +111,11 @@ partir da estrutura das tabelas do banco de dados:
 3. **Execução:** Motorista confere checklist inicial, registra km de saída e, no retorno, informa km final e intercorrências.
 4. **Finalização:** Registro do encerramento da viagem e liberação da viatura para a frota.
 
-### 2. Operações do SVO (Serviço de Verificação de Óbito)
-1. **Acionamento:** Registro do chamado de óbito, local de remoção e dados preliminares.
-2. **Despacho:** Envio de viatura de remoção cadavérica e equipe técnica.
-3. **Custódia e Procedimentos:** Entrada do corpo na unidade, registro de pertences, realização do laudo/necropsia.
-4. **Liberação Formal:** Liberação do corpo para a família ou serviço funerário com protocolo assinado e absoluto sigilo.
+### 2. Entrada, despacho e execução de ordens do SVO
+1. **Recebimento:** Atendente SVO registra o pedido recebido da população e coleta os dados necessários para análise administrativa.
+2. **Triagem administrativa:** Atendente verifica as informações, identifica inconsistências/trote e conclui a triagem; a confirmação não representa diagnóstico ou procedimento clínico.
+3. **Despacho automático:** O sistema seleciona equipe ativa no plantão com menos ordens ativas (desempate pelo maior tempo sem despacho e, persistindo, identificador determinístico) e uma viatura elegível. Se faltar recurso, o chamado fica aguardando; o gestor acompanha e reprocessa a fila.
+4. **Execução:** Equipe SVO vinculada atualiza os estados e registra o resultado da ordem. Gestão de equipes, plantões, viaturas e fila pertence ao gestor. O escopo do Aratu não descreve laudos, necropsia, custódia clínica ou liberação de corpos.
 
 ### 3. Gestão e Manutenção da Frota
 1. **Cadastro e Monitoramento:** Consulta de veículos por placa, modelo, status e quilometragem atual.

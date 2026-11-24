@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, Checkbox, FormControlLabel, Paper, Stack, Typography } from '@mui/material'
 import EventAvailableIcon from '@mui/icons-material/EventAvailable'
 import { useSearchParams } from 'react-router-dom'
 import DataTable from '../../../components/ui/DataTable'
@@ -123,6 +123,8 @@ export default function ScheduleTripPage() {
   const [submitting, setSubmitting] = useState(false)
   const [scheduleError, setScheduleError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [specialRequirementsAcknowledged, setSpecialRequirementsAcknowledged] = useState(false)
+  const [evidenceDescription, setEvidenceDescription] = useState('')
 
   useEffect(() => {
     if (!allowed) return
@@ -156,8 +158,8 @@ export default function ScheduleTripPage() {
 
     let current = true
     void Promise.allSettled([
-      listAvailableVehicles(api, scheduledStart, scheduledEnd, selectedRequest.serviceId),
-      listAvailableDrivers(api, scheduledStart, scheduledEnd),
+      listAvailableVehicles(api, scheduledStart, scheduledEnd, selectedRequest.serviceId, selectedRequest.id),
+      listAvailableDrivers(api, scheduledStart, scheduledEnd, selectedRequest.id),
     ]).then(([vehiclesResult, driversResult]) => {
       if (!current) return
       const vehicles = vehiclesResult.status === 'fulfilled' ? vehiclesResult.value : null
@@ -186,7 +188,8 @@ export default function ScheduleTripPage() {
   const selectedVehicleIsAvailable = availableVehicles.some((vehicle) => vehicle.id === vehicleId)
   const selectedDriverIsAvailable = availableDrivers.some((driver) => driver.id === driverId)
   const canSubmit = Boolean(selectedRequest && validPeriod && selectedVehicleIsAvailable
-    && selectedDriverIsAvailable && availabilityState === 'ready' && !submitting)
+    && selectedDriverIsAvailable && availabilityState === 'ready' && !submitting
+    && (!selectedRequest.specialRequirements || (specialRequirementsAcknowledged && evidenceDescription.trim())))
 
   function chooseRequest(request: ApprovedRequestSummary) {
     setSearchParams({ requestId: request.id })
@@ -199,6 +202,8 @@ export default function ScheduleTripPage() {
     setVehicleAvailability(null)
     setDriverAvailability(null)
     setAvailabilityError('')
+    setSpecialRequirementsAcknowledged(false)
+    setEvidenceDescription('')
   }
 
   function changePeriod(field: keyof PeriodValue, value: string) {
@@ -228,12 +233,18 @@ export default function ScheduleTripPage() {
         driverId,
         scheduledStart,
         scheduledEnd,
+        ...(selectedRequest.specialRequirements ? {
+          specialRequirementsAcknowledged,
+          evidenceDescription: evidenceDescription.trim(),
+        } : {}),
       })
       setSuccessMessage(`Solicitação #${selectedRequest.id} agendada com sucesso como viagem #${trip.id}.`)
       setSearchParams({})
       setPeriod({ start: '', end: '' })
       setVehicleId('')
       setDriverId('')
+      setSpecialRequirementsAcknowledged(false)
+      setEvidenceDescription('')
       setRequestsLoading(true)
       setRequestsError('')
       setAvailabilityState('idle')
@@ -315,6 +326,7 @@ export default function ScheduleTripPage() {
                   {fieldValue('Data solicitada', selectedRequest.requestedDate.split('-').reverse().join('/'))}
                   {fieldValue('Horário solicitado', selectedRequest.requestedTime)}
                   {fieldValue('Passageiros', String(selectedRequest.passengers))}
+                  {fieldValue('Necessidades especiais', selectedRequest.specialRequirements || 'Não informadas')}
                 </Box>
               </Paper>
 
@@ -345,6 +357,19 @@ export default function ScheduleTripPage() {
                   <Alert severity="error" role="alert" sx={{ mt: 1.5 }}>
                     Informe um horário válido no fuso operacional de Aracaju.
                   </Alert>
+                )}
+                {selectedRequest.specialRequirements && (
+                  <Stack spacing={1} sx={{ mt: 2 }}>
+                    <Alert severity="info"><strong>Conferência necessária:</strong> {selectedRequest.specialRequirements}</Alert>
+                    <FormControlLabel
+                      control={<Checkbox checked={specialRequirementsAcknowledged}
+                        onChange={event => setSpecialRequirementsAcknowledged(event.target.checked)} />}
+                      label="Confirmei que o recurso alocado atende às necessidades descritas"
+                    />
+                    <FormField label="Como as necessidades serão atendidas" value={evidenceDescription}
+                      onChange={setEvidenceDescription} required multiline minRows={2}
+                      helperText="Registre a adaptação ou o apoio que foi conferido." />
+                  </Stack>
                 )}
                 {period.start && period.end && scheduledStart && scheduledEnd && !validPeriod && (
                   <Alert severity="error" role="alert" sx={{ mt: 1.5 }}>
@@ -394,7 +419,9 @@ export default function ScheduleTripPage() {
                     />
                     {availableVehicles.length === 0 && (
                       <StateFeedback kind="empty" title="Nenhum veículo compatível disponível"
-                        description="Ajuste o período ou escolha outra solicitação de serviço." />
+                        description={vehicleAvailability?.some(vehicle => vehicle.reasons.includes('INSUFFICIENT_CAPACITY'))
+                          ? `A capacidade cadastrada é menor que os ${selectedRequest.passengers} passageiros solicitados. Ajuste a frota ou revise a solicitação.`
+                          : 'Ajuste o período ou escolha outra solicitação de serviço.'} />
                     )}
                     <FormSelect
                       label="Motorista disponível"
@@ -407,7 +434,9 @@ export default function ScheduleTripPage() {
                     />
                     {availableDrivers.length === 0 && (
                       <StateFeedback kind="empty" title="Nenhum motorista disponível"
-                        description="Ajuste o período e consulte novamente." />
+                        description={driverAvailability?.some(driver => driver.reasons.includes('ACCOUNT_UNAVAILABLE'))
+                          ? 'Os motoristas precisam ter uma conta ativa vinculada com perfil MOTORISTA.'
+                          : 'Ajuste o período e consulte novamente.'} />
                     )}
                   </Stack>
                 )}

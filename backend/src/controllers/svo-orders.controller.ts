@@ -18,5 +18,8 @@ export function createSvoOrdersController(service: SvoOrdersService) {
     async create(req: Request, res: Response): Promise<void> {
       res.status(201).json(await service.createOrder(req.body, req.usuario!.id))
     },
+    async retryDispatch(req: Request, res: Response): Promise<void> {
+      res.json(await service.retryDispatch(req.params.occurrenceId, req.body, req.usuario!.id))
+    },
   }
 }

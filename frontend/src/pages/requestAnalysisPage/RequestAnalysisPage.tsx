@@ -9,6 +9,7 @@ import StatusChip from '../../components/ui/StatusChip'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import RequestDetailsPanel from '../../components/RequestDetailsPanel'
 import { useAuth } from '../../auth/useAuth'
+import { resolveProfile } from '../../auth/profiles'
 import { decideRequest, listRequests } from '../../services/requestsService'
 import type { PaginatedRequests, RequestListFilters, RequestSummary } from '../../requests/requestTypes'
 import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONES } from '../../requests/requestPresentation'
@@ -19,11 +20,13 @@ import { formatCalendarDate } from '../../utils/dates'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 const EMPTY_FILTERS: RequestListFilters = { status: 'PENDING', page: 1, pageSize: 20 }
 
-type DialogAction = { request: RequestSummary; decision: 'approve' | 'reject' } | null
+type DialogAction = { request: RequestSummary; decision: 'approve' | 'reject' | 'return' } | null
 
 /** Lista solicitações pendentes e mantém detalhes e decisão na mesma página. */
 export default function RequestAnalysisPage() {
-  const { api } = useAuth()
+  const { api, session } = useAuth()
+  const profile = session ? resolveProfile(session.perfil) : null
+  const canDecide = profile === 'GESTOR'
   const [draftFilters, setDraftFilters] = useState({ from: '', to: '', requester: '', service: '' })
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [listResult, setListResult] = useState<{ key: string; data?: PaginatedRequests; error?: string } | null>(null)
@@ -85,7 +88,7 @@ export default function RequestAnalysisPage() {
     setNotice('')
   }
 
-  function openDecision(request: RequestSummary, decision: 'approve' | 'reject') {
+  function openDecision(request: RequestSummary, decision: 'approve' | 'reject' | 'return') {
     setDialogAction({ request, decision })
     setReason('')
     setDecisionError('')
@@ -99,10 +102,12 @@ export default function RequestAnalysisPage() {
     setDecisionError('')
     try {
       await decideRequest(api, dialogAction.request.id, dialogAction.decision,
-        dialogAction.decision === 'reject' ? reason.trim() : undefined)
+        dialogAction.decision === 'approve' ? undefined : reason.trim(), dialogAction.request.revision)
       setNotice(dialogAction.decision === 'approve'
         ? `Solicitação #${dialogAction.request.id} aprovada.`
-        : `Solicitação #${dialogAction.request.id} rejeitada.`)
+        : dialogAction.decision === 'return'
+          ? `Solicitação #${dialogAction.request.id} devolvida para correção.`
+          : `Solicitação #${dialogAction.request.id} rejeitada.`)
       setApprovedRequestId(dialogAction.decision === 'approve' ? dialogAction.request.id : null)
       setDialogAction(null)
       setSelectedId(null)
@@ -124,7 +129,12 @@ export default function RequestAnalysisPage() {
 
   return (
     <Box sx={{ minWidth: 0, ...accessibleControls }}>
-      <PageHeader title="Análise de solicitações" description="Revise os dados antes de aprovar ou rejeitar uma viagem." />
+      <PageHeader title="Análise de solicitações" description={canDecide
+        ? 'Revise os dados antes de decidir sobre um pedido de viagem.'
+        : 'Consulta de supervisão dos pedidos pendentes.'} />
+      {!canDecide && <Alert severity="info" role="note" sx={{ mb: 2 }}>
+        A consulta está disponível para manutenção e supervisão. Decisões operacionais são registradas pelo Gestor.
+      </Alert>}
 
       <FilterBar label="Filtros das solicitações pendentes">
         <FormField label="Data inicial" type="date" value={draftFilters.from} onChange={from => setDraftFilters(current => ({ ...current, from }))} sx={{ flex: 1, minWidth: { xs: 0, sm: 180 } }} />
@@ -182,13 +192,16 @@ export default function RequestAnalysisPage() {
 
           <Stack spacing={2}>
             <RequestDetailsPanel requestId={selectedId} api={api} />
-            {selectedRequest && selectedRequest.status === 'PENDING' && (
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+            {canDecide && selectedRequest && selectedRequest.status === 'PENDING' && (
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ flexWrap: 'wrap' }}>
                 <Button variant="contained" color="success" onClick={() => openDecision(selectedRequest, 'approve')} sx={{ minHeight: 44, flex: 1 }}>
                   Aprovar solicitação
                 </Button>
+                <Button variant="outlined" onClick={() => openDecision(selectedRequest, 'return')} sx={{ minHeight: 44, flex: 1 }}>
+                  Devolver para correção
+                </Button>
                 <Button variant="outlined" color="error" onClick={() => openDecision(selectedRequest, 'reject')} sx={{ minHeight: 44, flex: 1 }}>
-                  Rejeitar solicitação
+                  Recusar definitivamente
                 </Button>
               </Stack>
             )}
@@ -199,23 +212,25 @@ export default function RequestAnalysisPage() {
       <ConfirmDialog
         sx={accessibleControls}
         open={dialogAction !== null}
-        title={dialogAction?.decision === 'reject' ? 'Rejeitar solicitação' : 'Aprovar solicitação'}
-        description={dialogAction?.decision === 'reject'
-          ? `Informe por que a solicitação para ${dialogAction.request.destination} está sendo rejeitada.`
-          : `Confirma a aprovação da solicitação para ${dialogAction?.request.destination}?`}
-        confirmLabel={dialogAction?.decision === 'reject' ? 'Rejeitar solicitação' : 'Aprovar solicitação'}
+        title={dialogAction?.decision === 'reject' ? 'Recusar definitivamente' : dialogAction?.decision === 'return' ? 'Devolver para correção' : 'Aprovar solicitação'}
+        description={dialogAction?.decision === 'approve'
+          ? `Confirma a aprovação da solicitação para ${dialogAction.request.destination}?`
+          : dialogAction?.decision === 'return'
+            ? `Informe o que o Solicitante precisa corrigir antes de uma nova análise.`
+            : `Informe por que a solicitação para ${dialogAction?.request.destination} está sendo recusada definitivamente.`}
+        confirmLabel={dialogAction?.decision === 'reject' ? 'Recusar definitivamente' : dialogAction?.decision === 'return' ? 'Devolver para correção' : 'Aprovar solicitação'}
         danger={dialogAction?.decision === 'reject'}
         confirmColor={dialogAction?.decision === 'approve' ? 'success' : undefined}
         loading={decisionBusy}
-        confirmDisabled={dialogAction?.decision === 'reject' && reason.trim().length === 0}
+        confirmDisabled={dialogAction !== null && dialogAction.decision !== 'approve' && reason.trim().length === 0}
         onConfirm={() => { void submitDecision() }}
         onCancel={() => { if (!decisionBusy) setDialogAction(null) }}
         // A linha decidida sai da lista levando o botão que abriu o diálogo; sem
         // isso o foco cairia no body e o teclado perderia o lugar do fluxo.
         onExited={() => noticeRef.current?.focus()}
       >
-        {dialogAction?.decision === 'reject' && (
-          <FormField label="Justificativa da rejeição" value={reason} onChange={setReason}
+        {dialogAction && dialogAction.decision !== 'approve' && (
+          <FormField label={dialogAction.decision === 'return' ? 'Observação para correção' : 'Justificativa da recusa definitiva'} value={reason} onChange={setReason}
             required multiline minRows={3} maxLength={500} sx={{ mt: 2 }} />
         )}
         {decisionError && <Typography role="alert" color="error" sx={{ mt: 1 }}>{decisionError}</Typography>}

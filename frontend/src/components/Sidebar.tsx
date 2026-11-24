@@ -9,69 +9,30 @@ import {
   Typography,
   Divider,
   Tooltip,
-  IconButton,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import Home from '@mui/icons-material/Home';
-import Assignment from '@mui/icons-material/Assignment';
-import LocalShipping from '@mui/icons-material/LocalShipping';
-import CheckCircle from '@mui/icons-material/CheckCircle';
-import DirectionsCar from '@mui/icons-material/DirectionsCar';
-import Person from '@mui/icons-material/Person';
-import Build from '@mui/icons-material/Build';
-import LocalGasStation from '@mui/icons-material/LocalGasStation';
-import Description from '@mui/icons-material/Description';
-import Warning from '@mui/icons-material/Warning';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import BarChart from '@mui/icons-material/BarChart';
-import Security from '@mui/icons-material/Security';
-import Help from '@mui/icons-material/Help';
-import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings';
-import type { SvgIconComponent } from '@mui/icons-material';
 
 import { useAuth } from '../auth/useAuth';
 import { profileInitials, profileLabel, resolveProfile } from '../auth/profiles';
 import { getSidebarNavigation } from './sidebarNavigation';
-import type { SidebarIconName, SidebarMenuItem } from './sidebarNavigation';
+import type { SidebarMenuItem } from './sidebarNavigation';
+import { NAVIGATION_ICONS } from './navigationIcons'
 
 const drawerWidthExpanded = 260;
 const drawerWidthCollapsed = 72;
 
-const icons: Record<SidebarIconName, SvgIconComponent> = {
-  home: Home,
-  users: Person,
-  permissions: AdminPanelSettings,
-  audit: Security,
-  settings: Build,
-  requests: Assignment,
-  trips: LocalShipping,
-  confirmTrips: CheckCircle,
-  vehicles: DirectionsCar,
-  drivers: Person,
-  serviceTypes: Assignment,
-  maintenance: Build,
-  fuel: LocalGasStation,
-  documents: Description,
-  warnings: Warning,
-  dashboard: DashboardIcon,
-  reports: BarChart,
-  help: Help,
-};
-
 interface SidebarProps {
   expanded: boolean
   mobileOpen: boolean
-  onExpandedChange: (expanded: boolean) => void
   onMobileClose: () => void
+  onAction: (item: SidebarMenuItem) => void
 }
 
-export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onExpandedChange, onMobileClose }: SidebarProps) {
+export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onMobileClose, onAction }: SidebarProps) {
   const theme = useTheme();
-  const isCompactViewport = useMediaQuery(theme.breakpoints.down('md'));
+  const isCompactViewport = useMediaQuery(theme.breakpoints.down('sm'));
   const location = useLocation();
   const { session } = useAuth();
 
@@ -137,15 +98,18 @@ export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onExpan
   };
 
   const renderSidebarItem = (item: SidebarMenuItem) => {
-    const Icon = icons[item.icon] || Home;
-    const isSelected = item.path ? location.pathname === item.path : item.selected;
+    const Icon = NAVIGATION_ICONS[item.icon];
+    const isSelected = Boolean(item.path && location.pathname === item.path);
     const itemStyle = isSelected ? selectedStyle : defaultStyle;
 
     const content = (
       <ListItemButton
-        {...(item.behavior === 'link' && item.path ? { component: RouterLink, to: item.path } : {})}
+        {...(item.behavior === 'link' && item.path ? { component: RouterLink, to: item.path, 'aria-current': isSelected ? 'page' as const : undefined } : {})}
         selected={isSelected}
-        onClick={isCompactViewport ? onMobileClose : undefined}
+        onClick={() => {
+          if (item.behavior === 'action') onAction(item)
+          if (isCompactViewport) onMobileClose()
+        }}
         sx={itemStyle}
       >
         <ListItemIcon sx={{ minWidth: 36, justifyContent: 'center', color: isSelected ? '#FF6B00' : 'inherit' }}>
@@ -185,6 +149,7 @@ export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onExpan
             borderRight: '1px solid #e2e8f0',
             mt: '64px',
             height: 'calc(100vh - 64px)',
+            '@supports (height: 100dvh)': { height: 'calc(100dvh - 64px)' },
             overflowX: 'hidden',
             overflowY: 'auto',
             scrollbarWidth: 'none',
@@ -255,43 +220,9 @@ export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onExpan
             </Box>
           ))}
 
-          <Divider sx={{ my: 2 }} />
-
-          {/* Footer Items */}
-          <List dense disablePadding>
-            {navigation.footerItems.map((item) => renderSidebarItem(item))}
-          </List>
         </Box>
       </Drawer>
 
-      {/* Botão de Recolher/Expandir (oculto no mobile para não reduzir a área útil) */}
-      {!isCompactViewport && (
-        <Tooltip title={expanded ? 'Recolher menu' : 'Expandir menu'} {...tooltipProps}>
-          <IconButton
-            onClick={() => onExpandedChange(!desktopExpanded)}
-            aria-label={expanded ? 'Recolher menu' : 'Expandir menu'}
-            sx={{
-              position: 'absolute',
-              top: 'calc(64px + 112px)',
-              left: currentWidth - 22,
-              zIndex: 1300,
-              backgroundColor: '#ffffff',
-              color: '#FF6B00',
-              border: '1px solid #e2e8f0',
-              width: 44,
-              height: 44,
-              boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-              transition: 'left 0.2s ease-in-out',
-              '&:hover': {
-                backgroundColor: '#fff7ed',
-                borderColor: '#FF6B00',
-              },
-            }}
-          >
-            {expanded ? <ChevronLeftIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
-          </IconButton>
-        </Tooltip>
-      )}
     </Box>
   );
 }

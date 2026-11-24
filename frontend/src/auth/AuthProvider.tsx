@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { AuthContext } from './AuthContext'
-import { login } from './loginService'
+import SessionRenewalDialog from './SessionRenewalDialog'
+import { AuthIdentityError, getCurrentUser, login } from './loginService'
 import { logout as requestLogout } from './logoutService'
 import { clearSession, readSession, saveSession, SESSION_KEY } from './sessionStorage'
 import type { AuthSession, LoginCredentials, SignInOptions } from './types'
 import { createApiClient } from '../api/client'
 import { waitForApi } from '../api/availability'
-import { SESSION_EXPIRED, tokenExpiresAt } from './token'
+import { SESSION_EXPIRED, tokenExpiresAt, tokenUserId } from './token'
+import { resolveProfile } from './profiles'
 
 const MAX_TIMEOUT_MS = 2_147_483_647
 const IDLE_PREPARATION_MS = 5 * 60_000
+const SESSION_WARNING_MS = 2 * 60_000
 const STORAGE_CLEANUP_ATTEMPTS = 2
 const SIGNED_OUT = 'Você saiu deste navegador.'
 const SIGNED_OUT_ELSEWHERE = 'Sua sessão foi encerrada em outra aba. Entre novamente.'
@@ -39,6 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
   const blockedToken = useRef<string | undefined>(undefined)
   const previewToken = useRef(import.meta.env.DEV && session?.token.endsWith('.preview') ? session.token : undefined)
   const [notice, setNotice] = useState('')
+  const [renewalPrompt, setRenewalPrompt] = useState(false)
+  const [renewalPending, setRenewalPending] = useState(false)
+  const [renewalError, setRenewalError] = useState('')
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
   const lastApiActivity = useRef(0)
 
@@ -56,6 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     sessionRef.current = next
     setSession(next)
     setNotice(message)
+    setRenewalPrompt(false)
+    setRenewalPending(false)
+    setRenewalError('')
   }, [])
 
   const reconcileSession = useCallback((): void => {
@@ -128,13 +137,23 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     const token = session.token
     const expiresAt = tokenExpiresAt(session.token, session.perfil) ?? 0
     let timer: ReturnType<typeof setTimeout>
+    let warningTimer: ReturnType<typeof setTimeout>
+    function checkRenewal(): void {
+      const remaining = expiresAt - Date.now()
+      if (remaining <= SESSION_WARNING_MS) {
+        if (sessionRef.current?.token === token) setRenewalPrompt(true)
+        return
+      }
+      warningTimer = setTimeout(checkRenewal, Math.min(remaining - SESSION_WARNING_MS, MAX_TIMEOUT_MS))
+    }
     function checkExpiry(): void {
       const remaining = expiresAt - Date.now()
       if (remaining <= 0) endSession(SESSION_EXPIRED, token)
       else timer = setTimeout(checkExpiry, Math.min(remaining, MAX_TIMEOUT_MS))
     }
+    checkRenewal()
     timer = setTimeout(checkExpiry, Math.max(0, Math.min(expiresAt - Date.now(), MAX_TIMEOUT_MS)))
-    return () => clearTimeout(timer)
+    return () => { clearTimeout(timer); clearTimeout(warningTimer) }
   }, [session, endSession])
 
   async function signIn(credentials: LoginCredentials, options: SignInOptions = {}): Promise<void> {
@@ -160,6 +179,51 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     replaceSession(authenticated)
   }
 
+  /** Troca o token somente após confirmar que login e GET /auth/me mantêm a mesma identidade/perfil. */
+  async function renewSession(credentials: LoginCredentials): Promise<void> {
+    reconcileSession()
+    const current = sessionRef.current
+    if (!current) return
+    const expectedToken = current.token
+    const attempt = ++generation.current
+    setRenewalPending(true)
+    setRenewalError('')
+    try {
+      if (import.meta.env.PROD) await prepareApi()
+      if (generation.current !== attempt || sessionRef.current?.token !== expectedToken) return
+      const authenticated = await login(credentials, { baseUrl })
+      if (generation.current !== attempt || sessionRef.current?.token !== expectedToken) return
+      const identity = await getCurrentUser(authenticated.token, { baseUrl })
+      if (generation.current !== attempt || sessionRef.current?.token !== expectedToken) return
+      const expectedUserId = tokenUserId(expectedToken)
+      const authenticatedUserId = tokenUserId(authenticated.token)
+      const expectedProfile = resolveProfile(current.perfil)
+      const authenticatedProfile = resolveProfile(authenticated.perfil)
+      const currentProfile = resolveProfile(identity.perfil)
+      if (!expectedUserId || authenticatedUserId !== expectedUserId || identity.id !== expectedUserId
+        || !expectedProfile || authenticatedProfile !== expectedProfile || currentProfile !== expectedProfile) {
+        endSession('A conta ou o perfil mudou. Entre novamente para continuar.', expectedToken)
+        return
+      }
+      const renewedSession = { token: authenticated.token, nome: identity.nome, perfil: identity.perfil }
+      saveSession(renewedSession)
+      blockedToken.current = undefined
+      previewToken.current = undefined
+      replaceSession(renewedSession)
+    } catch (error) {
+      if (generation.current !== attempt || sessionRef.current?.token !== expectedToken) return
+      if (error instanceof AuthIdentityError && (error.status === 401 || error.status === 403)) {
+        endSession('A conta ou o perfil mudou. Entre novamente para continuar.', expectedToken)
+      } else {
+        const remaining = (tokenExpiresAt(expectedToken, current.perfil) ?? Date.now()) - Date.now()
+        const message = error instanceof Error && error.message ? error.message : 'Não foi possível confirmar sua identidade.'
+        setRenewalError(`${message} Ainda há ${Math.max(0, Math.ceil(remaining / 1000))} segundos antes de a sessão expirar.`)
+      }
+    } finally {
+      if (generation.current === attempt) setRenewalPending(false)
+    }
+  }
+
   function logout(): void {
     reconcileSession()
     const current = sessionRef.current
@@ -171,5 +235,11 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     })
   }
 
-  return <AuthContext.Provider value={{ session, signIn, logout, api, notice }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{
+    session, signIn, renewSession, logout, api, notice,
+    renewalPrompt, renewalPending, renewalError,
+  }}>
+    {children}
+    <SessionRenewalDialog />
+  </AuthContext.Provider>
 }

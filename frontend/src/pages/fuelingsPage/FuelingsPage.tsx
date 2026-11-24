@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Card, CardContent, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardActions, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import HistoryOutlined from '@mui/icons-material/HistoryOutlined'
+import EditOutlined from '@mui/icons-material/EditOutlined'
 import { useAuth } from '../../auth/useAuth'
 import { resolveProfile } from '../../auth/profiles'
 import DataTable from '../../components/ui/DataTable'
@@ -13,28 +15,20 @@ import { canAccessFuelings } from '../../fuelings/fuelingAccess'
 import { FUEL_TYPE_LABELS } from '../../fuelings/fuelingTypes'
 import type { FuelingFilters, FuelingVersion } from '../../fuelings/fuelingTypes'
 import { listDrivers } from '../../services/driversService'
-import { listFuelings } from '../../services/fuelingsService'
+import { getFuelingDetail, listFuelings } from '../../services/fuelingsService'
 import { listVehicles } from '../../services/vehiclesService'
 import type { Driver } from '../../drivers/driverTypes'
 import type { Vehicle } from '../../vehicles/vehicleTypes'
 import FuelingFormDialog from './FuelingFormDialog'
+import type { FuelingDetail } from '../../fuelings/fuelingTypes'
+import { formatOperationalDateTime, operationalDayEndExclusive, operationalDayStart } from '../../time/operationalTime'
 
 const PAGE_SIZE = 20
 const CURRENCY = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const NUMBER = new Intl.NumberFormat('pt-BR')
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
-}
-
-function localMidnight(value: string): string {
-  return new Date(`${value}T00:00:00`).toISOString()
-}
-
-function nextLocalDay(value: string): string {
-  const nextDay = new Date(`${value}T00:00:00`)
-  nextDay.setDate(nextDay.getDate() + 1)
-  return nextDay.toISOString()
+  return formatOperationalDateTime(value)
 }
 
 function snapshotPlate(fueling: FuelingVersion): string {
@@ -58,10 +52,13 @@ export default function FuelingsPage() {
   const { api, session } = useAuth()
   const profile = session ? resolveProfile(session.perfil) : null
   const allowed = canAccessFuelings(profile)
+  const theme = useTheme()
+  const smallScreen = useMediaQuery(theme.breakpoints.down('sm'))
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [optionsLoading, setOptionsLoading] = useState(true)
-  const [optionsError, setOptionsError] = useState('')
+  const [vehiclesError, setVehiclesError] = useState('')
+  const [driversError, setDriversError] = useState('')
   const [items, setItems] = useState<FuelingVersion[]>([])
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -76,6 +73,8 @@ export default function FuelingsPage() {
   const [error, setError] = useState('')
   const [refreshToken, setRefreshToken] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
+  const [correctionTarget, setCorrectionTarget] = useState<FuelingVersion | null>(null)
+  const [details, setDetails] = useState<{ detail: FuelingDetail | null; error: string; loading: boolean } | null>(null)
   const [notice, setNotice] = useState('')
 
   const vehicleOptions = useMemo(() => vehicles.map((vehicle) => ({
@@ -87,14 +86,13 @@ export default function FuelingsPage() {
   useEffect(() => {
     if (!allowed) return
     let current = true
-    Promise.all([listVehicles(api), listDrivers(api)])
-      .then(([vehicleList, driverList]) => {
+    Promise.allSettled([listVehicles(api), listDrivers(api)])
+      .then(([vehicleResult, driverResult]) => {
         if (!current) return
-        setVehicles(vehicleList)
-        setDrivers(driverList)
-      })
-      .catch((loadError: unknown) => {
-        if (current) setOptionsError(loadError instanceof Error ? loadError.message : 'Não foi possível carregar veículos e motoristas.')
+        if (vehicleResult.status === 'fulfilled') { setVehicles(vehicleResult.value); setVehiclesError('') }
+        else setVehiclesError(vehicleResult.reason instanceof Error ? vehicleResult.reason.message : 'Não foi possível carregar os veículos.')
+        if (driverResult.status === 'fulfilled') { setDrivers(driverResult.value); setDriversError('') }
+        else setDriversError(driverResult.reason instanceof Error ? driverResult.reason.message : 'Não foi possível carregar os motoristas.')
       })
       .finally(() => { if (current) setOptionsLoading(false) })
     return () => { current = false }
@@ -106,8 +104,8 @@ export default function FuelingsPage() {
     const filters: FuelingFilters = {
       ...(vehicleId ? { vehicleId } : {}),
       ...(driverId ? { driverId } : {}),
-      ...(from ? { from: localMidnight(from) } : {}),
-      ...(to ? { to: nextLocalDay(to) } : {}),
+      ...(from ? { from: operationalDayStart(from) } : {}),
+      ...(to ? { to: operationalDayEndExclusive(to) } : {}),
       page,
       pageSize: PAGE_SIZE,
     }
@@ -123,7 +121,9 @@ export default function FuelingsPage() {
         if (result.totalPages > 0 && page > result.totalPages) setPage(result.totalPages)
       })
       .catch((requestError: unknown) => {
-        if (current) setError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar os abastecimentos.')
+        if (!current) return
+        setError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar os abastecimentos.')
+        setItems([]); setTotal(0); setTotalPages(0); setTotalLiters('0.000'); setTotalValue('0.00')
       })
       .finally(() => { if (current) setLoading(false) })
     return () => { current = false }
@@ -131,6 +131,7 @@ export default function FuelingsPage() {
 
   function changeFilter(setter: (value: string) => void, value: string) {
     setLoading(true)
+    setItems([]); setTotal(0); setTotalPages(0); setTotalLiters('0.000'); setTotalValue('0.00')
     setter(value)
     setPage(1)
   }
@@ -142,6 +143,7 @@ export default function FuelingsPage() {
 
   function clearFilters() {
     setLoading(true)
+    setItems([]); setTotal(0); setTotalPages(0); setTotalLiters('0.000'); setTotalValue('0.00')
     setVehicleId('')
     setDriverId('')
     setFrom('')
@@ -152,10 +154,17 @@ export default function FuelingsPage() {
 
   function handleSaved() {
     setFormOpen(false)
-    setNotice('Abastecimento registrado com sucesso.')
+    setCorrectionTarget(null)
+    setNotice(correctionTarget ? 'Correção registrada. As versões anteriores foram preservadas.' : 'Abastecimento registrado com sucesso.')
     setPage(1)
     setLoading(true)
     setRefreshToken((current) => current + 1)
+  }
+
+  async function openDetails(fueling: FuelingVersion): Promise<void> {
+    setDetails({ detail: null, error: '', loading: true })
+    try { setDetails({ detail: await getFuelingDetail(api, fueling.id), error: '', loading: false }) }
+    catch (requestError) { setDetails({ detail: null, error: requestError instanceof Error ? requestError.message : 'Não foi possível carregar o histórico.', loading: false }) }
   }
 
   const filtersActive = Boolean(vehicleId || driverId || from || to)
@@ -165,29 +174,39 @@ export default function FuelingsPage() {
       <PageHeader
         title="Abastecimentos"
         breadcrumbs={['Início', 'Abastecimentos']}
-        actions={allowed ? <Button variant="contained" startIcon={<AddIcon aria-hidden="true" />} onClick={() => setFormOpen(true)} disabled={optionsLoading || Boolean(optionsError) || vehicles.length === 0} sx={{ minHeight: 44 }}>Registrar Abastecimento</Button> : undefined}
+        actions={allowed ? <Button variant="contained" startIcon={<AddIcon aria-hidden="true" />} onClick={() => setFormOpen(true)} disabled={optionsLoading || Boolean(vehiclesError) || vehicles.length === 0} sx={{ minHeight: 48 }}>Registrar Abastecimento</Button> : undefined}
       />
 
       {!allowed && <StateFeedback kind="forbidden" title="Acesso restrito" description="Seu perfil não tem permissão para consultar abastecimentos." />}
       {allowed && (
         <>
           {notice && <Alert severity="success" role="status" sx={{ mb: 2 }}>{notice}</Alert>}
-          {optionsError && <StateFeedback kind="partial" title="Não foi possível carregar as opções de filtro e cadastro." description={optionsError} />}
-          {!optionsLoading && !optionsError && vehicles.length === 0 && <StateFeedback kind="empty" title="Nenhum veículo disponível" description="Cadastre um veículo antes de registrar um abastecimento." />}
+          {vehiclesError && <Alert severity="error" sx={{ mb: 2 }}>{vehiclesError} O cadastro de abastecimento ficará indisponível até que os veículos possam ser consultados.</Alert>}
+          {driversError && <Alert severity="warning" sx={{ mb: 2 }}>Não foi possível carregar a lista de motoristas. Você ainda pode registrar um abastecimento sem vínculo de motorista.</Alert>}
+          {!optionsLoading && !vehiclesError && vehicles.length === 0 && <StateFeedback kind="empty" title="Nenhum veículo disponível" description="Cadastre um veículo antes de registrar um abastecimento." />}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
             <Card variant="outlined" sx={{ flex: 1 }}><CardContent><Typography variant="body2" color="text.secondary">Total gasto no período filtrado</Typography><Typography component="p" variant="h5" sx={{ mt: 0.5, fontWeight: 700 }}>{CURRENCY.format(Number(totalValue))}</Typography></CardContent></Card>
             <Card variant="outlined" sx={{ flex: 1 }}><CardContent><Typography variant="body2" color="text.secondary">Total de litros no período filtrado</Typography><Typography component="p" variant="h5" sx={{ mt: 0.5, fontWeight: 700 }}>{NUMBER.format(Number(totalLiters))} L</Typography></CardContent></Card>
           </Stack>
           <FilterBar label="Filtros de abastecimentos">
             <Box sx={{ flex: '1 1 200px', minWidth: { xs: '100%', sm: 200 } }}><FormSelect label="Veículo" value={vehicleId} onChange={(value) => changeFilter(setVehicleId, value)} options={vehicleOptions} emptyLabel="Todos os veículos" /></Box>
-            <Box sx={{ flex: '1 1 200px', minWidth: { xs: '100%', sm: 200 } }}><FormSelect label="Motorista" value={driverId} onChange={(value) => changeFilter(setDriverId, value)} options={driverOptions} emptyLabel="Todos os motoristas" /></Box>
+            <Box sx={{ flex: '1 1 200px', minWidth: { xs: '100%', sm: 200 } }}><FormSelect label="Motorista" value={driverId} onChange={(value) => changeFilter(setDriverId, value)} options={driverOptions} emptyLabel="Todos os motoristas" disabled={Boolean(driversError)} /></Box>
             <Box sx={{ flex: '1 1 170px', minWidth: { xs: '100%', sm: 170 } }}><FormField label="De" type="date" value={from} onChange={(value) => changeFilter(setFrom, value)} /></Box>
             <Box sx={{ flex: '1 1 170px', minWidth: { xs: '100%', sm: 170 } }}><FormField label="Até" type="date" value={to} onChange={(value) => changeFilter(setTo, value)} /></Box>
             <Button onClick={clearFilters} disabled={!filtersActive} sx={{ minHeight: 44 }}>Limpar filtros</Button>
           </FilterBar>
 
           {error && <StateFeedback kind="error" title="Não foi possível carregar os abastecimentos." description={error} actionLabel="Tentar novamente" onAction={() => { setLoading(true); setRefreshToken((current) => current + 1) }} />}
-          {!error && <DataTable
+          {!error && (smallScreen ? <Stack spacing={1.5}>
+            {loading ? <StateFeedback kind="loading" title="Carregando abastecimentos..." /> : items.length ? items.map((fueling) => <Card key={fueling.id} variant="outlined"><CardContent>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{snapshotPlate(fueling)} · {CURRENCY.format(Number(fueling.totalValue))}</Typography>
+              <Typography variant="body2">{FUEL_TYPE_LABELS[fueling.fuelType]} · {NUMBER.format(Number(fueling.liters))} L · {formatDate(fueling.fueledAt)}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{fueling.driverSnapshot?.name ?? 'Motorista não informado'} · {NUMBER.format(fueling.odometerKm)} km</Typography>
+            </CardContent><CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+              <Button onClick={() => { void openDetails(fueling) }} startIcon={<HistoryOutlined aria-hidden="true" />} sx={{ minHeight: 48 }}>Histórico</Button>
+              <Button onClick={() => { setCorrectionTarget(fueling); setFormOpen(true) }} disabled={fueling.isAnnulled || !fueling.revision} startIcon={<EditOutlined aria-hidden="true" />} sx={{ minHeight: 48 }}>Corrigir</Button>
+            </CardActions></Card>) : <StateFeedback kind="empty" title={filtersActive ? 'Nenhum abastecimento encontrado' : 'Nenhum abastecimento registrado'} description={filtersActive ? 'Ajuste os filtros ou limpe a busca para ver outros registros.' : 'Registre o primeiro abastecimento para acompanhar os gastos da frota.'} centered />}
+          </Stack> : <DataTable
             caption="Abastecimentos registrados"
             columns={COLUMNS}
             rows={items}
@@ -196,7 +215,8 @@ export default function FuelingsPage() {
             minWidth={1200}
             loadingContent={<StateFeedback kind="loading" title="Carregando abastecimentos..." />}
             emptyContent={<StateFeedback kind="empty" title={filtersActive ? 'Nenhum abastecimento encontrado' : 'Nenhum abastecimento registrado'} description={filtersActive ? 'Ajuste os filtros ou limpe a busca para ver outros registros.' : 'Registre o primeiro abastecimento para acompanhar os gastos da frota.'} centered />}
-          />}
+            renderActions={(fueling) => <Stack direction="row" spacing={0.5}><Button onClick={() => { void openDetails(fueling) }} sx={{ minHeight: 44 }}>Histórico</Button><Button onClick={() => { setCorrectionTarget(fueling); setFormOpen(true) }} disabled={fueling.isAnnulled || !fueling.revision} sx={{ minHeight: 44 }}>Corrigir</Button></Stack>}
+          />)}
           {!error && <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="body2" color="text.secondary">{total} registro(s) encontrado(s)</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -205,9 +225,26 @@ export default function FuelingsPage() {
               <Button onClick={() => changePage(Math.min(totalPages, page + 1))} disabled={page >= totalPages || loading} sx={{ minHeight: 44 }}>Próxima</Button>
             </Box>
           </Box>}
-          {formOpen && <FuelingFormDialog api={api} reportedBy={session?.nome ?? ''} vehicles={vehicleOptions} drivers={driverOptions} onSaved={handleSaved} onCancel={() => setFormOpen(false)} />}
+          {formOpen && <FuelingFormDialog api={api} reportedBy={session?.nome ?? ''} vehicles={vehicleOptions} drivers={driverOptions} onSaved={handleSaved} onCancel={() => { setFormOpen(false); setCorrectionTarget(null) }} {...(correctionTarget ? { fueling: correctionTarget } : {})} />}
         </>
       )}
+      <Dialog open={Boolean(details)} onClose={() => setDetails(null)} fullScreen={smallScreen} fullWidth maxWidth="md" aria-labelledby="fueling-history-title">
+        <DialogTitle id="fueling-history-title">Histórico do abastecimento</DialogTitle><DialogContent>
+          {details?.loading && <StateFeedback kind="loading" title="Carregando histórico..." />}
+          {details?.error && <Alert severity="error">{details.error}</Alert>}
+          {details?.detail && <Stack spacing={1.5}>
+            <Typography variant="h6">{snapshotPlate(details.detail.fueling)} · {FUEL_TYPE_LABELS[details.detail.fueling.fuelType]}</Typography>
+            <Typography variant="body2">{formatDate(details.detail.fueling.fueledAt)} · {NUMBER.format(Number(details.detail.fueling.liters))} L · {CURRENCY.format(Number(details.detail.fueling.totalValue))} · {NUMBER.format(details.detail.fueling.odometerKm)} km</Typography>
+            <Typography variant="body2" color="text.secondary">Versão atual: #{details.detail.currentId}. Versões registradas: {details.detail.versions.length}.</Typography>
+            {details.detail.events.map((event) => <Card key={event.id} variant="outlined"><CardContent>
+              <Typography sx={{ fontWeight: 700 }}>{event.eventType === 'RECORDED' ? 'Registrado' : event.eventType === 'RECTIFIED' ? 'Retificado' : event.eventType === 'ANNULLED' ? 'Anulado' : 'Atualizado'} · {formatDate(event.occurredAt)}</Typography>
+              <Typography variant="body2" color="text.secondary">Registro {formatDate(event.registeredAt)} · {event.reportedBy}</Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>{event.reason}</Typography>
+              {event.evidenceDescription && <Typography variant="body2">Evidência: {event.evidenceDescription}</Typography>}
+            </CardContent></Card>)}
+          </Stack>}
+        </DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setDetails(null)} sx={{ minHeight: 48 }}>Fechar</Button></DialogActions>
+      </Dialog>
     </Box>
   )
 }

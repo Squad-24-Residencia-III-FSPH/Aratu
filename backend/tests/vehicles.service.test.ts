@@ -55,6 +55,7 @@ function setup(initial: Vehicle | null = createVehicle()) {
       return work(fakeClient)
     },
     async list(_filters: VehicleFilters): Promise<Vehicle[]> { return stored ? [stored] : [] },
+    async history(_id, filters) { return { items: [], total: 0, page: filters.page, pageSize: filters.pageSize, totalPages: 0 } },
     async findById(id: string): Promise<Vehicle | null> { return stored?.id === id ? stored : null },
     async findByIdForUpdate(id: string): Promise<Vehicle | null> { return stored?.id === id ? stored : null },
     async findByLicensePlate(licensePlate: string): Promise<Vehicle | null> {
@@ -206,4 +207,14 @@ test('normaliza campos descritivos (brand, model, year, vehicleType, ownership) 
     }, actor.id),
     (error: unknown) => error instanceof VehicleServiceError && error.statusCode === 400,
   )
+})
+
+test('histórico do veículo valida entidade e normaliza a paginação do repositório', async () => {
+  const context = setup()
+  const history = await context.service.getVehicleHistory('21', { page: '2', pageSize: '10', from: '2026-01-01' })
+  assert.deepEqual(history, { items: [], total: 0, page: 2, pageSize: 10, totalPages: 0 })
+  await assert.rejects(context.service.getVehicleHistory('21', { pageSize: '101' }),
+    (error: unknown) => error instanceof VehicleServiceError && error.statusCode === 400)
+  await assert.rejects(setup(null).service.getVehicleHistory('99', {}),
+    (error: unknown) => error instanceof VehicleServiceError && error.statusCode === 404)
 })

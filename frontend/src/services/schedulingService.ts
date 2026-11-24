@@ -22,6 +22,10 @@ function isString(value: unknown): value is string {
   return typeof value === 'string'
 }
 
+function isNullableString(value: unknown): value is string | null {
+  return value === null || isString(value)
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isString)
 }
@@ -32,6 +36,8 @@ function parseApprovedRequest(value: unknown): ApprovedRequestSummary {
     || !isString(value.requestedTime) || !isString(value.origin)
     || !isString(value.destination) || !isString(value.purpose)
     || typeof value.passengers !== 'number' || !Number.isInteger(value.passengers)
+    || !isNullableString(value.specialRequirements)
+    || typeof value.revision !== 'number' || !Number.isInteger(value.revision)
     || value.status !== 'APPROVED') throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
   return {
     id: value.id,
@@ -43,6 +49,8 @@ function parseApprovedRequest(value: unknown): ApprovedRequestSummary {
     destination: value.destination,
     purpose: value.purpose,
     passengers: value.passengers,
+    specialRequirements: value.specialRequirements,
+    revision: value.revision,
     status: 'APPROVED',
   }
 }
@@ -157,8 +165,8 @@ export async function listApprovedRequests(api: ApiRequest): Promise<ApprovedReq
 
 /** Consulta candidatos de veículo, mantendo os motivos de compatibilidade e agenda da API. */
 export async function listAvailableVehicles(api: ApiRequest, start: string, end: string,
-  serviceId: string): Promise<VehicleAvailability[]> {
-  const query = new URLSearchParams({ start, end, serviceId })
+  serviceId: string, requestId?: string): Promise<VehicleAvailability[]> {
+  const query = new URLSearchParams({ start, end, serviceId, ...(requestId ? { requestId } : {}) })
   return getJson(api, `/vehicles/available?${query}`, 'Não foi possível consultar os veículos disponíveis.', (value) => {
     if (!Array.isArray(value)) throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
     return value.map(parseVehicleAvailability)
@@ -167,8 +175,8 @@ export async function listAvailableVehicles(api: ApiRequest, start: string, end:
 
 /** Consulta candidatos de motorista, incluindo CNH e conflitos de agenda. */
 export async function listAvailableDrivers(api: ApiRequest, start: string,
-  end: string): Promise<DriverAvailability[]> {
-  const query = new URLSearchParams({ start, end })
+  end: string, requestId?: string): Promise<DriverAvailability[]> {
+  const query = new URLSearchParams({ start, end, ...(requestId ? { requestId } : {}) })
   return getJson(api, `/drivers/available?${query}`, 'Não foi possível consultar os motoristas disponíveis.', (value) => {
     if (!Array.isArray(value)) throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
     return value.map(parseDriverAvailability)

@@ -18,7 +18,7 @@ async function respondWithDomainErrors<T>(
     response.status(successStatus).json(await operation())
   } catch (error) {
     if (error instanceof TripServiceError) {
-      response.status(error.statusCode).json({ erro: error.message })
+      response.status(error.statusCode).json({ erro: error.message, ...(error.code ? { codigo: error.code } : {}) })
       return
     }
     next(error)
