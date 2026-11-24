@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { AuthContext } from './AuthContext'
 import { login } from './loginService'
@@ -7,7 +7,10 @@ import { clearSession, readSession, saveSession, SESSION_KEY } from './sessionSt
 import type { AuthSession, LoginCredentials, SignInOptions } from './types'
 import { createApiClient } from '../api/client'
 import { waitForApi } from '../api/availability'
-import { SESSION_EXPIRED, tokenExpiresAt } from './token'
+import { SESSION_EXPIRED, tokenExpiresAt, tokenUserId } from './token'
+import { REVALIDATION_THROTTLE_MS, resolveRevalidationPath } from './revalidation'
+import { createSessionDraftStore, SessionDraftContext } from './sessionDrafts'
+import { SessionExpiryPrompt } from './SessionExpiryPrompt'
 
 const MAX_TIMEOUT_MS = 2_147_483_647
 const IDLE_PREPARATION_MS = 5 * 60_000
@@ -16,6 +19,16 @@ const SIGNED_OUT = 'Você saiu deste navegador.'
 const SIGNED_OUT_ELSEWHERE = 'Sua sessão foi encerrada em outra aba. Entre novamente.'
 const LOGOUT_UNCONFIRMED = 'Você saiu deste navegador, mas não foi possível confirmar a saída com o servidor.'
 const STORAGE_CLEANUP_FAILED = 'O navegador impediu a limpeza da sessão. Limpe os dados deste site para encerrar o acesso nas outras abas.'
+const DIFFERENT_ACCOUNT_REAUTH = 'As credenciais informadas pertencem a outra conta. Para trocar de usuário, faça logout antes.'
+
+function currentAppRoutePath(): string | null {
+  if (typeof window === 'undefined') return null
+  const hash = window.location.hash
+  if (hash.startsWith('#/')) return hash.slice(1)
+  return window.location.pathname && window.location.pathname !== '/login'
+    ? window.location.pathname
+    : null
+}
 
 function initialSession(): AuthSession | null {
   const storedSession = readSession()
@@ -39,8 +52,16 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
   const blockedToken = useRef<string | undefined>(undefined)
   const previewToken = useRef(import.meta.env.DEV && session?.token.endsWith('.preview') ? session.token : undefined)
   const [notice, setNotice] = useState('')
+  const [statusAnnouncement, setStatusAnnouncement] = useState('')
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
   const lastApiActivity = useRef(0)
+  const draftStore = useMemo(() => createSessionDraftStore(), [])
+  const revalidationInFlight = useRef<{ token: string; promise: Promise<void> } | null>(null)
+  const lastRevalidated = useRef<{ token: string; at: number } | null>(null)
+
+  useEffect(() => {
+    if (session) draftStore.bindUser(tokenUserId(session.token))
+  }, [session, draftStore])
 
   const prepareApi = useCallback(async (signal?: AbortSignal): Promise<void> => {
     // A prévia local e os testes mantêm o proxy de desenvolvimento sem espera adicional.
@@ -54,9 +75,10 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
   const replaceSession = useCallback((next: AuthSession | null, message = ''): void => {
     generation.current += 1
     sessionRef.current = next
+    if (next) draftStore.bindUser(tokenUserId(next.token))
     setSession(next)
     setNotice(message)
-  }, [])
+  }, [draftStore])
 
   const reconcileSession = useCallback((): void => {
     let next = readSession()
@@ -65,11 +87,19 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     if (!next && current?.token === previewToken.current) return
     if (next?.token === current?.token && next?.nome === current?.nome && next?.perfil === current?.perfil) return
     if (next) blockedToken.current = undefined
-    const expired = current && (tokenExpiresAt(current.token, current.perfil) ?? 0) <= Date.now()
+    const expired = Boolean(current && (tokenExpiresAt(current.token, current.perfil) ?? 0) <= Date.now())
+    if (!next) {
+      if (expired) {
+        draftStore.clearSensitive()
+        draftStore.setReturnPath(currentAppRoutePath())
+      } else {
+        draftStore.clear()
+      }
+    }
     replaceSession(next, next ? '' : expired ? SESSION_EXPIRED : SIGNED_OUT_ELSEWHERE)
-  }, [replaceSession])
+  }, [draftStore, replaceSession])
 
-  const endSession = useCallback((message: string, expectedToken: string): boolean => {
+  const endSession = useCallback((message: string, expectedToken: string, preserveDraftsOnExpiry = false): boolean => {
     if (sessionRef.current?.token !== expectedToken) return false
     // Repetir apenas a limpeza local, nunca o pedido HTTP de auditoria.
     for (let attempt = 0; attempt < STORAGE_CLEANUP_ATTEMPTS; attempt += 1) {
@@ -79,15 +109,22 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
           return false
         }
         previewToken.current = undefined
+        if (preserveDraftsOnExpiry) {
+          draftStore.clearSensitive()
+          draftStore.setReturnPath(currentAppRoutePath())
+        } else {
+          draftStore.clear()
+        }
         replaceSession(null, message)
         return true
       } catch { /* Mesmo com o armazenamento bloqueado, encerrar o acesso nesta aba. */ }
     }
     blockedToken.current = expectedToken
     previewToken.current = undefined
+    draftStore.clear()
     replaceSession(null, STORAGE_CLEANUP_FAILED)
     return false
-  }, [reconcileSession, replaceSession])
+  }, [draftStore, reconcileSession, replaceSession])
 
   const api = useCallback((path: string, options?: RequestInit) => {
     reconcileSession()
@@ -95,11 +132,49 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     const request = createApiClient({
       baseUrl,
       getSession: () => sessionRef.current,
-      onUnauthorized: () => { if (current) endSession(SESSION_EXPIRED, current.token) },
+      onUnauthorized: (reason?: string) => {
+        if (!current) return
+        const isRevocation = Boolean(reason)
+        endSession(reason ?? SESSION_EXPIRED, current.token, !isRevocation)
+      },
       ...(import.meta.env.PROD ? { prepare: prepareApi } : {}),
     })
     return request(path, options)
   }, [baseUrl, endSession, reconcileSession, prepareApi])
+
+  const revalidateSession = useCallback(async (): Promise<void> => {
+    reconcileSession()
+    const current = sessionRef.current
+    if (!current || current.token === previewToken.current) return
+    const path = resolveRevalidationPath(current.perfil)
+    if (!path) return
+    if (revalidationInFlight.current?.token === current.token) {
+      await revalidationInFlight.current.promise
+      return
+    }
+    if (lastRevalidated.current?.token === current.token
+      && Date.now() - lastRevalidated.current.at < REVALIDATION_THROTTLE_MS) {
+      return
+    }
+    const expectedToken = current.token
+    const promise = (async () => {
+      try {
+        const response = await api(path, { method: 'GET', cache: 'no-store' })
+        if (response.ok && sessionRef.current?.token === expectedToken) {
+          lastRevalidated.current = { token: expectedToken, at: Date.now() }
+        }
+      } catch {
+        // Falha de rede ou indisponibilidade não deve encerrar sessão já válida;
+        // respostas 401 já foram tratadas de forma unificada em `api`.
+      } finally {
+        if (revalidationInFlight.current?.token === expectedToken) {
+          revalidationInFlight.current = null
+        }
+      }
+    })()
+    revalidationInFlight.current = { token: expectedToken, promise }
+    await promise
+  }, [api, reconcileSession])
 
   useEffect(() => {
     function onStorage(event: StorageEvent): void {
@@ -109,19 +184,22 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
       } catch { /* A reconciliação abaixo falha fechada se o armazenamento estiver bloqueado. */ }
       reconcileSession()
     }
+    function onResume(): void {
+      void revalidateSession()
+    }
     function onVisible(): void {
-      if (document.visibilityState === 'visible') reconcileSession()
+      if (document.visibilityState === 'visible') void revalidateSession()
     }
     window.addEventListener('storage', onStorage)
-    window.addEventListener('focus', reconcileSession)
+    window.addEventListener('focus', onResume)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       generation.current += 1
       window.removeEventListener('storage', onStorage)
-      window.removeEventListener('focus', reconcileSession)
+      window.removeEventListener('focus', onResume)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [reconcileSession])
+  }, [reconcileSession, revalidateSession])
 
   useEffect(() => {
     if (!session) return
@@ -130,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     let timer: ReturnType<typeof setTimeout>
     function checkExpiry(): void {
       const remaining = expiresAt - Date.now()
-      if (remaining <= 0) endSession(SESSION_EXPIRED, token)
+      if (remaining <= 0) endSession(SESSION_EXPIRED, token, true)
       else timer = setTimeout(checkExpiry, Math.min(remaining, MAX_TIMEOUT_MS))
     }
     timer = setTimeout(checkExpiry, Math.max(0, Math.min(expiresAt - Date.now(), MAX_TIMEOUT_MS)))
@@ -157,19 +235,81 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     }
     blockedToken.current = undefined
     previewToken.current = undefined
+    setStatusAnnouncement('')
     replaceSession(authenticated)
+  }
+
+  async function reauthenticate(credentials: LoginCredentials, options: SignInOptions = {}): Promise<void> {
+    const current = sessionRef.current
+    if (!current) {
+      await signIn(credentials, options)
+      return
+    }
+    const expectedUserId = tokenUserId(current.token)
+    const attempt = ++generation.current
+    const authenticated = await login(credentials, { baseUrl, ...(options.signal ? { signal: options.signal } : {}) })
+    if (generation.current !== attempt || options.signal?.aborted) return
+    const nextUserId = tokenUserId(authenticated.token)
+    if (expectedUserId && nextUserId && nextUserId !== expectedUserId) {
+      throw new Error(DIFFERENT_ACCOUNT_REAUTH)
+    }
+    try {
+      saveSession(authenticated)
+    } catch {
+      throw new Error('Não foi possível manter sua sessão. Permita o armazenamento do navegador e tente novamente.')
+    }
+    blockedToken.current = undefined
+    previewToken.current = undefined
+    replaceSession(authenticated)
+    setStatusAnnouncement('Sessão renovada com sucesso.')
   }
 
   function logout(): void {
     reconcileSession()
     const current = sessionRef.current
     if (!current) return
-    const cleared = endSession(SIGNED_OUT, current.token)
+    setStatusAnnouncement('')
+    const cleared = endSession(SIGNED_OUT, current.token, false)
     const operation = generation.current
     void requestLogout(current.token, { baseUrl }).then((confirmed) => {
       if (!confirmed && cleared && generation.current === operation) setNotice(LOGOUT_UNCONFIRMED)
     })
   }
 
-  return <AuthContext.Provider value={{ session, signIn, logout, api, notice }}>{children}</AuthContext.Provider>
+  const expiresAt = session ? tokenExpiresAt(session.token, session.perfil) : null
+  const isPreviewSession = Boolean(import.meta.env.DEV && session?.token.endsWith('.preview'))
+
+  return (
+    <AuthContext.Provider value={{ session, signIn, logout, api, notice, reauthenticate, revalidateSession }}>
+      <SessionDraftContext.Provider value={draftStore}>
+        <span
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
+          {statusAnnouncement}
+        </span>
+        {children}
+        {session && expiresAt !== null && !isPreviewSession && (
+          <SessionExpiryPrompt
+            key={expiresAt}
+            expiresAt={expiresAt}
+            userName={session.nome}
+            onReauthenticate={reauthenticate}
+            onLogout={logout}
+          />
+        )}
+      </SessionDraftContext.Provider>
+    </AuthContext.Provider>
+  )
 }

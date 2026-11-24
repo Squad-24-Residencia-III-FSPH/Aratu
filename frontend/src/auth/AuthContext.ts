@@ -8,6 +8,8 @@ export interface AuthContextValue {
   logout: () => void
   api: ApiRequest
   notice: string
+  reauthenticate?: (credentials: LoginCredentials, options?: SignInOptions) => Promise<void>
+  revalidateSession?: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
