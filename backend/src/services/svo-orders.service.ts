@@ -354,10 +354,10 @@ export class SvoOrdersService {
         await this.orders.lockEligibleDispatchTeams(openedAt, client)
         const eligibleTeams = await this.orders.rankDispatchTeams(openedAt, client)
         const selectedTeam = eligibleTeams.find((candidate) => candidate.id === input.teamId)
-        if (!selectedTeam) throw new SvoOrderServiceError('TEAM_UNAVAILABLE', 'A equipe precisa estar ativa em plantão, com integrante elegível, para receber uma ordem.')
         const team = await this.orders.findTeamForShare(input.teamId, client)
         if (!team) throw new SvoOrderServiceError('NOT_FOUND', 'Equipe SVO não encontrada.')
         if (!team.active) throw new SvoOrderServiceError('TEAM_UNAVAILABLE', 'Escolha uma equipe SVO ativa.')
+        if (!selectedTeam) throw new SvoOrderServiceError('TEAM_UNAVAILABLE', 'A equipe precisa estar ativa em plantão, com integrante elegível, para receber uma ordem.')
         const vehicle = await this.vehicles.findByIdForUpdate(input.vehicleId, client)
         if (!vehicle) throw new SvoOrderServiceError('NOT_FOUND', 'Veículo não encontrado.')
         if (vehicle.status !== 'AVAILABLE' || vehicle.operationType !== 'SVO' || !vehicle.categories.includes('BODY')) {

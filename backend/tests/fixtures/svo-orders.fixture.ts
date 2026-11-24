@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import type { MaintenanceStatus } from '../../src/types/maintenance.types'
 import type { SvoOrderStatus } from '../../src/types/svo-order.types'
@@ -36,6 +37,39 @@ export async function insertSvoTeam(pool: Pool, active = true): Promise<string> 
     [`Equipe Fictícia QA ${crypto.randomUUID()}`, active],
   )
   return result.rows[0]!.id
+}
+
+/** Prepara uma equipe para despacho com plantão vigente e integrante EQUIPE_SVO ativo. */
+export async function prepareSvoTeamForDispatch(
+  database: Pool | PoolClient,
+  teamId: string,
+  createdBy: string,
+): Promise<void> {
+  const roleResult = await database.query<{ roleId: string; passwordHash: string }>(
+    `SELECT u.role_id::text AS "roleId", u.password_hash AS "passwordHash"
+       FROM auth.users u
+       JOIN auth.roles r ON r.id = u.role_id
+      WHERE r.name = 'EQUIPE_SVO' AND u.active = true
+      ORDER BY u.id
+      LIMIT 1`,
+  )
+  const fixtureAccount = roleResult.rows[0]
+  if (!fixtureAccount) throw new Error('A conta EQUIPE_SVO fictícia não foi provisionada.')
+
+  const identifier = randomUUID()
+  const memberResult = await database.query<{ id: string }>(
+    `INSERT INTO auth.users (name, email, password_hash, role_id, active)
+     VALUES ($1, $2, $3, $4, true) RETURNING id::text AS id`,
+    [`Integrante operacional fictício QA ${identifier}`, `integrante.svo.${identifier}@example.test`,
+      fixtureAccount.passwordHash, fixtureAccount.roleId],
+  )
+  const memberId = memberResult.rows[0]!.id
+  await insertSvoMembership(database, teamId, memberId)
+  await database.query(
+    `INSERT INTO svo.team_shifts (team_id, starts_at, ends_at, created_by)
+     VALUES ($1, clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour', $2)`,
+    [teamId, createdBy],
+  )
 }
 
 export async function insertSvoVehicle(pool: Pool, options: {
