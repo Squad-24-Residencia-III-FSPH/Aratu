@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert } from '@mui/material'
 import type { ApiRequest } from '../../../api/client'
+import { accessibleControls } from '../../../components/ui/accessibleControls'
 import ConfirmDialog from '../../../components/ui/ConfirmDialog'
 import { FormField, FormSelect } from '../../../components/ui/FormField'
 import { changeVehicleStatus, VehicleRequestError } from '../../../services/vehiclesService'
@@ -35,6 +36,18 @@ export default function VehicleStatusDialog({
   const [reasonError, setReasonError] = useState<string>()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [focusReasonSeq, setFocusReasonSeq] = useState(0)
+  const reasonRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (focusReasonSeq === 0) return
+    const input = reasonRef.current
+    if (!input) return
+    input.focus()
+    if (typeof input.scrollIntoView === 'function') {
+      input.scrollIntoView({ block: 'nearest' })
+    }
+  }, [focusReasonSeq])
 
   const targetOptions = allowedTargets.map((status) => ({
     value: status,
@@ -45,6 +58,7 @@ export default function VehicleStatusDialog({
     if (!target) return
     if (!reason.trim()) {
       setReasonError('Informe a justificativa da mudança de situação.')
+      setFocusReasonSeq((current) => current + 1)
       return
     }
     setSubmitting(true)
@@ -88,6 +102,7 @@ export default function VehicleStatusDialog({
       onCancel={onCancel}
       loading={submitting}
       confirmDisabled={!target}
+      sx={accessibleControls}
     >
       {allowedTargets.length === 0 ? (
         <Alert severity="info" sx={{ mt: 2 }}>
@@ -95,7 +110,7 @@ export default function VehicleStatusDialog({
         </Alert>
       ) : (
         <>
-          {submitError && <Alert severity="error" sx={{ mt: 2 }}>{submitError}</Alert>}
+          {submitError && <Alert severity="error" role="alert" sx={{ mt: 2 }}>{submitError}</Alert>}
           <FormSelect
             label="Nova situação"
             value={target}
@@ -115,6 +130,7 @@ export default function VehicleStatusDialog({
             required
             multiline
             minRows={2}
+            inputRef={reasonRef}
           />
         </>
       )}
