@@ -20,8 +20,8 @@ export interface SessionDraftOptions {
  * marcados como `sensitive` também são descartados na expiração involuntária da sessão.
  */
 export interface SessionDraftStore {
-  /** Vincula o usuário ativo ao repositório em memória, descartando dados de outra conta. */
-  bindUser: (userId: string | null) => void
+  /** Vincula o rascunho à conta e ao perfil atuais para retomar apenas no mesmo contexto. */
+  bindUser: (userId: string | null, profile?: string | null) => void
   /** Descarta imediatamente todos os rascunhos e o contexto de retorno em memória. */
   clear: () => void
   /** Descarta apenas os rascunhos marcados como sensíveis (ex.: política SVO ao expirar). */
@@ -38,6 +38,8 @@ export interface SessionDraftStore {
   consumeReturnPath: () => string | null
   /** Retorna o identificador do usuário atualmente dono dos rascunhos em memória. */
   getOwnerUserId: () => string | null
+  /** Identifica a vinculação vigente para impedir ações tardias de uma sessão encerrada. */
+  getScope: () => number
   /** Inscreve um ouvinte para sincronização de mudanças/descartes em componentes React. */
   subscribe: (listener: () => void) => () => void
 }
@@ -49,6 +51,8 @@ export interface SessionDraftStore {
  */
 export function createSessionDraftStore(): SessionDraftStore {
   let ownerUserId: string | null = null
+  let ownerProfile: string | null = null
+  let scope = 0
   let returnPath: string | null = null
   const drafts = new Map<string, unknown>()
   const sensitiveKeys = new Set<string>()
@@ -61,6 +65,8 @@ export function createSessionDraftStore(): SessionDraftStore {
   function clearInternal(): void {
     const hadState = ownerUserId !== null || returnPath !== null || drafts.size > 0 || sensitiveKeys.size > 0
     ownerUserId = null
+    ownerProfile = null
+    scope += 1
     returnPath = null
     drafts.clear()
     sensitiveKeys.clear()
@@ -68,17 +74,20 @@ export function createSessionDraftStore(): SessionDraftStore {
   }
 
   return {
-    bindUser(userId: string | null): void {
+    bindUser(userId: string | null, profile: string | null = null): void {
       if (userId === null) return
-      if (ownerUserId !== null && ownerUserId !== userId) {
+      if (ownerUserId !== null && (ownerUserId !== userId || ownerProfile !== profile)) {
         drafts.clear()
         sensitiveKeys.clear()
         returnPath = null
         ownerUserId = userId
+        ownerProfile = profile
+        scope += 1
         notify()
         return
       }
       ownerUserId = userId
+      ownerProfile = profile
     },
     clear(): void {
       clearInternal()
@@ -127,6 +136,9 @@ export function createSessionDraftStore(): SessionDraftStore {
     getOwnerUserId(): string | null {
       return ownerUserId
     },
+    getScope(): number {
+      return scope
+    },
     subscribe(listener: () => void): () => void {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
@@ -153,6 +165,7 @@ export function useSessionDraft<T>(
   options?: SessionDraftOptions,
 ): readonly [T, (next: T | ((prev: T) => T)) => void, () => void] {
   const store = useContext(SessionDraftContext)
+  const scope = store?.getScope()
   const [fallbackState, setFallbackState] = useState<T>(initialValue)
   const sensitive = options?.sensitive
 
@@ -175,19 +188,20 @@ export function useSessionDraft<T>(
       setFallbackState(next)
       return
     }
+    if (store.getScope() !== scope) return
     const previous = store.getDraft<T>(key)
     const base = previous !== undefined ? previous : initialValue
     const resolved = typeof next === 'function' ? (next as (prev: T) => T)(base) : next
     store.setDraft(key, resolved, sensitive !== undefined ? { sensitive } : undefined)
-  }, [store, key, initialValue, sensitive])
+  }, [store, scope, key, initialValue, sensitive])
 
   const clearDraft = useCallback((): void => {
     if (!store) {
       setFallbackState(initialValue)
       return
     }
-    store.setDraft(key, undefined)
-  }, [store, key, initialValue])
+    if (store.getScope() === scope) store.setDraft(key, undefined)
+  }, [store, scope, key, initialValue])
 
   return [value, setDraft, clearDraft] as const
 }

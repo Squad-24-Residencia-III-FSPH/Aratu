@@ -12,8 +12,11 @@ export type SvoRequesterType = typeof SVO_REQUESTER_TYPES[number]
 export const SVO_OCCURRENCE_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELED'] as const
 export type SvoOccurrenceStatus = typeof SVO_OCCURRENCE_STATUSES[number]
 
-/** Perfis com permissão de escrita em ocorrências e geração de ordens SVO. */
+/** Perfis com permissão para registrar ocorrência e confirmar triagem. */
 export const SVO_OCCURRENCE_WRITE_ROLES: readonly Profile[] = ['ATENDENTE_SVO', 'ADMINISTRADOR']
+
+/** Perfis que podem despachar e reprocessar ordens na Central SVO. */
+export const SVO_DISPATCH_ROLES: readonly Profile[] = ['GESTOR', 'ADMINISTRADOR']
 
 /** Perfis com permissão de leitura na tela de solicitações SVO. */
 export const SVO_OCCURRENCE_READ_ROLES: readonly Profile[] = ['ATENDENTE_SVO', 'ADMINISTRADOR', 'GESTOR']
@@ -211,9 +214,19 @@ export function canReadSvoOccurrences(profile: Profile | null): boolean {
   return profile !== null && SVO_OCCURRENCE_READ_ROLES.includes(profile)
 }
 
-/** Verifica se o perfil possui acesso de registro, confirmação e despacho na Central SVO. */
+/** Verifica se o perfil possui acesso de registro e confirmação de triagem. */
 export function canWriteSvoOccurrences(profile: Profile | null): boolean {
   return profile !== null && SVO_OCCURRENCE_WRITE_ROLES.includes(profile)
+}
+
+/** Espelha a autorização da API para o despacho manual e o reprocessamento. */
+export function canManageSvoDispatch(profile: Profile | null): boolean {
+  return profile !== null && SVO_DISPATCH_ROLES.includes(profile)
+}
+
+/** Uma ocorrência pode aguardar novo despacho depois que a triagem registrou a intenção. */
+export function isAwaitingSvoDispatch(occurrence: SvoOccurrenceSummary): boolean {
+  return occurrence.status === 'CONFIRMED' && Boolean(occurrence.dispatchRequestedAt) && !occurrence.executionOrderId
 }
 
 /** Valida se o texto representa um identificador decimal positivo dentro do limite `BIGINT`. */

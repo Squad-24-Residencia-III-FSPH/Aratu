@@ -29,7 +29,6 @@ export interface ResubmitTarget {
   id: string
   revision: number
   rejectionReason: string | null
-  status?: 'RETURNED' | 'REJECTED'
 }
 
 export const REQUEST_FORM_FIELD_ORDER: readonly RequestFormField[] = [

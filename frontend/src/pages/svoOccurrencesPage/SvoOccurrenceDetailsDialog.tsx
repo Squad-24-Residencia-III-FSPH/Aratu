@@ -5,6 +5,7 @@ import StateFeedback from '../../components/ui/StateFeedback'
 import StatusChip from '../../components/ui/StatusChip'
 import type { OccurrenceDetailState } from '../../hooks/useSvoOccurrences'
 import {
+  isAwaitingSvoDispatch,
   SVO_DISPATCH_ORDER_STATUS_LABELS,
   SVO_OCCURRENCE_STATUS_LABELS,
   SVO_OCCURRENCE_STATUS_TONES,
@@ -19,8 +20,10 @@ export interface SvoOccurrenceDetailsDialogProps {
   detail: OccurrenceDetailState
   /** Ordem vinculada à solicitação quando já gerada. */
   linkedOrder: SvoDispatchOrderRef | undefined
-  /** Indica se o perfil atual pode confirmar triagem ou gerar ordem. */
+  /** Indica se o perfil atual pode confirmar a triagem. */
   canWrite: boolean
+  /** Indica se o perfil atual pode despachar a ocorrência. */
+  canDispatch: boolean
   /** Recarrega o detalhe em caso de falha transitória. */
   onRetry: () => void
   /** Fecha o diálogo e devolve foco ao acionador. */
@@ -39,6 +42,7 @@ export default function SvoOccurrenceDetailsDialog({
   detail,
   linkedOrder,
   canWrite,
+  canDispatch,
   onRetry,
   onClose,
   onConfirmOccurrence,
@@ -143,7 +147,7 @@ export default function SvoOccurrenceDetailsDialog({
             Confirmar triagem
           </Button>
         )}
-        {canWrite && occurrence && occurrence.status === 'CONFIRMED' && !linkedOrder && (
+        {canDispatch && occurrence && isAwaitingSvoDispatch(occurrence) && !linkedOrder && (
           <Button
             type="button"
             variant="contained"

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSessionDraft } from '../../auth/sessionDrafts'
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, Typography,
 } from '@mui/material'
@@ -125,10 +126,10 @@ export default function TripConfirmationPage() {
   const allowed = profile === 'GESTOR' || profile === 'ADMINISTRADOR'
   const canOperate = profile === 'GESTOR'
   const [viewMode, setViewMode] = useState<TripConfirmationQueueStatus>('FINISHED')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
-  const [vehicle, setVehicle] = useState('')
-  const [driver, setDriver] = useState('')
+  const [from, setFrom] = useSessionDraft('trip-confirmation:from', '')
+  const [to, setTo] = useSessionDraft('trip-confirmation:to', '')
+  const [vehicle, setVehicle] = useSessionDraft('trip-confirmation:vehicle', '')
+  const [driver, setDriver] = useSessionDraft('trip-confirmation:driver', '')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detailSnapshot, setDetailSnapshot] = useState<TripConfirmationQueueItem | null>(null)
   const [confirmClosingTrip, setConfirmClosingTrip] = useState<TripConfirmationQueueItem | null>(null)

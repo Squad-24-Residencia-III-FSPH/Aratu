@@ -297,14 +297,14 @@ export default function RequestDetailDialog({
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2, pb: 'max(16px, env(safe-area-inset-bottom))', gap: 1, flexWrap: 'wrap' }}>
-        {detail && (detail.status === 'REJECTED' || detail.status === 'RETURNED') && onResubmit && typeof detail.revision === 'number' && (
+        {detail?.status === 'RETURNED' && onResubmit && typeof detail.revision === 'number' && (
           <Button
-            variant={detail.status === 'RETURNED' ? 'contained' : 'outlined'}
-            startIcon={detail.status === 'RETURNED' ? <EditNoteIcon aria-hidden="true" /> : undefined}
+            variant="contained"
+            startIcon={<EditNoteIcon aria-hidden="true" />}
             onClick={() => onResubmit(detail)}
             sx={{ minHeight: 44, minWidth: 44 }}
           >
-            {detail.status === 'RETURNED' ? 'Corrigir e reenviar' : 'Reenviar solicitação'}
+            Corrigir e reenviar
           </Button>
         )}
         <Button onClick={onClose} variant={detail?.status === 'RETURNED' ? 'outlined' : 'contained'} sx={{ minHeight: 44, minWidth: 44 }}>

@@ -557,6 +557,16 @@ test('ORD-07: somente gestor e administrador geram ordens; conta ativa e tokens 
   await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO', missingToken), 401)
 })
 
+test('consulta de candidatos usa os mesmos perfis do despacho', async () => {
+  for (const role of ['GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO'] as const) {
+    const response = await fetch(`${baseUrl}/svo/dispatch-candidates`, {
+      headers: { Authorization: `Bearer ${user(role).token}` },
+    })
+    assert.equal(response.status, role === 'ATENDENTE_SVO' ? 403 : 200)
+    await response.json()
+  }
+})
+
 /** Observa espera real no PostgreSQL; o atraso apenas cede CPU entre observações, com prazo limitado. */
 async function waitForBlocked(count: number): Promise<void> {
   const deadline = Date.now() + 5_000

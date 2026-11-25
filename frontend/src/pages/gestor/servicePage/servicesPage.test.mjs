@@ -118,7 +118,7 @@ function renderPage(api, profile = 'GESTOR') {
 
 async function closeVehicleListbox(user, dialog) {
   await user.keyboard('{Escape}')
-  await waitFor(() => assert.equal(screen.queryByRole('listbox'), null))
+  await waitFor(() => assert.ok(!screen.queryByRole('listbox'), 'A lista de viaturas deve fechar com Escape.'))
   await within(dialog).findByRole('textbox', { name: 'Justificativa' })
 }
 
@@ -272,7 +272,7 @@ test('T07-P02/P07: falha apenas no PUT de vínculos na edição não fecha diál
 
   const alert = await within(dialog).findByRole('alert')
   assert.match(alert.textContent ?? '', /Veículo TQB7V05 está inativo e não pode ser vinculado/)
-  assert.equal(screen.queryByText(/Alteração parcialmente concluída/), null)
+  assert.ok(!screen.queryByText(/Alteração parcialmente concluída/))
   assert.equal(within(dialog).getByRole('textbox', { name: 'Justificativa' }).value, 'Vincular viatura')
   assert.equal(calls.filter((c) => c.url === '/services/4' && c.req.method === 'PUT').length, 0)
 })

@@ -497,7 +497,6 @@ export default function ServiceFormDialog({
       cancelLabel="Voltar"
       loading={submitting || reconciling}
       confirmDisabled={submitting || reconciling || nothingChanged}
-      onEntered={() => nameInputRef.current?.focus()}
       paperSx={{ maxWidth: 560 }}
       sx={accessibleControls}
     >

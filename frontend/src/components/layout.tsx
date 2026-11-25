@@ -24,7 +24,7 @@ export default function Layout({ children }: { children: ReactNode }): ReactNode
   const sessionIdentity = session ? `${tokenUserId(session.token) ?? 'unknown'}:${profile ?? 'unknown'}` : 'anonymous';
   const handleNavigationAction = (item: SidebarMenuItem) => {
     if (item.action === 'open-request') {
-      navigate(PROFILE_HOMES.SOLICITANTE.path, { state: { openNewRequest: true } });
+      navigate(`${PROFILE_HOMES.SOLICITANTE.path}?nova=1`);
     }
     setMobileNavigationOpen(false);
   };

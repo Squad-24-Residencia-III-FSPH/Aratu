@@ -437,8 +437,8 @@ test('SVO result: contrato estrito, motivo condicional, datas, encerramento pré
   }
 })
 
-test('DISP unit: candidatos exigem perfil de escrita SVO e conta ativa antes da consulta', async () => {
-  for (const role of ['ATENDENTE_SVO', 'ADMINISTRADOR'] as const) {
+test('DISP unit: candidatos exigem perfil de despacho SVO e conta ativa antes da consulta', async () => {
+  for (const role of ['GESTOR', 'ADMINISTRADOR'] as const) {
     const h = harness()
     h.actor.role = role
     const result = await h.service.listDispatchCandidates('1')
@@ -447,7 +447,7 @@ test('DISP unit: candidatos exigem perfil de escrita SVO e conta ativa antes da 
     assert.deepEqual(h.calls, ['begin', 'actor', 'listActiveTeams', 'listEligibleVehiclesForDispatch', 'commit'])
   }
 
-  for (const role of ['GESTOR', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
+  for (const role of ['ATENDENTE_SVO', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
     const h = harness()
     h.actor.role = role
     await assert.rejects(h.service.listDispatchCandidates('1'), code('ACCESS_DENIED'))
@@ -465,7 +465,7 @@ test('DISP unit: candidatos exigem perfil de escrita SVO e conta ativa antes da 
 
 test('DISP unit: calcula availableSlots e exclui viaturas sem vaga disponível', async () => {
   const h = harness()
-  h.actor.role = 'ATENDENTE_SVO'
+  h.actor.role = 'GESTOR'
   h.orders.listActiveTeams = async () => [
     { id: '1', name: 'Equipe Alfa Fictícia' },
     { id: '2', name: 'Equipe Beta Fictícia' },
@@ -542,15 +542,15 @@ test('DISP route: HTTP 401/403/200 respeita RBAC na rota /svo/dispatch-candidate
     const unauth = await fetch(url)
     assert.equal(unauth.status, 401)
 
-    for (const role of ['GESTOR', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
+    for (const role of ['ATENDENTE_SVO', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
       h.actor.role = role
       const token = jwt.sign({ id: '1', perfil: role }, secret, { expiresIn: 3600 })
       const denied = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       assert.equal(denied.status, 403)
     }
 
-    h.actor.role = 'ATENDENTE_SVO'
-    const token = jwt.sign({ id: '1', perfil: 'ATENDENTE_SVO' }, secret, { expiresIn: 3600 })
+    h.actor.role = 'GESTOR'
+    const token = jwt.sign({ id: '1', perfil: 'GESTOR' }, secret, { expiresIn: 3600 })
     const allowed = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     assert.equal(allowed.status, 200)
     const body = await allowed.json() as { teams: unknown[]; vehicles: unknown[] }

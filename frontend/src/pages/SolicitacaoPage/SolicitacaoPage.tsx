@@ -132,12 +132,12 @@ function SolicitacaoContent() {
   const [fetchState, setFetchState] = useState<FetchState>(INITIAL_FETCH_STATE)
   const [reloadCount, setReloadCount] = useState(0)
 
-  const [newDialogLocalOpen, setNewDialogLocalOpen] = useState(false)
+  const [newDialogLocalOpen, setNewDialogLocalOpen] = useSessionDraft('solicitacao:request-dialog-open', false)
   const [newFormDraft, setNewFormDraft, clearNewFormDraft] = useSessionDraft<RequestFormValues>(
     'solicitacao:new-request-draft',
     EMPTY_REQUEST_FORM,
   )
-  const [resubmitTarget, setResubmitTarget] = useState<ResubmitTarget | null>(null)
+  const [resubmitTarget, setResubmitTarget] = useSessionDraft<ResubmitTarget | null>('solicitacao:resubmit-target', null)
   const [selectedRequest, setSelectedRequest] = useState<{ id: string; seq: number } | null>(null)
   const [notice, setNotice] = useState('')
 
@@ -234,7 +234,7 @@ function SolicitacaoContent() {
     } catch {
       return false
     }
-  }, [allowed, api, reloadCount, setSearchParams, urlFilters, urlPage, urlPageSize, urlState.openNewRequested])
+  }, [allowed, api, reloadCount, setNewDialogLocalOpen, setSearchParams, urlFilters, urlPage, urlPageSize, urlState.openNewRequested])
 
   const loadError = fetchState.errorKey === requestKey ? fetchState.errorMessage : ''
   const loading = allowed && loadError === '' && fetchState.completedKey !== requestKey
@@ -321,6 +321,7 @@ function SolicitacaoContent() {
   }
 
   function handleStartResubmit(detail: RequestDetailView) {
+    if (detail.status !== 'RETURNED' || typeof detail.revision !== 'number') return
     pendingResubmitDetailRef.current = detail
     setSelectedRequest(null)
     setNotice('')
@@ -345,7 +346,6 @@ function SolicitacaoContent() {
         id: pendingDetail.id,
         revision: pendingDetail.revision ?? 1,
         rejectionReason: pendingDetail.decisionReason,
-        status: pendingDetail.status === 'RETURNED' ? 'RETURNED' : 'REJECTED',
       })
       setNewDialogLocalOpen(true)
       return

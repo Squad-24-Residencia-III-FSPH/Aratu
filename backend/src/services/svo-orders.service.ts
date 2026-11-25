@@ -188,7 +188,7 @@ export class SvoOrdersService {
       if (!actor) {
         throw new SvoOrderServiceError('ACCOUNT_UNAVAILABLE', 'Sua conta não está ativa. Entre novamente ou procure a administração.')
       }
-      if (!SVO_WRITE_ROLES.some((role) => role === actor.role)) {
+      if (!SVO_MAINTAIN_ROLES.some((role) => role === actor.role)) {
         throw new SvoOrderServiceError('ACCESS_DENIED', 'Seu perfil atual não permite consultar candidatos para despacho SVO.')
       }
       const teams = await this.orders.listActiveTeams(client)

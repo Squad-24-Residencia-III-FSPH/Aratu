@@ -155,11 +155,20 @@ test('reautenticação rejeita credencial de outro usuário e renova sessão pre
   // Mesma conta renova sessão sem perder rascunho em memória.
   await user.clear(screen.getByRole('textbox', { name: /E-mail institucional/ }))
   await user.type(screen.getByRole('textbox', { name: /E-mail institucional/ }), 'mesmo@example.invalid')
-  globalThis.fetch = async () => Response.json(renewed)
+  const renewalCalls = []
+  globalThis.fetch = async (url, options) => {
+    renewalCalls.push(String(url))
+    if (String(url).endsWith('/auth/me')) {
+      assert.equal(options.headers.Authorization, `Bearer ${renewed.token}`)
+      return Response.json({ id: '101', nome: renewed.nome, perfil: 'GESTOR' })
+    }
+    return Response.json(renewed)
+  }
   await user.click(screen.getByRole('button', { name: 'Confirmar e continuar' }))
 
   await waitFor(() => assert.ok(screen.queryByRole('dialog') === null))
   assert.equal(JSON.parse(window.localStorage.getItem(KEY)).token, renewed.token)
+  assert.deepEqual(renewalCalls, ['/api/auth/login', '/api/auth/me'])
   assert.deepEqual(draftApi.draft, { from: '2026-11-30' })
   assert.ok(screen.getByText('Sessão renovada com sucesso.').closest('[role=status]'))
 })

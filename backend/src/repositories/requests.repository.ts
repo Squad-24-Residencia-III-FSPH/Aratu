@@ -284,7 +284,7 @@ export class RequestsRepository implements RequestsRepositoryContract {
     return result.rows[0] ?? null
   }
 
-  /** Atualiza somente uma versão devolvida ou rejeitada e ainda vigente, mantendo controle otimista por `revision`. */
+  /** Atualiza somente uma versão devolvida e ainda vigente, mantendo controle otimista por `revision`. */
   async resubmit(
     id: string,
     expectedRevision: number,
@@ -321,7 +321,7 @@ export class RequestsRepository implements RequestsRepositoryContract {
               updated_at = clock_timestamp()
         WHERE id = $13
           AND requester_id = $14
-          AND status IN ('RETURNED', 'REJECTED')
+          AND status = 'RETURNED'
           AND revision = $15
         RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
                   to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",

@@ -159,6 +159,9 @@ function makeApi(handlers = {}) {
     if (method === 'POST' && reqPath === '/svo/orders') {
       return handlers.onCreateOrder(init)
     }
+    if (method === 'POST' && /^\/svo\/orders\/dispatch\/\d+$/.test(reqPath)) {
+      return handlers.onRetryDispatch(reqPath, init)
+    }
     throw new Error(`Endpoint não simulado: ${method} ${reqPath}`)
   }
   return { api, calls }
@@ -199,21 +202,41 @@ test('exibe título da aba, carregamento, ideal, parcial de vínculo e bloqueia 
   assert.ok(screen.getByText('Seu perfil atual não tem permissão para consultar solicitações SVO.'))
 })
 
-test('perfil GESTOR consulta lista e detalhe em modo somente leitura e ADMINISTRADOR possui ações de escrita', async () => {
-  const { api } = makeApi({
-    occurrences: [
-      makeOccurrence({ id: '1', status: 'PENDING' }),
-      makeOccurrence({ id: '2', status: 'CONFIRMED' }),
-    ],
+test('atendente confirma triagem, gestor reprocessa a fila e administrador reúne as duas permissões', async () => {
+  const pending = makeOccurrence({ id: '1', status: 'PENDING' })
+  const waiting = makeOccurrence({
+    id: '2', status: 'CONFIRMED', revision: 2,
+    dispatchRequestedAt: '2026-11-23T09:10:00.000Z', dispatchWaitReason: 'NO_VEHICLE',
+  })
+  let rows = [pending, waiting]
+  const { api, calls } = makeApi({
+    onListOccurrences: () => jsonResponse(rows),
+    onRetryDispatch: (_path, init) => {
+      assert.equal(JSON.parse(init.body).expectedRevision, 2)
+      rows = [pending, { ...waiting, executionOrderId: '51', revision: 3 }]
+      return jsonResponse({ status: 'DISPATCHED', orderId: '51', teamId: '1', vehicleId: '10', revision: 3 })
+    },
   })
 
-  renderPage(api, 'GESTOR')
-  assert.ok(await screen.findByText('#1'))
-  assert.equal(screen.queryByRole('button', { name: 'Nova solicitação' }), null)
-  assert.equal(screen.queryByRole('button', { name: /Confirmar triagem/ }), null)
+  renderPage(api, 'ATENDENTE_SVO')
+  assert.ok(await screen.findByRole('button', { name: 'Confirmar triagem da solicitação #1' }))
+  assert.equal(screen.queryByRole('heading', { name: 'Aguardando despacho' }), null)
   assert.equal(screen.queryByRole('button', { name: /Gerar ordem/ }), null)
 
   cleanup()
+  renderPage(api, 'GESTOR')
+  const queue = await screen.findByRole('region', { name: 'Aguardando despacho' })
+  assert.ok(within(queue).getByText('Aguardando viatura com vaga elegível.'))
+  assert.equal(screen.queryByRole('button', { name: 'Nova solicitação' }), null)
+  assert.equal(screen.queryByRole('button', { name: /Confirmar triagem/ }), null)
+  assert.ok(screen.getByRole('button', { name: 'Gerar ordem para solicitação #2' }))
+  await userEvent.setup().click(within(queue).getByRole('button', { name: 'Tentar despacho da solicitação #2' }))
+  assert.ok(await screen.findByText('Ordem #51 criada automaticamente para a solicitação #2.'))
+  assert.ok(await within(queue).findByText('Nenhuma solicitação aguardando despacho neste recorte.'))
+  assert.equal(calls.filter((call) => call.path === '/svo/orders/dispatch/2').length, 1)
+
+  cleanup()
+  rows = [pending, waiting]
   renderPage(api, 'ADMINISTRADOR')
   assert.ok(await screen.findByRole('button', { name: 'Nova solicitação' }))
   assert.ok(screen.getByRole('button', { name: 'Confirmar triagem da solicitação #1' }))
@@ -329,7 +352,9 @@ test('confirma triagem PENDING -> CONFIRMED, trata 409 e despacha ordem usando /
     onListOccurrences: () => jsonResponse(state.occurrences),
     onDetail: (id) => jsonResponse(makeDetail({ id, status: state.occurrences[0].status })),
     onConfirmOccurrence: () => {
-      state.occurrences = [makeOccurrence({ id: '1', status: 'CONFIRMED', revision: 2 })]
+      state.occurrences = [makeOccurrence({
+        id: '1', status: 'CONFIRMED', revision: 2, dispatchRequestedAt: '2026-11-23T09:10:00.000Z',
+      })]
       return jsonResponse({
         id: '1',
         status: 'CONFIRMED',
@@ -365,7 +390,7 @@ test('confirma triagem PENDING -> CONFIRMED, trata 409 e despacha ordem usando /
     },
   })
 
-  renderPage(api, 'ATENDENTE_SVO')
+  renderPage(api, 'ADMINISTRADOR')
   const user = userEvent.setup()
 
   await user.click(await screen.findByRole('button', { name: 'Confirmar triagem da solicitação #1' }))
@@ -404,11 +429,13 @@ test('confirma triagem PENDING -> CONFIRMED, trata 409 e despacha ordem usando /
 
 test('exibe estado vazio de candidatos no despacho quando não há equipe ativa ou viatura elegível', async () => {
   const { api } = makeApi({
-    occurrences: [makeOccurrence({ id: '2', status: 'CONFIRMED', revision: 2 })],
+    occurrences: [makeOccurrence({
+      id: '2', status: 'CONFIRMED', revision: 2, dispatchRequestedAt: '2026-11-23T09:10:00.000Z',
+    })],
     candidates: { teams: [], vehicles: [] },
   })
 
-  renderPage(api, 'ATENDENTE_SVO')
+  renderPage(api, 'GESTOR')
   const user = userEvent.setup()
   await user.click(await screen.findByRole('button', { name: 'Gerar ordem para solicitação #2' }))
   const dispatchDialog = await screen.findByRole('dialog', { name: /Gerar ordem SVO/ })

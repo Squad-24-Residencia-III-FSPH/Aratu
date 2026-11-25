@@ -4,8 +4,9 @@ import { createElement } from 'react'
 import { ThemeProvider } from '@mui/material/styles'
 import { testing, vite, closeAuthDom } from './auth-dom.fixture.mjs'
 import { sessionFor } from './fixtures.mjs'
+import { makeDriverTrip } from './my-trips.fixture.mjs'
 
-const { render, cleanup, screen, waitFor, within } = testing
+const { render, cleanup, fireEvent, screen, waitFor, within } = testing
 const [{ AuthProvider }, { default: App }, { theme }] = await Promise.all([
   vite.ssrLoadModule('/src/auth/AuthProvider.tsx'),
   vite.ssrLoadModule('/src/App.tsx'),
@@ -32,6 +33,60 @@ function renderApp(profile, hashPath) {
     createElement(ThemeProvider, { theme }, createElement(AuthProvider, null, createElement(App))),
   )
 }
+
+test('retoma hodômetro e rota após expiração para o mesmo motorista e descarta na troca de conta', async () => {
+  const initial = sessionFor('MOTORISTA', 3600)
+  const trip = makeDriverTrip(8, { status: 'IN_PROGRESS', startKm: 1450, startedAt: new Date().toISOString() })
+  let renewed = sessionFor('MOTORISTA', 7200)
+  let expire = false
+  let tripLookupUnavailable = false
+  globalThis.fetch = async (input) => {
+    const url = String(input)
+    if (url.endsWith('/auth/login')) {
+      expire = false
+      return Response.json(renewed)
+    }
+    if (url.endsWith('/trips/mine')) {
+      return tripLookupUnavailable
+        ? Response.json({ erro: 'Consulta de viagens indisponível.' }, { status: 503 })
+        : Response.json([trip])
+    }
+    if (url.endsWith('/auth/me') && expire) return Response.json({ erro: 'Token inválido ou expirado.' }, { status: 401 })
+    return Response.json({})
+  }
+
+  window.localStorage.setItem(KEY, JSON.stringify(initial))
+  renderApp(null, '/viagens/minhas?origem=teste')
+  fireEvent.click(await screen.findByRole('button', { name: /Finalizar viagem #8/ }))
+  const dialog = await screen.findByRole('dialog')
+  fireEvent.change(within(dialog).getByRole('textbox', { name: /Quilometragem final/ }), { target: { value: '1570' } })
+
+  async function expireAndSignIn() {
+    expire = true
+    fireEvent.focus(window)
+    await waitFor(() => assert.equal(window.location.hash, '#/login'))
+    fireEvent.change(await screen.findByLabelText(/e-mail/i), { target: { value: 'motorista@example.test' } })
+    fireEvent.change(screen.getByLabelText(/senha/i, { selector: 'input' }), { target: { value: 'senha-ficticia' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Entrar' }))
+  }
+
+  tripLookupUnavailable = true
+  await expireAndSignIn()
+  await waitFor(() => assert.equal(window.location.hash, '#/viagens/minhas?origem=teste'))
+  const resumed = await screen.findByRole('dialog', { name: /Finalizar viagem #8/ })
+  assert.equal(within(resumed).getByRole('textbox', { name: /Quilometragem final/ }).value, '1570')
+  const refreshTrip = await within(resumed).findByRole('button', { name: 'Atualizar situação' })
+  tripLookupUnavailable = false
+  fireEvent.click(refreshTrip)
+  await waitFor(() => assert.ok(within(resumed).getByText(/Viagem #8 para Unidade fictícia 8/)))
+  assert.equal(within(resumed).getByRole('textbox', { name: /Quilometragem final/ }).value, '1570')
+
+  renewed = sessionFor('MOTORISTA', 7200, { id: 2 })
+  await expireAndSignIn()
+  await waitFor(() => assert.equal(window.location.hash, '#/viagens/minhas'))
+  await screen.findByRole('button', { name: /Finalizar viagem #8/ })
+  assert.equal(screen.queryByRole('dialog'), null)
+})
 
 test('App aplica guarda no alias /minhas-solicitacoes e abre Nova Solicitação com ?nova=1', async () => {
   globalThis.fetch = async (input) => {

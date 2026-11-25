@@ -6,7 +6,7 @@ import { authorizeRoles } from '../middlewares/rbac.middleware'
 import type { UsersRepositoryContract } from '../repositories/users.repository'
 import type { SvoOrdersService } from '../services/svo-orders.service'
 import type { JwtConfig } from '../types/auth'
-import { SVO_MAINTAIN_ROLES, SVO_WRITE_ROLES } from '../types/svo-occurrence.types'
+import { SVO_MAINTAIN_ROLES } from '../types/svo-occurrence.types'
 import { SVO_ORDER_READ_ROLES, SVO_ORDER_UPDATE_ROLES, SvoOrderServiceError } from '../types/svo-order.types'
 import type { SvoOrderErrorCode } from '../types/svo-order.types'
 
@@ -18,7 +18,7 @@ const ERROR_STATUS: Record<SvoOrderErrorCode, number> = {
 }
 
 /**
- * Cria a consulta `GET /svo/dispatch-candidates` restrita aos perfis de escrita da Central SVO.
+ * Cria a consulta `GET /svo/dispatch-candidates` restrita aos perfis que podem despachar.
  * Deve ser montada em `app.ts` antes de rotas parametrizadas com `/:id`.
  */
 export function createSvoDispatchCandidatesRouter(
@@ -29,7 +29,7 @@ export function createSvoDispatchCandidatesRouter(
   const router = Router()
   router.use(createAuthMiddleware(jwt.secret), createCurrentUserMiddleware(users))
   const controller = createSvoOrdersController(service)
-  router.get('/', authorizeRoles(SVO_WRITE_ROLES), controller.dispatchCandidates)
+  router.get('/', authorizeRoles(SVO_MAINTAIN_ROLES), controller.dispatchCandidates)
   return router
 }
 

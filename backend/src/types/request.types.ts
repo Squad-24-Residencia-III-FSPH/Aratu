@@ -34,7 +34,7 @@ export interface CreateRequestBody {
   notes?: unknown
 }
 
-/** Campos recebidos no reenvio versionado de solicitação devolvida ou rejeitada. */
+/** Campos recebidos no reenvio versionado de solicitação devolvida para correção. */
 export interface ResubmitRequestBody extends CreateRequestBody {
   expectedRevision?: unknown
   reason?: unknown

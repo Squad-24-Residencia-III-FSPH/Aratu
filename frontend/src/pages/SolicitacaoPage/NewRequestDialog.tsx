@@ -16,6 +16,7 @@ import {
 } from '@mui/material'
 import SendIcon from '@mui/icons-material/Send'
 import type { ApiRequest } from '../../api/client'
+import { useSessionDraft } from '../../auth/sessionDrafts'
 import { accessibleControls } from '../../components/ui/accessibleControls'
 import { FormField, FormSelect } from '../../components/ui/FormField'
 import StateFeedback from '../../components/ui/StateFeedback'
@@ -130,16 +131,18 @@ export default function NewRequestDialog({
   const [catalogReload, setCatalogReload] = useState(0)
 
   const [fieldErrors, setFieldErrors] = useState<RequestFormErrors>({})
-  const [resubmitReason, setResubmitReason] = useState('')
+  const [resubmitReason, setResubmitReason, clearResubmitReason] = useSessionDraft('solicitacao:resubmit-reason', '')
   const [reasonError, setReasonError] = useState('')
   const [submitError, setSubmitError] = useState('')
-  const [uncertainSubmit, setUncertainSubmit] = useState(false)
+  const [uncertainSubmit, setUncertainSubmit, clearUncertainSubmit] = useSessionDraft('solicitacao:pending-send', false)
   const [conflictSubmit, setConflictSubmit] = useState(false)
   const [checkingList, setCheckingList] = useState(false)
   const [listCheckMessage, setListCheckMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const submittingRef = useRef(false)
+  const submitSequence = useRef(0)
+  useEffect(() => () => { submitSequence.current += 1 }, [])
   const serviceWrapperRef = useRef<HTMLDivElement>(null)
   const dateInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const timeInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
@@ -211,10 +214,10 @@ export default function NewRequestDialog({
 
   function handleDialogExited() {
     setFieldErrors({})
-    setResubmitReason('')
+    clearResubmitReason()
     setReasonError('')
     setSubmitError('')
-    setUncertainSubmit(false)
+    clearUncertainSubmit()
     setConflictSubmit(false)
     setListCheckMessage('')
     onExited?.()
@@ -259,7 +262,8 @@ export default function NewRequestDialog({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (submittingRef.current) return
+    if (submittingRef.current || uncertainSubmit) return
+    const attempt = ++submitSequence.current
 
     if (resubmitTarget) {
       const validation = validateResubmitForm(draft, resubmitReason, resubmitTarget.revision)
@@ -276,22 +280,26 @@ export default function NewRequestDialog({
       setFieldErrors({})
       setReasonError('')
       setSubmitError('')
-      setUncertainSubmit(false)
+      setUncertainSubmit(true)
       setConflictSubmit(false)
       setListCheckMessage('')
 
       try {
         const result = await resubmitRequest(api, resubmitTarget.id, validation.payload)
+        if (attempt !== submitSequence.current) return
+        clearUncertainSubmit()
         submittingRef.current = false
         setSubmitting(false)
         onResubmitted?.(result)
       } catch (error: unknown) {
+        if (attempt !== submitSequence.current) return
         submittingRef.current = false
         setSubmitting(false)
 
         const message = error instanceof Error && error.message
           ? error.message
           : 'Não foi possível reenviar a solicitação. Tente novamente.'
+        if (!isUncertainRequestError(error)) clearUncertainSubmit()
 
         if (error instanceof RequestActionError && error.kind === 'validation') {
           const targetField = mapServerErrorToField(message, draft)
@@ -321,7 +329,6 @@ export default function NewRequestDialog({
         }
 
         if (isUncertainRequestError(error)) {
-          setUncertainSubmit(true)
           setSubmitError(
             `${message} Não foi possível confirmar se o reenvio foi gravado; consulte a lista antes de tentar novamente para evitar duplicidade.`,
           )
@@ -345,22 +352,26 @@ export default function NewRequestDialog({
     setSubmitting(true)
     setFieldErrors({})
     setSubmitError('')
-    setUncertainSubmit(false)
+    setUncertainSubmit(true)
     setConflictSubmit(false)
     setListCheckMessage('')
 
     try {
       const created = await createRequest(api, validation.payload)
+      if (attempt !== submitSequence.current) return
+      clearUncertainSubmit()
       submittingRef.current = false
       setSubmitting(false)
       onCreated(created)
     } catch (error: unknown) {
+      if (attempt !== submitSequence.current) return
       submittingRef.current = false
       setSubmitting(false)
 
       const message = error instanceof Error && error.message
         ? error.message
         : 'Não foi possível enviar a solicitação. Tente novamente.'
+      if (!isUncertainRequestError(error)) clearUncertainSubmit()
 
       if (error instanceof RequestActionError && error.kind === 'validation') {
         const targetField = mapServerErrorToField(message, draft)
@@ -379,7 +390,6 @@ export default function NewRequestDialog({
       }
 
       if (isUncertainRequestError(error)) {
-        setUncertainSubmit(true)
         setSubmitError(
           `${message} Não foi possível confirmar se o pedido foi gravado; consulte a lista antes de tentar novamente para evitar duplicidade.`,
         )
@@ -418,9 +428,7 @@ export default function NewRequestDialog({
     >
       <DialogTitle id={titleId} sx={{ fontWeight: 700, fontSize: '1.25rem' }}>
         {resubmitTarget
-          ? (resubmitTarget.status === 'RETURNED'
-              ? `Corrigir Solicitação #${resubmitTarget.id}`
-              : `Reenviar Solicitação #${resubmitTarget.id}`)
+          ? `Corrigir Solicitação #${resubmitTarget.id}`
           : 'Nova Solicitação de Viagem'}
       </DialogTitle>
       <DialogContent dividers>
@@ -430,15 +438,13 @@ export default function NewRequestDialog({
           onSubmit={(event) => { void handleSubmit(event) }}
           sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
         >
-          <Alert id={descriptionId} severity={resubmitTarget?.status === 'RETURNED' ? 'warning' : 'info'} sx={{ borderRadius: 1.5 }}>
+          <Alert id={descriptionId} severity={resubmitTarget ? 'warning' : 'info'} sx={{ borderRadius: 1.5 }}>
             {resubmitTarget
-              ? (resubmitTarget.status === 'RETURNED'
-                  ? `Observação do Gestor para correção: ${resubmitTarget.rejectionReason || 'Não informada.'} Revise os dados necessários e informe a justificativa do reenvio.`
-                  : `Motivo da recusa anterior: ${resubmitTarget.rejectionReason || 'Não informado.'} Revise os dados necessários e informe a justificativa do reenvio.`)
+              ? `Observação do Gestor para correção: ${resubmitTarget.rejectionReason || 'Não informada.'} Revise os dados necessários e informe a justificativa do reenvio.`
               : 'Preencha os dados da viagem. O Gestor de Frota analisará a solicitação e alocará veículo e motorista.'}
           </Alert>
 
-          {submitError && (
+          {(submitError || (uncertainSubmit && !submitting)) && (
             <Alert
               severity={uncertainSubmit || conflictSubmit ? 'warning' : 'error'}
               role="alert"
@@ -461,7 +467,7 @@ export default function NewRequestDialog({
                 </Button>
               ) : undefined}
             >
-              {submitError}
+              {submitError || 'Consulte a lista para conferir se o envio anterior foi registrado antes de tentar novamente.'}
             </Alert>
           )}
 
@@ -638,11 +644,7 @@ export default function NewRequestDialog({
               multiline
               minRows={2}
               disabled={submitting}
-              placeholder={
-                resubmitTarget.status === 'RETURNED'
-                  ? 'Explique as correções realizadas após a devolução'
-                  : 'Explique os ajustes realizados após a recusa anterior'
-              }
+              placeholder="Explique as correções realizadas após a devolução"
               maxLength={500}
               error={reasonError}
               inputRef={reasonInputRef}
@@ -664,7 +666,7 @@ export default function NewRequestDialog({
               type="submit"
               variant="contained"
               startIcon={<SendIcon aria-hidden="true" />}
-              disabled={submitting || servicesLoading || catalogUnavailable}
+              disabled={submitting || uncertainSubmit || servicesLoading || catalogUnavailable}
               aria-busy={submitting ? 'true' : undefined}
               sx={{ minHeight: 44, minWidth: 44 }}
             >

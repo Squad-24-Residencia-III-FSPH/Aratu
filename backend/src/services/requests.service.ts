@@ -231,7 +231,7 @@ export class RequestsService {
   }
 
   /**
-   * Reenvia uma solicitação devolvida ou rejeitada (`RETURNED` / `REJECTED` → `PENDING`) pelo próprio titular com controle otimista.
+   * Reenvia uma solicitação devolvida (`RETURNED` → `PENDING`) pelo próprio titular com controle otimista.
    *
    * Preserva integralmente os eventos anteriores na trilha append-only
    * e registra um novo evento `RESUBMITTED` com justificativa e auditoria na mesma transação.
@@ -255,8 +255,8 @@ export class RequestsService {
       if (!before || before.requesterId !== requesterId) {
         throw new RequestServiceError(404, 'Solicitação não encontrada.')
       }
-      if (before.status !== 'RETURNED' && before.status !== 'REJECTED') {
-        throw new RequestServiceError(409, 'Somente solicitações devolvidas ou rejeitadas podem ser reenviadas.')
+      if (before.status !== 'RETURNED') {
+        throw new RequestServiceError(409, 'Somente solicitações devolvidas para correção podem ser reenviadas.')
       }
       if (before.revision !== expectedRevision) {
         throw new RequestServiceError(

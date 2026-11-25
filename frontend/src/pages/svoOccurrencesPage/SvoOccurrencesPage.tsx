@@ -5,10 +5,12 @@ import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import { resolveProfile } from '../../auth/profiles'
+import { tokenUserId } from '../../auth/token'
 import { useAuth } from '../../auth/useAuth'
 import { accessibleControls } from '../../components/ui/accessibleControls'
 import DataTable from '../../components/ui/DataTable'
 import type { DataTableColumn } from '../../components/ui/DataTable'
+import { EntityCard } from '../../components/ui/EntityCard'
 import FilterBar from '../../components/ui/FilterBar'
 import { FormField, FormSelect } from '../../components/ui/FormField'
 import PageHeader from '../../components/ui/PageHeader'
@@ -16,8 +18,10 @@ import StateFeedback from '../../components/ui/StateFeedback'
 import StatusChip from '../../components/ui/StatusChip'
 import { useSvoOccurrences } from '../../hooks/useSvoOccurrences'
 import {
+  canManageSvoDispatch,
   canReadSvoOccurrences,
   canWriteSvoOccurrences,
+  isAwaitingSvoDispatch,
   SVO_DISPATCH_ORDER_STATUS_LABELS,
   SVO_OCCURRENCE_STATUS_LABELS,
   SVO_OCCURRENCE_STATUS_TONES,
@@ -45,7 +49,7 @@ export default function SvoOccurrencesPage() {
   const profile = session ? resolveProfile(session.perfil) : null
   const canRead = canReadSvoOccurrences(profile)
   const canWrite = canWriteSvoOccurrences(profile)
-  const sessionKey = session ? `${session.token}:${session.perfil}` : 'anonymous'
+  const sessionKey = session ? `${tokenUserId(session.token)}:${profile}` : 'anonymous'
 
   return (
     <SvoOccurrencesView
@@ -53,6 +57,7 @@ export default function SvoOccurrencesPage() {
       api={api}
       canRead={canRead}
       canWrite={canWrite}
+      canDispatch={canManageSvoDispatch(profile)}
     />
   )
 }
@@ -61,11 +66,13 @@ interface SvoOccurrencesViewProps {
   api: ReturnType<typeof useAuth>['api']
   canRead: boolean
   canWrite: boolean
+  canDispatch: boolean
 }
 
-function SvoOccurrencesView({ api, canRead, canWrite }: SvoOccurrencesViewProps) {
+function SvoOccurrencesView({ api, canRead, canWrite, canDispatch }: SvoOccurrencesViewProps) {
   const state = useSvoOccurrences(api, canRead)
   const sectionHeadingId = useId()
+  const queueHeadingId = useId()
   const resultRef = useRef<HTMLDivElement>(null)
   const listHeadingRef = useRef<HTMLHeadingElement>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -149,7 +156,9 @@ function SvoOccurrencesView({ api, canRead, canWrite }: SvoOccurrencesViewProps)
   }
 
   const hasFilters = Boolean(state.appliedFilters.status || state.appliedFilters.from || state.appliedFilters.to)
-  const busy = state.submitting || state.reconciling
+  const busy = state.submitting || state.reconciling || state.dispatchingId !== null
+  const dispatchQueue = state.occurrences?.filter((occurrence) =>
+    isAwaitingSvoDispatch(occurrence) && !state.ordersByOccurrenceId.has(occurrence.id)) ?? []
 
   return (
     <Box sx={{ maxWidth: 1180, minWidth: 0, overflowWrap: 'anywhere', ...accessibleControls }}>
@@ -157,8 +166,8 @@ function SvoOccurrencesView({ api, canRead, canWrite }: SvoOccurrencesViewProps)
         title="Solicitações SVO"
         description={
           canWrite
-            ? 'Registre chamados recebidos fora do sistema, confira a triagem e gere ordens de execução para solicitações confirmadas.'
-            : 'Consulte as solicitações SVO registradas pela central em modo somente leitura.'
+            ? 'Registre chamados recebidos fora do sistema e confirme a triagem.'
+            : 'Acompanhe os chamados da Central SVO e reavalie os recursos para despacho.'
         }
         actions={
           <>
@@ -190,8 +199,10 @@ function SvoOccurrencesView({ api, canRead, canWrite }: SvoOccurrencesViewProps)
       />
 
       <Box ref={resultRef} role="status" aria-live="polite" tabIndex={-1}>
-        {state.result && <Alert severity="success" sx={{ mb: 2 }}>{state.result}</Alert>}
+        {state.result && <Alert role="none" severity="success" sx={{ mb: 2 }}>{state.result}</Alert>}
       </Box>
+      {state.dispatchError && <Alert severity="error" sx={{ mb: 2 }}>{state.dispatchError}</Alert>}
+      {state.partialWarning && <StateFeedback kind="partial" title={state.partialWarning} />}
 
       {state.occurrences !== null && state.stale && (
         <StateFeedback
@@ -266,6 +277,44 @@ function SvoOccurrencesView({ api, canRead, canWrite }: SvoOccurrencesViewProps)
         </Stack>
       </FilterBar>
 
+      {canDispatch && state.occurrences !== null && (
+        <Stack component="section" aria-labelledby={queueHeadingId} spacing={1.5} sx={{ mb: 3, minWidth: 0 }}>
+          <Typography id={queueHeadingId} component="h2" variant="h6">Aguardando despacho</Typography>
+          {dispatchQueue.length === 0 && <StateFeedback kind="empty" title="Nenhuma solicitação aguardando despacho neste recorte." />}
+          {dispatchQueue.map((occurrence) => (
+            <EntityCard key={occurrence.id}>
+              <EntityCard.Header title={`Solicitação #${occurrence.id}`} />
+              <EntityCard.Body>
+                <Typography variant="body2">{occurrence.location}</Typography>
+                <Typography variant="body2">
+                  {occurrence.dispatchWaitReason === 'NO_TEAM' ? 'Aguardando equipe em plantão elegível.'
+                    : occurrence.dispatchWaitReason === 'NO_VEHICLE' ? 'Aguardando viatura com vaga elegível.'
+                      : 'Aguardando nova avaliação de recursos.'}
+                </Typography>
+              </EntityCard.Body>
+              <EntityCard.Actions>
+                <Button
+                  type="button"
+                  variant="contained"
+                  disabled={busy || state.loading || state.stale}
+                  aria-label={`Tentar despacho da solicitação #${occurrence.id}`}
+                  aria-busy={state.dispatchingId === occurrence.id || undefined}
+                  onClick={async (event) => {
+                    const trigger = event.currentTarget
+                    const retried = await state.retryDispatch(occurrence)
+                    if (retried) requestAnimationFrame(() => {
+                      if (!trigger.isConnected && document.activeElement === document.body) resultRef.current?.focus()
+                    })
+                  }}
+                >
+                  {state.dispatchingId === occurrence.id ? 'Avaliando...' : 'Tentar despacho'}
+                </Button>
+              </EntityCard.Actions>
+            </EntityCard>
+          ))}
+        </Stack>
+      )}
+
       <Box component="section" aria-labelledby={sectionHeadingId}>
         <Typography ref={listHeadingRef} id={sectionHeadingId} component="h2" variant="h6" tabIndex={-1} sx={{ mb: 1.5 }}>
           Chamados registrados
@@ -339,7 +388,7 @@ function SvoOccurrencesView({ api, canRead, canWrite }: SvoOccurrencesViewProps)
                       Confirmar triagem
                     </Button>
                   )}
-                  {canWrite && row.status === 'CONFIRMED' && !linkedOrder && (
+                  {canDispatch && isAwaitingSvoDispatch(row) && !linkedOrder && (
                     <Button
                       type="button"
                       size="small"
@@ -367,6 +416,7 @@ function SvoOccurrencesView({ api, canRead, canWrite }: SvoOccurrencesViewProps)
           detail={state.detail}
           linkedOrder={state.ordersByOccurrenceId.get(state.detail.id)}
           canWrite={canWrite}
+          canDispatch={canDispatch && !busy && !state.stale}
           onRetry={() => { void state.openDetail(state.detail!.id) }}
           onClose={state.closeDetail}
           onConfirmOccurrence={(occurrence) => {

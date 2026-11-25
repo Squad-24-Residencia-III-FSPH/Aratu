@@ -12,6 +12,7 @@ import {
 } from '../services/svoOccurrencesService.ts'
 import {
   buildMaceioReceivedAtIso,
+  isAwaitingSvoDispatch,
   isCanonicalBigIntId,
   isValidCivilDate,
   SVO_DISPATCH_ORDER_STATUS_LABELS,
@@ -704,7 +705,7 @@ export function useSvoOccurrences(
   }, [api, reload])
 
   const retryDispatch = useCallback(async (occurrence: SvoOccurrenceSummary): Promise<boolean> => {
-    if (sending.current || checking.current || occurrence.status !== 'CONFIRMED' || !occurrence.dispatchRequestedAt || occurrence.executionOrderId) {
+    if (sending.current || checking.current || !isAwaitingSvoDispatch(occurrence)) {
       return false
     }
     sending.current = true

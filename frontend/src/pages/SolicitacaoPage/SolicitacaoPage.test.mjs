@@ -12,6 +12,9 @@ import { MemoryRouter } from 'react-router-dom'
 import { sessionFor } from '../../../tests/fixtures.mjs'
 
 const viteCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aratu-vite-l12-test-'))
+const futureDate = new Date()
+futureDate.setUTCDate(futureDate.getUTCDate() + 7)
+const FUTURE_REQUEST_DATE = futureDate.toISOString().slice(0, 10)
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' })
 Object.defineProperties(globalThis, {
@@ -384,7 +387,7 @@ test('abre formulário por ?nova=1, carrega apenas serviços ativos, valida erro
   assert.equal(screen.queryByRole('option', { name: 'Serviço Inativo de Controle' }), null)
   await user.click(screen.getByRole('option', { name: 'Transporte Institucional de Passageiros' }))
 
-  fireEvent.change(within(dialog).getByLabelText(/Data da Viagem/i), { target: { value: '2026-12-10' } })
+  fireEvent.change(within(dialog).getByLabelText(/Data da Viagem/i), { target: { value: FUTURE_REQUEST_DATE } })
   fireEvent.change(within(dialog).getByLabelText(/Horário de Saída/i), { target: { value: '09:30' } })
   fireEvent.change(within(dialog).getByRole('textbox', { name: /Origem/i }), { target: { value: 'Base Fictícia L12' } })
   fireEvent.change(within(dialog).getByRole('textbox', { name: /Destino/i }), { target: { value: 'Unidade Fictícia L12' } })
@@ -398,7 +401,7 @@ test('abre formulário por ?nova=1, carrega apenas serviços ativos, valida erro
   assert.equal(postBodies.length, 1)
   assert.deepEqual(postBodies[0], {
     serviceId: '2',
-    requestedDate: '2026-12-10',
+    requestedDate: FUTURE_REQUEST_DATE,
     requestedTime: '09:30',
     origin: 'Base Fictícia L12',
     destination: 'Unidade Fictícia L12',
@@ -445,7 +448,7 @@ test('preserva entradas em falha 503 de POST /requests, protege contra duplo cli
   const serviceSelect = await within(dialog).findByRole('combobox', { name: /Tipo de serviço/i })
   await user.click(serviceSelect)
   await user.click(await screen.findByRole('option', { name: 'Transporte Institucional de Passageiros' }))
-  fireEvent.change(within(dialog).getByLabelText(/Data da Viagem/i), { target: { value: '2026-12-12' } })
+  fireEvent.change(within(dialog).getByLabelText(/Data da Viagem/i), { target: { value: FUTURE_REQUEST_DATE } })
   fireEvent.change(within(dialog).getByLabelText(/Horário de Saída/i), { target: { value: '14:00' } })
   fireEvent.change(within(dialog).getByRole('textbox', { name: /Origem/i }), { target: { value: 'Unidade Origem Preservar' } })
   fireEvent.change(within(dialog).getByRole('textbox', { name: /Destino/i }), { target: { value: 'Unidade Destino Preservar' } })
@@ -465,7 +468,13 @@ test('preserva entradas em falha 503 de POST /requests, protege contra duplo cli
   assert.ok(listCalls.some((url) => !url.includes('status=APPROVED')))
 })
 
-test('detalhe distingue pedido agendado de viagem confirmada e executa reenvio versionado preservando histórico da recusa', async () => {
+const returnedDetail = {
+  ...rejectedDetail,
+  status: 'RETURNED',
+  events: rejectedDetail.events.map((event) => event.eventType === 'REJECTED' ? { ...event, eventType: 'RETURNED' } : event),
+}
+
+test('detalhe distingue agendamento, confirmação, devolução e recusa definitiva', async () => {
   const scheduledNotConfirmedDetail = {
     ...confirmedScheduledDetail,
     id: '11',
@@ -476,8 +485,8 @@ test('detalhe distingue pedido agendado de viagem confirmada e executa reenvio v
       status: 'SCHEDULED',
     },
   }
-  let currentDetail2 = { ...rejectedDetail }
-  let listStatus2 = 'REJECTED'
+  let currentDetail2 = { ...returnedDetail }
+  let listStatus2 = 'RETURNED'
   const resubmitBodies = []
   const api = async (url, options = {}) => {
     if (url.startsWith('/requests?')) {
@@ -486,8 +495,9 @@ test('detalhe distingue pedido agendado de viagem confirmada e executa reenvio v
           { ...pendingSummary, id: '10', status: 'SCHEDULED' },
           { ...pendingSummary, id: '11', status: 'SCHEDULED', destination: 'Polo Amarelo Fictício' },
           { ...pendingSummary, id: '2', status: listStatus2, destination: 'Polo Verde Fictício', notes: 'Levar documento protocolado' },
+          { ...pendingSummary, id: '3', status: 'REJECTED', destination: 'Polo Vermelho Fictício' },
         ],
-        total: 3,
+        total: 4,
         page: 1,
         pageSize: 20,
         totalPages: 1,
@@ -497,6 +507,7 @@ test('detalhe distingue pedido agendado de viagem confirmada e executa reenvio v
     if (url === '/requests/10') return Response.json(confirmedScheduledDetail)
     if (url === '/requests/11') return Response.json(scheduledNotConfirmedDetail)
     if (url === '/requests/2') return Response.json(currentDetail2)
+    if (url === '/requests/3') return Response.json({ ...rejectedDetail, id: '3', destination: 'Polo Vermelho Fictício' })
     if (url === '/requests/2/resubmit' && options.method === 'POST') {
       const payload = JSON.parse(options.body)
       resubmitBodies.push(payload)
@@ -511,7 +522,7 @@ test('detalhe distingue pedido agendado de viagem confirmada e executa reenvio v
         decidedAt: null,
         decisionReason: null,
         events: [
-          ...rejectedDetail.events,
+          ...returnedDetail.events,
           {
             id: '3',
             eventType: 'RESUBMITTED',
@@ -545,16 +556,21 @@ test('detalhe distingue pedido agendado de viagem confirmada e executa reenvio v
   fireEvent.click(within(dialogScheduled).getByRole('button', { name: 'Fechar' }))
   await waitFor(() => assert.equal(Boolean(screen.queryByRole('dialog')), false))
 
-  fireEvent.click(screen.getByRole('button', { name: 'Ver detalhes da solicitação #2 para Polo Verde Fictício' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Ver detalhes da solicitação #3 para Polo Vermelho Fictício' }))
   const dialogRejected = await screen.findByRole('dialog')
   assert.ok((await within(dialogRejected).findAllByText(/Polo Verde sem cobertura operacional/)).length >= 1)
-  assert.ok(within(dialogRejected).getByText('Levar documento protocolado'))
-  fireEvent.click(within(dialogRejected).getByRole('button', { name: 'Reenviar solicitação' }))
+  assert.equal(within(dialogRejected).queryByRole('button', { name: /reenviar/i }), null)
+  fireEvent.click(within(dialogRejected).getByRole('button', { name: 'Fechar' }))
+  await waitFor(() => assert.equal(Boolean(screen.queryByRole('dialog')), false))
 
-  const resubmitDialog = await screen.findByRole('dialog', { name: 'Reenviar Solicitação #2' })
-  assert.ok(await within(resubmitDialog).findByText('Reenviar Solicitação #2'))
+  fireEvent.click(screen.getByRole('button', { name: 'Ver detalhes da solicitação #2 para Polo Verde Fictício' }))
+  const dialogReturned = await screen.findByRole('dialog')
+  assert.ok(await within(dialogReturned).findByText('Levar documento protocolado'))
+  fireEvent.click(within(dialogReturned).getByRole('button', { name: 'Corrigir e reenviar' }))
+
+  const resubmitDialog = await screen.findByRole('dialog', { name: 'Corrigir Solicitação #2' })
   assert.ok(await within(resubmitDialog).findByRole('combobox', { name: /Tipo de serviço/i }))
-  fireEvent.change(within(resubmitDialog).getByLabelText(/Data da Viagem/i), { target: { value: '2026-12-15' } })
+  fireEvent.change(within(resubmitDialog).getByLabelText(/Data da Viagem/i), { target: { value: FUTURE_REQUEST_DATE } })
   fireEvent.click(within(resubmitDialog).getByRole('button', { name: 'Confirmar Reenvio' }))
   assert.ok(await within(resubmitDialog).findByText('Informe a justificativa do reenvio.'))
 
@@ -571,17 +587,17 @@ test('detalhe distingue pedido agendado de viagem confirmada e executa reenvio v
   await waitFor(() => assert.equal(Boolean(screen.queryByRole('dialog')), false))
   fireEvent.click(screen.getByRole('button', { name: 'Ver detalhes da solicitação #2 para Polo Verde Fictício' }))
   const reopenedDetail = await screen.findByRole('dialog')
-  assert.ok(await within(reopenedDetail).findByText(/Solicitação reenviada após recusa anterior/))
-  assert.ok(within(reopenedDetail).getByText(/Motivo: Polo Verde sem cobertura operacional no horário solicitado\./))
+  assert.ok(await within(reopenedDetail).findByText(/reenviada.*devolução/i))
+  assert.ok(within(reopenedDetail).getByText(/Observação: Polo Verde sem cobertura operacional no horário solicitado\./))
   assert.ok(within(reopenedDetail).getByText(/Justificativa: Ajustada a data para disponibilidade da unidade/))
 })
 
 test('trata conflito 409 no reenvio preservando entrada e permitindo atualizar a solicitação', async () => {
-  let currentDetail2 = { ...rejectedDetail }
+  let currentDetail2 = { ...returnedDetail }
   const api = async (url, options = {}) => {
     if (url.startsWith('/requests?')) {
       return Response.json({
-        requests: [{ ...pendingSummary, id: '2', status: 'REJECTED', destination: 'Polo Verde Fictício' }],
+        requests: [{ ...pendingSummary, id: '2', status: 'RETURNED', destination: 'Polo Verde Fictício' }],
         total: 1,
         page: 1,
         pageSize: 20,
@@ -591,7 +607,7 @@ test('trata conflito 409 no reenvio preservando entrada e permitindo atualizar a
     if (url === '/services') return Response.json(activeServices)
     if (url === '/requests/2') return Response.json(currentDetail2)
     if (url === '/requests/2/resubmit' && options.method === 'POST') {
-      currentDetail2 = { ...rejectedDetail, status: 'PENDING', revision: 3 }
+      currentDetail2 = { ...returnedDetail, status: 'PENDING', revision: 3 }
       return Response.json({ erro: 'A solicitação foi atualizada em outra ação.' }, { status: 409 })
     }
     throw new Error(`Rota inesperada: ${url}`)
@@ -601,11 +617,11 @@ test('trata conflito 409 no reenvio preservando entrada e permitindo atualizar a
 
   fireEvent.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação #2 para Polo Verde Fictício' }))
   const detailDialog = await screen.findByRole('dialog')
-  fireEvent.click(await within(detailDialog).findByRole('button', { name: 'Reenviar solicitação' }))
+  fireEvent.click(await within(detailDialog).findByRole('button', { name: 'Corrigir e reenviar' }))
 
-  const resubmitDialog = await screen.findByRole('dialog', { name: 'Reenviar Solicitação #2' })
+  const resubmitDialog = await screen.findByRole('dialog', { name: 'Corrigir Solicitação #2' })
   await within(resubmitDialog).findByRole('combobox', { name: /Tipo de serviço/i })
-  fireEvent.change(within(resubmitDialog).getByLabelText(/Data da Viagem/i), { target: { value: '2026-12-16' } })
+  fireEvent.change(within(resubmitDialog).getByLabelText(/Data da Viagem/i), { target: { value: FUTURE_REQUEST_DATE } })
   fireEvent.change(within(resubmitDialog).getByRole('textbox', { name: /Justificativa do reenvio/i }), {
     target: { value: 'Reenvio concorrente' },
   })

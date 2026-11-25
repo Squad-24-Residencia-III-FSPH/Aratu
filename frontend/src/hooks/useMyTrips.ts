@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiRequest } from '../api/client'
+import { useSessionDraft } from '../auth/sessionDrafts'
 import { finishTrip, listMyTrips, startTrip } from '../services/tripsService'
 import {
   confirmationMessage, formatDateTime, formatKm, NEXT_ACTION, operationalDay, parseKmInput, TRIP_STATUS_LABELS,
@@ -13,7 +14,7 @@ const UNCERTAIN_GUIDANCE = 'Não foi possível confirmar se o registro foi concl
 const MISSING_TRIP_MESSAGE = 'Esta viagem não está mais entre as pendentes. Isso pode indicar finalização, cancelamento ou mudança de vínculo; confirme com o gestor antes de continuar.'
 const CHANGED_TRIP_MESSAGE = 'A situação desta viagem mudou desde que você abriu este formulário. Feche-o e escolha a ação disponível para a situação atual.'
 
-/** Rascunho em memória do diálogo de execução; some ao fechar o diálogo ou trocar de usuário. */
+/** Rascunho em memória do hodômetro, recuperável pelo mesmo motorista após a expiração. */
 export interface ExecutionDraft {
   tripId: string
   action: TripExecutionAction
@@ -79,11 +80,12 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
   const [trips, setTrips] = useState<DriverTrip[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState('')
-  const [execution, setExecution] = useState<ExecutionDraft | null>(null)
+  const [execution, setExecution, clearExecution] = useSessionDraft<ExecutionDraft | null>('trips:execution', null)
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<ExecutionResult | null>(null)
   const [now, setNow] = useState(clock)
   const listSequence = useRef(0)
+  const executionSequence = useRef(0)
   const resultKey = useRef(0)
   const submittingRef = useRef(false)
   const reconcilingRef = useRef(false)
@@ -106,7 +108,7 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
       setTrips(tripsSnapshot)
       setListError('')
       setExecution((current) => {
-        if (!current || (!current.reconciling && !current.uncertain)) return current
+        if (submittingRef.current || !current || (!current.reconciling && !current.uncertain)) return current
         if (current.uncertain) {
           const found = tripsSnapshot.find((candidate) => candidate.id === current.tripId) ?? null
           if (!found) {
@@ -149,7 +151,7 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
       setListError(failureMessage ?? errorMessage(outcome.error))
     }
     setLoading(false)
-  }, [])
+  }, [setExecution])
 
   const loadTrips = useCallback(
     (failureMessage?: string): Promise<void> => fetchList().then((outcome) => settleList(outcome, failureMessage)),
@@ -158,7 +160,10 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
 
   useEffect(() => {
     void fetchList().then((outcome) => settleList(outcome))
-    return () => { listSequence.current += 1 }
+    return () => {
+      listSequence.current += 1
+      executionSequence.current += 1
+    }
   }, [fetchList, settleList])
 
   useEffect(() => {
@@ -204,7 +209,7 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
     if (submittingRef.current) return
     reconcilingRef.current = false
     uncertainRef.current = false
-    setExecution(null)
+    clearExecution()
   }
 
   function changeKm(kmText: string) {
@@ -213,7 +218,7 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
 
   function failExecution(error: unknown) {
     const kind = error instanceof TripRequestError ? error.kind : null
-    const uncertain = kind === null || isOutcomeUncertain(error)
+    const uncertain = kind === null || kind === 'session' || isOutcomeUncertain(error)
     const needsReconciliation = kind === 'conflict' || kind === 'notFound' || kind === 'forbidden'
     const message = error instanceof TripRequestError ? error.message : 'Ocorreu um erro inesperado.'
     if (needsReconciliation) reconcilingRef.current = true
@@ -236,10 +241,12 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
 
   const stale = trips !== null && listError !== ''
   const activeTrip = execution ? trips?.find((candidate) => candidate.id === execution.tripId) ?? null : null
-  const executionIssue = !execution || trips === null ? ''
+  const executionIssue = !execution ? ''
+    : trips === null ? listError
     : !activeTrip ? MISSING_TRIP_MESSAGE
       : NEXT_ACTION[activeTrip.status] !== execution.action ? CHANGED_TRIP_MESSAGE : ''
   const confirmBlocked = !execution
+    || trips === null
     || Boolean(executionIssue)
     || execution.denied
     || execution.reconciling
@@ -254,12 +261,13 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
       return
     }
     submittingRef.current = true
+    const sequence = ++executionSequence.current
     setSubmitting(true)
     setExecution({
       ...execution,
       fieldError: '',
       submitError: '',
-      uncertain: false,
+      uncertain: true,
       reconciledOutcome: null,
       reconciliationNotice: '',
     })
@@ -269,17 +277,19 @@ export function useMyTrips(api: ApiRequest, clock: () => Date = defaultClock) {
         ? await startTrip(api, activeTrip.id, km.value)
         : await finishTrip(api, activeTrip.id, km.value)
     } catch (error) {
+      if (executionSequence.current !== sequence) return
       failExecution(error)
       submittingRef.current = false
       setSubmitting(false)
       return
     }
+    if (executionSequence.current !== sequence) return
     submittingRef.current = false
     setSubmitting(false)
     // Consultas anteriores ao POST ficam obsoletas; o card passa a refletir o valor confirmado.
     listSequence.current += 1
     setTrips((current) => current && applyConfirmed(current, confirmed, execution.action))
-    setExecution(null)
+    clearExecution()
     resultKey.current += 1
     setResult({ key: resultKey.current, action: execution.action, message: confirmationMessage(execution.action, confirmed) })
     setLoading(true)

@@ -364,14 +364,14 @@ function main() {
 
     const feTestsDir = path.join(REPO_ROOT, 'frontend', 'tests');
     if (fs.existsSync(feTestsDir) && fs.readdirSync(feTestsDir).some((f) => f.endsWith('.test.mjs') || f.endsWith('.test.js'))) {
-      const feTestRun = runCmd('node --test tests/*.test.mjs', path.join(REPO_ROOT, 'frontend'));
+      const feTestRun = runCmd('npm test', path.join(REPO_ROOT, 'frontend'));
       // O reporter TAP (usado quando a saída não é TTY) resume com "# pass N",
       // enquanto o reporter spec (TTY) usa "ℹ pass N". Aceita os dois formatos.
       const passMatch = feTestRun.output.match(/(?:^|\n)(?:#|ℹ)\s*pass\s+(\d+)/);
       const failMatch = feTestRun.output.match(/(?:^|\n)(?:#|ℹ)\s*fail\s+(\d+)/);
       const summary = passMatch ? `${passMatch[1]} passaram, ${failMatch ? failMatch[1] : 0} falharam` : 'concluído';
       qaResults.push({
-        target: 'Frontend (`node --test tests/*.test.mjs`)',
+        target: 'Frontend (`npm test`)',
         ok: feTestRun.ok,
         details: feTestRun.ok ? `🟢 Sucesso (${summary})` : `🔴 Falhou (${summary}):\n${feTestRun.output.split('\n').slice(-15).join('\n')}`,
       });

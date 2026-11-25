@@ -1,4 +1,5 @@
-﻿import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+﻿import { useEffect, useRef } from 'react';
+import { HashRouter, Routes, Route, Navigate, parsePath, useLocation, useNavigate } from 'react-router-dom';
 import Layout from './components/layout';
 import GestorPage from './pages/gestor/gestorPage/GestorPage';
 import GestorDashboardPage from './pages/gestor/gestorPage/DashboardPage';
@@ -9,7 +10,8 @@ import SolicitacaoPage from './pages/SolicitacaoPage/SolicitacaoPage';
 import VehiclesPage from './pages/gestor/vehiclesPage/VehiclesPage';
 import MaintenancePage from './pages/gestor/ManuPage/ManutencaoPage';
 import { useAuth } from './auth/useAuth';
-import { PROFILE_HOMES } from './auth/profiles';
+import { useSessionContinuity } from './auth/sessionDrafts';
+import { PROFILE_HOMES, resolveProfile } from './auth/profiles';
 import type { Profile } from './auth/profiles';
 import { resolveRoute } from './routing/routeDecision';
 import UserManagementPage from './pages/userManagementPage/UserManagementPage';
@@ -31,14 +33,31 @@ import SvoTeamsPage from './pages/svoTeamsPage/SvoTeamsPage';
 
 function LoginRoute() {
   const { session } = useAuth();
-  const { pathname } = useLocation();
-  const decision = resolveRoute(session, pathname);
-  if (decision.kind === 'login') return <LoginPage />;
-  if (decision.kind === 'svo-occurrences') {
-    return <Navigate to={PROFILE_HOMES[decision.profile].path} replace />;
-  }
-  const target = decision.kind === 'redirect' ? decision.to : PROFILE_HOMES[decision.profile].path;
-  return <Navigate to={target} replace />;
+  const continuity = useSessionContinuity();
+  const navigate = useNavigate();
+  const profile = resolveProfile(session?.perfil ?? '');
+  const redirectedToken = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!session || !profile || redirectedToken.current === session.token) return;
+    redirectedToken.current = session.token;
+    const savedPath = continuity?.consumeReturnPath();
+    if (savedPath?.startsWith('/') && !savedPath.startsWith('//') && !savedPath.includes('\\')) {
+      const { pathname = '/', search = '' } = parsePath(savedPath);
+      const decision = resolveRoute(session, pathname);
+      if (decision.kind !== 'login' && decision.kind !== 'redirect') {
+        navigate(savedPath, { replace: true });
+        return;
+      }
+      if (decision.kind === 'redirect' && decision.preserveSearch) {
+        navigate(`${decision.to}${search}`, { replace: true });
+        return;
+      }
+    }
+    navigate(PROFILE_HOMES[profile].path, { replace: true });
+  }, [session, profile, navigate, continuity]);
+
+  return session && profile ? null : <LoginPage />;
 }
 
 function ProfileHome({ profile }: { profile: Profile }) {

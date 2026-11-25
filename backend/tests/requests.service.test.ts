@@ -127,7 +127,7 @@ function setup(options: {
     async resubmit(id, expectedRevision, input, requester, service): Promise<TripRequest | null> {
       if (options.resubmitRaceLost) return null
       if (!versionState || versionState.id !== id
-        || (versionState.status !== 'RETURNED' && versionState.status !== 'REJECTED')
+        || versionState.status !== 'RETURNED'
         || versionState.revision !== expectedRevision || versionState.requesterId !== requester.id) return null
       saved.input = input
       saved.actor = requester
@@ -393,8 +393,8 @@ test('criação aceita passengers e notes opcionais mantendo compatibilidade com
   await assert.rejects(defaultPayload.service.createRequest({ ...futureRequest, notes: 123 }, actor.id), isServiceError(400))
 })
 
-test('reenvio versionado de solicitação rejeitada volta a PENDING preservando histórico e validando revisão', async () => {
-  const rejectedStored: TripRequest = {
+test('reenvio de solicitação devolvida preserva histórico e recusa definitiva impede alteração', async () => {
+  const returnedStored: TripRequest = {
     id: '41',
     requesterId: actor.id,
     serviceId: '5',
@@ -406,14 +406,14 @@ test('reenvio versionado de solicitação rejeitada volta a PENDING preservando 
     passengers: 1,
     specialRequirements: null,
     notes: null,
-    status: 'REJECTED',
+    status: 'RETURNED',
     revision: 2,
     requesterSector: actor.sector ?? null,
     requesterSnapshot: actor,
     serviceSnapshot,
   }
 
-  const context = setup({ storedForUpdate: rejectedStored })
+  const context = setup({ storedForUpdate: returnedStored })
   const result = await context.service.resubmitRequest('41', {
     ...futureRequest,
     requestedTime: '10:30',
@@ -428,13 +428,13 @@ test('reenvio versionado de solicitação rejeitada volta a PENDING preservando 
   assert.equal(result.revision, 3)
   assert.equal(context.saved.events.length, 1)
   assert.equal(context.saved.events[0]?.eventType, 'RESUBMITTED')
-  assert.equal(context.saved.events[0]?.beforeState?.status, 'REJECTED')
+  assert.equal(context.saved.events[0]?.beforeState?.status, 'RETURNED')
   assert.equal(context.saved.events[0]?.afterState.status, 'PENDING')
   assert.equal(context.saved.events[0]?.reason, 'Horário ajustado para cobertura operacional')
   assert.equal(context.saved.audits[0]?.operation, 'STATUS_CHANGE')
 
   await assert.rejects(
-    setup({ storedForUpdate: rejectedStored }).service.resubmitRequest('41', {
+    setup({ storedForUpdate: returnedStored }).service.resubmitRequest('41', {
       ...futureRequest,
       expectedRevision: 1,
       reason: 'Tentativa obsoleta',
@@ -443,7 +443,7 @@ test('reenvio versionado de solicitação rejeitada volta a PENDING preservando 
   )
 
   await assert.rejects(
-    setup({ storedForUpdate: { ...rejectedStored, status: 'PENDING' } }).service.resubmitRequest('41', {
+    setup({ storedForUpdate: { ...returnedStored, status: 'PENDING' } }).service.resubmitRequest('41', {
       ...futureRequest,
       expectedRevision: 2,
       reason: 'Não rejeitada',
@@ -461,13 +461,21 @@ test('reenvio versionado de solicitação rejeitada volta a PENDING preservando 
   )
 
   await assert.rejects(
-    setup({ storedForUpdate: rejectedStored }).service.resubmitRequest('41', {
+    setup({ storedForUpdate: returnedStored }).service.resubmitRequest('41', {
       ...futureRequest,
       expectedRevision: 2,
       reason: '   ',
     }, actor.id),
     isServiceError(400),
   )
+
+  const rejected = setup({ storedForUpdate: { ...returnedStored, status: 'REJECTED' } })
+  await assert.rejects(
+    rejected.service.resubmitRequest('41', { ...futureRequest, expectedRevision: 2, reason: 'Tentativa de correção' }, actor.id),
+    isServiceError(409),
+  )
+  assert.deepEqual(rejected.saved.events, [])
+  assert.deepEqual(rejected.saved.audits, [])
 })
 
 test('congela setor histórico do solicitante no snapshot e devolve null para pedidos antigos sem setor', async () => {
