@@ -11,7 +11,10 @@ import {
   Paper,
   Stack,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
+import EditNoteIcon from '@mui/icons-material/EditNote'
 import type { ApiRequest } from '../../api/client'
 import { accessibleControls } from '../../components/ui/accessibleControls'
 import StateFeedback from '../../components/ui/StateFeedback'
@@ -75,6 +78,8 @@ export default function RequestDetailDialog({
   onExited,
   onResubmit,
 }: RequestDetailDialogProps) {
+  const theme = useTheme()
+  const mobileViewport = useMediaQuery(theme.breakpoints.down('sm'))
   const titleId = useId()
   const [reload, setReload] = useState(0)
   const [fetchState, setFetchState] = useState<{
@@ -120,8 +125,17 @@ export default function RequestDetailDialog({
       onClose={onClose}
       maxWidth="md"
       fullWidth
+      fullScreen={mobileViewport}
       aria-labelledby={titleId}
-      sx={accessibleControls}
+      sx={{
+        ...accessibleControls,
+        '& .MuiDialog-paper': {
+          m: { xs: 0, sm: 3 },
+          width: { xs: '100%', sm: undefined },
+          maxHeight: { xs: '100dvh', sm: 'calc(100% - 64px)' },
+          borderRadius: { xs: 0, sm: 2 },
+        },
+      }}
       slotProps={{
         transition: {
           ...(onExited ? { onExited } : {}),
@@ -151,6 +165,17 @@ export default function RequestDetailDialog({
         )}
         {detail && (
           <Stack spacing={3}>
+            {detail.status === 'RETURNED' && (
+              <Alert severity="warning" role="alert">
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  Solicitação devolvida para correção pelo Gestor de Frota
+                </Typography>
+                <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                  <strong>Observação para correção:</strong> {detail.decisionReason || 'Nenhuma observação especificada.'}
+                </Typography>
+              </Alert>
+            )}
+
             {detail.status === 'REJECTED' && (
               <Alert severity="error" role="alert">
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -162,9 +187,11 @@ export default function RequestDetailDialog({
               </Alert>
             )}
 
-            {detail.status === 'PENDING' && detail.events?.some((event) => event.eventType === 'REJECTED') && (
+            {detail.status === 'PENDING' && detail.events?.some((event) => event.eventType === 'REJECTED' || event.eventType === 'RETURNED') && (
               <Alert severity="info">
-                Solicitação reenviada após recusa anterior. O histórico da recusa permanece registrado abaixo em Andamento.
+                {detail.events.some((event) => event.eventType === 'REJECTED')
+                  ? 'Solicitação reenviada após recusa anterior. O histórico da recusa permanece registrado abaixo em Andamento.'
+                  : 'Solicitação corrigida e reenviada após devolução anterior. O histórico permanece registrado abaixo em Andamento.'}
               </Alert>
             )}
 
@@ -182,6 +209,7 @@ export default function RequestDetailDialog({
                 <DetailField label="Destino" value={detail.destination} />
                 <DetailField label="Finalidade" value={detail.purpose} />
                 <DetailField label="Passageiros" value={String(detail.passengers)} />
+                <DetailField label="Necessidades especiais" value={detail.specialRequirements || 'Não informadas'} />
                 <DetailField label="Observações" value={detail.notes || 'Nenhuma observação informada.'} />
                 {detail.revision !== undefined && (
                   <DetailField label="Revisão" value={`v${detail.revision}`} />
@@ -268,17 +296,18 @@ export default function RequestDetailDialog({
           </Stack>
         )}
       </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2, gap: 1, flexWrap: 'wrap' }}>
-        {detail && detail.status === 'REJECTED' && onResubmit && typeof detail.revision === 'number' && (
+      <DialogActions sx={{ px: 3, py: 2, pb: 'max(16px, env(safe-area-inset-bottom))', gap: 1, flexWrap: 'wrap' }}>
+        {detail && (detail.status === 'REJECTED' || detail.status === 'RETURNED') && onResubmit && typeof detail.revision === 'number' && (
           <Button
-            variant="outlined"
+            variant={detail.status === 'RETURNED' ? 'contained' : 'outlined'}
+            startIcon={detail.status === 'RETURNED' ? <EditNoteIcon aria-hidden="true" /> : undefined}
             onClick={() => onResubmit(detail)}
             sx={{ minHeight: 44, minWidth: 44 }}
           >
-            Reenviar solicitação
+            {detail.status === 'RETURNED' ? 'Corrigir e reenviar' : 'Reenviar solicitação'}
           </Button>
         )}
-        <Button onClick={onClose} variant="contained" sx={{ minHeight: 44, minWidth: 44 }}>
+        <Button onClick={onClose} variant={detail?.status === 'RETURNED' ? 'outlined' : 'contained'} sx={{ minHeight: 44, minWidth: 44 }}>
           Fechar
         </Button>
       </DialogActions>

@@ -18,6 +18,8 @@ function makeApproved(overrides = {}) {
     destination: 'Unidade Fictícia Centro',
     purpose: 'Reunião institucional fictícia',
     passengers: 2,
+    specialRequirements: null,
+    revision: 1,
     status: 'APPROVED',
     createdAt: '2026-11-05T12:00:00.000Z',
     updatedAt: '2026-11-05T12:00:00.000Z',
@@ -53,6 +55,8 @@ test('consulta a listagem paginada com status APPROVED e mapeia os campos usados
     destination: 'Unidade Fictícia Centro',
     purpose: 'Reunião institucional fictícia',
     passengers: 2,
+    specialRequirements: null,
+    revision: 1,
     status: 'APPROVED',
   }])
 })

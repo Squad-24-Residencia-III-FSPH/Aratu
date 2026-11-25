@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import RefreshIcon from '@mui/icons-material/Refresh'
@@ -28,7 +28,7 @@ import ServiceStatusDialog from './ServiceStatusDialog'
 import { readServiceErrorMessage } from './serviceHelpers'
 import type { ServiceLinksState, ServiceRow } from './serviceHelpers'
 
-/** Gerencia tipos de serviço, veículos compatíveis e situação do catálogo. */
+/** Gerencia o catálogo independente de tipos de serviço. */
 export default function ServicesPage() {
   const { api, session } = useAuth()
   const profile = session ? resolveProfile(session.perfil) : null
@@ -49,12 +49,21 @@ export default function ServicesPage() {
 
   const loadEpochRef = useRef(0)
 
-  useEffect(() => {
-    const previousTitle = document.title
-    document.title = 'Tipos de serviço — Aratu'
-    return () => {
-      document.title = previousTitle
+  const previousTitleRef = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    if (previousTitleRef.current === null) {
+      previousTitleRef.current = document.title
     }
+    return () => {
+      if (previousTitleRef.current !== null) {
+        document.title = previousTitleRef.current
+        previousTitleRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    document.title = 'Tipos de serviço — Aratu'
   }, [])
 
   const fetchVehiclesCatalog = useCallback(async (epoch: number) => {
@@ -260,7 +269,7 @@ export default function ServicesPage() {
       <PageHeader
         title="Tipos de serviço"
         breadcrumbs={['Início', 'Tipos de serviço']}
-        description="Cadastre os serviços da frota e defina quais veículos podem atendê-los."
+        description="Cadastre e mantenha os tipos de serviço disponíveis para associação aos veículos."
         actions={allowed ? (
           <Button
             variant="contained"
@@ -282,19 +291,9 @@ export default function ServicesPage() {
               severity={feedback.kind === 'partial' ? 'warning' : 'success'}
               role="status"
               onClose={() => setFeedback(null)}
-              action={
-                feedback.kind === 'partial' ? (
-                  <Button color="inherit" size="small" onClick={reload}>
-                    Atualizar lista
-                  </Button>
-                ) : undefined
-              }
               sx={{ mb: 2 }}
             >
-              <strong>
-                {feedback.kind === 'partial' ? 'Alteração parcialmente concluída: ' : 'Alteração salva: '}
-              </strong>
-              {feedback.message}
+              <strong>Alteração salva: </strong>{feedback.message}
             </Alert>
           )}
 
@@ -358,7 +357,7 @@ export default function ServicesPage() {
               columns={columns}
               rows={filteredRows}
               rowKey={(row) => row.service.id}
-              minWidth={760}
+              minWidth={560}
               renderActions={(row) => (
                 <Box sx={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
                   <Button

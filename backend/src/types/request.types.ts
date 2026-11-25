@@ -8,6 +8,7 @@ import type { UserRole } from './auth'
  */
 export const REQUEST_STATUSES = [
   'PENDING',
+  'RETURNED',
   'APPROVED',
   'REJECTED',
   'SCHEDULED',
@@ -29,10 +30,11 @@ export interface CreateRequestBody {
   purpose?: unknown
   serviceId?: unknown
   passengers?: unknown
+  specialRequirements?: unknown
   notes?: unknown
 }
 
-/** Campos recebidos no reenvio versionado de solicitação rejeitada. */
+/** Campos recebidos no reenvio versionado de solicitação devolvida ou rejeitada. */
 export interface ResubmitRequestBody extends CreateRequestBody {
   expectedRevision?: unknown
   reason?: unknown
@@ -47,6 +49,7 @@ export interface CreateRequestInput {
   purpose: string
   serviceId: string
   passengers: number
+  specialRequirements: string | null
   notes: string | null
 }
 
@@ -85,6 +88,7 @@ export interface TripRequest {
   destination: string
   purpose: string
   passengers: number
+  specialRequirements: string | null
   notes: string | null
   status: RequestStatus
   revision: number
@@ -120,6 +124,15 @@ export interface ResubmitRequestResult {
   status: RequestStatus
   revision: number
 }
+
+/** Evento imutável que preserva os estados anterior e posterior de uma retificação. */
+export interface CreateRequestLifecycleEventInput extends CreateRequestEventInput {
+  eventType: 'RESUBMITTED'
+  beforeState: TripRequest
+}
+
+/** Estado persistido da solicitação usado para bloquear e versionar reenvios. */
+export interface RequestVersionState extends TripRequest {}
 
 /** Filtros aceitos pela consulta paginada de solicitações. */
 export interface RequestListFilters {
@@ -160,8 +173,10 @@ export interface RequestSummary {
   destination: string
   purpose: string
   passengers: number
-  notes?: string | null
+  specialRequirements: string | null
+  notes: string | null
   status: RequestStatus
+  revision: number
   createdAt: string
   updatedAt: string
 }
@@ -193,9 +208,31 @@ export interface RequestDetail extends RequestSummary {
   decidedByName: string | null
   decidedAt: string | null
   decisionReason: string | null
-  revision?: number
   events?: RequestEventSummary[]
   trip: RequestTrip | null
+}
+
+/** Evento histórico imutável da solicitação. */
+export interface RequestHistoryItem {
+  id: string
+  eventType: string
+  occurredAt: string
+  registeredAt: string
+  reportedBy: string
+  registeredBy: string
+  actorSnapshot: RequestActorSnapshot
+  reason: string
+  beforeState: Record<string, unknown> | null
+  afterState: Record<string, unknown>
+}
+
+/** Página de eventos históricos em ordem cronológica de ocorrência. */
+export interface PaginatedRequestHistory {
+  items: RequestHistoryItem[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 /** Resultado paginado da consulta de solicitações. */

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, Checkbox, FormControlLabel, Paper, Stack, Typography } from '@mui/material'
 import EventAvailableIcon from '@mui/icons-material/EventAvailable'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../auth/useAuth'
@@ -157,6 +157,8 @@ export default function ScheduleTripPage() {
   const [reconciliationNotice, setReconciliationNotice] = useState('')
   const [revalidatingAfterError, setRevalidatingAfterError] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const [specialRequirementsAcknowledged, setSpecialRequirementsAcknowledged] = useState(false)
+  const [evidenceDescription, setEvidenceDescription] = useState('')
   const [focusRequest, setFocusRequest] = useState<{ field: PeriodFocusField; seq: number } | null>(null)
 
   const startInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
@@ -259,7 +261,13 @@ export default function ScheduleTripPage() {
         controller.signal,
         { requestId: selectedRequest.id, passengers: selectedRequest.passengers },
       ),
-      listAvailableDrivers(api, scheduledStart, scheduledEnd, controller.signal),
+      listAvailableDrivers(
+        api,
+        scheduledStart,
+        scheduledEnd,
+        controller.signal,
+        { requestId: selectedRequest.id },
+      ),
     ]).then(([vehiclesResult, driversResult]) => {
       if (!current) return
       const vehicles = vehiclesResult.status === 'fulfilled' ? vehiclesResult.value : null
@@ -347,6 +355,8 @@ export default function ScheduleTripPage() {
 
   const selectedVehicleIsAvailable = availableVehicles.some((vehicle) => vehicle.id === vehicleId)
   const selectedDriverIsAvailable = availableDrivers.some((driver) => driver.id === driverId)
+  const specialRequirementsConfirmed = !selectedRequest?.specialRequirements?.trim()
+    || (specialRequirementsAcknowledged && evidenceDescription.trim().length > 0)
   const canSubmit = Boolean(
     selectedRequest
     && validPeriod
@@ -354,6 +364,7 @@ export default function ScheduleTripPage() {
     && scheduledEnd
     && selectedVehicleIsAvailable
     && selectedDriverIsAvailable
+    && specialRequirementsConfirmed
     && availabilityState === 'ready'
     && !submitting,
   )
@@ -376,6 +387,8 @@ export default function ScheduleTripPage() {
     setReconciliationNotice('')
     setRevalidatingAfterError(false)
     setSuccessMessage('')
+    setSpecialRequirementsAcknowledged(false)
+    setEvidenceDescription('')
   }
 
   function changePeriod(field: keyof PeriodValue, value: string) {
@@ -409,6 +422,10 @@ export default function ScheduleTripPage() {
         driverId,
         scheduledStart,
         scheduledEnd,
+        ...(selectedRequest.specialRequirements ? {
+          specialRequirementsAcknowledged,
+          evidenceDescription: evidenceDescription.trim(),
+        } : {}),
       })
       pendingTriggerRef.current = 'refresh'
       setSuccessMessage(`Solicitação #${selectedRequest.id} agendada com sucesso como viagem #${trip.id}.`)
@@ -418,6 +435,8 @@ export default function ScheduleTripPage() {
       setPeriodSubmitAttempted(false)
       setVehicleId('')
       setDriverId('')
+      setSpecialRequirementsAcknowledged(false)
+      setEvidenceDescription('')
       setRequestRefresh((current) => current + 1)
     } catch (error) {
       if (error instanceof TripRequestError && isSchedulingRequeryStatus(error.status)) {
@@ -567,6 +586,7 @@ export default function ScheduleTripPage() {
                     'Passageiros',
                     selectedRequest.passengers === 1 ? '1 passageiro' : `${selectedRequest.passengers} passageiros`,
                   )}
+                  {fieldValue('Necessidades especiais', selectedRequest.specialRequirements || 'Não informadas')}
                 </Box>
               </Paper>
 
@@ -614,6 +634,31 @@ export default function ScheduleTripPage() {
                     />
                   </Box>
                 </Box>
+                {selectedRequest.specialRequirements && (
+                  <Stack spacing={1} sx={{ mt: 2 }}>
+                    <Alert severity="info">
+                      <strong>Conferência necessária:</strong> {selectedRequest.specialRequirements}
+                    </Alert>
+                    <FormControlLabel
+                      control={(
+                        <Checkbox
+                          checked={specialRequirementsAcknowledged}
+                          onChange={(event) => setSpecialRequirementsAcknowledged(event.target.checked)}
+                        />
+                      )}
+                      label="Confirmei que o recurso alocado atende às necessidades descritas"
+                    />
+                    <FormField
+                      label="Como as necessidades serão atendidas"
+                      value={evidenceDescription}
+                      onChange={setEvidenceDescription}
+                      required
+                      multiline
+                      minRows={2}
+                      helperText="Registre a adaptação ou o apoio que foi conferido."
+                    />
+                  </Stack>
+                )}
 
                 {availabilityState === 'loading' && (
                   <StateFeedback
@@ -681,9 +726,14 @@ export default function ScheduleTripPage() {
                         <StateFeedback
                           kind="empty"
                           title="Nenhum veículo compatível disponível"
-                          description={unavailableVehiclesSummary?.total
-                            ? `${unavailableVehiclesSummary.overview} Ajuste o período ou escolha outra solicitação.`
-                            : 'Ajuste o período ou escolha outra solicitação de serviço.'}
+                          description={vehicleAvailability?.some(
+                            (vehicle) => vehicle.reasons.includes('CAPACITY_EXCEEDED')
+                              || vehicle.reasons.includes('INSUFFICIENT_CAPACITY'),
+                          )
+                            ? `A capacidade cadastrada é menor que os ${selectedRequest.passengers} passageiros solicitados. ${unavailableVehiclesSummary?.overview ?? ''} Ajuste o período, a frota ou escolha outra solicitação.`.trim()
+                            : unavailableVehiclesSummary?.total
+                              ? `${unavailableVehiclesSummary.overview} Ajuste o período ou escolha outra solicitação.`
+                              : 'Ajuste o período ou escolha outra solicitação de serviço.'}
                           sx={{ mt: 1.5, mb: 0 }}
                         />
                       )}
@@ -706,7 +756,7 @@ export default function ScheduleTripPage() {
                         options={availableDrivers.map((driver) => ({ value: driver.id, label: driver.name }))}
                         emptyLabel="Selecione um motorista"
                         disabled={availableDrivers.length === 0}
-                        helperText="Considera afastamentos, validade da CNH e conflitos de agenda."
+                        helperText="Considera afastamentos, validade da CNH, conta ativa de Motorista e conflitos de agenda."
                         sx={{
                           '& .MuiSelect-select': {
                             whiteSpace: 'normal',
@@ -718,9 +768,11 @@ export default function ScheduleTripPage() {
                         <StateFeedback
                           kind="empty"
                           title="Nenhum motorista disponível"
-                          description={unavailableDriversSummary?.total
-                            ? `${unavailableDriversSummary.overview} Ajuste o período e consulte novamente.`
-                            : 'Ajuste o período e consulte novamente.'}
+                          description={driverAvailability?.some((driver) => driver.reasons.includes('ACCOUNT_UNAVAILABLE'))
+                            ? 'Os motoristas precisam ter uma conta ativa vinculada com perfil MOTORISTA.'
+                            : unavailableDriversSummary?.total
+                              ? `${unavailableDriversSummary.overview} Ajuste o período e consulte novamente.`
+                              : 'Ajuste o período e consulte novamente.'}
                           sx={{ mt: 1.5, mb: 0 }}
                         />
                       )}

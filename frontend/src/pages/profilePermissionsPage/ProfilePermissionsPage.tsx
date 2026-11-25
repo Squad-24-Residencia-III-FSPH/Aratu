@@ -1,8 +1,7 @@
-import { useEffect, useId, useReducer, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import {
   Alert,
   Box,
-  Breadcrumbs,
   Button,
   Card,
   CardContent,
@@ -22,6 +21,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
+import PageHeader from '../../components/ui/PageHeader'
 import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings'
 import AssignmentInd from '@mui/icons-material/AssignmentInd'
 import DirectionsCar from '@mui/icons-material/DirectionsCar'
@@ -65,9 +65,14 @@ export default function ProfilePermissionsPage() {
   const { api } = useAuth()
   const [profilesState, dispatchProfiles] = useReducer(profileListReducer, { status: 'loading' })
   const [retryCount, setRetryCount] = useState(0)
+  const previousTitleRef = useRef<string | null>(null)
+
+  useLayoutEffect(() => {
+    previousTitleRef.current = document.title
+  }, [])
 
   useEffect(() => {
-    const previousTitle = document.title
+    const previousTitle = previousTitleRef.current ?? document.title
     document.title = 'Perfis e permissões (consulta) — Aratu'
     return () => {
       document.title = previousTitle
@@ -142,43 +147,24 @@ export function ProfilePermissionsView({
   }
 
   return (
-    <Box sx={{ maxWidth: 1400, mx: 'auto', ...pageControlSx }}>
-      <Breadcrumbs aria-label="Navegação estrutural" sx={{ mb: 2 }}>
-        <Typography color="text.secondary" variant="body2">Administração</Typography>
-        <Typography color="text.primary" variant="body2">Perfis e Permissões</Typography>
-      </Breadcrumbs>
-
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            Consulta somente leitura
-          </Typography>
-          <Typography component="h1" variant="h5" sx={{ fontWeight: 700 }}>
-            Perfis e Permissões
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 720 }}>
-            Consulte os perfis disponíveis no sistema. A atribuição ou alteração do perfil de uma conta é realizada no cadastro de Usuários.
-          </Typography>
-        </Box>
-        <Button
-          component="a"
-          href={usersAssignmentPath}
-          variant="contained"
-          startIcon={<PeopleAlt aria-hidden="true" />}
-          sx={{ minHeight: 44 }}
-        >
-          Atribuir perfil em Usuários
-        </Button>
-      </Box>
+    <Box sx={{ width: '100%', minWidth: 0, maxWidth: 1400, mx: 'auto', ...pageControlSx }}>
+      <PageHeader
+        title="Perfis e Permissões"
+        breadcrumbs={['Administração', 'Perfis e Permissões']}
+        eyebrow="Consulta somente leitura"
+        description="Consulte os perfis disponíveis no sistema. A atribuição ou alteração do perfil de uma conta é realizada no cadastro de Usuários."
+        actions={(
+          <Button
+            component="a"
+            href={usersAssignmentPath}
+            variant="contained"
+            startIcon={<PeopleAlt aria-hidden="true" />}
+            sx={{ minHeight: 44 }}
+          >
+            Atribuir perfil em Usuários
+          </Button>
+        )}
+      />
 
       {renderProfileFeedback()}
 

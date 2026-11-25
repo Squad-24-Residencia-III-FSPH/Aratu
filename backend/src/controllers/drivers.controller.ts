@@ -58,6 +58,17 @@ export function createDriversController(service: DriversService) {
       return respondWithDomainErrors(res, next, () => service.listDriverEvents(String(req.params.id)))
     },
 
+    /** Retorna uma página da história imutável do motorista. */
+    history(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return respondWithDomainErrors(res, next, () => service.getDriverHistory(String(req.params.id), {
+        page: req.query.page,
+        pageSize: req.query.pageSize,
+        eventType: req.query.eventType,
+        from: req.query.from,
+        to: req.query.to,
+      }))
+    },
+
     create(req: Request, res: Response, next: NextFunction): Promise<void> {
       const input = bodyRecord(req.body) as unknown as CreateDriverInput
       return respondWithDomainErrors(

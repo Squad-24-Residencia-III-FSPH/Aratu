@@ -59,6 +59,12 @@ const MACEIO_TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', {
   minute: '2-digit',
 })
 
+const MACEIO_DATE_TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: OPERATIONAL_TIME_ZONE,
+  dateStyle: 'short',
+  timeStyle: 'short',
+})
+
 const CURRENCY_FORMAT = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
@@ -196,12 +202,46 @@ export function computeQuickPeriodRange(
   if (preset === 'today') return { from: referenceToday, to: referenceToday }
   if (preset === '7days') return { from: addCivilDays(referenceToday, -6), to: referenceToday }
   if (preset === '30days') return { from: addCivilDays(referenceToday, -29), to: referenceToday }
-  const candidateStart = addCivilDays(subtractCivilMonths(referenceToday, 6), 1)
+  if (preset === '90days') return { from: addCivilDays(referenceToday, -89), to: referenceToday }
+  const months = preset === '12months' ? 12 : 6
+  const candidateStart = addCivilDays(subtractCivilMonths(referenceToday, months), 1)
   const diff = diffCivilDays(candidateStart, referenceToday) ?? 0
   const safeStart = diff + 1 > DASHBOARD_MAX_PERIOD_DAYS
     ? addCivilDays(referenceToday, -(DASHBOARD_MAX_PERIOD_DAYS - 1))
     : candidateStart
   return { from: safeStart, to: referenceToday }
+}
+
+/** Gera a grade de períodos (dias ou meses) entre duas datas civis válidas para séries temporais. */
+export function chartPeriods(
+  from: string,
+  to: string,
+  bucket: 'day' | 'month',
+): { key: string; label: string; days: number }[] {
+  if (!isValidCivilDate(from) || !isValidCivilDate(to) || from > to) return []
+  const result: { key: string; label: string; days: number }[] = []
+  const [startYear, startMonth, startDay] = from.split('-').map(Number) as [number, number, number]
+  const [endYear, endMonth, endDay] = to.split('-').map(Number) as [number, number, number]
+  const cursor = bucket === 'day'
+    ? new Date(Date.UTC(startYear, startMonth - 1, startDay, 12))
+    : new Date(Date.UTC(startYear, startMonth - 1, 1, 12))
+  const end = bucket === 'day'
+    ? new Date(Date.UTC(endYear, endMonth - 1, endDay, 12))
+    : new Date(Date.UTC(endYear, endMonth - 1, 1, 12))
+  while (cursor <= end) {
+    const key = bucket === 'day'
+      ? `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}-${String(cursor.getUTCDate()).padStart(2, '0')}`
+      : `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}-01`
+    const label = bucket === 'day'
+      ? `${String(cursor.getUTCDate()).padStart(2, '0')}/${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`
+      : `${String(cursor.getUTCMonth() + 1).padStart(2, '0')}/${cursor.getUTCFullYear()}`
+    const next = new Date(cursor)
+    if (bucket === 'day') next.setUTCDate(next.getUTCDate() + 1)
+    else next.setUTCMonth(next.getUTCMonth() + 1)
+    result.push({ key, label, days: bucket === 'day' ? 1 : Math.round((next.getTime() - cursor.getTime()) / DAY_IN_MS) })
+    cursor.setTime(next.getTime())
+  }
+  return result
 }
 
 /** Formata com segurança uma data civil `AAAA-MM-DD` sem risco de `RangeError` em valores vazios ou inválidos. */
@@ -220,6 +260,12 @@ export function formatInclusivePeriodLabel(from: string, to: string): string {
 export function formatTimeInMaceio(value: string): string {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? 'Horário não informado' : MACEIO_TIME_FORMAT.format(date)
+}
+
+/** Formata um instante ISO para data e hora no fuso operacional `America/Maceio`. */
+export function formatSafeDateTimeInMaceio(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'Data não informada' : MACEIO_DATE_TIME_FORMAT.format(date)
 }
 
 /** Formata valores monetários em reais (BRL) preservando centavos. */

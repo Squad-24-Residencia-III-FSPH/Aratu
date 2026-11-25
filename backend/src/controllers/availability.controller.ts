@@ -27,8 +27,8 @@ export function createAvailabilityController(service: AvailabilityService) {
     },
 
     listDrivers(req: Request, res: Response, next: NextFunction): Promise<void> {
-      const { start, end } = req.query
-      return respondWithDomainErrors(res, next, () => service.listDrivers({ start, end }))
+      const { start, end, requestId } = req.query
+      return respondWithDomainErrors(res, next, () => service.listDrivers({ start, end, requestId }))
     },
   }
 }

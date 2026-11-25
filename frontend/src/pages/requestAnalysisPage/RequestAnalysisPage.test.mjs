@@ -227,16 +227,16 @@ test('T14-P01: bloqueia decisão enquanto detalhe carrega, em erro 503 (com recu
   const user = mountPage(api)
   await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 50' }))
 
-  // Durante o carregamento do detalhe, aprovar/rejeitar ficam desabilitados
+  // Durante o carregamento do detalhe, aprovar/recusar ficam desabilitados
   assert.ok(screen.getByText('Carregando dados da solicitação...'))
   assert.equal(screen.getByRole('button', { name: 'Aprovar solicitação' }).disabled, true)
-  assert.equal(screen.getByRole('button', { name: 'Rejeitar solicitação' }).disabled, true)
+  assert.equal(screen.getByRole('button', { name: 'Recusar definitivamente' }).disabled, true)
 
   // Erro 503 mantém botões desabilitados e permite Tentar novamente mantendo a seleção
   resolveDetail()
   assert.ok(await screen.findByText('Serviço temporariamente indisponível.'))
   assert.equal(screen.getByRole('button', { name: 'Aprovar solicitação' }).disabled, true)
-  assert.equal(screen.getByRole('button', { name: 'Rejeitar solicitação' }).disabled, true)
+  assert.equal(screen.getByRole('button', { name: 'Recusar definitivamente' }).disabled, true)
   assert.ok(screen.getByRole('button', { name: 'Solicitação selecionada 50' }))
 
   detailMode = 'pending-ok'
@@ -245,7 +245,7 @@ test('T14-P01: bloqueia decisão enquanto detalhe carrega, em erro 503 (com recu
   assert.equal(screen.getByText('Setor do solicitante').tagName, 'DT')
   assert.equal(screen.getByText('Hemocentro Fictício').tagName, 'DD')
   assert.equal(screen.getByRole('button', { name: 'Aprovar solicitação' }).disabled, false)
-  assert.equal(screen.getByRole('button', { name: 'Rejeitar solicitação' }).disabled, false)
+  assert.equal(screen.getByRole('button', { name: 'Recusar definitivamente' }).disabled, false)
 
   // Se a fila estava obsoleta e o detalhe já está decidido (pedido antigo sem setor), ações permanecem desabilitadas e setor exibe fallback legível
   cleanup()
@@ -255,7 +255,7 @@ test('T14-P01: bloqueia decisão enquanto detalhe carrega, em erro 503 (com recu
   assert.ok(await screen.findByText(/já está com situação aprovada/i))
   assert.equal(screen.getByText('Não informado').tagName, 'DD')
   assert.equal(screen.getByRole('button', { name: 'Aprovar solicitação' }).disabled, true)
-  assert.equal(screen.getByRole('button', { name: 'Rejeitar solicitação' }).disabled, true)
+  assert.equal(screen.getByRole('button', { name: 'Recusar definitivamente' }).disabled, true)
 })
 
 test('T14-P02: em 409 invalida confirmação imediatamente, reconsulta detalhe e fila preservando filtros e move foco ao fechar', async () => {
@@ -321,7 +321,7 @@ test('T14-P02: em 409 invalida confirmação imediatamente, reconsulta detalhe e
   assert.ok(await screen.findByText('Gestor Fictício 7'))
   assert.ok(screen.getByText('Sem motorista disponível no turno.'))
   assert.equal(screen.getByRole('button', { name: 'Aprovar solicitação' }).disabled, true)
-  assert.equal(screen.getByRole('button', { name: 'Rejeitar solicitação' }).disabled, true)
+  assert.equal(screen.getByRole('button', { name: 'Recusar definitivamente' }).disabled, true)
 })
 
 test('T14-P06, T14-C02 e L18: valida filtros com foco no primeiro inválido, justificativa e paginação em pt-BR e cards em 320/375px', async () => {
@@ -361,10 +361,10 @@ test('T14-P06, T14-C02 e L18: valida filtros com foco no primeiro inválido, jus
   // Rejeição foca a justificativa na abertura e mostra erro inline para espaços
   await user.click(within(await screen.findByRole('article')).getByRole('button', { name: 'Ver detalhes da solicitação 61' }))
   await screen.findByText('Missão administrativa fictícia')
-  await waitFor(() => assert.equal(screen.getByRole('button', { name: 'Rejeitar solicitação' }).disabled, false))
-  await user.click(screen.getByRole('button', { name: 'Rejeitar solicitação' }))
+  await waitFor(() => assert.equal(screen.getByRole('button', { name: 'Recusar definitivamente' }).disabled, false))
+  await user.click(screen.getByRole('button', { name: 'Recusar definitivamente' }))
   const dialog = await screen.findByRole('dialog')
-  const reasonInput = within(dialog).getByRole('textbox', { name: 'Justificativa da rejeição' })
+  const reasonInput = within(dialog).getByRole('textbox', { name: 'Justificativa da recusa definitiva' })
   for (let i = 0; i < 20; i += 1) {
     if (document.activeElement === reasonInput) break
     await new Promise((resolve) => setTimeout(resolve, 50))
@@ -373,7 +373,7 @@ test('T14-P06, T14-C02 e L18: valida filtros com foco no primeiro inválido, jus
   await user.type(reasonInput, '   ')
   assert.equal(reasonInput.getAttribute('aria-invalid'), 'true')
   assert.ok(await within(dialog).findByText('Informe a justificativa da rejeição.'))
-  assert.equal(within(dialog).getByRole('button', { name: 'Rejeitar solicitação' }).disabled, true)
+  assert.equal(within(dialog).getByRole('button', { name: 'Recusar definitivamente' }).disabled, true)
 })
 
 test('RBAC e document.title: bloqueia perfil sem permissão e restaura título ao desmontar', async () => {

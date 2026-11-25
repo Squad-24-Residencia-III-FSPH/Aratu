@@ -173,12 +173,16 @@ test('IT-DASHBOARD-01: indicadores por veículo batem com os valores calculados 
   assert.equal(status, 200)
   assert.deepEqual(body.period, { from: '2099-11-01', to: '2099-12-01' })
   assert.deepEqual(body.vehicles, [
-    { vehicleId: data.v1, licensePlate: 'DSH1A11', tripsCount: 3, kmDriven: 250, litersFueled: 36, fuelCost: 216, averageConsumptionKmPerLiter: 6.94, maintenanceCost: 0 },
-    { vehicleId: data.v2, licensePlate: 'DSH2B22', tripsCount: 1, kmDriven: 60, litersFueled: 0, fuelCost: 0, averageConsumptionKmPerLiter: null, maintenanceCost: 500 },
-    { vehicleId: data.svo1, licensePlate: 'SVO1A11', tripsCount: 0, kmDriven: 0, litersFueled: 0, fuelCost: 0, averageConsumptionKmPerLiter: null, maintenanceCost: 0 },
-    { vehicleId: data.svo2, licensePlate: 'SVO2B22', tripsCount: 0, kmDriven: 0, litersFueled: 0, fuelCost: 0, averageConsumptionKmPerLiter: null, maintenanceCost: 0 },
+    { vehicleId: data.v1, licensePlate: 'DSH1A11', tripsCount: 3, kmDriven: 250, litersFueled: 36, fuelCost: 216, maintenanceOrdersOpened: 0, preventiveMaintenanceOrdersOpened: 0, correctiveMaintenanceOrdersOpened: 0, vehiclesWithCorrectiveMaintenance: 0, averageConsumptionKmPerLiter: 6.94, maintenanceCost: 0 },
+    { vehicleId: data.v2, licensePlate: 'DSH2B22', tripsCount: 1, kmDriven: 60, litersFueled: 0, fuelCost: 0, maintenanceOrdersOpened: 0, preventiveMaintenanceOrdersOpened: 0, correctiveMaintenanceOrdersOpened: 0, vehiclesWithCorrectiveMaintenance: 0, averageConsumptionKmPerLiter: null, maintenanceCost: 500 },
+    { vehicleId: data.svo1, licensePlate: 'SVO1A11', tripsCount: 0, kmDriven: 0, litersFueled: 0, fuelCost: 0, maintenanceOrdersOpened: 0, preventiveMaintenanceOrdersOpened: 0, correctiveMaintenanceOrdersOpened: 0, vehiclesWithCorrectiveMaintenance: 0, averageConsumptionKmPerLiter: null, maintenanceCost: 0 },
+    { vehicleId: data.svo2, licensePlate: 'SVO2B22', tripsCount: 0, kmDriven: 0, litersFueled: 0, fuelCost: 0, maintenanceOrdersOpened: 0, preventiveMaintenanceOrdersOpened: 0, correctiveMaintenanceOrdersOpened: 0, vehiclesWithCorrectiveMaintenance: 0, averageConsumptionKmPerLiter: null, maintenanceCost: 0 },
   ])
-  assert.deepEqual(body.totals, { tripsCount: 4, kmDriven: 310, litersFueled: 36, fuelCost: 216, averageConsumptionKmPerLiter: 8.61, maintenanceCost: 500 })
+  assert.deepEqual(body.totals, {
+    tripsCount: 4, kmDriven: 310, litersFueled: 36, fuelCost: 216, averageConsumptionKmPerLiter: 8.61,
+    maintenanceOrdersOpened: 0, preventiveMaintenanceOrdersOpened: 0, correctiveMaintenanceOrdersOpened: 0,
+    vehiclesWithCorrectiveMaintenance: 0, maintenanceCost: 500,
+  })
   assert.deepEqual(body.pendingValidation, ['averageConsumptionKmPerLiter', 'svo.averageMinutesToCollection'])
 })
 
@@ -213,7 +217,11 @@ test('IT-DASHBOARD-05: cards de situação atual (frota, pendências e documento
   const { status, body } = await get<DashboardSummary>('/dashboard/summary', 'ADMINISTRADOR')
   assert.equal(status, 200)
   assert.deepEqual(body.fleet, { available: 3, inMaintenance: 1, inactive: 1, total: 5 })
+  assert.deepEqual(body.drivers, { active: 2, away: 0, inactive: 0, total: 2, cnhExpiring: 0, cnhExpired: 0 })
+  assert.deepEqual(body.fines, { pending: 0, paid: 0, contested: 0 })
   assert.equal(body.pendingRequests, 2)
+  assert.equal(body.tripsInProgress, 1)
+  assert.equal(body.vehiclesInTrip, 1)
   assert.equal(body.tripsToConfirm, 3)
   assert.deepEqual(body.documents, { expiring: 1, expired: 1, alertDays: 30 })
 })

@@ -16,6 +16,7 @@ import type {
 } from '../types/dashboard.ts'
 import type { Vehicle } from '../vehicles/vehicleTypes.ts'
 import {
+  addCivilDays,
   computeQuickPeriodRange,
   isActiveAgendaTrip,
   isValidCivilDate,
@@ -26,7 +27,15 @@ import {
   type PeriodValidationResult,
 } from '../pages/gestor/gestorPage/gestorDashboardData.ts'
 
-const PERIOD_PRESETS: readonly DashboardPeriodPreset[] = ['today', '7days', '30days', '6months', 'custom']
+const PERIOD_PRESETS: readonly DashboardPeriodPreset[] = [
+  'today',
+  '7days',
+  '30days',
+  '90days',
+  '6months',
+  '12months',
+  'custom',
+]
 
 function errorMessageFrom(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.trim() ? error.message : fallback
@@ -188,12 +197,14 @@ export interface DashboardState {
   validation: PeriodValidationResult
   summary: DashboardSummary | null
   indicators: DashboardIndicators | null
+  comparisonIndicators: DashboardIndicators | null
   vehicles: Vehicle[]
   summaryLoading: boolean
   indicatorsLoading: boolean
   vehiclesLoading: boolean
   summaryError: string
   indicatorsError: string
+  comparisonError: string
   indicatorsErrorStatus: number | undefined
   vehiclesError: string
   selectPeriod: (preset: DashboardPeriodPreset) => void
@@ -220,6 +231,8 @@ interface IndicatorsLoadState {
   data: DashboardIndicators | null
   error: string
   status: number | undefined
+  comparisonData: DashboardIndicators | null
+  comparisonError: string
 }
 
 /**
@@ -370,22 +383,42 @@ export function useDashboard(api: ApiRequest, enabled = true): DashboardState {
 
     const generation = ++indicatorsGeneration.current
     const controller = new AbortController()
+    const previousFrom = addCivilDays(validation.apiPeriod.from, -validation.inclusiveDays)
 
-    void fetchDashboardIndicators(
-      api,
-      {
-        from: validation.apiPeriod.from,
-        to: validation.apiPeriod.to,
-        ...(selection.vehicleId ? { vehicleId: selection.vehicleId } : {}),
-      },
-      controller.signal,
-    )
-      .then((data) => {
-        if (generation !== indicatorsGeneration.current || controller.signal.aborted) return
-        setIndicatorsState({ key: indicatorsKey, data, error: '', status: undefined })
-      })
-      .catch((failure: unknown) => {
-        if (generation !== indicatorsGeneration.current || controller.signal.aborted) return
+    void Promise.allSettled([
+      fetchDashboardIndicators(
+        api,
+        {
+          from: validation.apiPeriod.from,
+          to: validation.apiPeriod.to,
+          ...(selection.vehicleId ? { vehicleId: selection.vehicleId } : {}),
+        },
+        controller.signal,
+      ),
+      fetchDashboardIndicators(
+        api,
+        {
+          from: previousFrom,
+          to: validation.apiPeriod.from,
+          ...(selection.vehicleId ? { vehicleId: selection.vehicleId } : {}),
+        },
+        controller.signal,
+      ),
+    ]).then(([currentResult, previousResult]) => {
+      if (generation !== indicatorsGeneration.current || controller.signal.aborted) return
+      if (currentResult.status === 'fulfilled') {
+        setIndicatorsState({
+          key: indicatorsKey,
+          data: currentResult.value,
+          error: '',
+          status: undefined,
+          comparisonData: previousResult.status === 'fulfilled' ? previousResult.value : null,
+          comparisonError: previousResult.status === 'rejected'
+            ? errorMessageFrom(previousResult.reason, 'Não foi possível carregar o período anterior.')
+            : '',
+        })
+      } else {
+        const failure: unknown = currentResult.reason
         const status = typeof failure === 'object' && failure !== null && 'status' in failure && typeof failure.status === 'number'
           ? failure.status
           : undefined
@@ -394,8 +427,11 @@ export function useDashboard(api: ApiRequest, enabled = true): DashboardState {
           data: null,
           error: errorMessageFrom(failure, 'Não foi possível carregar os indicadores do período.'),
           status,
+          comparisonData: null,
+          comparisonError: '',
         })
-      })
+      }
+    })
 
     return () => {
       controller.abort()
@@ -415,12 +451,14 @@ export function useDashboard(api: ApiRequest, enabled = true): DashboardState {
     validation,
     summary: currentSummary?.data ?? null,
     indicators: currentIndicators?.data ?? null,
+    comparisonIndicators: currentIndicators?.comparisonData ?? null,
     vehicles: currentVehicles?.data ?? [],
     summaryLoading: enabled && currentSummary === null,
     indicatorsLoading: enabled && validation.valid && currentIndicators === null,
     vehiclesLoading: enabled && currentVehicles === null,
     summaryError: currentSummary?.error ?? '',
     indicatorsError: currentIndicators?.error ?? '',
+    comparisonError: currentIndicators?.comparisonError ?? '',
     indicatorsErrorStatus: currentIndicators?.status,
     vehiclesError: currentVehicles?.error ?? '',
     selectPeriod,

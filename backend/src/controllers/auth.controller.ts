@@ -53,22 +53,6 @@ export function createAuthController(authService: AuthService) {
       res.status(200).json(result.user)
     },
     /**
-     * Manipulador HTTP para revalidação da identidade ativa (`GET /auth/me`).
-     *
-     * Retorna apenas identificador e perfil vigentes do usuário revalidado sem expor credenciais.
-     */
-    me: async (
-      req: Request<ParamsDictionary, unknown, unknown>,
-      res: Response<unknown>,
-    ): Promise<void> => {
-      const current = authService.getCurrentUser(req.usuario)
-      if (!current) {
-        res.status(401).json({ erro: 'Autenticação necessária.' })
-        return
-      }
-      res.status(200).json(current)
-    },
-    /**
      * Manipulador HTTP para encerramento de sessão (`POST /auth/logout`).
      *
      * Registra o logout na auditoria via `AuthService` e orienta o cliente a descartar o token JWT.
@@ -79,6 +63,22 @@ export function createAuthController(authService: AuthService) {
     ): Promise<void> => {
       await authService.logout(req.usuario)
       res.status(200).json({ mensagem: 'Logout realizado. Apague o token armazenado no cliente.' })
+    },
+    /**
+     * Manipulador HTTP para revalidação da identidade ativa (`GET /auth/me`).
+     *
+     * Retorna apenas identificador, nome e perfil vigentes do usuário revalidado sem expor credenciais.
+     */
+    me: (
+      req: Request<ParamsDictionary, unknown, unknown>,
+      res: Response<unknown>,
+    ): void => {
+      if (!req.usuario) {
+        res.status(401).json({ erro: 'Autenticação necessária.' })
+        return
+      }
+      const nome = typeof res.locals.authenticatedUserName === 'string' ? res.locals.authenticatedUserName : ''
+      res.status(200).json({ id: req.usuario.id, nome, perfil: req.usuario.perfil })
     },
   }
 }

@@ -1,14 +1,16 @@
-import type { ApiRequest } from '../api/client'
-import { SESSION_EXPIRED } from '../auth/token'
+import type { ApiRequest } from '../api/client.ts'
+import { SERVICE_UNAVAILABLE } from '../auth/loginService.ts'
+import { SESSION_EXPIRED } from '../auth/token.ts'
 import {
   isCanonicalBigIntId,
   SVO_OCCURRENCE_STATUSES,
   SVO_REQUESTER_TYPES,
   SvoOccurrenceRequestError,
-} from '../types/svoOccurrence'
+} from '../types/svoOccurrence.ts'
 import type {
   CreateSvoOccurrenceInput,
   CreateSvoOrderDispatchInput,
+  SvoDispatchAutoResult,
   SvoDispatchCandidateTeam,
   SvoDispatchCandidateVehicle,
   SvoDispatchCandidatesResult,
@@ -22,7 +24,7 @@ import type {
   SvoOccurrenceSummary,
   SvoOrderDispatchResult,
   SvoRequesterType,
-} from '../types/svoOccurrence'
+} from '../types/svoOccurrence.ts'
 
 const INVALID_RESPONSE = 'A resposta do servidor não pôde ser confirmada. Consulte as solicitações antes de continuar.'
 const NETWORK_ERROR = 'Não foi possível se comunicar com o servidor. Verifique a conexão.'
@@ -40,6 +42,8 @@ const isString = (value: unknown): value is string => typeof value === 'string'
 const isId = (value: unknown): value is string => isString(value) && isCanonicalBigIntId(value)
 const isPositiveInt = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+const isNonNegativeInt = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 const isIso = (value: unknown): value is string =>
   isString(value) && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value))
 const isNullable = <T>(value: unknown, guard: (item: unknown) => item is T): value is T | null =>
@@ -48,6 +52,8 @@ const isRequesterType = (value: unknown): value is SvoRequesterType =>
   SVO_REQUESTER_TYPES.some((item) => item === value)
 const isStatus = (value: unknown): value is SvoOccurrenceStatus =>
   SVO_OCCURRENCE_STATUSES.some((item) => item === value)
+const isWaitReason = (value: unknown): value is 'NO_TEAM' | 'NO_VEHICLE' =>
+  value === 'NO_TEAM' || value === 'NO_VEHICLE'
 
 function invalidResponse(): SvoOccurrenceRequestError {
   return new SvoOccurrenceRequestError('invalidResponse', INVALID_RESPONSE)
@@ -63,6 +69,10 @@ function parseSummary(value: unknown): SvoOccurrenceSummary {
     || !isIso(value.receivedAt)
     || !isIso(value.createdAt)
     || !isPositiveInt(value.revision)
+    || !(value.dispatchRequestedAt === undefined || isNullable(value.dispatchRequestedAt, isIso))
+    || !(value.dispatchRequestedBy === undefined || isNullable(value.dispatchRequestedBy, isId))
+    || !(value.dispatchWaitReason === undefined || isNullable(value.dispatchWaitReason, isWaitReason))
+    || !(value.executionOrderId === undefined || isNullable(value.executionOrderId, isId))
   ) {
     throw invalidResponse()
   }
@@ -74,6 +84,10 @@ function parseSummary(value: unknown): SvoOccurrenceSummary {
     receivedAt: value.receivedAt,
     createdAt: value.createdAt,
     revision: value.revision,
+    dispatchRequestedAt: value.dispatchRequestedAt === undefined ? null : value.dispatchRequestedAt,
+    dispatchRequestedBy: value.dispatchRequestedBy === undefined ? null : value.dispatchRequestedBy,
+    dispatchWaitReason: value.dispatchWaitReason === undefined ? null : value.dispatchWaitReason,
+    executionOrderId: value.executionOrderId === undefined ? null : value.executionOrderId,
   }
 }
 
@@ -132,6 +146,32 @@ function parseDispatchOrderRef(value: unknown): SvoDispatchOrderRef {
   }
 }
 
+function parseDispatchAutoResult(value: unknown, expectedRevision?: number): SvoDispatchAutoResult {
+  if (!isRecord(value) || !isPositiveInt(value.revision)) {
+    throw invalidResponse()
+  }
+  if (expectedRevision !== undefined && value.revision !== expectedRevision) {
+    throw invalidResponse()
+  }
+  if (value.status === 'DISPATCHED' && isId(value.orderId) && isId(value.teamId) && isId(value.vehicleId)) {
+    return {
+      status: 'DISPATCHED',
+      orderId: value.orderId,
+      teamId: value.teamId,
+      vehicleId: value.vehicleId,
+      revision: value.revision,
+    }
+  }
+  if (value.status === 'WAITING' && isWaitReason(value.reason)) {
+    return {
+      status: 'WAITING',
+      reason: value.reason,
+      revision: value.revision,
+    }
+  }
+  throw invalidResponse()
+}
+
 async function requestJson(api: ApiRequest, path: string, init?: RequestInit): Promise<unknown> {
   let response: Response
   try {
@@ -140,18 +180,21 @@ async function requestJson(api: ApiRequest, path: string, init?: RequestInit): P
     if (error instanceof Error && error.message === SESSION_EXPIRED) {
       throw new SvoOccurrenceRequestError('session', SESSION_EXPIRED)
     }
+    if (error instanceof Error && error.message === SERVICE_UNAVAILABLE) {
+      throw new SvoOccurrenceRequestError('network', SERVICE_UNAVAILABLE)
+    }
     throw new SvoOccurrenceRequestError('network', NETWORK_ERROR)
   }
 
   if (!response.ok) {
     const kind = ERROR_KINDS[response.status] ?? (response.status >= 500 ? 'server' : 'rejected')
     const body: unknown = await response.json().catch(() => null)
-    const fallback = 'Não foi possível concluir a operação. Consulte as solicitações antes de tentar novamente.'
-    const message = kind === 'session'
-      ? SESSION_EXPIRED
-      : response.status < 500 && isRecord(body) && isString(body.erro) && body.erro.trim()
-        ? body.erro
-        : fallback
+    const apiMessage = isRecord(body) && isString(body.erro) && body.erro.trim() ? body.erro : null
+    const message = apiMessage
+      ? apiMessage
+      : kind === 'session'
+        ? SESSION_EXPIRED
+        : `A API respondeu HTTP ${response.status} para ${path}.`
     throw new SvoOccurrenceRequestError(kind, message)
   }
 
@@ -204,8 +247,8 @@ export async function createSvoOccurrence(
     requesterType: input.requesterType,
     location: input.location.trim(),
     description: input.description.trim(),
-    notes: input.notes?.trim() ? input.notes.trim() : null,
     evidenceDescription: input.evidenceDescription.trim(),
+    notes: input.notes?.trim() ? input.notes.trim() : null,
     ...(input.receivedAt ? { receivedAt: input.receivedAt } : {}),
   }
 
@@ -238,33 +281,60 @@ export async function createSvoOccurrence(
 /** Confirma os campos obrigatórios de triagem de uma solicitação pendente (`PENDING -> CONFIRMED`). */
 export async function confirmSvoOccurrence(
   api: ApiRequest,
-  occurrenceId: string,
+  occurrenceOrId: string | SvoOccurrenceDetail,
 ): Promise<SvoOccurrenceConfirmationResult> {
+  const occurrenceId = typeof occurrenceOrId === 'string' ? occurrenceOrId : occurrenceOrId.id
+  const expectedRevision = typeof occurrenceOrId === 'string' ? null : occurrenceOrId.revision
+
   const value = await requestJson(api, `/svo/occurrences/${encodeURIComponent(occurrenceId)}/confirm`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
+    body: JSON.stringify(expectedRevision !== null ? { expectedRevision } : {}),
   })
 
+  const triagedAt = isRecord(value) ? value.triagedAt : undefined
+  const triagedBy = isRecord(value) ? value.triagedBy : undefined
   if (
     !isRecord(value)
     || !isId(value.id)
     || value.id !== occurrenceId
     || value.status !== 'CONFIRMED'
-    || !isNullable(value.triagedAt, isIso)
-    || !isNullable(value.triagedBy, isId)
     || !isPositiveInt(value.revision)
+    || !isNullable(triagedAt, isIso)
+    || !isNullable(triagedBy, isId)
+    || (expectedRevision !== null && (triagedAt === null || triagedBy === null || value.revision <= expectedRevision))
   ) {
     throw invalidResponse()
   }
 
+  const dispatch = value.dispatch !== undefined
+    ? parseDispatchAutoResult(value.dispatch, value.revision)
+    : undefined
+
   return {
     id: value.id,
     status: 'CONFIRMED',
-    triagedAt: value.triagedAt,
-    triagedBy: value.triagedBy,
+    triagedAt,
+    triagedBy,
     revision: value.revision,
+    ...(dispatch ? { dispatch } : {}),
   }
+}
+
+/** Reavalia automaticamente a seleção de recursos para uma ocorrência em espera (`POST /svo/orders/dispatch/:occurrenceId`). */
+export async function retrySvoDispatch(
+  api: ApiRequest,
+  occurrence: SvoOccurrenceSummary,
+): Promise<SvoDispatchAutoResult> {
+  const value = await requestJson(api, `/svo/orders/dispatch/${encodeURIComponent(occurrence.id)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      expectedRevision: occurrence.revision,
+      reason: 'Gestor solicitou nova seleção automática após revisar a disponibilidade operacional.',
+    }),
+  })
+  return parseDispatchAutoResult(value)
 }
 
 /** Consulta ordens SVO existentes para identificar solicitações já despachadas e calcular vagas ocupadas. */
@@ -272,10 +342,6 @@ export async function listSvoDispatchOrders(api: ApiRequest): Promise<SvoDispatc
   const value = await requestJson(api, '/svo/orders')
   if (!Array.isArray(value)) throw invalidResponse()
   return value.map(parseDispatchOrderRef)
-}
-
-function isNonNegativeInt(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
 
 function parseDispatchCandidateTeam(value: unknown): SvoDispatchCandidateTeam {

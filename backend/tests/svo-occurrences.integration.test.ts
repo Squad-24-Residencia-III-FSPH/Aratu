@@ -179,14 +179,17 @@ test('SVO-06: confirmação conserva RECEIVED e incrementa revisão com autoria 
   const start = await databaseTime()
   const result = await json(await call('POST', `/${id}/confirm`))
   const end = await databaseTime()
-  assert.deepEqual(Object.keys(result).sort(), ['id', 'status', 'triagedAt', 'triagedBy', 'revision'].sort())
-  assert.equal(result.status, 'CONFIRMED'); assert.equal(result.revision, 2); assert.equal(result.triagedBy, user().id)
+  assert.deepEqual(Object.keys(result).sort(), ['id', 'status', 'triagedAt', 'triagedBy', 'revision', 'dispatch'].sort())
+  assert.equal(result.status, 'CONFIRMED'); assert.equal(result.revision, 3); assert.equal(result.triagedBy, user().id)
+  assert.deepEqual(result.dispatch, { status: 'WAITING', reason: 'NO_TEAM', revision: 3 })
   assert.ok(new Date(result.triagedAt as string) >= start && new Date(result.triagedAt as string) <= end)
   const after = await history(id)
-  assert.deepEqual(after.events[0], before.events[0]); assert.equal(after.events.length, 2)
-  assert.equal(after.events[1]!.event_type, 'CONFIRMED')
+  assert.deepEqual(after.events[0], before.events[0]); assert.equal(after.events.length, 5)
+  assert.deepEqual(after.events.map((row) => row.event_type), [
+    'RECEIVED', 'CONFIRMED', 'DISPATCH_REQUESTED', 'DISPATCH_ATTEMPTED', 'DISPATCH_WAITING',
+  ])
   assert.deepEqual(after.events[1]!.occurred_at, after.occurrence!.triaged_at)
-  assert.deepEqual(after.audits.map((row) => row.operation), ['CREATE', 'STATUS_CHANGE'])
+  assert.deepEqual(after.audits.map((row) => row.operation), ['CREATE', 'STATUS_CHANGE', 'UPDATE'])
 })
 
 test('SVO-07: CONFIRMED e CANCELED retornam 409 sem alterar trilhas ou revisão', async () => {
@@ -200,9 +203,12 @@ test('SVO-08: duas confirmações simultâneas retornam 200/409 e gravam um úni
   const responses = await Promise.all([call('POST', `/${id}/confirm`), call('POST', `/${id}/confirm`, {}, 'ADMINISTRADOR')])
   assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409])
   const stored = await history(id)
-  assert.equal(stored.occurrence!.revision, 2)
+  assert.equal(stored.occurrence!.revision, 3)
   assert.equal(stored.events.filter((row) => row.event_type === 'CONFIRMED').length, 1)
+  assert.equal(stored.events.filter((row) => row.event_type === 'DISPATCH_ATTEMPTED').length, 1)
+  assert.equal(stored.events.filter((row) => row.event_type === 'DISPATCH_WAITING').length, 1)
   assert.equal(stored.audits.filter((row) => row.operation === 'STATUS_CHANGE').length, 1)
+  assert.equal(stored.audits.filter((row) => row.operation === 'UPDATE').length, 1)
   const client = await pool.connect()
   try {
     await client.query('BEGIN'); await client.query("SET LOCAL lock_timeout = '1s'")
@@ -342,7 +348,9 @@ test('SVO-19: legado sem RECEIVED/snapshot permanece sem passado inventado', asy
   await json(await call('POST', `/${id}/confirm`))
   const stored = await history(id)
   assert.equal(stored.occurrence!.attendant_snapshot, null)
-  assert.deepEqual(stored.events.map((row) => row.event_type), ['CONFIRMED'])
+  assert.deepEqual(stored.events.map((row) => row.event_type), [
+    'CONFIRMED', 'DISPATCH_REQUESTED', 'DISPATCH_ATTEMPTED', 'DISPATCH_WAITING',
+  ])
   assert.equal((await json(await call('GET', `/${id}`))).evidenceDescription, null)
 })
 
@@ -409,9 +417,10 @@ test('SVO-23: notes vazias persistem null e tipos incompatíveis não escrevem',
   for (const notes of [false, 1, [], {}]) await rejectsWithoutWrite(() => call('POST', '', { ...svoInput(), notes }), 400)
 })
 
-test('SVO-24: lista e detalhe expõem apenas DTOs explícitos, sem snapshots/eventos brutos', async () => {
+test('SVO-24: lista e detalhe expõem DTOs explícitos, sem snapshots/eventos brutos', async () => {
   const id = await create()
-  const summaryKeys = ['id', 'requesterType', 'location', 'status', 'receivedAt', 'createdAt', 'revision']
+  const summaryKeys = ['id', 'requesterType', 'location', 'status', 'receivedAt', 'createdAt', 'revision',
+    'dispatchRequestedAt', 'dispatchRequestedBy', 'dispatchWaitReason', 'executionOrderId']
   const detailKeys = [...summaryKeys, 'requesterName', 'requesterPhone', 'description', 'notes', 'attendantId', 'triagedAt', 'triagedBy', 'updatedAt', 'evidenceDescription']
   for (const role of ['GESTOR', 'ATENDENTE_SVO', 'ADMINISTRADOR'] as const) {
     const list = await (await call('GET', '', undefined, role)).json() as JsonRecord[]

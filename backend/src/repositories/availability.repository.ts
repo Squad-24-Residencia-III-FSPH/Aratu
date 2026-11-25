@@ -1,12 +1,14 @@
 import type { Pool, PoolClient } from 'pg'
 import type {
   DriverAvailabilityFacts,
+  AvailabilityRequest,
   Period,
   VehicleAvailabilityFacts,
 } from '../types/availability.types'
 
 /** Contrato de leitura dos fatos de disponibilidade, usado pelo service e por testes isolados. */
 export interface AvailabilityRepositoryContract {
+  findRequestForAvailability(requestId: string): Promise<AvailabilityRequest | null>
   serviceExists(serviceId: string, client?: PoolClient): Promise<boolean>
   findRequestPassengers(requestId: string, client?: PoolClient): Promise<{ passengers: number | null } | null>
   listVehicleFacts(serviceId: string, period: Period, vehicleId: string | null, client?: PoolClient): Promise<VehicleAvailabilityFacts[]>
@@ -24,6 +26,18 @@ export interface AvailabilityRepositoryContract {
  */
 export class AvailabilityRepository implements AvailabilityRepositoryContract {
   constructor(private readonly pool: Pool) {}
+
+  /** Carrega os requisitos versionados de uma solicitação para consultas de candidatos. */
+  async findRequestForAvailability(requestId: string): Promise<AvailabilityRequest | null> {
+    const result = await this.pool.query<AvailabilityRequest>(
+      `SELECT id::text AS id, service_id::text AS "serviceId", status, passengers,
+              special_requirements AS "specialRequirements", revision
+         FROM trip.requests
+        WHERE id = $1`,
+      [requestId],
+    )
+    return result.rows[0] ?? null
+  }
 
   async serviceExists(serviceId: string, client?: PoolClient): Promise<boolean> {
     const executor = client ?? this.pool
@@ -77,6 +91,11 @@ export class AvailabilityRepository implements AvailabilityRepositoryContract {
     const result = await executor.query<DriverAvailabilityFacts>(
       `SELECT d.id::text AS id, d.name, d.cnh_category AS "cnhCategory",
               to_char(d.cnh_expires_at, 'YYYY-MM-DD') AS "cnhExpiresAt", d.status,
+              EXISTS (
+                SELECT 1 FROM auth.users u
+                JOIN auth.roles r ON r.id = u.role_id
+                 WHERE u.id = d.user_id AND u.active = true AND r.name = 'MOTORISTA'
+              ) AS "accountEligible",
               EXISTS (
                 SELECT 1 FROM trip.trips t
                  WHERE t.driver_id = d.id

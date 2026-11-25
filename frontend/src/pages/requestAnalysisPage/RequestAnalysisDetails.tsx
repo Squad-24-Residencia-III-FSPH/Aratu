@@ -93,6 +93,8 @@ export default function RequestAnalysisDetails({
           <Detail label="Finalidade" value={detail.purpose} />
           <Detail label="Tipo de serviço" value={detail.serviceName} />
           <Detail label="Passageiros" value={String(detail.passengers)} />
+          <Detail label="Necessidades especiais" value={detail.specialRequirements || 'Não informadas'} />
+          <Detail label="Observações" value={detail.notes || 'Nenhuma'} />
         </DetailsGrid>
 
         <Box>

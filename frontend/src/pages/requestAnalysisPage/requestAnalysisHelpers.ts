@@ -158,8 +158,9 @@ export function getPaginationItemAriaLabel(type: 'first' | 'last' | 'next' | 'pr
 export async function decideRequestWithStatus(
   api: ApiRequest,
   id: string,
-  decision: 'approve' | 'reject',
+  decision: 'approve' | 'reject' | 'return',
   reason?: string,
+  expectedRevision?: number,
 ): Promise<RequestDecisionSubmitResult> {
   let responseStatus: number | null = null
   const trackedApi: ApiRequest = async (path, options) => {
@@ -169,7 +170,7 @@ export async function decideRequestWithStatus(
   }
 
   try {
-    await decideRequest(trackedApi, id, decision, reason)
+    await decideRequest(trackedApi, id, decision, reason, expectedRevision)
     return { ok: true }
   } catch (failure: unknown) {
     return {

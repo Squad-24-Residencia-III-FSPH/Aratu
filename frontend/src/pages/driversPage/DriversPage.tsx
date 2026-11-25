@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -13,6 +13,7 @@ import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined'
 import EditOutlined from '@mui/icons-material/EditOutlined'
 import BlockOutlined from '@mui/icons-material/BlockOutlined'
 import ReplayOutlined from '@mui/icons-material/ReplayOutlined'
+import HistoryOutlined from '@mui/icons-material/HistoryOutlined'
 import { useAuth } from '../../auth/useAuth'
 import { resolveProfile } from '../../auth/profiles'
 import { accessibleControls } from '../../components/ui/accessibleControls'
@@ -34,6 +35,8 @@ import { sanitizeCpfFromMessage } from './driverFormHelper'
 import DriverDetailsDialog from './DriverDetailsDialog'
 import DriverFormDialog from './DriverFormDialog'
 import DriverStatusDialog from './DriverStatusDialog'
+import EntityHistoryDialog from '../../components/ui/EntityHistoryDialog'
+import { listDriverHistory } from '../../services/entityHistoryService'
 import styles from './DriversPage.module.css'
 
 type FormDialogState = { mode: 'create' } | { mode: 'edit'; driver: Driver }
@@ -112,13 +115,23 @@ export default function DriversPage() {
   const [formDialog, setFormDialog] = useState<FormDialogState | null>(null)
   const [statusDriver, setStatusDriver] = useState<Driver | null>(null)
   const [details, setDetails] = useState<{ driver: DriverDetails | null; loading: boolean; error: string } | null>(null)
+  const [historyDriver, setHistoryDriver] = useState<Driver | null>(null)
+  const loadDriverHistory = useCallback((historyPage: number) => {
+    if (!historyDriver) return Promise.reject(new Error('Selecione um motorista para consultar o histórico.'))
+    return listDriverHistory(api, historyDriver.id, historyPage)
+  }, [api, historyDriver])
   const [notice, setNotice] = useState('')
 
   const detailsSeqRef = useRef(0)
   const detailsRequestRef = useRef<{ id: number; controller: AbortController } | null>(null)
+  const previousTitleRef = useRef<string | null>(null)
+
+  useLayoutEffect(() => {
+    previousTitleRef.current = document.title
+  }, [])
 
   useEffect(() => {
-    const previousTitle = document.title
+    const previousTitle = previousTitleRef.current ?? document.title
     document.title = 'Motoristas — Aratu'
     return () => {
       document.title = previousTitle
@@ -243,8 +256,6 @@ export default function DriversPage() {
     <Box className={styles.page} sx={{ minWidth: 0, ...accessibleControls }}>
       <PageHeader
         title="Motoristas"
-        titleVariant="h4"
-        titleSx={{ color: '#0f172a', fontSize: { xs: '1.5rem', sm: '2rem' } }}
         breadcrumbs={['Início', 'Motoristas']}
         breadcrumbsSx={{ mb: { xs: 1, sm: 2 }, color: '#475569', fontSize: '0.85rem' }}
         sx={{ mb: { xs: 1.5, sm: 2.5 } }}
@@ -362,6 +373,13 @@ export default function DriversPage() {
                         <VisibilityOutlined aria-hidden="true" />
                       </IconButton>
                       <IconButton
+                        aria-label={`Consultar histórico de ${driver.name}`}
+                        onClick={() => setHistoryDriver(driver)}
+                        sx={{ width: 44, height: 44 }}
+                      >
+                        <HistoryOutlined aria-hidden="true" />
+                      </IconButton>
+                      <IconButton
                         aria-label={`Editar ${driver.name}`}
                         onClick={() => setFormDialog({ mode: 'edit', driver })}
                         disabled={!canWrite}
@@ -446,6 +464,11 @@ export default function DriversPage() {
           onClose={closeDetails}
         />
       )}
+      {historyDriver && <EntityHistoryDialog
+        title={`Histórico do motorista ${historyDriver.name}`}
+        loadPage={loadDriverHistory}
+        onClose={() => setHistoryDriver(null)}
+      />}
     </Box>
   )
 }

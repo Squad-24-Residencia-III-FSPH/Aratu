@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import {
   Box,
   Drawer,
+  IconButton,
   List,
   ListItem,
   ListItemButton,
@@ -11,71 +12,24 @@ import {
   Typography,
   Divider,
   Tooltip,
-  IconButton,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
-import Add from '@mui/icons-material/Add';
-import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings';
-import Assignment from '@mui/icons-material/Assignment';
-import AssignmentTurnedIn from '@mui/icons-material/AssignmentTurnedIn';
-import BarChart from '@mui/icons-material/BarChart';
-import Build from '@mui/icons-material/Build';
-import Category from '@mui/icons-material/Category';
-import CheckCircle from '@mui/icons-material/CheckCircle';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import Description from '@mui/icons-material/Description';
-import DirectionsCar from '@mui/icons-material/DirectionsCar';
-import EventAvailable from '@mui/icons-material/EventAvailable';
-import Help from '@mui/icons-material/Help';
 import Home from '@mui/icons-material/Home';
-import LocalGasStation from '@mui/icons-material/LocalGasStation';
-import LocalShipping from '@mui/icons-material/LocalShipping';
-import MedicalServices from '@mui/icons-material/MedicalServices';
 import MenuIcon from '@mui/icons-material/Menu';
-import Person from '@mui/icons-material/Person';
-import Security from '@mui/icons-material/Security';
-import Visibility from '@mui/icons-material/Visibility';
-import Warning from '@mui/icons-material/Warning';
-import type { SvgIconComponent } from '@mui/icons-material';
 
 import { useAuth } from '../auth/useAuth';
 import { profileInitials, profileLabel, resolveProfile } from '../auth/profiles';
 import { getSidebarNavigation } from './sidebarNavigation';
-import type { SidebarIconName, SidebarMenuItem, SidebarNavigation } from './sidebarNavigation';
+import type { SidebarMenuItem, SidebarNavigation } from './sidebarNavigation';
+import { NAVIGATION_ICONS } from './navigationIcons';
 
 const drawerWidthExpanded = 260;
 const drawerWidthCollapsed = 72;
 const brandTextColor = '#b94700';
-
-const icons: Record<SidebarIconName, SvgIconComponent> = {
-  home: Home,
-  users: Person,
-  permissions: AdminPanelSettings,
-  audit: Security,
-  settings: Build,
-  requests: Assignment,
-  newRequest: Add,
-  analyzeRequests: AssignmentTurnedIn,
-  svoRequests: MedicalServices,
-  svoTracking: Visibility,
-  tripAgenda: EventAvailable,
-  trips: LocalShipping,
-  confirmTrips: CheckCircle,
-  vehicles: DirectionsCar,
-  drivers: Person,
-  serviceTypes: Category,
-  maintenance: Build,
-  fuel: LocalGasStation,
-  documents: Description,
-  warnings: Warning,
-  dashboard: DashboardIcon,
-  reports: BarChart,
-  help: Help,
-};
 
 const tooltipProps = {
   arrow: true,
@@ -125,6 +79,7 @@ interface SidebarNavContentProps {
   onOpenMobile: () => void;
   onCloseMobile: () => void;
   onNavigate?: () => void;
+  onAction?: (item: SidebarMenuItem) => void;
 }
 
 function SidebarNavContent({
@@ -141,6 +96,7 @@ function SidebarNavContent({
   onOpenMobile,
   onCloseMobile,
   onNavigate,
+  onAction,
 }: SidebarNavContentProps) {
   const selectedStyle = {
     borderRadius: 1,
@@ -175,18 +131,23 @@ function SidebarNavContent({
   };
 
   const renderSidebarItem = (item: SidebarMenuItem) => {
-    const Icon = icons[item.icon] || Home;
-    const match = matchesPathAndQuery(item.path, pathname, search);
+    const Icon = NAVIGATION_ICONS[item.icon] || Home;
+    const match = item.path
+      ? matchesPathAndQuery(item.path, pathname, search)
+      : { matched: false, hasQuery: false };
     const isSelected = match.matched && (match.hasQuery || !hasQuerySpecificMatch);
     const itemStyle = isSelected ? selectedStyle : defaultStyle;
 
     const content = (
       <ListItemButton
-        {...(item.behavior === 'link' ? { component: RouterLink, to: item.path } : {})}
+        {...(item.behavior === 'link' && item.path ? { component: RouterLink, to: item.path } : {})}
         selected={isSelected}
         aria-current={isSelected ? 'page' : undefined}
         aria-label={!showLabels ? item.label : undefined}
-        onClick={onNavigate}
+        onClick={() => {
+          if (item.behavior === 'action') onAction?.(item);
+          onNavigate?.();
+        }}
         sx={itemStyle}
       >
         <ListItemIcon sx={{ minWidth: showLabels ? 36 : 0, justifyContent: 'center', color: isSelected ? brandTextColor : '#374151' }}>
@@ -205,7 +166,7 @@ function SidebarNavContent({
     );
 
     return (
-      <ListItem disablePadding key={`${item.label}:${item.path}`} sx={{ mb: 0.5 }}>
+      <ListItem disablePadding key={`${item.label}:${item.path ?? item.action ?? 'item'}`} sx={{ mb: 0.5 }}>
         <Tooltip title={!showLabels ? item.label : ''} {...tooltipProps}>
           {content}
         </Tooltip>
@@ -329,11 +290,27 @@ function SidebarNavContent({
   );
 }
 
-export default function Sidebar() {
+interface SidebarProps {
+  expanded?: boolean;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+  onAction?: (item: SidebarMenuItem) => void;
+}
+
+export default function Sidebar({
+  expanded: desktopExpanded,
+  mobileOpen: controlledMobileOpen,
+  onMobileClose,
+  onAction,
+}: SidebarProps = {}) {
   const theme = useTheme();
-  const isCompactViewport = useMediaQuery(theme.breakpoints.down('md'));
+  const isControlled = controlledMobileOpen !== undefined;
+  const compactBySm = useMediaQuery(theme.breakpoints.down('sm'));
+  const compactByMd = useMediaQuery(theme.breakpoints.down('md'));
+  const isCompactViewport = isControlled ? compactBySm : compactByMd;
+
   const [prefersExpanded, setPrefersExpanded] = useState(true);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [internalMobileOpen, setInternalMobileOpen] = useState(false);
   const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
   const mobileDrawerId = useId();
   const location = useLocation();
@@ -342,9 +319,15 @@ export default function Sidebar() {
   const profile = session ? resolveProfile(session.perfil) : null;
   const navigation = getSidebarNavigation(profile);
   const roleLabel = session ? profileLabel(session.perfil) : 'Usuário';
-  const expanded = isCompactViewport ? false : prefersExpanded;
-  const showMobileDrawer = isCompactViewport && mobileOpen;
+
+  const resolvedDesktopExpanded = desktopExpanded ?? prefersExpanded;
+  const showMobileDrawer = isCompactViewport && (controlledMobileOpen ?? internalMobileOpen);
+  const expanded = isControlled
+    ? (isCompactViewport ? Boolean(controlledMobileOpen) : resolvedDesktopExpanded)
+    : (isCompactViewport ? false : resolvedDesktopExpanded);
+
   const currentWidth = expanded ? drawerWidthExpanded : drawerWidthCollapsed;
+  const drawerWidth = isCompactViewport ? drawerWidthExpanded : currentWidth;
 
   const allItems = useMemo(
     () => [
@@ -357,6 +340,7 @@ export default function Sidebar() {
 
   const hasQuerySpecificMatch = useMemo(
     () => allItems.some((item) => {
+      if (!item.path) return false;
       const result = matchesPathAndQuery(item.path, location.pathname, location.search);
       return result.matched && result.hasQuery;
     }),
@@ -368,12 +352,16 @@ export default function Sidebar() {
   };
 
   const openMobileDrawer = useCallback(() => {
-    setMobileOpen(true);
+    setInternalMobileOpen(true);
   }, []);
 
   const closeMobileDrawer = useCallback(() => {
-    setMobileOpen(false);
-  }, []);
+    if (onMobileClose) {
+      onMobileClose();
+    } else {
+      setInternalMobileOpen(false);
+    }
+  }, [onMobileClose]);
 
   const restoreMobileFocus = useCallback(() => {
     const active = document.activeElement;
@@ -382,10 +370,68 @@ export default function Sidebar() {
     }
   }, []);
 
+  if (isControlled) {
+    return (
+      <Box sx={{ display: 'flex', position: 'relative', flexShrink: 0, width: isCompactViewport ? 0 : currentWidth }}>
+        <Drawer
+          variant={isCompactViewport ? 'temporary' : 'permanent'}
+          open={!isCompactViewport || Boolean(controlledMobileOpen)}
+          onClose={closeMobileDrawer}
+          ModalProps={isCompactViewport ? { keepMounted: false } : undefined}
+          slotProps={{
+            paper: { id: 'primary-navigation', 'aria-label': 'Navegação principal' },
+          }}
+          sx={{
+            width: isCompactViewport ? 0 : currentWidth,
+            flexShrink: 0,
+            transition: 'width 0.2s ease-in-out',
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              maxWidth: isCompactViewport ? '85vw' : undefined,
+              boxSizing: 'border-box',
+              backgroundColor: '#fff',
+              borderRight: '1px solid #e2e8f0',
+              mt: '64px',
+              height: 'calc(100vh - 64px)',
+              '@supports (height: 100dvh)': { height: 'calc(100dvh - 64px)' },
+              overflowX: 'hidden',
+              overflowY: 'auto',
+              scrollbarWidth: 'none',
+              '&::-webkit-scrollbar': {
+                display: 'none',
+              },
+              transition: 'width 0.2s ease-in-out',
+            },
+          }}
+        >
+          <SidebarNavContent
+            navigation={navigation}
+            roleLabel={roleLabel}
+            showLabels={expanded}
+            isCompactViewport={isCompactViewport}
+            showMobileDrawer={showMobileDrawer}
+            mobileDrawerId={mobileDrawerId}
+            mobileToggleRef={mobileToggleRef}
+            pathname={location.pathname}
+            search={location.search}
+            hasQuerySpecificMatch={hasQuerySpecificMatch}
+            onOpenMobile={openMobileDrawer}
+            onCloseMobile={closeMobileDrawer}
+            onNavigate={isCompactViewport ? closeMobileDrawer : undefined}
+            onAction={onAction}
+          />
+        </Drawer>
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ display: 'flex', position: 'relative', flexShrink: 0 }}>
+    <Box sx={{ display: 'flex', position: 'relative', flexShrink: 0, width: currentWidth }}>
       <Drawer
         variant="permanent"
+        slotProps={{
+          paper: { id: 'primary-navigation', 'aria-label': 'Navegação principal' },
+        }}
         sx={{
           width: currentWidth,
           flexShrink: 0,
@@ -397,6 +443,7 @@ export default function Sidebar() {
             borderRight: '1px solid #e2e8f0',
             mt: '64px',
             height: 'calc(100vh - 64px)',
+            '@supports (height: 100dvh)': { height: 'calc(100dvh - 64px)' },
             overflowX: 'hidden',
             overflowY: 'auto',
             scrollbarWidth: 'none',
@@ -420,6 +467,7 @@ export default function Sidebar() {
           hasQuerySpecificMatch={hasQuerySpecificMatch}
           onOpenMobile={openMobileDrawer}
           onCloseMobile={closeMobileDrawer}
+          onAction={onAction}
         />
       </Drawer>
 
@@ -440,6 +488,7 @@ export default function Sidebar() {
               borderRight: '1px solid #e2e8f0',
               mt: '64px',
               height: 'calc(100vh - 64px)',
+              '@supports (height: 100dvh)': { height: 'calc(100dvh - 64px)' },
               overflowX: 'hidden',
               overflowY: 'auto',
             },
@@ -459,6 +508,7 @@ export default function Sidebar() {
             onOpenMobile={openMobileDrawer}
             onCloseMobile={closeMobileDrawer}
             onNavigate={closeMobileDrawer}
+            onAction={onAction}
           />
         </Drawer>
       )}

@@ -22,19 +22,24 @@ export function createAuthRouter(
   users: UserRepository & Partial<Pick<UsersRepositoryContract, 'findById'>>,
   jwtConfig: JwtConfig,
   auditLogger?: AuditLogger,
+  currentUsers?: Pick<UsersRepositoryContract, 'findById'>,
 ): Router {
   const router = Router()
   const controller = createAuthController(new AuthService(users, jwtConfig, auditLogger))
   const authenticate = createAuthMiddleware(jwtConfig.secret)
-  const currentUser = typeof users.findById === 'function'
-    ? createCurrentUserMiddleware({ findById: users.findById.bind(users) })
-    : (_req: Request, res: Response, _next: NextFunction): void => {
-        res.status(503).json({ erro: 'Serviço temporariamente indisponível.' })
-      }
+  const resolvedCurrentUsers = currentUsers ?? (typeof users.findById === 'function'
+    ? { findById: users.findById.bind(users) }
+    : undefined)
+  const currentUser = resolvedCurrentUsers
+    ? createCurrentUserMiddleware(resolvedCurrentUsers)
+    : undefined
+  const meFallback = (_req: Request, res: Response, _next: NextFunction): void => {
+    res.status(503).json({ erro: 'Serviço temporariamente indisponível.' })
+  }
 
   router.post('/login', controller.login)
-  router.post('/logout', authenticate, controller.logout)
-  router.get('/me', authenticate, currentUser, controller.me)
+  router.post('/logout', authenticate, ...(currentUser ? [currentUser] : []), controller.logout)
+  router.get('/me', authenticate, currentUser ?? meFallback, controller.me)
 
   return router
 }

@@ -53,7 +53,7 @@ import type {
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
-type DialogAction = { request: RequestDetailView; decision: 'approve' | 'reject' } | null
+type DialogAction = { request: RequestDetailView; decision: 'approve' | 'reject' | 'return' } | null
 
 function readBrowserSearch(): string {
   if (typeof window === 'undefined') return ''
@@ -94,6 +94,7 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
   const { api, session } = useAuth()
   const profile = session ? resolveProfile(session.perfil) : null
   const allowed = profile !== null && canAnalyzeRequests(profile)
+  const canDecideActions = profile === 'GESTOR'
   const isCompactView = useMediaQuery('(max-width:899.95px)')
 
   const initialDraft = parseRequestAnalysisSearchParams(initialSearch)
@@ -145,14 +146,14 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
 
   const queryKey = JSON.stringify({ filters, page, pageSize, reload })
   const detailKey = selectedId ? `${selectedId}:${detailReload}` : ''
+  const [initialDocumentTitle] = useState(() => (typeof document !== 'undefined' ? document.title : ''))
 
   useEffect(() => {
-    const previousTitle = document.title
     document.title = 'Análise de solicitações — Aratu'
     return () => {
-      document.title = previousTitle
+      document.title = initialDocumentTitle
     }
-  }, [])
+  }, [initialDocumentTitle])
 
   useEffect(() => {
     if (!allowed) return
@@ -287,7 +288,7 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
     }
   }
 
-  function openDecision(request: RequestDetailView, decision: 'approve' | 'reject') {
+  function openDecision(request: RequestDetailView, decision: 'approve' | 'reject' | 'return') {
     setDialogAction({ request, decision })
     setReason('')
     setReasonTouched(false)
@@ -308,15 +309,20 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
     }
   }
 
-  const localReasonError = dialogAction?.decision === 'reject' && reasonTouched
-    ? validateRejectionReason(reason)
+  const requiresReason = dialogAction?.decision === 'reject' || dialogAction?.decision === 'return'
+  const localReasonError = requiresReason && reasonTouched
+    ? (dialogAction?.decision === 'return'
+        ? (reason.trim().length === 0 ? 'Informe a observação para correção.' : undefined)
+        : validateRejectionReason(reason))
     : undefined
   const activeReasonError = reasonServerError || localReasonError
 
   async function submitDecision() {
     if (!dialogAction || decisionConflict) return
-    if (dialogAction.decision === 'reject') {
-      const reasonValidation = validateRejectionReason(reason)
+    if (requiresReason) {
+      const reasonValidation = dialogAction.decision === 'return'
+        ? (reason.trim().length === 0 ? 'Informe a observação para correção.' : undefined)
+        : validateRejectionReason(reason)
       if (reasonValidation) {
         setReasonTouched(true)
         setReasonServerError(reasonValidation)
@@ -331,7 +337,8 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
       api,
       dialogAction.request.id,
       dialogAction.decision,
-      dialogAction.decision === 'reject' ? reason.trim() : undefined,
+      requiresReason ? reason.trim() : undefined,
+      dialogAction.request.revision,
     )
     setDecisionBusy(false)
 
@@ -340,7 +347,9 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
       setNotice(
         dialogAction.decision === 'approve'
           ? `Solicitação #${dialogAction.request.id} aprovada.`
-          : `Solicitação #${dialogAction.request.id} rejeitada.`,
+          : dialogAction.decision === 'return'
+            ? `Solicitação #${dialogAction.request.id} devolvida para correção.`
+            : `Solicitação #${dialogAction.request.id} rejeitada.`,
       )
       setApprovedRequestId(dialogAction.decision === 'approve' ? dialogAction.request.id : null)
       setDialogAction(null)
@@ -365,7 +374,7 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
       return
     }
 
-    if (result.status === 400 && dialogAction.decision === 'reject') {
+    if (result.status === 400 && requiresReason) {
       setReasonTouched(true)
       setReasonServerError(result.message)
       reasonInputRef.current?.focus()
@@ -451,10 +460,12 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
   }
 
   return (
-    <Box sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 4, ...accessibleControls }}>
+    <Box sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 4, minWidth: 0, ...accessibleControls }}>
       <PageHeader
         title="Análise de solicitações"
-        description="Revise os dados antes de aprovar ou rejeitar uma viagem."
+        description={canDecideActions
+          ? 'Revise os dados antes de aprovar, devolver para correção ou recusar uma viagem.'
+          : 'Consulta de supervisão dos pedidos pendentes.'}
       />
 
       {!allowed && (
@@ -463,6 +474,12 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
           title="Acesso restrito"
           description="Somente o perfil Gestor de Frota pode analisar solicitações de viagem."
         />
+      )}
+
+      {allowed && !canDecideActions && (
+        <Alert severity="info" role="note" sx={{ mb: 2 }}>
+          A consulta está disponível para manutenção e supervisão. Decisões operacionais são registradas pelo Gestor.
+        </Alert>
       )}
 
       {allowed && (
@@ -697,14 +714,14 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
                   headingRef={detailsHeadingRef}
                 />
 
-                {selectedId && (
+                {canDecideActions && selectedId && (
                   <Stack spacing={1}>
                     {detailError && (
                       <Typography variant="body2" color="text.secondary">
                         Carregue o detalhe vigente da solicitação para habilitar a decisão.
                       </Typography>
                     )}
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ flexWrap: 'wrap' }}>
                       <Button
                         variant="contained"
                         color="success"
@@ -718,6 +735,16 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
                       </Button>
                       <Button
                         variant="outlined"
+                        disabled={!canDecide}
+                        onClick={() => {
+                          if (currentDetail && canDecide) openDecision(currentDetail, 'return')
+                        }}
+                        sx={{ minHeight: 44, flex: 1 }}
+                      >
+                        Devolver para correção
+                      </Button>
+                      <Button
+                        variant="outlined"
                         color="error"
                         disabled={!canDecide}
                         onClick={() => {
@@ -725,7 +752,7 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
                         }}
                         sx={{ minHeight: 44, flex: 1 }}
                       >
-                        Rejeitar solicitação
+                        Recusar definitivamente
                       </Button>
                     </Stack>
                   </Stack>
@@ -737,20 +764,34 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
           <ConfirmDialog
             sx={accessibleControls}
             open={dialogAction !== null}
-            title={dialogAction?.decision === 'reject' ? 'Rejeitar solicitação' : 'Aprovar solicitação'}
+            title={
+              dialogAction?.decision === 'reject'
+                ? 'Recusar definitivamente'
+                : dialogAction?.decision === 'return'
+                  ? 'Devolver para correção'
+                  : 'Aprovar solicitação'
+            }
             description={
               dialogAction?.decision === 'reject'
-                ? `Informe por que a solicitação para ${dialogAction.request.destination} está sendo rejeitada.`
-                : `Confirma a aprovação da solicitação para ${dialogAction?.request.destination}?`
+                ? `Informe por que a solicitação para ${dialogAction.request.destination} está sendo recusada definitivamente.`
+                : dialogAction?.decision === 'return'
+                  ? 'Informe o que o Solicitante precisa corrigir antes de uma nova análise.'
+                  : `Confirma a aprovação da solicitação para ${dialogAction?.request.destination}?`
             }
-            confirmLabel={dialogAction?.decision === 'reject' ? 'Rejeitar solicitação' : 'Aprovar solicitação'}
+            confirmLabel={
+              dialogAction?.decision === 'reject'
+                ? 'Recusar definitivamente'
+                : dialogAction?.decision === 'return'
+                  ? 'Devolver para correção'
+                  : 'Aprovar solicitação'
+            }
             cancelLabel={decisionConflict ? 'Fechar' : 'Cancelar'}
             danger={dialogAction?.decision === 'reject'}
             confirmColor={dialogAction?.decision === 'approve' ? 'success' : undefined}
             loading={decisionBusy}
             confirmDisabled={
               decisionConflict
-              || (dialogAction?.decision === 'reject' && reason.trim().length === 0)
+              || (requiresReason && reason.trim().length === 0)
             }
             onConfirm={() => {
               void submitDecision()
@@ -759,15 +800,15 @@ function RequestAnalysisContent({ initialSearch, onSyncSearch }: RequestAnalysis
               if (!decisionBusy) setDialogAction(null)
             }}
             onEntered={() => {
-              if (dialogAction?.decision === 'reject') {
+              if (requiresReason) {
                 reasonInputRef.current?.focus()
               }
             }}
             onExited={handleDialogExited}
           >
-            {dialogAction?.decision === 'reject' && (
+            {requiresReason && (
               <FormField
-                label="Justificativa da rejeição"
+                label={dialogAction?.decision === 'return' ? 'Observação para correção' : 'Justificativa da recusa definitiva'}
                 value={reason}
                 onChange={handleReasonChange}
                 error={activeReasonError}

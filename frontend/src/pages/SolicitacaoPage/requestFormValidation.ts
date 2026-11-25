@@ -17,17 +17,19 @@ export interface RequestFormValues {
   destination: string
   passengers: string
   purpose: string
+  specialRequirements: string
   notes: string
 }
 
 export type RequestFormField = keyof RequestFormValues
 export type RequestFormAnyField = RequestFormField | 'reason'
 
-/** Contexto necessário para reenviar uma solicitação rejeitada mantendo revisão otimista. */
+/** Contexto necessário para reenviar uma solicitação devolvida ou rejeitada mantendo revisão otimista. */
 export interface ResubmitTarget {
   id: string
   revision: number
   rejectionReason: string | null
+  status?: 'RETURNED' | 'REJECTED'
 }
 
 export const REQUEST_FORM_FIELD_ORDER: readonly RequestFormField[] = [
@@ -38,6 +40,7 @@ export const REQUEST_FORM_FIELD_ORDER: readonly RequestFormField[] = [
   'destination',
   'passengers',
   'purpose',
+  'specialRequirements',
   'notes',
 ]
 
@@ -51,6 +54,7 @@ export const EMPTY_REQUEST_FORM: RequestFormValues = {
   destination: '',
   passengers: '1',
   purpose: '',
+  specialRequirements: '',
   notes: '',
 }
 
@@ -102,6 +106,7 @@ export function validateRequestForm(values: RequestFormValues, now: Date = new D
   const destination = values.destination.trim()
   const passengersText = values.passengers.trim()
   const purpose = values.purpose.trim()
+  const specialRequirements = (values.specialRequirements ?? '').trim()
   const notes = values.notes.trim()
 
   if (!serviceId) {
@@ -164,6 +169,7 @@ export function validateRequestForm(values: RequestFormValues, now: Date = new D
       destination,
       purpose,
       passengers,
+      ...(specialRequirements.length > 0 ? { specialRequirements } : {}),
       notes: notes.length > 0 ? notes : null,
     },
   }
@@ -178,6 +184,7 @@ export function validateResubmitForm(
 ): ResubmitFormValidationResult {
   const base = validateRequestForm(values, now)
   const trimmedReason = reason.trim()
+  const specialRequirements = (values.specialRequirements ?? '').trim()
   let reasonError: string | undefined
   if (!trimmedReason) {
     reasonError = 'Informe a justificativa do reenvio.'
@@ -207,6 +214,7 @@ export function validateResubmitForm(
     ok: true,
     payload: {
       ...base.payload,
+      specialRequirements: specialRequirements.length > 0 ? specialRequirements : null,
       expectedRevision,
       reason: trimmedReason,
     },
@@ -231,6 +239,7 @@ export function mapServerErrorToField(
   if (normalized.includes('destination') || normalized.includes('destino')) return 'destination'
   if (normalized.includes('passengers') || normalized.includes('passageiro')) return 'passengers'
   if (normalized.includes('purpose') || normalized.includes('finalidade')) return 'purpose'
+  if (normalized.includes('specialrequirements') || normalized.includes('necessidades')) return 'specialRequirements'
   if (normalized.includes('notes') || normalized.includes('observa')) return 'notes'
   if (normalized.includes('justificativa') || normalized.includes('reenvio')) return 'reason'
   return null
@@ -294,6 +303,13 @@ function mapStoredEventToStep(event: RequestEventSummary): TimelineStep {
         title: 'Solicitação enviada',
         subtitle: `${when} · Por ${event.reportedBy}`,
         state: 'completed',
+      }
+    case 'RETURNED':
+      return {
+        key: `ev-${event.id}`,
+        title: 'Solicitação devolvida para correção',
+        subtitle: `${when} · Por ${event.reportedBy} · Observação: ${event.reason}`,
+        state: 'pending',
       }
     case 'REJECTED':
       return {
@@ -432,6 +448,16 @@ export function buildRequestTimeline(detail: RequestDetailView): TimelineStep[] 
       { key: 'pending-schedule', title: 'Agendamento da viagem', subtitle: 'Aguardando aprovação', state: 'pending' },
       { key: 'pending-confirm', title: 'Confirmação da viagem', subtitle: 'Aguardando execução', state: 'pending' },
     )
+    return steps
+  }
+
+  if (detail.status === 'RETURNED') {
+    steps.push({
+      key: 'returned',
+      title: 'Solicitação devolvida para correção',
+      subtitle: detail.decidedAt ? formatDateTime(detail.decidedAt) : 'Devolvida pelo Gestor de Frota',
+      state: 'pending',
+    })
     return steps
   }
 

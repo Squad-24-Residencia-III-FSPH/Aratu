@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — FROTA-142 — Tela de consulta de auditoria</title>
+  <style>
+    :root { color-scheme: light; --orange:#f36b21; --ink:#33251d; --muted:#6e625b; --line:#eadfd8; --surface:#fffaf6; }
+    * { box-sizing:border-box; } body { max-width:960px; margin:32px auto; padding:0 24px 48px; color:var(--ink); background:#fff; font:16px/1.65 system-ui,"Segoe UI",sans-serif; }
+    h1,h2 { line-height:1.25; } h1 { border-left:6px solid var(--orange); padding-left:16px; } h2 { margin-top:32px; } code { padding:2px 5px; border-radius:4px; background:var(--surface); }
+    table { width:100%; border-collapse:collapse; } th,td { border:1px solid var(--line); padding:9px 11px; text-align:left; vertical-align:top; } th { background:var(--surface); }
+    .meta { padding:12px 16px; border:1px solid var(--line); border-radius:8px; background:var(--surface); } a { color:#9e4512; }
+  </style>
+</head>
+<body>
+<h1>SDD — FROTA-142: Tela de consulta de auditoria</h1>
+<div class="meta">
+  <p><strong>Tarefa:</strong> <a href="https://squad24.atlassian.net/browse/FROTA-142">FROTA-142 — [FE] Tela de auditoria</a> (história FROTA-138).</p>
+  <p><strong>Branch prevista:</strong> <code>feat/frota-142-tela-auditoria</code> · <strong>Base/PR:</strong> <code>develop</code> · <strong>Módulo:</strong> <code>AUTENTICACAO_RBAC</code>.</p>
+  <p><strong>Escopo:</strong> frontend React. Dependências: API FROTA-141 (integrada em develop pelo PR #96) e componentes FROTA-162.</p>
+</div>
+<h2>Objetivo e escopo</h2>
+<p>Permitir que Gestor e Administrador consultem a trilha de auditoria em uma tela somente leitura, com filtros, paginação e detalhes protegidos. A página reutiliza os componentes compartilhados e a identidade visual Aratu já definida no frontend.</p>
+<p>Não inclui criação ou alteração de endpoints, gravação de auditoria, exibição de justificativa ou identificador do registro sem confirmação de que esses campos podem ser apresentados com segurança, nem novas telas operacionais.</p>
+<h2>Contrato consumido</h2>
+<p><code>GET /audit-logs?from=&amp;to=&amp;userId=&amp;operation=&amp;table=&amp;page=&amp;pageSize=</code>. A resposta paginada contém <code>logs</code>, <code>total</code>, <code>page</code>, <code>pageSize</code> e <code>totalPages</code>; os registros contêm <code>registeredAt</code>, <code>actorName</code>, <code>operation</code>, <code>table</code>, <code>before</code>, <code>after</code>, <code>actorSnapshot</code> e <code>sensitiveDataHidden</code>, entre os demais campos definidos pela API.</p>
+<ul>
+  <li><code>from</code> é inclusivo e <code>to</code> exclusivo; a interface mantém a data final inclusiva e envia o dia seguinte como <code>to</code>.</li>
+  <li>Datas civis e formatação usam <code>America/Maceio</code>; intervalo máximo: 366 dias inclusivos.</li>
+  <li>A interface envia <code>pageSize=20</code> e usa <code>page</code>/<code>totalPages</code> retornados.</li>
+  <li>Os padrões de <code>userId</code>, <code>operation</code> e <code>table</code> são validados antes do envio. Erros HTTP 400 exibem <code>erro</code>; 403 tem estado próprio.</li>
+  <li>Snapshots <code>before</code>/<code>after</code> são apresentados apenas como retornados mascarados pela API. Para <code>svo.*</code>, a tela mostra o aviso de ocultação. Usuário usa <code>actorName</code>, e-mail do snapshot como fallback e, por último, “Usuário não identificado”.</li>
+</ul>
+<h2>Composição e estados</h2>
+<p><code>AuditLogsPage</code> reutiliza <code>PageHeader</code>, <code>FilterBar</code>, <code>DataTable</code> e <code>StateFeedback</code>, além do serviço frontend de auditoria. A tabela mostra data/hora, usuário, ação e entidade; resumo legível fica nos detalhes. Não existem ações de editar ou apagar.</p>
+<table><thead><tr><th>Estado</th><th>Comportamento</th></tr></thead><tbody>
+<tr><td>Ideal / sucesso</td><td>Resultados consultáveis e paginação da API.</td></tr><tr><td>Carregando</td><td>Indicador acessível enquanto filtros ou páginas são consultados.</td></tr><tr><td>Vazio</td><td>Mensagem quando nenhum registro corresponde à consulta.</td></tr><tr><td>Erro</td><td>Mensagem recuperável; 400 mostra a orientação devolvida pela API.</td></tr><tr><td>Parcial</td><td>Registros inválidos são descartados e a limitação é informada.</td></tr><tr><td>Acesso negado</td><td>403 apresenta mensagem específica sem exibir a tabela.</td></tr>
+</tbody></table>
+<h2>Acessibilidade e responsividade</h2>
+<ul>
+  <li>Campos com rótulos associados e identificadores de <code>useId()</code>; erros com anúncio acessível.</li>
+  <li>Foco visível, ações da tabela disponíveis por botão e diálogo identificável por título, fechável com <kbd>Esc</kbd> e com retorno de foco.</li>
+  <li>JSON longo, quando disponível, pode receber foco e rolar internamente; status é comunicado por texto.</li>
+  <li>Em larguras estreitas, a rolagem horizontal permanece restrita à tabela; filtros e ações podem quebrar linha.</li>
+</ul>
+<h2>Verificação prevista</h2>
+<ul>
+  <li>Testes do serviço: contrato paginado, filtros, campos projetados, conversão da data final e erro 400.</li>
+  <li>Testes de renderização: carregamento, vazio, sucesso, erro, 403, validação de período, paginação, detalhes e teclado.</li>
+  <li>Executar lint, build, suíte frontend e pré-auditoria do repositório. Fazer inspeção responsiva no navegador com dados fictícios.</li>
+</ul>
+<h2>Documentação do módulo</h2>
+<p>Esta tarefa impacta <code>docs/manuais/modulos.md</code> e <code>docs/modulos/AUTENTICACAO_RBAC.html</code>, que registram a rota, perfis e integração de leitura.</p>
+</body>
+</html>

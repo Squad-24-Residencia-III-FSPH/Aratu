@@ -10,6 +10,8 @@ export const AVAILABILITY_REASONS = {
   away: 'AWAY',
   cnhExpired: 'CNH_EXPIRED',
   inactive: 'INACTIVE',
+  insufficientCapacity: 'INSUFFICIENT_CAPACITY',
+  accountUnavailable: 'ACCOUNT_UNAVAILABLE',
 } as const
 export type AvailabilityReason = typeof AVAILABILITY_REASONS[keyof typeof AVAILABILITY_REASONS]
 
@@ -42,6 +44,7 @@ export interface DriverAvailabilityFacts {
   cnhExpiresAt: string
   status: DriverStatus
   hasConflict: boolean
+  accountEligible: boolean
 }
 
 /** Item devolvido por `GET /vehicles/available`. */
@@ -63,6 +66,16 @@ export interface AvailabilityQuery {
   serviceId?: unknown
   requestId?: unknown
   passengers?: unknown
+}
+
+/** Dados confirmados da solicitação usados para filtrar candidatos à alocação. */
+export interface AvailabilityRequest {
+  id: string
+  serviceId: string
+  status: string
+  passengers: number
+  specialRequirements: string | null
+  revision: number
 }
 
 /** Erro de domínio convertido pela camada HTTP em resposta REST apropriada. */

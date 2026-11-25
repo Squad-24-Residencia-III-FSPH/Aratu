@@ -39,6 +39,23 @@ export interface DashboardFleetSummary {
   total: number
 }
 
+/** Contagens de motoristas no retrato atual do dashboard. */
+export interface DashboardDriversSummary {
+  active: number
+  away: number
+  inactive: number
+  total: number
+  cnhExpiring: number
+  cnhExpired: number
+}
+
+/** Contagens de multas no retrato atual do dashboard. */
+export interface DashboardFinesSummary {
+  pending: number
+  paid: number
+  contested: number
+}
+
 /** Situação atual do SVO devolvida apenas a perfis autorizados. */
 export interface DashboardSvoSummary {
   ordersInProgress: number
@@ -53,7 +70,11 @@ export interface DashboardSvoSummary {
 export interface DashboardSummary {
   generatedAt: string
   fleet: DashboardFleetSummary
+  drivers: DashboardDriversSummary
+  fines: DashboardFinesSummary
   pendingRequests: number
+  tripsInProgress: number
+  vehiclesInTrip: number
   tripsToConfirm: number
   documents: {
     expiring: number
@@ -70,13 +91,42 @@ export interface VehicleIndicatorMeasures {
   litersFueled: number
   fuelCost: number
   averageConsumptionKmPerLiter: number | null
+  maintenanceOrdersOpened: number
+  preventiveMaintenanceOrdersOpened: number
+  correctiveMaintenanceOrdersOpened: number
+  vehiclesWithCorrectiveMaintenance: number
   maintenanceCost: number
 }
+
+export type DashboardMeasures = VehicleIndicatorMeasures
 
 /** Linha por veículo de `GET /dashboard/indicators`. */
 export interface VehicleIndicators extends VehicleIndicatorMeasures {
   vehicleId: string
   licensePlate: string
+}
+
+export type DashboardVehicleIndicators = VehicleIndicators
+
+/** Série temporal do período agrupada por dia ou mês no fuso operacional. */
+export interface DashboardActivityBucket {
+  period: string
+  tripsCount: number
+  fuelCost: number
+  maintenanceOpened: number
+  maintenanceClosed: number
+  requestsCreated: number
+  requestsApproved: number
+  requestsRejected: number
+  requestsScheduled: number
+  requestsCanceled: number
+  finesRegistered: number
+  finesPaid: number
+  finesContested: number
+  driversCreated: number
+  driversStatusChanged: number
+  documentsRegistered: number
+  documentsRenewed: number
 }
 
 /** Indicadores do SVO no período selecionado. */
@@ -92,6 +142,8 @@ export interface DashboardIndicators {
     from: string
     to: string
   }
+  activityBucket: 'day' | 'month'
+  activitySeries: DashboardActivityBucket[]
   vehicles: VehicleIndicators[]
   totals: VehicleIndicatorMeasures
   svo?: DashboardSvoIndicators
@@ -106,7 +158,7 @@ export interface DashboardIndicatorsQuery {
 }
 
 /** Atalhos de recorte de período disponíveis no painel. */
-export type DashboardPeriodPreset = 'today' | '7days' | '30days' | '6months' | 'custom'
+export type DashboardPeriodPreset = 'today' | '7days' | '30days' | '90days' | '6months' | '12months' | 'custom'
 
 /** Viagem resumida devolvida por `GET /trips` para a agenda do Gestor. */
 export interface GestorTripAgendaItem {
@@ -119,6 +171,17 @@ export interface GestorTripAgendaItem {
   finishedAt: string | null
   startKm: number | null
   endKm: number | null
+  vehicleLicensePlate: string
+  driverName: string
+  origin: string
+  destination: string
+}
+
+/** Resumo de viagem agendada para o bloco futuro do Dashboard. */
+export interface ScheduledTripSummary {
+  id: string
+  scheduledStart: string
+  scheduledEnd: string
   vehicleLicensePlate: string
   driverName: string
   origin: string

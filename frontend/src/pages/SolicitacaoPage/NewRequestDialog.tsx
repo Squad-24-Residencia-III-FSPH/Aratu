@@ -11,6 +11,8 @@ import {
   DialogTitle,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import SendIcon from '@mui/icons-material/Send'
 import type { ApiRequest } from '../../api/client'
@@ -115,6 +117,8 @@ export default function NewRequestDialog({
   onConflictRefresh,
   onRefreshList,
 }: NewRequestDialogProps) {
+  const theme = useTheme()
+  const mobileViewport = useMediaQuery(theme.breakpoints.down('sm'))
   const titleId = useId()
   const descriptionId = useId()
 
@@ -143,6 +147,7 @@ export default function NewRequestDialog({
   const destinationInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const passengersInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const purposeInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const specialRequirementsInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const notesInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const reasonInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
 
@@ -159,6 +164,7 @@ export default function NewRequestDialog({
       destination: destinationInputRef,
       passengers: passengersInputRef,
       purpose: purposeInputRef,
+      specialRequirements: specialRequirementsInputRef,
       notes: notesInputRef,
       reason: reasonInputRef,
     }
@@ -392,9 +398,18 @@ export default function NewRequestDialog({
       onClose={submitting ? undefined : onClose}
       maxWidth="md"
       fullWidth
+      fullScreen={mobileViewport}
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
-      sx={accessibleControls}
+      sx={{
+        ...accessibleControls,
+        '& .MuiDialog-paper': {
+          m: { xs: 0, sm: 3 },
+          width: { xs: '100%', sm: undefined },
+          maxHeight: { xs: '100dvh', sm: 'calc(100% - 64px)' },
+          borderRadius: { xs: 0, sm: 2 },
+        },
+      }}
       slotProps={{
         transition: {
           onExited: handleDialogExited,
@@ -402,7 +417,11 @@ export default function NewRequestDialog({
       }}
     >
       <DialogTitle id={titleId} sx={{ fontWeight: 700, fontSize: '1.25rem' }}>
-        {resubmitTarget ? `Reenviar Solicitação #${resubmitTarget.id}` : 'Nova Solicitação de Viagem'}
+        {resubmitTarget
+          ? (resubmitTarget.status === 'RETURNED'
+              ? `Corrigir Solicitação #${resubmitTarget.id}`
+              : `Reenviar Solicitação #${resubmitTarget.id}`)
+          : 'Nova Solicitação de Viagem'}
       </DialogTitle>
       <DialogContent dividers>
         <Box
@@ -411,9 +430,11 @@ export default function NewRequestDialog({
           onSubmit={(event) => { void handleSubmit(event) }}
           sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
         >
-          <Alert id={descriptionId} severity="info" sx={{ borderRadius: 1.5 }}>
+          <Alert id={descriptionId} severity={resubmitTarget?.status === 'RETURNED' ? 'warning' : 'info'} sx={{ borderRadius: 1.5 }}>
             {resubmitTarget
-              ? `Motivo da recusa anterior: ${resubmitTarget.rejectionReason || 'Não informado.'} Revise os dados necessários e informe a justificativa do reenvio.`
+              ? (resubmitTarget.status === 'RETURNED'
+                  ? `Observação do Gestor para correção: ${resubmitTarget.rejectionReason || 'Não informada.'} Revise os dados necessários e informe a justificativa do reenvio.`
+                  : `Motivo da recusa anterior: ${resubmitTarget.rejectionReason || 'Não informado.'} Revise os dados necessários e informe a justificativa do reenvio.`)
               : 'Preencha os dados da viagem. O Gestor de Frota analisará a solicitação e alocará veículo e motorista.'}
           </Alert>
 
@@ -503,7 +524,7 @@ export default function NewRequestDialog({
             }}
           >
             <FormField
-              label="Data da Viagem"
+              label="Data da viagem"
               type="date"
               value={draft.requestedDate}
               onChange={(value) => updateField('requestedDate', value)}
@@ -513,7 +534,7 @@ export default function NewRequestDialog({
               inputRef={dateInputRef}
             />
             <TimeField
-              label="Horário de Saída"
+              label="Horário de saída"
               value={draft.requestedTime}
               onChange={(value) => updateField('requestedTime', value)}
               required
@@ -555,7 +576,7 @@ export default function NewRequestDialog({
           </Box>
 
           <FormField
-            label="Quantidade de passageiros"
+            label="Quantidade de Passageiros"
             type="number"
             inputMode="numeric"
             value={draft.passengers}
@@ -582,6 +603,20 @@ export default function NewRequestDialog({
           />
 
           <FormField
+            label="Necessidades especiais"
+            value={draft.specialRequirements ?? ''}
+            onChange={(value) => updateField('specialRequirements', value)}
+            multiline
+            minRows={2}
+            disabled={submitting}
+            placeholder="Adaptações ou apoio necessários para a viagem (opcional)"
+            helperText="Descreva adaptações ou apoio necessários para a viagem."
+            maxLength={500}
+            error={fieldErrors.specialRequirements}
+            inputRef={specialRequirementsInputRef}
+          />
+
+          <FormField
             label="Observações"
             value={draft.notes}
             onChange={(value) => updateField('notes', value)}
@@ -603,14 +638,18 @@ export default function NewRequestDialog({
               multiline
               minRows={2}
               disabled={submitting}
-              placeholder="Explique os ajustes realizados após a recusa anterior"
+              placeholder={
+                resubmitTarget.status === 'RETURNED'
+                  ? 'Explique as correções realizadas após a devolução'
+                  : 'Explique os ajustes realizados após a recusa anterior'
+              }
               maxLength={500}
               error={reasonError}
               inputRef={reasonInputRef}
             />
           )}
 
-          <DialogActions sx={{ px: 0, pt: 1, pb: 0, gap: 1, flexWrap: 'wrap' }}>
+          <DialogActions sx={{ px: 0, pt: 1, pb: 'max(0px, env(safe-area-inset-bottom))', gap: 1, flexWrap: 'wrap' }}>
             <Button
               type="button"
               onClick={onClose}

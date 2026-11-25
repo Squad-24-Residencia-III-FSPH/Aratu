@@ -95,7 +95,7 @@ function parseVehicleDocumentRecord(value: unknown): VehicleDocumentRecord {
     || supersededById === undefined
     || typeof value.isAnnulled !== 'boolean'
     || annulmentReason === undefined
-    || typeof value.createdBy !== 'string'
+    || (value.createdBy !== undefined && typeof value.createdBy !== 'string')
     || typeof value.revision !== 'number' || !Number.isInteger(value.revision)
   ) {
     throw new Error(INVALID_RESPONSE_MESSAGE)
@@ -132,7 +132,7 @@ function parseVehicleDocumentRecord(value: unknown): VehicleDocumentRecord {
     isAnnulled: value.isAnnulled,
     annulmentReason,
     vehicleSnapshot: isRecord(value.vehicleSnapshot) ? (value.vehicleSnapshot as unknown as Vehicle) : null,
-    createdBy: value.createdBy,
+    createdBy: typeof value.createdBy === 'string' ? value.createdBy : '',
     revision: value.revision,
     createdAt: typeof value.createdAt === 'string' ? value.createdAt : '',
     updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : '',
@@ -174,7 +174,7 @@ function parseVehicleDocumentList(value: unknown): VehicleDocumentList {
   }
 }
 
-function parseTimelineEntry(value: unknown): VehicleDocumentTimelineEntry {
+function parseTimelineEntry(value: unknown, fallbackRecord: VehicleDocumentRecord): VehicleDocumentTimelineEntry {
   if (!isRecord(value) || !isRecord(value.actor)) throw new Error(INVALID_RESPONSE_MESSAGE)
   if (
     typeof value.id !== 'string' || !value.id.trim()
@@ -201,8 +201,8 @@ function parseTimelineEntry(value: unknown): VehicleDocumentTimelineEntry {
       name: value.actor.name,
       role: value.actor.role,
     },
-    before: value.before === null ? null : parseVehicleDocumentRecord(value.before),
-    after: parseVehicleDocumentRecord(value.after),
+    before: value.before === undefined || value.before === null ? null : parseVehicleDocumentRecord(value.before),
+    after: value.after === undefined ? fallbackRecord : parseVehicleDocumentRecord(value.after),
   }
 }
 
@@ -213,7 +213,7 @@ function parseVehicleDocumentDetail(value: unknown): VehicleDocumentDetail {
   }
   return {
     ...doc,
-    events: value.events.map(parseTimelineEntry),
+    events: value.events.map((entry) => parseTimelineEntry(entry, doc)),
   }
 }
 
@@ -244,7 +244,7 @@ function jsonBody(payload: object): RequestInit {
 }
 
 /** Serializa os filtros suportados por `GET /vehicle-documents`. */
-export function buildVehicleDocumentsQuery(filters: VehicleDocumentFilters): string {
+export function buildVehicleDocumentsQuery(filters: VehicleDocumentFilters = {}): string {
   const params = new URLSearchParams()
   if (filters.vehicleId) params.set('vehicleId', filters.vehicleId)
   if (filters.documentType) params.set('documentType', filters.documentType)
@@ -274,7 +274,7 @@ export async function listVehicleDocuments(
 /** Lista documentos vigentes vencidos ou a vencer dentro da janela configurada. */
 export async function listExpiringVehicleDocuments(
   api: ApiRequest,
-  days?: number,
+  days = 30,
 ): Promise<VehicleDocumentList> {
   const response = await api(`/vehicle-documents/expiring${buildExpiringDocumentsQuery(days)}`)
   if (!response.ok) {

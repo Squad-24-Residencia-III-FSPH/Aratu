@@ -209,8 +209,9 @@ export class FleetServicesService {
    *
    * A operação é atômica: valida a revisão esperada, aplica o diff de vínculos
    * (ativando os desejados e desativando os ausentes), incrementa a revisão do
-   * serviço e grava a auditoria no mesmo cliente transacional. Veículos
-   * inexistentes ou com situação `INACTIVE` não podem ser vinculados.
+   * serviço e grava a auditoria no mesmo cliente transacional. Novos vínculos
+   * com veículos inexistentes ou `INACTIVE` são rejeitados; os existentes
+   * permanecem até serem removidos explicitamente.
    *
    * @throws {FleetServiceError} 400 payload ou veículo inválido, 404 serviço inexistente e 409 revisão divergente.
    */
@@ -229,11 +230,14 @@ export class FleetServicesService {
       if (!before) throw new FleetServiceError(404, NOT_FOUND_MESSAGE)
       if (before.revision !== input.expectedRevision) throw new FleetServiceError(409, REVISION_CONFLICT_MESSAGE)
 
-      this.ensureVehiclesCanBeLinked(vehicleIds, await this.repository.findVehiclesByIds(vehicleIds, client))
-
       const currentIds = await this.repository.findActiveVehicleIdsForUpdate(id, client)
       const desired = new Set(vehicleIds)
       const current = new Set(currentIds)
+      const addedVehicleIds = vehicleIds.filter((vehicleId) => !current.has(vehicleId))
+      this.ensureVehiclesCanBeLinked(
+        addedVehicleIds,
+        await this.repository.findVehiclesByIds(addedVehicleIds, client),
+      )
 
       for (const vehicleId of vehicleIds) {
         if (current.has(vehicleId)) continue

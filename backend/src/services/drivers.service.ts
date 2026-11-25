@@ -21,6 +21,8 @@ import type {
   UpdateDriverInput,
 } from '../types/driver.types'
 import type { DriversRepositoryContract } from '../repositories/drivers.repository'
+import type { EntityHistoryPage, EntityHistoryQueryInput } from '../types/entity-history.types'
+import { EntityHistoryQueryError, normalizeEntityHistoryFilters } from './entity-history'
 
 const FSPH_TIME_ZONE = 'America/Maceio'
 const DRIVER_ROLE = 'MOTORISTA'
@@ -148,6 +150,19 @@ export class DriversService {
     const driver = await this.repository.findById(id)
     if (!driver) throw new DriverServiceError(404, 'Motorista não encontrado.')
     return driver
+  }
+
+  /** Lista uma página da história já gravada para o motorista. */
+  async getDriverHistory(id: string, input: EntityHistoryQueryInput): Promise<EntityHistoryPage> {
+    this.validateId(id)
+    let filters
+    try { filters = normalizeEntityHistoryFilters(input) }
+    catch (error) {
+      if (error instanceof EntityHistoryQueryError) throw new DriverServiceError(400, error.message)
+      throw error
+    }
+    if (!await this.repository.findById(id)) throw new DriverServiceError(404, 'Motorista não encontrado.')
+    return this.repository.history(id, filters)
   }
 
   /**

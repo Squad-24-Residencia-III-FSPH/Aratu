@@ -15,13 +15,20 @@ export default function FilterBar({ label, children, sx }: FilterBarProps) {
       component="section"
       aria-label={label}
       variant="outlined"
-      sx={sx ?? { p: 2, mb: 3, borderRadius: 2 }}
+      sx={[{ width: '100%', minWidth: 0, boxSizing: 'border-box', p: 2, mb: 3, borderRadius: 2 }, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}
     >
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         spacing={2}
         useFlexGap
-        sx={{ alignItems: { md: 'center' }, flexWrap: 'wrap' }}
+        sx={{
+          width: '100%',
+          minWidth: 0,
+          alignItems: { md: 'flex-end' },
+          flexWrap: 'wrap',
+          '& > *': { minWidth: 0, maxWidth: '100%' },
+          '& > .MuiButton-root': { flex: '0 0 auto', whiteSpace: 'nowrap' },
+        }}
       >
         {children}
       </Stack>

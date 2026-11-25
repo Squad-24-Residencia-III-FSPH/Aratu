@@ -4,9 +4,11 @@ import type {
   CreateRequestEventInput,
   CreateRequestInput,
   PaginatedRequests,
+  PaginatedRequestHistory,
   RequestActorSnapshot,
   RequestDetail,
   RequestEventSummary,
+  RequestHistoryItem,
   RequestListFilters,
   RequestServiceSnapshot,
   RequestSummary,
@@ -24,7 +26,6 @@ interface RequestDetailRow extends RequestSummary {
   decidedByName: string | null
   decidedAt: string | null
   decisionReason: string | null
-  revision: number
   tripId: string | null
   tripStatus: string | null
   scheduledStart: string | null
@@ -43,10 +44,9 @@ export interface RequestsRepositoryContract {
   findActorSnapshot(id: string, client: PoolClient): Promise<RequestActorSnapshot | null>
   findActiveServiceForUpdate(id: string, client: PoolClient): Promise<RequestServiceSnapshot | null>
   create(input: CreateRequestInput, actor: RequestActorSnapshot, service: RequestServiceSnapshot, client: PoolClient): Promise<TripRequest>
-  findByIdForUpdate(id: string, requesterId: string, client: PoolClient): Promise<TripRequest | null>
+  findByIdForUpdate(id: string, client: PoolClient): Promise<TripRequest | null>
   resubmit(
     id: string,
-    requesterId: string,
     expectedRevision: number,
     input: CreateRequestInput,
     actor: RequestActorSnapshot,
@@ -56,6 +56,7 @@ export interface RequestsRepositoryContract {
   createEvent(input: CreateRequestEventInput, client: PoolClient): Promise<void>
   list(filters: RequestListQuery): Promise<PaginatedRequests>
   findById(id: string, requesterId?: string): Promise<RequestDetail | null>
+  listHistory(id: string, page: number, pageSize: number): Promise<PaginatedRequestHistory>
 }
 
 const LIST_CONDITIONS = `
@@ -78,8 +79,10 @@ SELECT r.id::text AS id,
        r.destination,
        r.purpose,
        r.passengers,
+       r.special_requirements AS "specialRequirements",
        r.notes,
        r.status,
+       r.revision,
        r.created_at AS "createdAt",
        r.updated_at AS "updatedAt"
   FROM trip.requests r
@@ -109,6 +112,7 @@ SELECT r.id::text AS id,
        r.destination,
        r.purpose,
        r.passengers,
+       r.special_requirements AS "specialRequirements",
        r.notes,
        r.status,
        r.revision,
@@ -242,45 +246,47 @@ export class RequestsRepository implements RequestsRepositoryContract {
     const result = await client.query<TripRequest>(
       `INSERT INTO trip.requests (
          requester_id, service_id, requested_date, requested_time, origin, destination, purpose,
-         passengers, notes, status, requester_snapshot, service_snapshot
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb)
+         passengers, special_requirements, notes, status, requester_snapshot, service_snapshot
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb)
        RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
                  to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
                  to_char(requested_time, 'HH24:MI') AS "requestedTime",
-                 origin, destination, purpose, passengers, notes, status, revision,
+                 origin, destination, purpose, passengers,
+                 special_requirements AS "specialRequirements", notes, status, revision,
                  NULLIF(btrim(requester_snapshot ->> 'sector'), '') AS "requesterSector",
                  requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"`,
       [actor.id, input.serviceId, input.requestedDate, input.requestedTime,
-        input.origin, input.destination, input.purpose, input.passengers, input.notes,
-        INITIAL_REQUEST_STATUS, JSON.stringify(actorSnapshot), JSON.stringify(service)],
+        input.origin, input.destination, input.purpose, input.passengers,
+        input.specialRequirements, input.notes, INITIAL_REQUEST_STATUS,
+        JSON.stringify(actorSnapshot), JSON.stringify(service)],
     )
     const request = result.rows[0]
     if (!request) throw new Error('A solicitação não foi retornada após a gravação.')
     return request
   }
 
-  /** Bloqueia a solicitação do próprio titular para reenvio versionado concorrente. */
-  async findByIdForUpdate(id: string, requesterId: string, client: PoolClient): Promise<TripRequest | null> {
+  /** Bloqueia a versão atual para validar proprietário, estado e revisão antes do reenvio. */
+  async findByIdForUpdate(id: string, client: PoolClient): Promise<TripRequest | null> {
     const result = await client.query<TripRequest>(
       `SELECT id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
               to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
               to_char(requested_time, 'HH24:MI') AS "requestedTime",
-              origin, destination, purpose, passengers, notes, status, revision,
+              origin, destination, purpose, passengers,
+              special_requirements AS "specialRequirements", notes, status, revision,
               NULLIF(btrim(requester_snapshot ->> 'sector'), '') AS "requesterSector",
               COALESCE(requester_snapshot, '{}'::jsonb) AS "requesterSnapshot",
               COALESCE(service_snapshot, '{}'::jsonb) AS "serviceSnapshot"
          FROM trip.requests
-        WHERE id = $1 AND requester_id = $2
+        WHERE id = $1
         FOR UPDATE`,
-      [id, requesterId],
+      [id],
     )
     return result.rows[0] ?? null
   }
 
-  /** Reenvia uma solicitação rejeitada mantendo controle otimista por `revision`. */
+  /** Atualiza somente uma versão devolvida ou rejeitada e ainda vigente, mantendo controle otimista por `revision`. */
   async resubmit(
     id: string,
-    requesterId: string,
     expectedRevision: number,
     input: CreateRequestInput,
     actor: RequestActorSnapshot,
@@ -303,29 +309,31 @@ export class RequestsRepository implements RequestsRepositoryContract {
               destination = $5,
               purpose = $6,
               passengers = $7,
-              notes = $8,
-              status = $9,
+              special_requirements = $8,
+              notes = $9,
+              status = $10,
               decided_by = NULL,
               decided_at = NULL,
               decision_reason = NULL,
-              requester_snapshot = $10::jsonb,
-              service_snapshot = $11::jsonb,
+              requester_snapshot = $11::jsonb,
+              service_snapshot = $12::jsonb,
               revision = revision + 1,
               updated_at = clock_timestamp()
-        WHERE id = $12
-          AND requester_id = $13
-          AND status = 'REJECTED'
-          AND revision = $14
+        WHERE id = $13
+          AND requester_id = $14
+          AND status IN ('RETURNED', 'REJECTED')
+          AND revision = $15
         RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
                   to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
                   to_char(requested_time, 'HH24:MI') AS "requestedTime",
-                  origin, destination, purpose, passengers, notes, status, revision,
+                  origin, destination, purpose, passengers,
+                  special_requirements AS "specialRequirements", notes, status, revision,
                   NULLIF(btrim(requester_snapshot ->> 'sector'), '') AS "requesterSector",
                   requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"`,
       [
         input.serviceId, input.requestedDate, input.requestedTime, input.origin, input.destination,
-        input.purpose, input.passengers, input.notes, INITIAL_REQUEST_STATUS,
-        JSON.stringify(actorSnapshot), JSON.stringify(service), id, requesterId, expectedRevision,
+        input.purpose, input.passengers, input.specialRequirements, input.notes, INITIAL_REQUEST_STATUS,
+        JSON.stringify(actorSnapshot), JSON.stringify(service), id, actor.id, expectedRevision,
       ],
     )
     return result.rows[0] ?? null
@@ -349,6 +357,27 @@ export class RequestsRepository implements RequestsRepositoryContract {
         JSON.stringify(input.afterState),
       ],
     )
+  }
+
+  /** Retorna os eventos append-only mais antigos primeiro para leitura cronológica do fluxo. */
+  async listHistory(id: string, page: number, pageSize: number): Promise<PaginatedRequestHistory> {
+    const offset = (page - 1) * pageSize
+    const count = await this.pool.query<{ total: string }>(
+      'SELECT COUNT(*)::text AS total FROM trip.request_events WHERE request_id = $1', [id],
+    )
+    const result = await this.pool.query<RequestHistoryItem>(
+      `SELECT id::text AS id, event_type AS "eventType", occurred_at AS "occurredAt",
+              registered_at AS "registeredAt", reported_by AS "reportedBy",
+              registered_by::text AS "registeredBy", actor_snapshot AS "actorSnapshot", reason,
+              before_state AS "beforeState", after_state AS "afterState"
+         FROM trip.request_events
+        WHERE request_id = $1
+        ORDER BY occurred_at ASC, id ASC
+        LIMIT $2 OFFSET $3`,
+      [id, pageSize, offset],
+    )
+    const total = Number.parseInt(count.rows[0]?.total ?? '0', 10)
+    return { items: result.rows, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
   }
 
   /**
@@ -426,6 +455,7 @@ export class RequestsRepository implements RequestsRepositoryContract {
       destination: row.destination,
       purpose: row.purpose,
       passengers: row.passengers,
+      specialRequirements: row.specialRequirements,
       notes: row.notes ?? null,
       status: row.status,
       revision: row.revision,

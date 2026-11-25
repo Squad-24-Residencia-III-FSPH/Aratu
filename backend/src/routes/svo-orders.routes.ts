@@ -6,7 +6,7 @@ import { authorizeRoles } from '../middlewares/rbac.middleware'
 import type { UsersRepositoryContract } from '../repositories/users.repository'
 import type { SvoOrdersService } from '../services/svo-orders.service'
 import type { JwtConfig } from '../types/auth'
-import { SVO_WRITE_ROLES } from '../types/svo-occurrence.types'
+import { SVO_MAINTAIN_ROLES, SVO_WRITE_ROLES } from '../types/svo-occurrence.types'
 import { SVO_ORDER_READ_ROLES, SVO_ORDER_UPDATE_ROLES, SvoOrderServiceError } from '../types/svo-order.types'
 import type { SvoOrderErrorCode } from '../types/svo-order.types'
 
@@ -14,6 +14,7 @@ const ERROR_STATUS: Record<SvoOrderErrorCode, number> = {
   INVALID_INPUT: 400, ACCOUNT_UNAVAILABLE: 401, ACCESS_DENIED: 403, NOT_FOUND: 404,
   OCCURRENCE_NOT_CONFIRMED: 400, ORDER_ALREADY_EXISTS: 409, TEAM_UNAVAILABLE: 409,
   VEHICLE_UNAVAILABLE: 409, CAPACITY_EXCEEDED: 409, INVALID_TRANSITION: 409,
+  NO_TEAM: 409, NO_VEHICLE: 409, CONFLICT: 409, DISPATCH_NOT_REQUESTED: 409,
 }
 
 /**
@@ -41,7 +42,8 @@ export function createSvoOrdersRouter(service: SvoOrdersService, jwt: JwtConfig,
   router.get('/:id', authorizeRoles(SVO_ORDER_READ_ROLES), controller.detail)
   router.patch('/:id/status', authorizeRoles(SVO_ORDER_UPDATE_ROLES), controller.updateStatus)
   router.post('/:id/result', authorizeRoles(SVO_ORDER_UPDATE_ROLES), controller.recordResult)
-  router.post('/', authorizeRoles(SVO_WRITE_ROLES), controller.create)
+  router.post('/dispatch/:occurrenceId', authorizeRoles(SVO_MAINTAIN_ROLES), controller.retryDispatch)
+  router.post('/', authorizeRoles(SVO_MAINTAIN_ROLES), controller.create)
   return router
 }
 

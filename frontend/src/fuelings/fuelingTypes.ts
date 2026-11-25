@@ -25,6 +25,43 @@ export interface FuelingVersion {
   vehicleSnapshot: Record<string, unknown> | null
   driverSnapshot: { id: string; name: string } | null
   isAnnulled: boolean
+  reportedBy?: string
+  notes?: string | null
+  reason?: string | null
+  evidenceDescription?: string | null
+  attachmentUrl?: string | null
+  createdBy?: string
+  actorSnapshot?: Record<string, unknown> | null
+  supersedesId?: string | null
+  annulmentReason?: string | null
+  revision?: number
+  registeredAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface FuelingHistoryEvent {
+  id: string
+  eventType: 'RECORDED' | 'UPDATED' | 'RECTIFIED' | 'ANNULLED'
+  occurredAt: string
+  registeredAt: string
+  reportedBy: string
+  registeredBy: string
+  actorSnapshot: Record<string, unknown>
+  reason: string
+  evidenceDescription: string | null
+  attachmentUrl: string | null
+  supersedesId: string | null
+  isAnnulled: boolean
+  beforeState: FuelingVersion | null
+  afterState: FuelingVersion
+}
+
+export interface FuelingDetail {
+  fueling: FuelingVersion
+  currentId: string
+  versions: FuelingVersion[]
+  events: FuelingHistoryEvent[]
 }
 
 export interface FuelingList {
@@ -55,6 +92,16 @@ export interface CreateFuelingInput {
   totalValue: string
   odometerKm: number
   station?: string | null
+  reportedBy: string
+  reason: string
+  evidenceDescription?: string | null
+  attachmentUrl?: string | null
+  notes?: string | null
+}
+
+export interface RectifyFuelingInput extends Partial<Pick<CreateFuelingInput,
+  'driverId' | 'fueledAt' | 'fuelType' | 'liters' | 'totalValue' | 'odometerKm' | 'station' | 'notes'>> {
+  expectedRevision: number
   reportedBy: string
   reason: string
   evidenceDescription?: string | null

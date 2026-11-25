@@ -5,6 +5,7 @@ import { INITIAL_REQUEST_STATUS, REQUEST_STATUSES, RequestServiceError } from '.
 import type {
   CreateRequestBody,
   CreateRequestInput,
+  PaginatedRequestHistory,
   PaginatedRequests,
   RequestActor,
   RequestActorSnapshot,
@@ -12,7 +13,6 @@ import type {
   RequestListFilters,
   RequestStatus,
   ResubmitRequestBody,
-  ResubmitRequestResult,
   TripRequest,
 } from '../types/request.types'
 
@@ -27,6 +27,7 @@ const MAX_RESUBMIT_REASON_LENGTH = 500
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/
 const ID_PATTERN = /^[1-9]\d*$/
+const RESUBMISSION_EVENT_REASON = 'Solicitação reenviada após correção pelo Solicitante.'
 
 function isRequestStatus(value: unknown): value is RequestStatus {
   return typeof value === 'string' && REQUEST_STATUSES.some((status) => status === value)
@@ -37,6 +38,12 @@ function requiredText(value: unknown, field: string): string {
     throw new RequestServiceError(400, `${field} é obrigatório.`)
   }
   return value.trim()
+}
+
+function optionalText(value: unknown, field: string): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') throw new RequestServiceError(400, `${field} deve ser um texto.`)
+  return value.trim() || null
 }
 
 /**
@@ -139,6 +146,7 @@ function validateInput(body: CreateRequestBody): CreateRequestInput {
     destination: requiredText(body.destination, 'destination'),
     purpose: requiredText(body.purpose, 'purpose'),
     passengers: parsePassengers(body.passengers),
+    specialRequirements: optionalText(body.specialRequirements, 'specialRequirements'),
     notes: parseNotes(body.notes),
   }
 }
@@ -164,6 +172,7 @@ function stateOf(request: TripRequest): Record<string, unknown> {
     destination: request.destination,
     purpose: request.purpose,
     passengers: request.passengers,
+    specialRequirements: request.specialRequirements,
     notes: request.notes,
     status: request.status,
     revision: request.revision,
@@ -222,33 +231,32 @@ export class RequestsService {
   }
 
   /**
-   * Reenvia uma solicitação rejeitada (`REJECTED` → `PENDING`) pelo próprio titular com controle otimista.
+   * Reenvia uma solicitação devolvida ou rejeitada (`RETURNED` / `REJECTED` → `PENDING`) pelo próprio titular com controle otimista.
    *
-   * Preserva integralmente os eventos anteriores (`CREATED`, `REJECTED`) na trilha append-only
+   * Preserva integralmente os eventos anteriores na trilha append-only
    * e registra um novo evento `RESUBMITTED` com justificativa e auditoria na mesma transação.
    *
-   * @throws {RequestServiceError} 400 entrada/serviço inválidos, 401 conta inativa, 404 não encontrada no escopo, 409 revisão obsoleta ou status não rejeitado, 422 data passada.
+   * @throws {RequestServiceError} 400 entrada/serviço inválidos, 401 conta inativa, 404 não encontrada no escopo, 409 revisão obsoleta ou status não elegível, 422 data passada.
    */
   async resubmitRequest(
     id: string,
     body: ResubmitRequestBody,
     requesterId: string,
-  ): Promise<ResubmitRequestResult> {
+  ): Promise<RequestDetail> {
     if (!ID_PATTERN.test(id)) throw new RequestServiceError(400, 'Identificador de solicitação inválido.')
     if (!ID_PATTERN.test(requesterId)) throw new RequestServiceError(401, 'Usuário autenticado inválido.')
 
     const expectedRevision = parseExpectedRevision(body.expectedRevision)
-    const reason = parseResubmitReason(body.reason)
+    const reason = body.reason !== undefined ? parseResubmitReason(body.reason) : RESUBMISSION_EVENT_REASON
     const input = validateInput(body)
 
-    return this.repository.withTransaction(async (client: PoolClient) => {
-      const actor = await this.repository.findActorSnapshot(requesterId, client)
-      if (!actor) throw new RequestServiceError(401, 'Sua conta não está ativa. Entre novamente ou procure a administração.')
-
-      const before = await this.repository.findByIdForUpdate(id, requesterId, client)
-      if (!before) throw new RequestServiceError(404, 'Solicitação não encontrada.')
-      if (before.status !== 'REJECTED') {
-        throw new RequestServiceError(409, 'Somente solicitações rejeitadas podem ser reenviadas.')
+    await this.repository.withTransaction(async (client: PoolClient) => {
+      const before = await this.repository.findByIdForUpdate(id, client)
+      if (!before || before.requesterId !== requesterId) {
+        throw new RequestServiceError(404, 'Solicitação não encontrada.')
+      }
+      if (before.status !== 'RETURNED' && before.status !== 'REJECTED') {
+        throw new RequestServiceError(409, 'Somente solicitações devolvidas ou rejeitadas podem ser reenviadas.')
       }
       if (before.revision !== expectedRevision) {
         throw new RequestServiceError(
@@ -257,6 +265,8 @@ export class RequestsService {
         )
       }
 
+      const actor = await this.repository.findActorSnapshot(requesterId, client)
+      if (!actor) throw new RequestServiceError(401, 'Sua conta não está ativa. Entre novamente ou procure a administração.')
       const service = await this.repository.findActiveServiceForUpdate(input.serviceId, client)
       if (!service) throw new RequestServiceError(400, 'Tipo de serviço inexistente ou inativo.')
       assertDateIsNotPast(input.requestedDate, input.requestedTime)
@@ -264,7 +274,6 @@ export class RequestsService {
       const actorSnapshot = toActorSnapshot(actor)
       const after = await this.repository.resubmit(
         id,
-        requesterId,
         expectedRevision,
         input,
         actorSnapshot,
@@ -299,13 +308,11 @@ export class RequestsService {
         actorSnapshot: { ...actorSnapshot },
         reason,
       }, client)
-
-      return {
-        id: after.id,
-        status: after.status,
-        revision: after.revision,
-      }
     })
+
+    const detail = await this.repository.findById(id, requesterId)
+    if (!detail) throw new RequestServiceError(404, 'Solicitação não encontrada.')
+    return detail
   }
 
   /**
@@ -394,5 +401,20 @@ export class RequestsService {
     }
 
     return request
+  }
+
+  /** Retorna o histórico paginado apenas depois de aplicar o mesmo escopo do detalhe. */
+  async getRequestHistory(
+    id: string,
+    actor: RequestActor,
+    page = 1,
+    pageSize = DEFAULT_PAGE_SIZE,
+  ): Promise<PaginatedRequestHistory> {
+    if (!Number.isInteger(page) || page < 1) throw new RequestServiceError(400, 'Página inválida.')
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+      throw new RequestServiceError(400, `O tamanho da página deve estar entre 1 e ${MAX_PAGE_SIZE}.`)
+    }
+    await this.getRequest(id, actor)
+    return this.repository.listHistory(id, page, pageSize)
   }
 }

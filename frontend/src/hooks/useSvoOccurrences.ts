@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ApiRequest } from '../api/client'
+import type { ApiRequest } from '../api/client.ts'
 import {
   confirmSvoOccurrence,
   createSvoOccurrence,
@@ -8,24 +8,30 @@ import {
   listSvoDispatchCandidates,
   listSvoDispatchOrders,
   listSvoOccurrences,
-} from '../services/svoOccurrencesService'
+  retrySvoDispatch,
+} from '../services/svoOccurrencesService.ts'
 import {
   buildMaceioReceivedAtIso,
   isCanonicalBigIntId,
   isValidCivilDate,
   SVO_DISPATCH_ORDER_STATUS_LABELS,
   SvoOccurrenceRequestError,
-} from '../types/svoOccurrence'
+} from '../types/svoOccurrence.ts'
 import type {
+  CreateSvoOccurrenceInput,
   SvoDispatchCandidateTeam,
   SvoDispatchCandidateVehicle,
   SvoDispatchOrderRef,
+  SvoOccurrenceConfirmationResult,
+  SvoOccurrenceCreationResult,
   SvoOccurrenceDetail,
+  SvoOccurrenceErrorKind,
+  SvoOccurrenceFilters,
   SvoOccurrenceListFilters,
   SvoOccurrenceStatus,
   SvoOccurrenceSummary,
   SvoRequesterType,
-} from '../types/svoOccurrence'
+} from '../types/svoOccurrence.ts'
 
 /** Valores de rascunho para o formulário de filtros da listagem SVO. */
 export interface SvoOccurrenceFilterValues {
@@ -124,8 +130,13 @@ function createEmptyDraft(): CreateOccurrenceDraft {
   }
 }
 
-function errorMessage(error: unknown, fallback: string): string {
+function errorMessage(error: unknown, fallback = 'Não foi possível concluir a operação. Tente novamente.'): string {
   return error instanceof Error && error.message.trim() ? error.message : fallback
+}
+
+function isUncertainError(error: unknown): boolean {
+  return error instanceof SvoOccurrenceRequestError
+    && (error.kind === 'network' || error.kind === 'server' || error.kind === 'invalidResponse')
 }
 
 function validateFilterValues(values: SvoOccurrenceFilterValues): SvoOccurrenceFilterErrors {
@@ -177,21 +188,44 @@ function validateCreateDraft(draft: CreateOccurrenceDraft): Partial<Record<Creat
   return errors
 }
 
+function formatDispatchSuffix(dispatch: SvoOccurrenceConfirmationResult['dispatch']): string {
+  if (!dispatch) return ''
+  if (dispatch.status === 'DISPATCHED') {
+    return ` Ordem #${dispatch.orderId} encaminhada automaticamente para a equipe e viatura selecionadas.`
+  }
+  return ` A solicitação aguarda despacho: ${dispatch.reason === 'NO_TEAM' ? 'não há equipe elegível no plantão.' : 'não há viatura elegível com vaga.'}`
+}
+
 /**
- * Gerencia estado, filtros, confirmação de triagem e geração de ordens na Central SVO.
+ * Gerencia estado, filtros, confirmação de triagem, despacho automático, reavaliação e
+ * geração manual de ordens na Central SVO.
  *
  * Mantém dados em memória, descarta respostas obsoletas em trocas de filtro/sessão e protege
  * mutações contra reenvio cego quando o resultado de rede/servidor é incerto.
  */
-export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
-  const [filterDraft, setFilterDraft] = useState<SvoOccurrenceFilterValues>(EMPTY_FILTER_VALUES)
-  const [appliedFilters, setAppliedFilters] = useState<SvoOccurrenceFilterValues>(EMPTY_FILTER_VALUES)
+export function useSvoOccurrences(
+  api: ApiRequest,
+  enabledOrInitialStatus: boolean | SvoOccurrenceFilters['status'] = true,
+) {
+  const enabled = typeof enabledOrInitialStatus === 'boolean' ? enabledOrInitialStatus : true
+  const initialStatus = typeof enabledOrInitialStatus === 'string' ? enabledOrInitialStatus : ''
+
+  const [filterDraft, setFilterDraft] = useState<SvoOccurrenceFilterValues>(() => ({
+    ...EMPTY_FILTER_VALUES,
+    status: initialStatus,
+  }))
+  const [appliedFilters, setAppliedFilters] = useState<SvoOccurrenceFilterValues>(() => ({
+    ...EMPTY_FILTER_VALUES,
+    status: initialStatus,
+  }))
   const [filterErrors, setFilterErrors] = useState<SvoOccurrenceFilterErrors>({})
   const [occurrences, setOccurrences] = useState<SvoOccurrenceSummary[] | null>(null)
   const [orders, setOrders] = useState<SvoDispatchOrderRef[]>([])
   const [ordersSyncWarning, setOrdersSyncWarning] = useState('')
   const [loading, setLoading] = useState(enabled)
   const [listError, setListError] = useState('')
+  const [listErrorKind, setListErrorKind] = useState<SvoOccurrenceErrorKind | null>(null)
+  const [partialWarning, setPartialWarning] = useState('')
   const [stale, setStale] = useState(false)
   const [forbidden, setForbidden] = useState(false)
   const [result, setResult] = useState('')
@@ -202,6 +236,13 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
   const [dispatchDraft, setDispatchDraft] = useState<DispatchOrderDraft | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [reconciling, setReconciling] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const [confirmationError, setConfirmationError] = useState('')
+  const [confirmationBlocked, setConfirmationBlocked] = useState(false)
+  const [dispatchingId, setDispatchingId] = useState<string | null>(null)
+  const [dispatchError, setDispatchError] = useState('')
 
   const listSequence = useRef(0)
   const detailSequence = useRef(0)
@@ -219,13 +260,14 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
     return map
   }, [orders])
 
-  const reload = useCallback(async (partialWarning?: string): Promise<void> => {
+  const reload = useCallback(async (partialMessage?: string): Promise<boolean> => {
     if (!enabled) {
       setLoading(false)
-      return
+      return false
     }
     const sequence = ++listSequence.current
     setLoading(true)
+    setListError('')
     try {
       const [loadedOccurrences, ordersOutcome] = await Promise.all([
         listSvoOccurrences(api, toListFilters(appliedFilters)),
@@ -233,9 +275,11 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
           .then((data) => ({ ok: true as const, data }))
           .catch((error: unknown) => ({ ok: false as const, error })),
       ])
-      if (sequence !== listSequence.current) return
+      if (sequence !== listSequence.current) return false
       setOccurrences(loadedOccurrences)
       setListError('')
+      setListErrorKind(null)
+      setPartialWarning('')
       setStale(false)
       setForbidden(false)
       if (ordersOutcome.ok) {
@@ -246,16 +290,21 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
           `Não foi possível atualizar o vínculo com ordens existentes (${errorMessage(ordersOutcome.error, 'falha na consulta de ordens')}).`,
         )
       }
+      return true
     } catch (error) {
-      if (sequence !== listSequence.current) return
-      if (error instanceof SvoOccurrenceRequestError && error.kind === 'forbidden') {
+      if (sequence !== listSequence.current) return false
+      const kind = error instanceof SvoOccurrenceRequestError ? error.kind : 'network'
+      setListErrorKind(kind)
+      if (kind === 'forbidden') {
         setForbidden(true)
-        setListError(error.message)
+        setListError(errorMessage(error, 'Seu perfil não tem permissão para consultar solicitações SVO.'))
         setLoading(false)
-        return
+        return false
       }
-      setListError(partialWarning ?? errorMessage(error, 'Não foi possível carregar as solicitações SVO.'))
+      setListError(partialMessage ?? errorMessage(error, 'Não foi possível carregar as solicitações SVO.'))
+      if (partialMessage) setPartialWarning(partialMessage)
       setStale(true)
+      return false
     } finally {
       if (sequence === listSequence.current) setLoading(false)
     }
@@ -301,7 +350,20 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
     setAppliedFilters(EMPTY_FILTER_VALUES)
   }
 
-  async function openDetail(id: string): Promise<void> {
+  const changeFilters = useCallback((next: SvoOccurrenceFilters): void => {
+    if (sending.current || checking.current) return
+    setFilterDraft(next)
+    setFilterErrors({})
+    setAppliedFilters(next)
+    setOccurrences(null)
+    setListError('')
+    setListErrorKind(null)
+    setPartialWarning('')
+    setDetail(null)
+    detailSequence.current += 1
+  }, [])
+
+  const openDetail = useCallback(async (id: string): Promise<void> => {
     const sequence = ++detailSequence.current
     setDetail({ id, data: null, loading: true, error: '' })
     try {
@@ -311,6 +373,9 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
       }
     } catch (error) {
       if (sequence === detailSequence.current) {
+        if (error instanceof SvoOccurrenceRequestError && error.kind === 'forbidden') {
+          setForbidden(true)
+        }
         setDetail({
           id,
           data: null,
@@ -319,12 +384,12 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
         })
       }
     }
-  }
+  }, [api])
 
-  function closeDetail(): void {
+  const closeDetail = useCallback((): void => {
     detailSequence.current += 1
     setDetail(null)
-  }
+  }, [])
 
   function openCreate(): void {
     if (sending.current || checking.current) return
@@ -393,8 +458,7 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
       return null
     } catch (error) {
       if (epoch !== lifecycle.current) return null
-      const kind = error instanceof SvoOccurrenceRequestError ? error.kind : 'network'
-      const uncertain = kind === 'network' || kind === 'server' || kind === 'invalidResponse'
+      const uncertain = isUncertainError(error) || !(error instanceof SvoOccurrenceRequestError)
       const msg = errorMessage(error, 'Não foi possível registrar a solicitação SVO.')
       setCreateDraft((current) => current && {
         ...current,
@@ -429,6 +493,51 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
       }
     }
   }
+
+  const register = useCallback(async (input: CreateSvoOccurrenceInput): Promise<SvoOccurrenceCreationResult | null> => {
+    if (sending.current || checking.current) return null
+    sending.current = true
+    setCreating(true)
+    setSubmitting(true)
+    setCreateError('')
+    setResult('')
+    const epoch = lifecycle.current
+    try {
+      const created = await createSvoOccurrence(api, input)
+      if (epoch !== lifecycle.current) return null
+      const summary: SvoOccurrenceSummary = {
+        id: created.id,
+        requesterType: input.requesterType,
+        location: input.location.trim(),
+        status: created.status,
+        receivedAt: created.receivedAt,
+        createdAt: created.createdAt,
+        revision: created.revision,
+      }
+      setOccurrences((current) => current ? [summary, ...current.filter((item) => item.id !== created.id)] : [summary])
+      setResult(`Solicitação #${created.id} registrada com status ${created.status}.`)
+      const refreshed = await reload('A solicitação foi registrada, mas a lista não pôde ser atualizada. Atualize a consulta antes de continuar.')
+      if (!refreshed && epoch === lifecycle.current) {
+        setPartialWarning('A solicitação foi registrada, mas a lista pode estar desatualizada. Atualize a consulta.')
+      }
+      return created
+    } catch (error) {
+      if (epoch !== lifecycle.current) return null
+      setCreateError(errorMessage(error))
+      if (error instanceof SvoOccurrenceRequestError && error.kind === 'forbidden') setForbidden(true)
+      if (isUncertainError(error)) {
+        setPartialWarning('O resultado do cadastro é incerto. Consulte a lista antes de tentar registrar novamente.')
+        await reload()
+      }
+      return null
+    } finally {
+      if (epoch === lifecycle.current) {
+        sending.current = false
+        setCreating(false)
+        setSubmitting(false)
+      }
+    }
+  }, [api, reload])
 
   async function loadConfirmDetail(id: string): Promise<void> {
     const sequence = ++confirmSequence.current
@@ -488,13 +597,14 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
     sending.current = true
     setSubmitting(true)
     const targetId = confirmState.id
+    const targetDetail = confirmState.detail
     const epoch = lifecycle.current
     try {
-      const confirmed = await confirmSvoOccurrence(api, targetId)
+      const confirmed = await confirmSvoOccurrence(api, targetDetail ?? targetId)
       if (epoch !== lifecycle.current) return
       setConfirmState(null)
       setDetail((current) => current?.id === targetId ? null : current)
-      setResult(`Solicitação SVO #${confirmed.id} confirmada com sucesso.`)
+      setResult(`Solicitação SVO #${confirmed.id} confirmada com sucesso.${formatDispatchSuffix(confirmed.dispatch)}`)
       await reload('Triagem confirmada, mas a listagem não pôde ser atualizada. Atualize a consulta antes de continuar.')
     } catch (error) {
       if (epoch !== lifecycle.current) return
@@ -549,6 +659,84 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
       }
     }
   }
+
+  const confirm = useCallback(async (occurrence: SvoOccurrenceDetail): Promise<SvoOccurrenceConfirmationResult | null> => {
+    if (sending.current || checking.current || occurrence.status !== 'PENDING') return null
+    sending.current = true
+    setConfirming(true)
+    setSubmitting(true)
+    setConfirmationError('')
+    setConfirmationBlocked(false)
+    setResult('')
+    const epoch = lifecycle.current
+    try {
+      const confirmed = await confirmSvoOccurrence(api, occurrence)
+      if (epoch !== lifecycle.current) return null
+      setOccurrences((current) => current?.map((item) => item.id === confirmed.id
+        ? { ...item, status: confirmed.status, revision: confirmed.revision }
+        : item) ?? null)
+      setDetail((current) => current?.id === confirmed.id && current.data
+        ? { ...current, data: { ...current.data, status: confirmed.status, triagedAt: confirmed.triagedAt, triagedBy: confirmed.triagedBy, revision: confirmed.revision } }
+        : current)
+      setResult(`Solicitação #${confirmed.id} confirmada após conferência dos dados recebidos.${formatDispatchSuffix(confirmed.dispatch)}`)
+      const refreshed = await reload('A confirmação foi concluída, mas a lista não pôde ser atualizada. Atualize a consulta.')
+      if (!refreshed && epoch === lifecycle.current) {
+        setPartialWarning('A confirmação foi concluída, mas a lista pode estar desatualizada. Atualize a consulta.')
+      }
+      return confirmed
+    } catch (error) {
+      if (epoch !== lifecycle.current) return null
+      setConfirmationError(errorMessage(error))
+      const kind = error instanceof SvoOccurrenceRequestError ? error.kind : 'network'
+      if (kind === 'forbidden') setForbidden(true)
+      if (['network', 'server', 'invalidResponse', 'conflict', 'notFound', 'forbidden', 'session'].includes(kind)) {
+        setConfirmationBlocked(true)
+      }
+      if (isUncertainError(error) || kind === 'conflict' || kind === 'notFound') await reload()
+      return null
+    } finally {
+      if (epoch === lifecycle.current) {
+        sending.current = false
+        setConfirming(false)
+        setSubmitting(false)
+      }
+    }
+  }, [api, reload])
+
+  const retryDispatch = useCallback(async (occurrence: SvoOccurrenceSummary): Promise<boolean> => {
+    if (sending.current || checking.current || occurrence.status !== 'CONFIRMED' || !occurrence.dispatchRequestedAt || occurrence.executionOrderId) {
+      return false
+    }
+    sending.current = true
+    setDispatchingId(occurrence.id)
+    setDispatchError('')
+    setResult('')
+    const epoch = lifecycle.current
+    try {
+      const outcome = await retrySvoDispatch(api, occurrence)
+      if (epoch !== lifecycle.current) return false
+      setResult(outcome.status === 'DISPATCHED'
+        ? `Ordem #${outcome.orderId} criada automaticamente para a solicitação #${occurrence.id}.`
+        : `A solicitação #${occurrence.id} continua aguardando recurso elegível.`)
+      const refreshed = await reload('A tentativa foi registrada, mas a fila não pôde ser atualizada. Recarregue antes de tentar novamente.')
+      if (!refreshed && epoch === lifecycle.current) {
+        setPartialWarning('A tentativa foi registrada; consulte a fila antes de repetir a ação.')
+      }
+      return true
+    } catch (error) {
+      if (epoch !== lifecycle.current) return false
+      setDispatchError(errorMessage(error))
+      const kind = error instanceof SvoOccurrenceRequestError ? error.kind : 'network'
+      if (kind === 'forbidden') setForbidden(true)
+      if (isUncertainError(error) || kind === 'conflict' || kind === 'notFound') await reload()
+      return false
+    } finally {
+      if (epoch === lifecycle.current) {
+        sending.current = false
+        setDispatchingId(null)
+      }
+    }
+  }, [api, reload])
 
   const loadDispatchCandidates = useCallback(async (occurrenceId: string): Promise<void> => {
     const sequence = ++dispatchSequence.current
@@ -759,28 +947,50 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
     }
   }
 
+  const clearCreateError = useCallback((): void => {
+    setCreateError('')
+  }, [])
+
+  const clearConfirmationError = useCallback((): void => {
+    setConfirmationError('')
+    setConfirmationBlocked(false)
+  }, [])
+
   return {
     filterDraft,
     appliedFilters,
+    filters: appliedFilters,
     filterErrors,
     occurrences,
     ordersByOccurrenceId,
     ordersSyncWarning,
     loading,
     listError,
+    listErrorKind,
+    partialWarning,
     stale,
     forbidden,
+    permissionDenied: forbidden,
     result,
+    notice: result,
     detail,
     createDraft,
     confirmState,
     dispatchDraft,
     submitting,
     reconciling,
+    creating,
+    createError,
+    confirming,
+    confirmationError,
+    confirmationBlocked,
+    dispatchingId,
+    dispatchError,
     reload,
     updateFilterDraft,
     applyFilters,
     clearFilters,
+    changeFilters,
     openDetail,
     closeDetail,
     openCreate,
@@ -788,15 +998,20 @@ export function useSvoOccurrences(api: ApiRequest, enabled: boolean) {
     updateCreateDraft,
     submitCreate,
     reconcileCreate,
+    register,
     openConfirm,
     closeConfirm,
     submitConfirm,
     reconcileConfirm,
+    confirm,
+    retryDispatch,
     openDispatch,
     closeDispatch,
     updateDispatchDraft,
     loadDispatchCandidates,
     submitDispatch,
     reconcileDispatch,
+    clearCreateError,
+    clearConfirmationError,
   }
 }

@@ -1,10 +1,10 @@
 .page {
   width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 16px 32px;
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 32px;
   box-sizing: border-box;
-  color: #1e293b;
+  color: #111827;
 }
 
 .tableContainer {
@@ -35,16 +35,4 @@
 
 .tableContainer tr > :not([colspan]):nth-child(5) {
   width: 150px;
-}
-
-@media (max-width: 768px) {
-  .page {
-    padding: 0 8px 24px;
-  }
-}
-
-@media (max-width: 480px) {
-  .page {
-    padding: 0 4px 20px;
-  }
 }

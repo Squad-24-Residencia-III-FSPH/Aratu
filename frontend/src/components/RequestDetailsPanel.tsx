@@ -70,6 +70,8 @@ export default function RequestDetailsPanel({ requestId, api }: RequestDetailsPa
           <Detail label="Finalidade" value={request.purpose} />
           <Detail label="Tipo de serviço" value={request.serviceName} />
           <Detail label="Passageiros" value={String(request.passengers)} />
+          <Detail label="Necessidades especiais" value={request.specialRequirements || 'Não informado'} />
+          <Detail label="Observações" value={request.notes || 'Nenhuma'} />
         </DetailsGrid>
 
         <Box>

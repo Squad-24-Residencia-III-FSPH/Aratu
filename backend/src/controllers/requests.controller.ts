@@ -20,11 +20,12 @@ function bodyRecord(body: unknown): CreateRequestBody {
     purpose: value.purpose,
     serviceId: value.serviceId,
     passengers: value.passengers,
+    specialRequirements: value.specialRequirements,
     notes: value.notes,
   }
 }
 
-function resubmitBodyRecord(body: unknown): ResubmitRequestBody {
+function resubmitBody(body: unknown): ResubmitRequestBody {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return {}
   const value = body as Record<string, unknown>
   return {
@@ -87,15 +88,6 @@ export function createRequestsController(service: RequestsService) {
       )
     },
 
-    /** Reenvia uma solicitação rejeitada pelo próprio Solicitante com controle de revisão. */
-    resubmit(req: Request, res: Response, next: NextFunction): Promise<void> {
-      return respondWithDomainErrors(
-        res,
-        next,
-        () => service.resubmitRequest(String(req.params.id), resubmitBodyRecord(req.body), req.usuario?.id ?? ''),
-      )
-    },
-
     /** Retorna a listagem paginada com os filtros opcionais. */
     list(req: Request, res: Response, next: NextFunction): Promise<void> {
       return respondWithDomainErrors(res, next, () => {
@@ -126,6 +118,29 @@ export function createRequestsController(service: RequestsService) {
         next,
         () => service.getRequest(String(req.params.id), requireActor(req)),
       )
+    },
+
+    /** Reenvia uma versão corrigida pelo Solicitante proprietário. */
+    resubmit(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return respondWithDomainErrors(
+        res,
+        next,
+        () => service.resubmitRequest(String(req.params.id), resubmitBody(req.body), req.usuario?.id ?? ''),
+      )
+    },
+
+    /** Retorna a linha cronológica de eventos dentro do escopo autorizado. */
+    history(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return respondWithDomainErrors(res, next, () => {
+        const page = queryNumber(req.query.page)
+        const pageSize = queryNumber(req.query.pageSize)
+        return service.getRequestHistory(
+          String(req.params.id),
+          requireActor(req),
+          page ?? 1,
+          pageSize ?? 20,
+        )
+      })
     },
   }
 }

@@ -22,6 +22,10 @@ function isString(value: unknown): value is string {
   return typeof value === 'string'
 }
 
+function isNullableString(value: unknown): value is string | null {
+  return value === null || isString(value)
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isString)
 }
@@ -32,6 +36,8 @@ function parseApprovedRequest(value: unknown): ApprovedRequestSummary {
     || !isString(value.requestedTime) || !isString(value.origin)
     || !isString(value.destination) || !isString(value.purpose)
     || typeof value.passengers !== 'number' || !Number.isInteger(value.passengers)
+    || (value.specialRequirements !== undefined && !isNullableString(value.specialRequirements))
+    || (value.revision !== undefined && (typeof value.revision !== 'number' || !Number.isInteger(value.revision)))
     || value.status !== 'APPROVED') throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
   return {
     id: value.id,
@@ -43,6 +49,8 @@ function parseApprovedRequest(value: unknown): ApprovedRequestSummary {
     destination: value.destination,
     purpose: value.purpose,
     passengers: value.passengers,
+    specialRequirements: value.specialRequirements ?? null,
+    revision: value.revision ?? 1,
     status: 'APPROVED',
   }
 }
@@ -165,17 +173,24 @@ export interface VehicleAvailabilityQueryOptions {
   passengers?: number
 }
 
+/** Opções adicionais da consulta de disponibilidade de motoristas. */
+export interface DriverAvailabilityQueryOptions {
+  requestId?: string
+}
+
 /** Consulta candidatos de veículo, mantendo os motivos de compatibilidade, lotação e agenda da API. */
 export async function listAvailableVehicles(
   api: ApiRequest,
   start: string,
   end: string,
   serviceId: string,
-  signal?: AbortSignal,
+  signalOrRequestId?: AbortSignal | string,
   options?: VehicleAvailabilityQueryOptions,
 ): Promise<VehicleAvailability[]> {
+  const signal = typeof signalOrRequestId === 'string' ? undefined : signalOrRequestId
+  const requestId = typeof signalOrRequestId === 'string' ? signalOrRequestId : options?.requestId
   const query = new URLSearchParams({ start, end, serviceId })
-  if (options?.requestId) query.set('requestId', options.requestId)
+  if (requestId) query.set('requestId', requestId)
   else if (options?.passengers !== undefined) query.set('passengers', String(options.passengers))
   return getJson(api, `/vehicles/available?${query}`, 'Não foi possível consultar os veículos disponíveis.', (value) => {
     if (!Array.isArray(value)) throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
@@ -183,10 +198,17 @@ export async function listAvailableVehicles(
   }, signal)
 }
 
-/** Consulta candidatos de motorista, incluindo CNH e conflitos de agenda. */
-export async function listAvailableDrivers(api: ApiRequest, start: string,
-  end: string, signal?: AbortSignal): Promise<DriverAvailability[]> {
-  const query = new URLSearchParams({ start, end })
+/** Consulta candidatos de motorista, incluindo CNH, conta elegível e conflitos de agenda. */
+export async function listAvailableDrivers(
+  api: ApiRequest,
+  start: string,
+  end: string,
+  signalOrRequestId?: AbortSignal | string,
+  options?: DriverAvailabilityQueryOptions,
+): Promise<DriverAvailability[]> {
+  const signal = typeof signalOrRequestId === 'string' ? undefined : signalOrRequestId
+  const requestId = typeof signalOrRequestId === 'string' ? signalOrRequestId : options?.requestId
+  const query = new URLSearchParams({ start, end, ...(requestId ? { requestId } : {}) })
   return getJson(api, `/drivers/available?${query}`, 'Não foi possível consultar os motoristas disponíveis.', (value) => {
     if (!Array.isArray(value)) throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
     return value.map(parseDriverAvailability)

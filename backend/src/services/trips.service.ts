@@ -27,7 +27,7 @@ import type {
 } from '../types/trip.types'
 import type { FuelingsRepositoryContract } from '../repositories/fuelings.repository'
 import type { TripsRepositoryContract } from '../repositories/trips.repository'
-import { parsePeriod, resolveRequiredPassengers } from './availability.service'
+import { parsePeriod, requiresSeatCapacity, resolveRequiredPassengers } from './availability.service'
 import type { AvailabilityService } from './availability.service'
 
 const ID_PATTERN = /^[1-9]\d*$/
@@ -47,6 +47,8 @@ const REASON_LABELS: Readonly<Record<AvailabilityReason, string>> = {
   INACTIVE: 'está inativo',
   AWAY: 'está afastado',
   CNH_EXPIRED: 'tem CNH vencida antes do fim da viagem',
+  INSUFFICIENT_CAPACITY: 'não comporta todos os passageiros solicitados',
+  ACCOUNT_UNAVAILABLE: 'não possui conta ativa vinculada com perfil de Motorista',
 }
 
 function requireId(value: unknown, field: string): string {
@@ -120,6 +122,18 @@ export class TripsService {
     const driverId = requireId(input.driverId, 'driverId')
     const period = this.validatePeriod(input.scheduledStart, input.scheduledEnd)
     const reason = optionalReason(input.reason, DEFAULT_SCHEDULING_REASON)
+    if (input.specialRequirementsAcknowledged !== undefined
+      && typeof input.specialRequirementsAcknowledged !== 'boolean') {
+      throw new TripServiceError(400, 'specialRequirementsAcknowledged deve ser um valor booleano.')
+    }
+    if (input.evidenceDescription !== undefined && input.evidenceDescription !== null
+      && typeof input.evidenceDescription !== 'string') {
+      throw new TripServiceError(400, 'evidenceDescription deve ser um texto.')
+    }
+    const specialRequirementsAcknowledged = input.specialRequirementsAcknowledged === true
+    const evidenceDescription = typeof input.evidenceDescription === 'string'
+      ? input.evidenceDescription.trim() || null
+      : null
 
     try {
       return await this.repository.withTransaction(async (client) => {
@@ -127,6 +141,16 @@ export class TripsService {
         if (!request) throw new TripServiceError(404, 'Solicitação não encontrada.')
         if (request.status !== SCHEDULING_STATUSES.approvedRequest) {
           throw new TripServiceError(409, 'Somente solicitações aprovadas podem ser agendadas.')
+        }
+        const hasSpecialRequirements = Boolean(request.specialRequirements?.trim())
+        if (hasSpecialRequirements && !specialRequirementsAcknowledged) {
+          throw new TripServiceError(422, 'Confirme a conferência das necessidades especiais antes de agendar a viagem.')
+        }
+        if (hasSpecialRequirements && !evidenceDescription) {
+          throw new TripServiceError(422, 'Registre como as necessidades especiais serão atendidas antes de agendar a viagem.')
+        }
+        if (!hasSpecialRequirements && (specialRequirementsAcknowledged || evidenceDescription)) {
+          throw new TripServiceError(400, 'A conferência especial só pode ser registrada quando a solicitação informar uma necessidade especial.')
         }
 
         const requiredPassengers = resolveRequiredPassengers(request.passengers)
@@ -138,6 +162,13 @@ export class TripsService {
           requiredPassengers,
         )
         if (!vehicle) throw new TripServiceError(404, 'Veículo não encontrado.')
+        if (requiresSeatCapacity(vehicle) && requiredPassengers > vehicle.seats) {
+          throw new TripServiceError(
+            422,
+            `O veículo comporta ${vehicle.seats} passageiros, mas a solicitação informa ${requiredPassengers}.`,
+            'INSUFFICIENT_CAPACITY',
+          )
+        }
         const driver = await this.availability.assessDriver(driverId, period, client)
         if (!driver) throw new TripServiceError(404, 'Motorista não encontrado.')
         this.assertAvailable(vehicle.reasons, driver.reasons)
@@ -151,6 +182,9 @@ export class TripsService {
           scheduledEnd: period.end,
           vehicleSnapshot: vehicle,
           driverSnapshot: driver,
+          requestSnapshot: request,
+          specialRequirementsAcknowledged,
+          evidenceDescription,
         }, client)
         const scheduledRequest = await this.repository.markRequestScheduled(requestId, client)
         if (!scheduledRequest) throw new TripServiceError(409, 'Somente solicitações aprovadas podem ser agendadas.')
@@ -381,10 +415,11 @@ export class TripsService {
     const vehicleBlocking = vehicleReasons.filter((reason) => !isConflict(reason))
     const driverBlocking = driverReasons.filter((reason) => !isConflict(reason))
     if (vehicleBlocking.length > 0 || driverBlocking.length > 0) {
+      const code = driverBlocking.includes(AVAILABILITY_REASONS.accountUnavailable) ? 'ACCOUNT_UNAVAILABLE' : undefined
       throw new TripServiceError(422, [
         vehicleBlocking.length > 0 ? describe('O veículo', vehicleBlocking) : '',
         driverBlocking.length > 0 ? describe('O motorista', driverBlocking) : '',
-      ].filter(Boolean).join(' '))
+      ].filter(Boolean).join(' '), code)
     }
     const conflicts = [
       vehicleReasons.some(isConflict) ? 'O veículo já tem viagem no período.' : '',

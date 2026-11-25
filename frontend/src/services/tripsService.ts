@@ -57,7 +57,8 @@ async function failureFrom(response: Response): Promise<TripRequestError> {
   const kind = KIND_BY_STATUS[response.status] ?? (response.status >= 500 ? 'server' : 'rejected')
   const body: unknown = await response.json().catch(() => null)
   const apiMessage = isRecord(body) && typeof body.erro === 'string' && body.erro.trim() ? body.erro : null
-  return new TripRequestError(kind, kind !== 'server' && apiMessage ? apiMessage : FALLBACK_MESSAGES[kind], response.status)
+  const apiCode = isRecord(body) && typeof body.codigo === 'string' && body.codigo.trim() ? body.codigo.trim() : null
+  return new TripRequestError(kind, kind !== 'server' && apiMessage ? apiMessage : FALLBACK_MESSAGES[kind], response.status, apiCode)
 }
 
 function parseDriverTrip(value: unknown): DriverTrip {

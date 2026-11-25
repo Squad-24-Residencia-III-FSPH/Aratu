@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Alert, Box, Button, Stack, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
 import EditIcon from '@mui/icons-material/Edit'
+import HistoryIcon from '@mui/icons-material/History'
 import { useAuth } from '../../../auth/useAuth'
 import { resolveProfile } from '../../../auth/profiles'
 import { accessibleControls } from '../../../components/ui/accessibleControls'
@@ -44,6 +45,8 @@ import {
 import type { VehicleFilterValues } from './vehicleFilters'
 import VehicleFormDialog from './VehicleFormDialog'
 import VehicleStatusDialog from './VehicleStatusDialog'
+import EntityHistoryDialog from '../../../components/ui/EntityHistoryDialog'
+import { listVehicleHistory } from '../../../services/entityHistoryService'
 
 interface ConfirmedVehiclesSnapshot {
   filters: VehicleFilterValues
@@ -133,13 +136,27 @@ export default function VehiclesPage() {
     { mode: 'create' } | { mode: 'edit'; vehicle: Vehicle } | null
   >(null)
   const [statusVehicle, setStatusVehicle] = useState<Vehicle | null>(null)
+  const [historyVehicle, setHistoryVehicle] = useState<Vehicle | null>(null)
+  const loadVehicleHistory = useCallback((page: number) => {
+    if (!historyVehicle) return Promise.reject(new Error('Selecione um veículo para consultar o histórico.'))
+    return listVehicleHistory(api, historyVehicle.id, page)
+  }, [api, historyVehicle])
+
+  const previousTitleRef = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    if (previousTitleRef.current === null) {
+      previousTitleRef.current = document.title
+    }
+    return () => {
+      if (previousTitleRef.current !== null) {
+        document.title = previousTitleRef.current
+        previousTitleRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
-    const previousTitle = document.title
     document.title = 'Veículos da Frota — Aratu'
-    return () => {
-      document.title = previousTitle
-    }
   }, [])
 
   const apiFilters = useMemo(() => toVehicleApiFilters(filterValues), [filterValues])
@@ -251,6 +268,24 @@ export default function VehiclesPage() {
     : ''
   const requestedDescription = describeVehicleFilters(filterValues, typeFilter)
 
+  function handlePartialSaved(saved: Vehicle, message: string) {
+    setFormDialog(null)
+    setStatusVehicle(null)
+    setFetchState((previous) => {
+      if (!previous.confirmed) return previous
+      const exists = previous.confirmed.vehicles.some((vehicle) => vehicle.id === saved.id)
+      const vehicles = exists
+        ? previous.confirmed.vehicles.map((vehicle) => (vehicle.id === saved.id ? saved : vehicle))
+        : [saved, ...previous.confirmed.vehicles]
+      return {
+        ...previous,
+        confirmed: { ...previous.confirmed, vehicles },
+      }
+    })
+    setFeedback({ severity: 'warning', message })
+    reload()
+  }
+
   return (
     <Box sx={{ minWidth: 0, ...accessibleControls }}>
       <PageHeader
@@ -313,7 +348,6 @@ export default function VehiclesPage() {
                 value={typeFilter}
                 onChange={(value) => syncUrlFilters(filterValues, value)}
                 placeholder="Ex.: Van"
-                helperText="Filtra a lista já carregada."
               />
             </Box>
             <Button
@@ -409,6 +443,15 @@ export default function VehiclesPage() {
                       </Button>
                       <Button
                         size="small"
+                        startIcon={<HistoryIcon aria-hidden="true" />}
+                        onClick={() => setHistoryVehicle(vehicle)}
+                        aria-label={`Ver histórico do veículo ${vehicle.licensePlate}`}
+                        sx={{ minHeight: 44 }}
+                      >
+                        Histórico
+                      </Button>
+                      <Button
+                        size="small"
                         startIcon={<AutorenewIcon aria-hidden="true" />}
                         onClick={() => setStatusVehicle(vehicle)}
                         disabled={actionsSuspended}
@@ -447,6 +490,7 @@ export default function VehiclesPage() {
             ? { mode: 'edit' as const, vehicle: formDialog.vehicle }
             : { mode: 'create' as const })}
           onSaved={handleSaved}
+          onPartialSaved={handlePartialSaved}
           onCancel={() => setFormDialog(null)}
           onConflict={handleConflict}
         />
@@ -463,6 +507,11 @@ export default function VehiclesPage() {
           onConflict={handleConflict}
         />
       )}
+      {historyVehicle && <EntityHistoryDialog
+        title={`Histórico do veículo ${historyVehicle.licensePlate}`}
+        loadPage={loadVehicleHistory}
+        onClose={() => setHistoryVehicle(null)}
+      />}
     </Box>
   )
 }

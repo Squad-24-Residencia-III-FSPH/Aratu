@@ -5,8 +5,16 @@ import type { ApiRequest } from '../../api/client'
 import { accessibleControls } from '../../components/ui/accessibleControls'
 import { FormField, FormSelect } from '../../components/ui/FormField'
 import type { FormSelectOption } from '../../components/ui/FormField'
-import type { CreateFuelingInput, FuelingVersion } from '../../fuelings/fuelingTypes'
-import { createFueling, FuelingRequestError, isUncertainFuelingOutcome, listFuelings } from '../../services/fuelingsService'
+import type { CreateFuelingInput, FuelingVersion, RectifyFuelingInput } from '../../fuelings/fuelingTypes'
+import {
+  createFueling,
+  FuelingRequestError,
+  FuelingWriteError,
+  isUncertainFuelingOutcome,
+  listFuelings,
+  rectifyFueling,
+} from '../../services/fuelingsService'
+import { operationalDateTimeInput } from '../../time/operationalTime'
 import {
   buildCanonicalFuelingSignature,
   localDateTimeValue,
@@ -27,6 +35,7 @@ interface FuelingFormDialogProps {
   onSaved: (saved: FuelingVersion, message?: string) => void
   onReconcileList?: () => void
   onCancel: () => void
+  fueling?: FuelingVersion
 }
 
 const FUEL_OPTIONS: readonly FormSelectOption[] = [
@@ -51,20 +60,22 @@ export default function FuelingFormDialog({
   onSaved,
   onReconcileList,
   onCancel,
+  fueling,
 }: FuelingFormDialogProps) {
   const titleId = useId()
   const [values, setValues] = useState<FuelingFormValues>(() => ({
-    vehicleId: '',
-    driverId: '',
-    fueledAt: localDateTimeValue(new Date()),
-    fuelType: '',
-    liters: '',
-    totalValue: '',
-    odometerKm: '',
-    station: '',
+    vehicleId: fueling?.vehicleId ?? '',
+    driverId: fueling?.driverId ?? '',
+    fueledAt: fueling ? operationalDateTimeInput(fueling.fueledAt) : localDateTimeValue(new Date()),
+    fuelType: fueling?.fuelType ?? '',
+    liters: fueling?.liters ?? '',
+    totalValue: fueling?.totalValue ?? '',
+    odometerKm: fueling ? String(fueling.odometerKm) : '',
+    station: fueling?.station ?? '',
     reason: '',
     evidenceDescription: '',
   }))
+  const [notes, setNotes] = useState(fueling?.notes ?? '')
   const [fieldErrors, setFieldErrors] = useState<FuelingFieldErrors>({})
   const [submitError, setSubmitError] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
@@ -144,6 +155,15 @@ export default function FuelingFormDialog({
     }
   }
 
+  function updateNotes(value: string) {
+    setNotes(value)
+    setSubmitError('')
+    setStatusMessage('')
+    if (uncertainInput) {
+      setUncertainInput(null)
+    }
+  }
+
   async function handleReconcile() {
     if (!uncertainInput || reconciling || saving) return
     setReconciling(true)
@@ -191,7 +211,24 @@ export default function FuelingFormDialog({
     }
 
     const { input } = validation
-    const signature = buildCanonicalFuelingSignature(input)
+    if (fueling && !fueling.revision) {
+      setSubmitError('A revisão atual do abastecimento não está disponível. Atualize a consulta antes de corrigir.')
+      requestAnimationFrame(() => focusElement(errorAlertRef.current))
+      return
+    }
+
+    const trimmedNotes = notes.trim()
+    const createPayload: CreateFuelingInput = trimmedNotes ? { ...input, notes: trimmedNotes } : input
+    const signature = fueling
+      ? JSON.stringify({
+          kind: 'rectify',
+          id: fueling.id,
+          revision: fueling.revision,
+          base: buildCanonicalFuelingSignature(input),
+          notes: trimmedNotes || null,
+        })
+      : `${buildCanonicalFuelingSignature(input)}${trimmedNotes ? `|notes:${trimmedNotes}` : ''}`
+
     if (idempotencyAttemptRef.current?.signature !== signature) {
       idempotencyAttemptRef.current = { signature, key: crypto.randomUUID() }
     }
@@ -200,10 +237,30 @@ export default function FuelingFormDialog({
     setSaving(true)
     setFieldErrors({})
     setSubmitError('')
-    setStatusMessage('Registrando abastecimento, aguarde...')
+    setStatusMessage(fueling ? 'Salvando correção, aguarde...' : 'Registrando abastecimento, aguarde...')
 
     try {
-      const saved = await createFueling(api, input, idempotencyAttemptRef.current.key)
+      const saved = fueling && fueling.revision
+        ? await rectifyFueling(
+            api,
+            fueling.id,
+            {
+              expectedRevision: fueling.revision,
+              driverId: input.driverId ?? null,
+              fueledAt: input.fueledAt,
+              fuelType: input.fuelType,
+              liters: input.liters,
+              totalValue: input.totalValue,
+              odometerKm: input.odometerKm,
+              station: input.station ?? null,
+              notes: trimmedNotes || null,
+              reportedBy: input.reportedBy,
+              reason: input.reason,
+              evidenceDescription: input.evidenceDescription,
+            } satisfies RectifyFuelingInput,
+            idempotencyAttemptRef.current.key,
+          )
+        : await createFueling(api, createPayload, idempotencyAttemptRef.current.key)
       idempotencyAttemptRef.current = null
       setUncertainInput(null)
       setStatusMessage('')
@@ -213,7 +270,10 @@ export default function FuelingFormDialog({
         ? requestError.message
         : 'Não foi possível registrar o abastecimento.'
 
-      if (requestError instanceof FuelingRequestError && requestError.status === 409) {
+      const httpStatus = requestError instanceof FuelingRequestError || requestError instanceof FuelingWriteError
+        ? requestError.status
+        : undefined
+      if (httpStatus === 409) {
         idempotencyAttemptRef.current = null
         setUncertainInput(null)
         setStatusMessage('')
@@ -225,7 +285,11 @@ export default function FuelingFormDialog({
       if (isUncertainFuelingOutcome(requestError)) {
         setUncertainInput(input)
         setStatusMessage('')
-        setSubmitError(`${rawMessage} Não foi possível confirmar se o abastecimento foi gravado. Consulte os lançamentos ou reenvie com segurança usando a mesma intenção.`)
+        setSubmitError(
+          fueling
+            ? `${rawMessage} Não foi possível confirmar se a correção foi gravada. Reenvie com segurança usando a mesma intenção.`
+            : `${rawMessage} Não foi possível confirmar se o abastecimento foi gravado. Consulte os lançamentos ou reenvie com segurança usando a mesma intenção.`,
+        )
         requestAnimationFrame(() => focusElement(errorAlertRef.current))
         return
       }
@@ -269,7 +333,7 @@ export default function FuelingFormDialog({
       }}
     >
       <Box component="form" onSubmit={handleSubmit} aria-busy={busy ? 'true' : undefined} noValidate>
-        <DialogTitle id={titleId}>Registrar abastecimento</DialogTitle>
+        <DialogTitle id={titleId}>{fueling ? `Corrigir abastecimento #${fueling.id}` : 'Registrar abastecimento'}</DialogTitle>
         <DialogContent
           dividers
           onFocusCapture={handleContentFocusCapture}
@@ -290,7 +354,7 @@ export default function FuelingFormDialog({
                 tabIndex={-1}
                 severity={uncertainInput ? 'warning' : 'error'}
                 role="alert"
-                action={uncertainInput ? (
+                action={uncertainInput && !fueling ? (
                   <Button
                     type="button"
                     size="small"
@@ -305,6 +369,11 @@ export default function FuelingFormDialog({
                 {submitError}
               </Alert>
             )}
+            {fueling && (
+              <Alert severity="info">
+                A correção cria uma nova versão. O veículo não pode ser alterado e a versão anterior permanece no histórico.
+              </Alert>
+            )}
             <Box ref={vehicleBoxRef}>
               <FormSelect
                 label="Veículo"
@@ -313,9 +382,9 @@ export default function FuelingFormDialog({
                 options={vehicles}
                 emptyLabel="Selecione um veículo"
                 error={fieldErrors.vehicleId}
-                disabled={busy}
+                disabled={busy || Boolean(fueling)}
                 required
-                autoFocus
+                autoFocus={!fueling}
               />
             </Box>
             <Box ref={driverBoxRef}>
@@ -413,6 +482,14 @@ export default function FuelingFormDialog({
               />
             </Stack>
             <FormField
+              label="Observações (opcional)"
+              value={notes}
+              onChange={updateNotes}
+              disabled={busy}
+              multiline
+              minRows={2}
+            />
+            <FormField
               label="Justificativa do registro"
               value={values.reason}
               onChange={(value) => update('reason', value)}
@@ -448,10 +525,12 @@ export default function FuelingFormDialog({
             aria-busy={saving ? 'true' : undefined}
           >
             {saving
-              ? 'Registrando...'
+              ? fueling ? 'Salvando...' : 'Registrando...'
               : uncertainInput
                 ? 'Reenviar com segurança'
-                : 'Registrar abastecimento'}
+                : fueling
+                  ? 'Salvar correção'
+                  : 'Registrar abastecimento'}
           </Button>
         </DialogActions>
       </Box>

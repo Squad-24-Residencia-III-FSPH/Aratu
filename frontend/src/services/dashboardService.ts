@@ -2,17 +2,31 @@ import type { ApiRequest } from '../api/client.ts'
 import { SESSION_EXPIRED } from '../auth/token.ts'
 import {
   DashboardRequestError,
+  type DashboardActivityBucket,
+  type DashboardDriversSummary,
+  type DashboardFinesSummary,
   type DashboardIndicators,
   type DashboardIndicatorsQuery,
+  type DashboardMeasures,
   type DashboardRequestErrorKind,
   type DashboardSummary,
   type DashboardSvoIndicators,
   type DashboardSvoSummary,
+  type DashboardVehicleIndicators,
   type GestorTripAgendaFilters,
   type GestorTripAgendaItem,
+  type ScheduledTripSummary,
   type VehicleIndicatorMeasures,
   type VehicleIndicators,
 } from '../types/dashboard.ts'
+
+export type {
+  DashboardIndicators,
+  DashboardMeasures,
+  DashboardSummary,
+  DashboardVehicleIndicators,
+  ScheduledTripSummary,
+}
 
 const NETWORK_MESSAGE = 'Não foi possível se comunicar com o servidor. Verifique a conexão.'
 const INVALID_RESPONSE_MESSAGE = 'A resposta do painel operacional não está no formato esperado.'
@@ -34,6 +48,40 @@ const FALLBACK_MESSAGES: Readonly<Record<DashboardRequestErrorKind, string>> = {
   invalidResponse: INVALID_RESPONSE_MESSAGE,
 }
 
+const ACTIVITY_BUCKET_KEYS = [
+  'tripsCount',
+  'fuelCost',
+  'maintenanceOpened',
+  'maintenanceClosed',
+  'requestsCreated',
+  'requestsApproved',
+  'requestsRejected',
+  'requestsScheduled',
+  'requestsCanceled',
+  'finesRegistered',
+  'finesPaid',
+  'finesContested',
+  'driversCreated',
+  'driversStatusChanged',
+  'documentsRegistered',
+  'documentsRenewed',
+] as const
+
+const EMPTY_DRIVERS_SUMMARY: DashboardDriversSummary = {
+  active: 0,
+  away: 0,
+  inactive: 0,
+  total: 0,
+  cnhExpiring: 0,
+  cnhExpired: 0,
+}
+
+const EMPTY_FINES_SUMMARY: DashboardFinesSummary = {
+  pending: 0,
+  paid: 0,
+  contested: 0,
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -42,8 +90,16 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+function isNonNegativeNumber(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0
+}
+
 function isNonNegativeInt(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0
+}
+
+function isOptionalNonNegativeInt(value: unknown): value is number | undefined {
+  return value === undefined || isNonNegativeInt(value)
 }
 
 function isNullableNumber(value: unknown): value is number | null {
@@ -99,6 +155,42 @@ function parseSvoSummary(value: unknown): DashboardSvoSummary {
   }
 }
 
+function parseDriversSummary(value: unknown): DashboardDriversSummary {
+  if (value === undefined) return EMPTY_DRIVERS_SUMMARY
+  if (!isRecord(value)
+    || !isNonNegativeInt(value.active)
+    || !isNonNegativeInt(value.away)
+    || !isNonNegativeInt(value.inactive)
+    || !isNonNegativeInt(value.total)
+    || !isNonNegativeInt(value.cnhExpiring)
+    || !isNonNegativeInt(value.cnhExpired)) {
+    invalid()
+  }
+  return {
+    active: value.active,
+    away: value.away,
+    inactive: value.inactive,
+    total: value.total,
+    cnhExpiring: value.cnhExpiring,
+    cnhExpired: value.cnhExpired,
+  }
+}
+
+function parseFinesSummary(value: unknown): DashboardFinesSummary {
+  if (value === undefined) return EMPTY_FINES_SUMMARY
+  if (!isRecord(value)
+    || !isNonNegativeInt(value.pending)
+    || !isNonNegativeInt(value.paid)
+    || !isNonNegativeInt(value.contested)) {
+    invalid()
+  }
+  return {
+    pending: value.pending,
+    paid: value.paid,
+    contested: value.contested,
+  }
+}
+
 function parseMeasures(value: unknown): VehicleIndicatorMeasures {
   if (!isRecord(value)
     || !isNonNegativeInt(value.tripsCount)
@@ -106,6 +198,10 @@ function parseMeasures(value: unknown): VehicleIndicatorMeasures {
     || !isFiniteNumber(value.litersFueled)
     || !isFiniteNumber(value.fuelCost)
     || !isNullableNumber(value.averageConsumptionKmPerLiter)
+    || !isOptionalNonNegativeInt(value.maintenanceOrdersOpened)
+    || !isOptionalNonNegativeInt(value.preventiveMaintenanceOrdersOpened)
+    || !isOptionalNonNegativeInt(value.correctiveMaintenanceOrdersOpened)
+    || !isOptionalNonNegativeInt(value.vehiclesWithCorrectiveMaintenance)
     || !isFiniteNumber(value.maintenanceCost)) {
     invalid()
   }
@@ -115,6 +211,10 @@ function parseMeasures(value: unknown): VehicleIndicatorMeasures {
     litersFueled: value.litersFueled,
     fuelCost: value.fuelCost,
     averageConsumptionKmPerLiter: value.averageConsumptionKmPerLiter,
+    maintenanceOrdersOpened: value.maintenanceOrdersOpened ?? 0,
+    preventiveMaintenanceOrdersOpened: value.preventiveMaintenanceOrdersOpened ?? 0,
+    correctiveMaintenanceOrdersOpened: value.correctiveMaintenanceOrdersOpened ?? 0,
+    vehiclesWithCorrectiveMaintenance: value.vehiclesWithCorrectiveMaintenance ?? 0,
     maintenanceCost: value.maintenanceCost,
   }
 }
@@ -144,6 +244,34 @@ function parseSvoIndicators(value: unknown): DashboardSvoIndicators {
   }
 }
 
+function parseActivityBucket(value: unknown): DashboardActivityBucket {
+  if (!isRecord(value)
+    || !isString(value.period)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(value.period)
+    || !ACTIVITY_BUCKET_KEYS.every((key) => isNonNegativeNumber(value[key]))) {
+    invalid()
+  }
+  return {
+    period: value.period,
+    tripsCount: value.tripsCount as number,
+    fuelCost: value.fuelCost as number,
+    maintenanceOpened: value.maintenanceOpened as number,
+    maintenanceClosed: value.maintenanceClosed as number,
+    requestsCreated: value.requestsCreated as number,
+    requestsApproved: value.requestsApproved as number,
+    requestsRejected: value.requestsRejected as number,
+    requestsScheduled: value.requestsScheduled as number,
+    requestsCanceled: value.requestsCanceled as number,
+    finesRegistered: value.finesRegistered as number,
+    finesPaid: value.finesPaid as number,
+    finesContested: value.finesContested as number,
+    driversCreated: value.driversCreated as number,
+    driversStatusChanged: value.driversStatusChanged as number,
+    documentsRegistered: value.documentsRegistered as number,
+    documentsRenewed: value.documentsRenewed as number,
+  }
+}
+
 function parseSummary(body: unknown): DashboardSummary {
   if (!isRecord(body)
     || !isString(body.generatedAt)
@@ -153,6 +281,8 @@ function parseSummary(body: unknown): DashboardSummary {
     || !isNonNegativeInt(body.fleet.inactive)
     || !isNonNegativeInt(body.fleet.total)
     || !isNonNegativeInt(body.pendingRequests)
+    || !isOptionalNonNegativeInt(body.tripsInProgress)
+    || !isOptionalNonNegativeInt(body.vehiclesInTrip)
     || !isNonNegativeInt(body.tripsToConfirm)
     || !isRecord(body.documents)
     || !isNonNegativeInt(body.documents.expiring)
@@ -168,7 +298,11 @@ function parseSummary(body: unknown): DashboardSummary {
       inactive: body.fleet.inactive,
       total: body.fleet.total,
     },
+    drivers: parseDriversSummary(body.drivers),
+    fines: parseFinesSummary(body.fines),
     pendingRequests: body.pendingRequests,
+    tripsInProgress: body.tripsInProgress ?? 0,
+    vehiclesInTrip: body.vehiclesInTrip ?? 0,
     tripsToConfirm: body.tripsToConfirm,
     documents: {
       expiring: body.documents.expiring,
@@ -184,6 +318,8 @@ function parseIndicators(body: unknown): DashboardIndicators {
     || !isRecord(body.period)
     || !isString(body.period.from)
     || !isString(body.period.to)
+    || !(body.activityBucket === undefined || body.activityBucket === 'day' || body.activityBucket === 'month')
+    || !(body.activitySeries === undefined || Array.isArray(body.activitySeries))
     || !Array.isArray(body.vehicles)
     || !Array.isArray(body.pendingValidation)
     || !body.pendingValidation.every(isString)) {
@@ -191,6 +327,8 @@ function parseIndicators(body: unknown): DashboardIndicators {
   }
   return {
     period: { from: body.period.from, to: body.period.to },
+    activityBucket: body.activityBucket ?? 'day',
+    activitySeries: body.activitySeries ? body.activitySeries.map(parseActivityBucket) : [],
     vehicles: body.vehicles.map(parseVehicleIndicator),
     totals: parseMeasures(body.totals),
     ...(body.svo !== undefined ? { svo: parseSvoIndicators(body.svo) } : {}),
@@ -232,12 +370,47 @@ function parseAgendaTrip(value: unknown): GestorTripAgendaItem {
   }
 }
 
+function parseScheduledTrip(value: unknown): ScheduledTripSummary {
+  if (!isRecord(value)
+    || !isString(value.id)
+    || value.status !== 'SCHEDULED'
+    || !isString(value.scheduledStart)
+    || Number.isNaN(Date.parse(value.scheduledStart))
+    || !isString(value.scheduledEnd)
+    || Number.isNaN(Date.parse(value.scheduledEnd))
+    || !isString(value.vehicleLicensePlate)
+    || !isString(value.driverName)
+    || !isString(value.origin)
+    || !isString(value.destination)) {
+    invalid()
+  }
+  return {
+    id: value.id,
+    scheduledStart: value.scheduledStart,
+    scheduledEnd: value.scheduledEnd,
+    vehicleLicensePlate: value.vehicleLicensePlate,
+    driverName: value.driverName,
+    origin: value.origin,
+    destination: value.destination,
+  }
+}
+
 /** Busca o retrato atual da operação em `GET /dashboard/summary`. */
-export async function fetchDashboardSummary(api: ApiRequest, signal?: AbortSignal): Promise<DashboardSummary> {
-  const response = await send(api, '/dashboard/summary', signal)
+export async function fetchDashboardSummary(
+  api: ApiRequest,
+  signal?: AbortSignal,
+  vehicleId?: string,
+): Promise<DashboardSummary> {
+  const query = vehicleId ? `?${new URLSearchParams({ vehicleId }).toString()}` : ''
+  const response = await send(api, `/dashboard/summary${query}`, signal)
   if (!response.ok) throw await failureFrom(response)
   const body: unknown = await response.json().catch(() => null)
   return parseSummary(body)
+}
+
+/** Alias de compatibilidade com a interface da `develop` para `GET /dashboard/summary`. */
+export function getDashboardSummary(api: ApiRequest, vehicleId?: string): Promise<DashboardSummary> {
+  return fetchDashboardSummary(api, undefined, vehicleId)
 }
 
 /** Busca os indicadores agregados por veículo e período em `GET /dashboard/indicators`. */
@@ -252,6 +425,19 @@ export async function fetchDashboardIndicators(
   if (!response.ok) throw await failureFrom(response)
   const body: unknown = await response.json().catch(() => null)
   return parseIndicators(body)
+}
+
+/** Alias de compatibilidade com a interface da `develop` para `GET /dashboard/indicators`. */
+export function getDashboardIndicators(
+  api: ApiRequest,
+  filters: { from: string; toExclusive: string; vehicleId?: string },
+  signal?: AbortSignal,
+): Promise<DashboardIndicators> {
+  return fetchDashboardIndicators(api, {
+    from: filters.from,
+    to: filters.toExclusive,
+    ...(filters.vehicleId ? { vehicleId: filters.vehicleId } : {}),
+  }, signal)
 }
 
 /** Lista viagens agendadas pelo horário planejado (`GET /trips`) para compor a agenda do Gestor. */
@@ -270,6 +456,20 @@ export async function fetchGestorTripAgenda(
   const body: unknown = await response.json().catch(() => null)
   if (!Array.isArray(body)) invalid()
   return body.map(parseAgendaTrip)
+}
+
+/** Lista viagens futuras com status `SCHEDULED` para o bloco de agenda futura do Dashboard. */
+export async function listScheduledTrips(
+  api: ApiRequest,
+  filters: { from: string; to: string },
+  signal?: AbortSignal,
+): Promise<ScheduledTripSummary[]> {
+  const query = new URLSearchParams({ status: 'SCHEDULED', from: filters.from, to: filters.to })
+  const response = await send(api, `/trips?${query.toString()}`, signal)
+  if (!response.ok) throw await failureFrom(response)
+  const body: unknown = await response.json().catch(() => null)
+  if (!Array.isArray(body)) invalid()
+  return body.map(parseScheduledTrip)
 }
 
 /** Conta solicitações pendentes com data desejada para o dia informado via `GET /requests`. */

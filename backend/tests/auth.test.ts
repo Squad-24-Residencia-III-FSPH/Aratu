@@ -255,7 +255,11 @@ test('GET /auth/me revalida conta ativa para qualquer perfil sem expor dados int
       headers: { Authorization: `Bearer ${driverToken}` },
     })
     assert.equal(activeResponse.status, 200)
-    assert.deepEqual(await activeResponse.json(), { id: '4', perfil: 'MOTORISTA' })
+    assert.deepEqual(await activeResponse.json(), {
+      id: '4',
+      nome: 'Motorista Fictício QA',
+      perfil: 'MOTORISTA',
+    })
 
     currentAccount = { ...activeDriver, active: false }
     const deactivatedResponse = await fetch(`${baseUrl}/auth/me`, {

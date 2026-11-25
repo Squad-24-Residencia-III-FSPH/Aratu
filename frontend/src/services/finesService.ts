@@ -203,13 +203,13 @@ function parseTimelineEntry(value: unknown): FineTimelineEntry {
     || typeof value.reason !== 'string'
     || !isNullableString(value.evidenceDescription)
     || !isNullableString(value.attachmentUrl)
-    || !(value.supersedesId === null || isPositiveId(value.supersedesId))
+    || !(value.supersedesId === undefined || value.supersedesId === null || isPositiveId(value.supersedesId))
     || !isRecord(value.actor)
     || typeof value.actor.id !== 'string'
     || typeof value.actor.name !== 'string'
     || typeof value.actor.role !== 'string'
-    || !(value.before === null || isRecord(value.before))
-    || !isRecord(value.after)
+    || !(value.before === undefined || value.before === null || isRecord(value.before))
+    || !(value.after === undefined || isRecord(value.after))
   ) {
     throw new Error(INVALID_FINE_MESSAGE)
   }
@@ -223,14 +223,14 @@ function parseTimelineEntry(value: unknown): FineTimelineEntry {
     reason: value.reason,
     evidenceDescription: value.evidenceDescription,
     attachmentUrl: value.attachmentUrl,
-    supersedesId: value.supersedesId,
+    supersedesId: value.supersedesId ?? null,
     actor: {
       id: value.actor.id,
       name: value.actor.name,
       role: value.actor.role,
     },
-    before: value.before as Partial<Fine> | null,
-    after: value.after as Partial<Fine>,
+    before: (value.before ?? null) as Partial<Fine> | null,
+    after: (value.after ?? {}) as Partial<Fine>,
   }
 }
 

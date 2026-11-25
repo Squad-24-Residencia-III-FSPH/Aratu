@@ -48,9 +48,11 @@ const KNOWN_REASON_DESCRIPTIONS: Readonly<Record<string, string>> = {
   MAINTENANCE: 'está em manutenção impeditiva',
   INCOMPATIBLE: 'não atende ao tipo de serviço da solicitação',
   CAPACITY_EXCEEDED: 'não comporta a quantidade de passageiros da solicitação',
+  INSUFFICIENT_CAPACITY: 'não comporta a quantidade de passageiros da solicitação',
   AWAY: 'está afastado no momento',
   CNH_EXPIRED: 'está com a CNH vencida antes do término previsto',
   INACTIVE: 'está inativo no cadastro',
+  ACCOUNT_UNAVAILABLE: 'não possui conta ativa vinculada com perfil de Motorista',
 }
 
 const KNOWN_REASON_LABELS: Readonly<Record<string, string>> = {
@@ -58,9 +60,11 @@ const KNOWN_REASON_LABELS: Readonly<Record<string, string>> = {
   MAINTENANCE: 'Em manutenção impeditiva',
   INCOMPATIBLE: 'Incompatível com o serviço',
   CAPACITY_EXCEEDED: 'Lotação insuficiente',
+  INSUFFICIENT_CAPACITY: 'Lotação insuficiente',
   AWAY: 'Afastado',
   CNH_EXPIRED: 'CNH vencida',
   INACTIVE: 'Inativo',
+  ACCOUNT_UNAVAILABLE: 'Conta de motorista indisponível',
 }
 
 function operationalParts(timestamp: number): Record<string, string> {

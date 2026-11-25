@@ -37,7 +37,7 @@ const request = {
   serviceId: 'service-1', serviceName: 'Transporte institucional',
   requestedDate: '2026-12-15', requestedTime: '08:30',
   origin: 'Unidade de origem', destination: 'Unidade de destino', purpose: 'Atividade institucional',
-  passengers: 2, status: 'PENDING', decidedBy: null, decidedByName: null,
+  passengers: 2, specialRequirements: null, notes: null, status: 'PENDING', revision: 1, decidedBy: null, decidedByName: null,
   decidedAt: null, decisionReason: null, createdAt: '2026-11-12T12:00:00.000Z',
   updatedAt: '2026-11-12T12:00:00.000Z', trip: null,
 }

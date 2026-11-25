@@ -1,6 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Box, Button, Card, CardContent, Stack, Typography } from '@mui/material'
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardActions,
+  CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import EditOutlined from '@mui/icons-material/EditOutlined'
+import HistoryOutlined from '@mui/icons-material/HistoryOutlined'
 import { useInRouterContext, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/useAuth'
 import { resolveProfile } from '../../auth/profiles'
@@ -15,26 +32,22 @@ import { canAccessFuelings } from '../../fuelings/fuelingAccess'
 import { FUEL_TYPE_LABELS } from '../../fuelings/fuelingTypes'
 import type { FuelingFilters, FuelingList, FuelingVersion } from '../../fuelings/fuelingTypes'
 import { listDrivers } from '../../services/driversService'
-import { listFuelings } from '../../services/fuelingsService'
+import { getFuelingDetail, listFuelings } from '../../services/fuelingsService'
 import { listVehicles } from '../../services/vehiclesService'
 import type { Driver } from '../../drivers/driverTypes'
 import { VEHICLES_PATH } from '../../vehicles/vehicleAccess'
 import type { Vehicle } from '../../vehicles/vehicleTypes'
 import { formatCalendarDate, formatDateTime } from '../../utils/dates'
 import FuelingFormDialog from './FuelingFormDialog'
+import type { FuelingDetail } from '../../fuelings/fuelingTypes'
+import { formatOperationalDateTime, operationalDayEndExclusive, operationalDayStart } from '../../time/operationalTime'
 
 const PAGE_SIZE = 20
 const CURRENCY = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const NUMBER = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 })
 
-function localMidnight(value: string): string {
-  return new Date(`${value}T00:00:00`).toISOString()
-}
-
-function nextLocalDay(value: string): string {
-  const nextDay = new Date(`${value}T00:00:00`)
-  nextDay.setDate(nextDay.getDate() + 1)
-  return nextDay.toISOString()
+function formatDate(value: string): string {
+  return formatOperationalDateTime(value)
 }
 
 function snapshotPlate(fueling: FuelingVersion): string {
@@ -123,7 +136,8 @@ export default function FuelingsPage() {
   const { api, session } = useAuth()
   const profile = session ? resolveProfile(session.perfil) : null
   const allowed = canAccessFuelings(profile)
-
+  const theme = useTheme()
+  const smallScreen = useMediaQuery(theme.breakpoints.down('sm'))
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [vehiclesLoading, setVehiclesLoading] = useState(allowed)
   const [vehiclesError, setVehiclesError] = useState('')
@@ -144,6 +158,8 @@ export default function FuelingsPage() {
   const [error, setError] = useState('')
   const [refreshToken, setRefreshToken] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
+  const [correctionTarget, setCorrectionTarget] = useState<FuelingVersion | null>(null)
+  const [details, setDetails] = useState<{ detail: FuelingDetail | null; error: string; loading: boolean } | null>(null)
   const [notice, setNotice] = useState('')
 
   const listSequenceRef = useRef(0)
@@ -249,8 +265,8 @@ export default function FuelingsPage() {
     const filters: FuelingFilters = {
       ...(vehicleId ? { vehicleId } : {}),
       ...(driverId ? { driverId } : {}),
-      ...(from ? { from: localMidnight(from) } : {}),
-      ...(to ? { to: nextLocalDay(to) } : {}),
+      ...(from ? { from: operationalDayStart(from) } : {}),
+      ...(to ? { to: operationalDayEndExclusive(to) } : {}),
       page,
       pageSize: PAGE_SIZE,
     }
@@ -305,8 +321,16 @@ export default function FuelingsPage() {
   }
 
   function handleSaved(saved: FuelingVersion, customMessage?: string) {
+    const wasCorrection = correctionTarget !== null
     setFormOpen(false)
-    setNotice(customMessage ?? `Abastecimento #${saved.id} registrado com sucesso.`)
+    setCorrectionTarget(null)
+    setNotice(
+      customMessage ?? (
+        wasCorrection
+          ? 'Correção registrada. As versões anteriores foram preservadas.'
+          : `Abastecimento #${saved.id} registrado com sucesso.`
+      ),
+    )
     setPage(1)
     setError('')
     setLoading(true)
@@ -316,7 +340,14 @@ export default function FuelingsPage() {
 
   function handleCancelForm() {
     setFormOpen(false)
+    setCorrectionTarget(null)
     requestAnimationFrame(() => registerButtonRef.current?.focus())
+  }
+
+  async function openDetails(fueling: FuelingVersion): Promise<void> {
+    setDetails({ detail: null, error: '', loading: true })
+    try { setDetails({ detail: await getFuelingDetail(api, fueling.id), error: '', loading: false }) }
+    catch (requestError) { setDetails({ detail: null, error: requestError instanceof Error ? requestError.message : 'Não foi possível carregar o histórico.', loading: false }) }
   }
 
   const filtersActive = Boolean(vehicleId || driverId || from || to)
@@ -383,8 +414,12 @@ export default function FuelingsPage() {
             type="button"
             variant="contained"
             startIcon={<AddIcon aria-hidden="true" />}
-            onClick={() => setFormOpen(true)}
+            onClick={() => {
+              setCorrectionTarget(null)
+              setFormOpen(true)
+            }}
             disabled={vehiclesLoading || Boolean(vehiclesError) || vehicles.length === 0}
+            sx={{ minHeight: 44 }}
           >
             Registrar Abastecimento
           </Button>
@@ -489,7 +524,7 @@ export default function FuelingsPage() {
                 onChange={(value) => changeFilter(setTo, value)}
               />
             </Box>
-            <Button type="button" variant="outlined" onClick={clearFilters} disabled={!filtersActive}>
+            <Button type="button" variant="outlined" onClick={clearFilters} disabled={!filtersActive} sx={{ minHeight: 44 }}>
               Limpar filtros
             </Button>
           </FilterBar>
@@ -506,27 +541,99 @@ export default function FuelingsPage() {
 
           {!queryError && (
             <>
-              <DataTable
-                caption="Abastecimentos registrados"
-                columns={COLUMNS}
-                rows={confirmed?.data.items ?? []}
-                rowKey={(fueling) => fueling.id}
-                busy={effectiveLoading}
-                minWidth={1200}
-                loadingContent={<StateFeedback kind="loading" title="Carregando abastecimentos..." />}
-                emptyContent={(
-                  <StateFeedback
-                    kind="empty"
-                    title={filtersActive ? 'Nenhum abastecimento encontrado' : 'Nenhum abastecimento registrado'}
-                    description={filtersActive
-                      ? 'Ajuste os filtros ou limpe a busca para ver outros registros.'
-                      : 'Registre o primeiro abastecimento para acompanhar os gastos da frota.'}
-                    actionLabel={filtersActive ? 'Limpar filtros' : undefined}
-                    onAction={filtersActive ? clearFilters : undefined}
-                    centered
-                  />
-                )}
-              />
+              {smallScreen ? (
+                <Stack spacing={1.5}>
+                  {effectiveLoading ? (
+                    <StateFeedback kind="loading" title="Carregando abastecimentos..." />
+                  ) : (confirmed?.data.items.length ?? 0) > 0 ? (
+                    (confirmed?.data.items ?? []).map((fueling) => (
+                      <Card key={fueling.id} variant="outlined">
+                        <CardContent>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                            {snapshotPlate(fueling)} · {CURRENCY.format(Number(fueling.totalValue))}
+                          </Typography>
+                          <Typography variant="body2">
+                            {FUEL_TYPE_LABELS[fueling.fuelType]} · {NUMBER.format(Number(fueling.liters))} L · {formatDate(fueling.fueledAt)}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {fueling.driverSnapshot?.name ?? 'Motorista não informado'} · {NUMBER.format(fueling.odometerKm)} km
+                          </Typography>
+                        </CardContent>
+                        <CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                          <Button
+                            onClick={() => { void openDetails(fueling) }}
+                            startIcon={<HistoryOutlined aria-hidden="true" />}
+                            sx={{ minHeight: 48 }}
+                          >
+                            Histórico
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setCorrectionTarget(fueling)
+                              setFormOpen(true)
+                            }}
+                            disabled={fueling.isAnnulled || !fueling.revision}
+                            startIcon={<EditOutlined aria-hidden="true" />}
+                            sx={{ minHeight: 48 }}
+                          >
+                            Corrigir
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    ))
+                  ) : (
+                    <StateFeedback
+                      kind="empty"
+                      title={filtersActive ? 'Nenhum abastecimento encontrado' : 'Nenhum abastecimento registrado'}
+                      description={filtersActive
+                        ? 'Ajuste os filtros ou limpe a busca para ver outros registros.'
+                        : 'Registre o primeiro abastecimento para acompanhar os gastos da frota.'}
+                      actionLabel={filtersActive ? 'Limpar filtros' : undefined}
+                      onAction={filtersActive ? clearFilters : undefined}
+                      centered
+                    />
+                  )}
+                </Stack>
+              ) : (
+                <DataTable
+                  caption="Abastecimentos registrados"
+                  columns={COLUMNS}
+                  rows={confirmed?.data.items ?? []}
+                  rowKey={(fueling) => fueling.id}
+                  busy={effectiveLoading}
+                  minWidth={1200}
+                  loadingContent={<StateFeedback kind="loading" title="Carregando abastecimentos..." />}
+                  emptyContent={(
+                    <StateFeedback
+                      kind="empty"
+                      title={filtersActive ? 'Nenhum abastecimento encontrado' : 'Nenhum abastecimento registrado'}
+                      description={filtersActive
+                        ? 'Ajuste os filtros ou limpe a busca para ver outros registros.'
+                        : 'Registre o primeiro abastecimento para acompanhar os gastos da frota.'}
+                      actionLabel={filtersActive ? 'Limpar filtros' : undefined}
+                      onAction={filtersActive ? clearFilters : undefined}
+                      centered
+                    />
+                  )}
+                  renderActions={(fueling) => (
+                    <Stack direction="row" spacing={0.5}>
+                      <Button onClick={() => { void openDetails(fueling) }} sx={{ minHeight: 44 }}>
+                        Histórico
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setCorrectionTarget(fueling)
+                          setFormOpen(true)
+                        }}
+                        disabled={fueling.isAnnulled || !fueling.revision}
+                        sx={{ minHeight: 44 }}
+                      >
+                        Corrigir
+                      </Button>
+                    </Stack>
+                  )}
+                />
+              )}
               <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
                 <Typography variant="body2" color="text.secondary">
                   {confirmed ? `${confirmed.data.total} registro(s) encontrado(s)` : '0 registro(s) encontrado(s)'}
@@ -536,6 +643,7 @@ export default function FuelingsPage() {
                     type="button"
                     onClick={() => changePage(Math.max(1, page - 1))}
                     disabled={page <= 1 || effectiveLoading}
+                    sx={{ minHeight: 44 }}
                   >
                     Anterior
                   </Button>
@@ -546,6 +654,7 @@ export default function FuelingsPage() {
                     type="button"
                     onClick={() => changePage(Math.min(confirmed?.data.totalPages ?? 1, page + 1))}
                     disabled={page >= (confirmed?.data.totalPages ?? 1) || effectiveLoading}
+                    sx={{ minHeight: 44 }}
                   >
                     Próxima
                   </Button>
@@ -566,10 +675,28 @@ export default function FuelingsPage() {
               onSaved={handleSaved}
               onReconcileList={reloadList}
               onCancel={handleCancelForm}
+              {...(correctionTarget ? { fueling: correctionTarget } : {})}
             />
           )}
         </>
       )}
+      <Dialog open={Boolean(details)} onClose={() => setDetails(null)} fullScreen={smallScreen} fullWidth maxWidth="md" aria-labelledby="fueling-history-title">
+        <DialogTitle id="fueling-history-title">Histórico do abastecimento</DialogTitle><DialogContent>
+          {details?.loading && <StateFeedback kind="loading" title="Carregando histórico..." />}
+          {details?.error && <Alert severity="error">{details.error}</Alert>}
+          {details?.detail && <Stack spacing={1.5}>
+            <Typography variant="h6">{snapshotPlate(details.detail.fueling)} · {FUEL_TYPE_LABELS[details.detail.fueling.fuelType]}</Typography>
+            <Typography variant="body2">{formatDate(details.detail.fueling.fueledAt)} · {NUMBER.format(Number(details.detail.fueling.liters))} L · {CURRENCY.format(Number(details.detail.fueling.totalValue))} · {NUMBER.format(details.detail.fueling.odometerKm)} km</Typography>
+            <Typography variant="body2" color="text.secondary">Versão atual: #{details.detail.currentId}. Versões registradas: {details.detail.versions.length}.</Typography>
+            {details.detail.events.map((event) => <Card key={event.id} variant="outlined"><CardContent>
+              <Typography sx={{ fontWeight: 700 }}>{event.eventType === 'RECORDED' ? 'Registrado' : event.eventType === 'RECTIFIED' ? 'Retificado' : event.eventType === 'ANNULLED' ? 'Anulado' : 'Atualizado'} · {formatDate(event.occurredAt)}</Typography>
+              <Typography variant="body2" color="text.secondary">Registro {formatDate(event.registeredAt)} · {event.reportedBy}</Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>{event.reason}</Typography>
+              {event.evidenceDescription && <Typography variant="body2">Evidência: {event.evidenceDescription}</Typography>}
+            </CardContent></Card>)}
+          </Stack>}
+        </DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setDetails(null)} sx={{ minHeight: 48 }}>Fechar</Button></DialogActions>
+      </Dialog>
     </Box>
   )
 }

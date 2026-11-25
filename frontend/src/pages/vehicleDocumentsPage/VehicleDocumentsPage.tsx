@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AddIcon from '@mui/icons-material/Add'
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import Autorenew from '@mui/icons-material/Autorenew'
+import BlockOutlined from '@mui/icons-material/BlockOutlined'
+import EditOutlined from '@mui/icons-material/EditOutlined'
+import HistoryOutlined from '@mui/icons-material/HistoryOutlined'
+import { Alert, Box, Button, Card, CardActions, CardContent, Paper, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
 import { resolveProfile } from '../../auth/profiles.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { accessibleControls } from '../../components/ui/accessibleControls.ts'
@@ -140,10 +144,12 @@ const LIST_COLUMNS = buildDocumentColumns(true)
  * Consome `/vehicle-documents`, `/vehicle-documents/expiring` e `/vehicle-documents/:id`,
  * sincronizando filtros e janela do alerta com os parâmetros de busca da URL.
  */
-export default function VehicleDocumentsPage() {
+export function VehicleDocumentsPage() {
   const { api, session } = useAuth()
   const profile = session ? resolveProfile(session.perfil) : null
   const allowed = canManageVehicleDocuments(profile)
+  const theme = useTheme()
+  const smallScreen = useMediaQuery(theme.breakpoints.down('sm'))
 
   const [searchParams, setSearchParams] = useSearchParams()
   const urlState = useMemo(() => parseDocumentsUrlParams(searchParams), [searchParams])
@@ -448,6 +454,55 @@ export default function VehicleDocumentsPage() {
                   <Alert severity="success" role="status">
                     Nenhum documento vencido ou a vencer nos próximos {state.expiringData.alertDays} dias.
                   </Alert>
+                ) : smallScreen ? (
+                  <Stack spacing={1.5}>
+                    {state.expiringData.items.map((document) => {
+                      const labelTarget = `${VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} do veículo ${document.vehicle.licensePlate}`
+                      return (
+                        <Card key={`alert-${document.id}`} variant="outlined">
+                          <CardContent>
+                            <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
+                              <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{document.vehicle.licensePlate}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} · vence {formatCalendarDate(document.expiresAt)}
+                                </Typography>
+                              </Box>
+                              <StatusChip
+                                label={VEHICLE_DOCUMENT_STATUS_LABELS[document.status]}
+                                tone={VEHICLE_DOCUMENT_STATUS_TONES[document.status]}
+                              />
+                            </Stack>
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                              {formatDaysUntilExpiration(document.daysUntilExpiration, document.status)}
+                            </Typography>
+                          </CardContent>
+                          <CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
+                            <Button
+                              variant="outlined"
+                              onClick={() => { void state.openDetail(document.id) }}
+                              aria-label={`Ver detalhes do documento ${labelTarget}`}
+                              startIcon={<HistoryOutlined aria-hidden="true" />}
+                              sx={{ minHeight: 44 }}
+                            >
+                              Ver detalhes
+                            </Button>
+                            {!document.isAnnulled && document.supersededById === null && (
+                              <Button
+                                variant="contained"
+                                onClick={() => setFormDialog({ mode: 'renew', document })}
+                                aria-label={`Renovar documento ${labelTarget}`}
+                                startIcon={<Autorenew aria-hidden="true" />}
+                                sx={{ minHeight: 44 }}
+                              >
+                                Renovar
+                              </Button>
+                            )}
+                          </CardActions>
+                        </Card>
+                      )
+                    })}
+                  </Stack>
                 ) : (
                   <DataTable
                     caption={`Alertas de vencimento para os próximos ${state.expiringData.alertDays} dias`}
@@ -603,62 +658,134 @@ export default function VehicleDocumentsPage() {
                   {` · Referência: ${formatCalendarDate(state.listData.referenceDate)} (janela padrão ${state.listData.alertDays} dias)`}
                 </Typography>
 
-                <DataTable
-                  caption="Documentos de veículos cadastrados"
-                  columns={LIST_COLUMNS}
-                  rows={state.listData.items}
-                  rowKey={(document) => document.id}
-                  busy={state.listLoading}
-                  minWidth={980}
-                  renderActions={(document) => {
-                    const labelTarget = `${VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} do veículo ${document.vehicle.licensePlate}`
-                    const canRenewOrAnnul = !document.isAnnulled && document.supersededById === null
-                    return (
-                      <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => { void state.openDetail(document.id) }}
-                          aria-label={`Ver detalhes do documento ${labelTarget}`}
-                          sx={{ minHeight: 44 }}
-                        >
-                          Ver detalhes
-                        </Button>
-                        {!document.isAnnulled && (
+                {smallScreen ? (
+                  <Stack spacing={1.5}>
+                    {state.listData.items.map((document) => {
+                      const labelTarget = `${VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} do veículo ${document.vehicle.licensePlate}`
+                      const canRenewOrAnnul = !document.isAnnulled && document.supersededById === null
+                      return (
+                        <Card key={document.id} variant="outlined">
+                          <CardContent>
+                            <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
+                              <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{document.vehicle.licensePlate}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} · vence {formatCalendarDate(document.expiresAt)}
+                                </Typography>
+                              </Box>
+                              <StatusChip
+                                label={VEHICLE_DOCUMENT_STATUS_LABELS[document.status]}
+                                tone={VEHICLE_DOCUMENT_STATUS_TONES[document.status]}
+                              />
+                            </Stack>
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                              Número: {document.documentNumber || 'Não informado'} · revisão {document.revision}
+                            </Typography>
+                          </CardContent>
+                          <CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
+                            <Button
+                              variant="outlined"
+                              onClick={() => { void state.openDetail(document.id) }}
+                              aria-label={`Ver detalhes do documento ${labelTarget}`}
+                              startIcon={<HistoryOutlined aria-hidden="true" />}
+                              sx={{ minHeight: 48 }}
+                            >
+                              Ver detalhes
+                            </Button>
+                            {canRenewOrAnnul && (
+                              <Button
+                                onClick={() => setFormDialog({ mode: 'renew', document })}
+                                aria-label={`Renovar documento ${labelTarget}`}
+                                startIcon={<Autorenew aria-hidden="true" />}
+                                sx={{ minHeight: 48 }}
+                              >
+                                Renovar
+                              </Button>
+                            )}
+                            {!document.isAnnulled && (
+                              <Button
+                                onClick={() => setFormDialog({ mode: 'edit', document })}
+                                aria-label={`Corrigir documento ${labelTarget}`}
+                                startIcon={<EditOutlined aria-hidden="true" />}
+                                sx={{ minHeight: 48 }}
+                              >
+                                Corrigir
+                              </Button>
+                            )}
+                            {canRenewOrAnnul && (
+                              <Button
+                                color="error"
+                                onClick={() => setAnnulTarget(document)}
+                                aria-label={`Anular documento ${labelTarget}`}
+                                startIcon={<BlockOutlined aria-hidden="true" />}
+                                sx={{ minHeight: 48 }}
+                              >
+                                Anular
+                              </Button>
+                            )}
+                          </CardActions>
+                        </Card>
+                      )
+                    })}
+                  </Stack>
+                ) : (
+                  <DataTable
+                    caption="Documentos de veículos cadastrados"
+                    columns={LIST_COLUMNS}
+                    rows={state.listData.items}
+                    rowKey={(document) => document.id}
+                    busy={state.listLoading}
+                    minWidth={980}
+                    renderActions={(document) => {
+                      const labelTarget = `${VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} do veículo ${document.vehicle.licensePlate}`
+                      const canRenewOrAnnul = !document.isAnnulled && document.supersededById === null
+                      return (
+                        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
                           <Button
                             size="small"
-                            onClick={() => setFormDialog({ mode: 'edit', document })}
-                            aria-label={`Corrigir documento ${labelTarget}`}
+                            variant="outlined"
+                            onClick={() => { void state.openDetail(document.id) }}
+                            aria-label={`Ver detalhes do documento ${labelTarget}`}
                             sx={{ minHeight: 44 }}
                           >
-                            Corrigir
+                            Ver detalhes
                           </Button>
-                        )}
-                        {canRenewOrAnnul && (
-                          <Button
-                            size="small"
-                            onClick={() => setFormDialog({ mode: 'renew', document })}
-                            aria-label={`Renovar documento ${labelTarget}`}
-                            sx={{ minHeight: 44 }}
-                          >
-                            Renovar
-                          </Button>
-                        )}
-                        {canRenewOrAnnul && (
-                          <Button
-                            size="small"
-                            color="error"
-                            onClick={() => setAnnulTarget(document)}
-                            aria-label={`Anular documento ${labelTarget}`}
-                            sx={{ minHeight: 44 }}
-                          >
-                            Anular
-                          </Button>
-                        )}
-                      </Stack>
-                    )
-                  }}
-                />
+                          {!document.isAnnulled && (
+                            <Button
+                              size="small"
+                              onClick={() => setFormDialog({ mode: 'edit', document })}
+                              aria-label={`Corrigir documento ${labelTarget}`}
+                              sx={{ minHeight: 44 }}
+                            >
+                              Corrigir
+                            </Button>
+                          )}
+                          {canRenewOrAnnul && (
+                            <Button
+                              size="small"
+                              onClick={() => setFormDialog({ mode: 'renew', document })}
+                              aria-label={`Renovar documento ${labelTarget}`}
+                              sx={{ minHeight: 44 }}
+                            >
+                              Renovar
+                            </Button>
+                          )}
+                          {canRenewOrAnnul && (
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => setAnnulTarget(document)}
+                              aria-label={`Anular documento ${labelTarget}`}
+                              sx={{ minHeight: 44 }}
+                            >
+                              Anular
+                            </Button>
+                          )}
+                        </Stack>
+                      )
+                    }}
+                  />
+                )}
               </>
             )}
           </Box>
@@ -708,3 +835,5 @@ export default function VehicleDocumentsPage() {
     </Box>
   )
 }
+
+export default VehicleDocumentsPage

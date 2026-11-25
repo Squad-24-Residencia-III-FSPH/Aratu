@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardActions, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
 import { resolveProfile } from '../../auth/profiles.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import DataTable from '../../components/ui/DataTable.tsx'
@@ -98,10 +98,12 @@ const COLUMNS: readonly DataTableColumn<Fine>[] = [
 ]
 
 /** Tela principal de gestão de multas e infrações (FROTA-74). */
-export default function FinesPage() {
+export function FinesPage() {
   const { api, session } = useAuth()
   const profile = session ? resolveProfile(session.perfil) : null
   const allowed = canManageFines(profile)
+  const theme = useTheme()
+  const smallScreen = useMediaQuery(theme.breakpoints.down('sm'))
 
   const [filterInputs, setFilterInputs] = useState({
     vehicleId: '',
@@ -388,6 +390,45 @@ export default function FinesPage() {
                   onAction={filtersActive ? clearFilters : undefined}
                   centered
                 />
+              ) : smallScreen ? (
+                <Stack spacing={1.5}>
+                  {state.items.map((fine) => {
+                    const plate = fine.vehicleSnapshot?.licensePlate ?? fine.vehicle.licensePlate
+                    const driverName = fine.driverSnapshot?.name ?? fine.driver?.name
+                    return (
+                      <Card key={fine.id} variant="outlined">
+                        <CardContent>
+                          <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                                {plate} · {formatFineMoney(fine.amount)}
+                              </Typography>
+                              <Typography variant="body2">
+                                {fine.infractionCode} · {fine.description}
+                              </Typography>
+                            </Box>
+                            <StatusChip label={FINE_STATUS_LABELS[fine.status]} tone={FINE_STATUS_TONES[fine.status]} />
+                          </Stack>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            {formatDateTime(fine.infractionAt)} · {driverName ?? 'Sem motorista vinculado'} · revisão {fine.revision}
+                          </Typography>
+                        </CardContent>
+                        <CardActions sx={{ px: 2, pb: 2 }}>
+                          <Button
+                            type="button"
+                            variant="outlined"
+                            fullWidth
+                            onClick={(event) => openDetail(fine.id, event.currentTarget)}
+                            aria-label={`Ver detalhes da multa #${fine.id} código ${fine.infractionCode}`}
+                            sx={{ minHeight: 48 }}
+                          >
+                            Ver detalhes
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    )
+                  })}
+                </Stack>
               ) : (
                 <DataTable
                   caption="Multas e infrações registradas — ordenadas por data da infração"
@@ -489,3 +530,5 @@ export default function FinesPage() {
     </Box>
   )
 }
+
+export default FinesPage

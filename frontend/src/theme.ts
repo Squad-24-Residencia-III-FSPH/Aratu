@@ -3,8 +3,8 @@ import { createTheme } from '@mui/material/styles'
 export const theme = createTheme({
   palette: {
     primary: { main: '#FF6B00', dark: '#b94700', contrastText: '#111827' },
-    text: { primary: '#642c04', secondary: '#000000' },
-    background: { default: '#fff', paper: '#fff' },
+    text: { primary: '#111827', secondary: '#4b5563' },
+    background: { default: '#f8fafc', paper: '#fff' },
   },
   typography: {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
@@ -20,9 +20,16 @@ export const theme = createTheme({
         'a, button, input, select, textarea, [tabindex], [role="button"], [role="combobox"]': {
           scrollMarginTop: '80px',
         },
+        ':focus-visible': {
+          outline: '3px solid #b94700',
+          outlineOffset: '2px',
+        },
         'a:focus-visible, button:focus-visible, [tabindex]:focus-visible, [role="button"]:focus-visible, [role="combobox"]:focus-visible': {
           outline: '3px solid #b94700',
           outlineOffset: '2px',
+        },
+        '::selection': {
+          backgroundColor: 'rgba(255, 107, 0, 0.24)',
         },
       },
     },
@@ -44,6 +51,7 @@ export const theme = createTheme({
           minHeight: 44,
           minWidth: 44,
           scrollMarginTop: 80,
+          '@media (max-width:599.95px)': { minHeight: 48 },
           '&.Mui-focusVisible, &:focus-visible': {
             outline: '3px solid #b94700',
             outlineOffset: 2,
@@ -66,6 +74,9 @@ export const theme = createTheme({
             '&:hover': { backgroundColor: '#e05e00' },
           },
         },
+        text: { '&.Mui-disabled': { color: '#6b7280' } },
+        outlined: { '&.Mui-disabled': { color: '#6b7280', borderColor: '#9ca3af' } },
+        contained: { '&.Mui-disabled': { color: '#4b5563', backgroundColor: '#e5e7eb' } },
       },
     },
     MuiIconButton: {
@@ -115,8 +126,9 @@ export const theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          fontSize: 14,
+          fontSize: '1rem',
           minHeight: 44,
+          '@media (max-width:599.95px)': { minHeight: 48 },
           scrollMarginTop: 80,
           '&:not(.Mui-disabled):not(.Mui-error) .MuiOutlinedInput-notchedOutline': {
             borderColor: '#6b7280',
@@ -125,12 +137,14 @@ export const theme = createTheme({
             borderColor: '#b94700',
             borderWidth: 2,
           },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderWidth: 2 },
         },
         notchedOutline: { borderColor: '#6b7280' },
         input: {
           padding: '10px 12px',
           minHeight: 44,
           boxSizing: 'border-box',
+          '&::placeholder': { color: '#4b5563', opacity: 1 },
           '&.MuiInputBase-inputSizeSmall': {
             padding: '10px 12px',
             minHeight: 44,

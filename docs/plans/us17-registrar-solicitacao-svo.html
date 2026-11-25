@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — US17 — Registrar solicitação SVO (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDD — US17: Registrar solicitação SVO</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>US17</code> — Registrar solicitação SVO</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/US17-registrar-solicitacao-svo</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>SVO</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ATENDENTE_SVO, ADMINISTRADOR</code> (escrita); <code>GESTOR</code> (leitura na API atual)</p>
+  <p><strong>Data:</strong> 2026-11-18</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p><strong>Objetivo:</strong> permitir que Atendente SVO registre solicitações recebidas externamente, consulte e filtre a listagem, veja os detalhes e confirme a ocorrência após conferir os dados recebidos, usando os contratos existentes da FROTA-112.</p>
+<p><strong>Escopo aprovado:</strong> página React integrada à API para cadastrar solicitações, listar, consultar detalhes, filtrar e confirmar ocorrências. A confirmação é a operação técnica <code>PENDING → CONFIRMED</code> e representa somente a conferência dos dados recebidos. A interface não a apresenta como conclusão de triagem clínica.</p>
+<p><strong>Triagem clínica:</strong> permanece para etapa posterior, dependente da definição de campos e regras da FROTA-159. Esta pendência não impede a entrega do escopo aprovado da US17, pois a tela não implementará nem simulará essa triagem.</p>
+<p><strong>Fora do escopo:</strong> geração de ordem (tratada em outra história); seleção de equipe ou veículo; alterações de backend, contratos ou banco; campos e regras de triagem clínica; prioridade não presente no contrato; notificações ou comportamentos não retornados pela API; dados ou integrações simulados.</p>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<h3>Requisitos funcionais e critérios de aceite</h3>
+<table><thead><tr><th scope="col">Critério</th><th scope="col">Resultado esperado</th></tr></thead><tbody>
+<tr><td>Cadastro válido por Atendente SVO ou Administrador</td><td>Enviar somente os campos do contrato; receber HTTP 201 e mostrar o identificador e status <code>PENDING</code> retornados.</td></tr>
+<tr><td>Consulta da listagem</td><td>Exibir ocorrências retornadas pela API, respeitando filtros opcionais de situação e período; array vazio apresenta estado vazio.</td></tr>
+<tr><td>Consulta de detalhes</td><td>Exibir os campos do detalhe retornado; identificador inexistente apresenta erro da API.</td></tr>
+<tr><td>Confirmação de ocorrência <code>PENDING</code></td><td>Após conferência dos dados recebidos e confirmação explícita, enviar corpo vazio; mostrar o status retornado e atualizar a listagem para <code>CONFIRMED</code>. O texto não afirma conclusão de triagem clínica.</td></tr>
+<tr><td>Confirmação de ocorrência em estado incompatível</td><td>Não mostrar sucesso; preservar mensagem de erro <code>erro</code> retornada, inclusive HTTP 409.</td></tr>
+<tr><td>Falha de API</td><td>Preservar a mensagem retornada em <code>erro</code>; em falha incerta de criação, consultar a listagem antes de oferecer novo envio, pois o contrato não possui chave de idempotência.</td></tr>
+<tr><td>Perfil sem acesso</td><td>Somente <code>ATENDENTE_SVO</code> e <code>ADMINISTRADOR</code> acessam a rota da US17.</td></tr>
+</tbody></table>
+<ul><li>A listagem deve permitir os filtros suportados pela API: situação e intervalo de datas.</li><li>A consulta de detalhes deve exibir somente dados retornados pelo endpoint de detalhe.</li><li>Cadastro e confirmação devem apresentar o identificador e status efetivamente retornados, sem convertê-los em número de ordem.</li><li>Falhas devem preservar a mensagem <code>erro</code>; a confirmação de estado inválido deve tratar HTTP 409 sem mostrar sucesso.</li><li>A tela deve ter carregamento, vazio, erro, sucesso e sem permissão; ser responsiva e operável por teclado conforme WCAG 2.2 AA.</li></ul>
+<h3>Requisitos não funcionais</h3><ul><li>Não enviar propriedades que não pertençam aos DTOs; não duplicar regras de domínio no cliente.</li><li>Usar a camada de serviços HTTP e componentes existentes, sem chamadas de rede diretamente espalhadas na página.</li><li>Não criar dados, campos, integrações, notificações ou transições simuladas.</li></ul>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<p>Arquivos planejados para a implementação do escopo aprovado:</p><ul><li><strong>Novo:</strong> <code>frontend/src/pages/SvoOccurrencesPage.tsx</code>.</li><li><strong>Frontend, se não houver equivalente reutilizável:</strong> cliente tipado, tipos e apresentação da API de ocorrências; integração da rota em <code>frontend/src/App.tsx</code>, <code>frontend/src/routing/routeDecision.ts</code> e navegação lateral.</li><li><strong>Componentes de referência:</strong> <code>frontend/src/components/ui/{DataTable,FilterBar,FormField,StatusChip,ConfirmDialog,StateFeedback}.tsx</code>; <code>frontend/src/api/client.ts</code>; <code>frontend/src/pages/SvoOrdersPage.tsx</code>.</li><li><strong>Backend:</strong> nenhum arquivo será alterado.</li></ul>
+<h3>Arquivos de referência no projeto (padrão a seguir)</h3>
+<ul>
+  <li><strong>Camadas Backend e Frontend:</strong> <code>docs/manuais/arquitetura-camadas.md</code>, <code>docs/manuais/padroes-backend.md</code> e <code>docs/manuais/padroes-frontend.md</code>.</li>
+  <li><strong>Padrões de Projeto (Design Patterns):</strong> <code>docs/manuais/padroes-projeto.md</code> (Repository, State/FSM, Strategy, Chain of Responsibility, Compound Components).</li>
+  <li><strong>Componentes UI Acessíveis:</strong> <code>frontend/src/components/ui/</code>.</li>
+</ul>
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p><strong>Não se aplica.</strong> A US17 é consumidora frontend dos contratos existentes. A migration <code>202610280006_create_svo_occurrences.sql</code> e o modelo SVO existem no backend; nenhuma migration ou alteração de banco está autorizada ou prevista.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<p><strong>Não haverá alteração backend.</strong> Contratos abaixo foram conferidos em <code>backend/src/routes/svo-occurrences.routes.ts</code>, controller, service e types da FROTA-112. Prefixo montado em <code>/svo/occurrences</code>.</p>
+<table><thead><tr><th scope="col">Método e caminho</th><th scope="col">Acesso atual</th><th scope="col">Entrada</th><th scope="col">Resposta de sucesso</th></tr></thead><tbody><tr><td><code>GET /svo/occurrences</code></td><td>ATENDENTE_SVO, ADMINISTRADOR, GESTOR</td><td>Query opcional <code>status</code> (<code>PENDING|CONFIRMED|CANCELED</code>), <code>from</code> e <code>to</code> (<code>AAAA-MM-DD</code>).</td><td>200; array de resumos com <code>id</code>, <code>requesterType</code>, <code>location</code>, <code>status</code>, <code>receivedAt</code>, <code>createdAt</code>, <code>revision</code>.</td></tr><tr><td><code>GET /svo/occurrences/:id</code></td><td>ATENDENTE_SVO, ADMINISTRADOR, GESTOR</td><td>Identificador positivo.</td><td>200; detalhe inclui resumo, <code>requesterName</code>, <code>requesterPhone</code>, <code>description</code>, <code>notes</code>, <code>attendantId</code>, <code>triagedAt</code>, <code>triagedBy</code>, <code>updatedAt</code> e <code>evidenceDescription</code>.</td></tr><tr><td><code>POST /svo/occurrences</code></td><td>ATENDENTE_SVO, ADMINISTRADOR</td><td>JSON de criação descrito abaixo.</td><td>201; <code>id</code>, <code>status</code>, <code>receivedAt</code>, <code>createdAt</code>, <code>revision</code>.</td></tr><tr><td><code>POST /svo/occurrences/:id/confirm</code></td><td>ATENDENTE_SVO, ADMINISTRADOR</td><td>Objeto vazio; não existe DTO para campos de triagem.</td><td>200; <code>id</code>, <code>status</code>, <code>triagedAt</code>, <code>triagedBy</code>, <code>revision</code>.</td></tr></tbody></table>
+<h3>DTO de criação real</h3><table><thead><tr><th scope="col">Campo JSON</th><th scope="col">Obrigatoriedade / regra do service</th></tr></thead><tbody><tr><td><code>requesterName</code></td><td>Obrigatório; texto não vazio após trim.</td></tr><tr><td><code>requesterPhone</code></td><td>Obrigatório; texto não vazio após trim; não há regra de máscara/DDD no service.</td></tr><tr><td><code>requesterType</code></td><td>Obrigatório; enum <code>FAMILY|HOSPITAL|UBS|UPA|PUBLIC_AGENCY|OTHER</code>.</td></tr><tr><td><code>location</code></td><td>Obrigatório; texto não vazio após trim.</td></tr><tr><td><code>description</code></td><td>Obrigatório; texto não vazio após trim.</td></tr><tr><td><code>evidenceDescription</code></td><td>Obrigatório; descreve canal/meio de recebimento, texto não vazio.</td></tr><tr><td><code>notes</code></td><td>Opcional; texto ou null; vazio é normalizado para null.</td></tr><tr><td><code>receivedAt</code></td><td>Opcional; instante ISO 8601 com fuso explícito, válido e não futuro. Ausente usa o horário atual do banco.</td></tr></tbody></table>
+<p>Campos desconhecidos são rejeitados. <code>status</code>, revisão, autoria e dados de triagem não são entrada de criação. Erros SVO usam <code>{ "erro": "mensagem" }</code>; o consumidor deve preservar a mensagem retornada. A API atual não gera ordem como efeito de <code>confirm</code>.</p>
+<h3>Limite de integração com ordens (FROTA-115)</h3><p>A geração possui contrato separado <code>POST /svo/orders</code>, dependente de ocorrência <code>CONFIRMED</code> e dos identificadores de equipe e veículo. A geração de ordem, a seleção desses recursos e a consulta da ordem ficam fora do escopo da US17 e não serão acionadas após a confirmação da ocorrência.</p>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<p>A tela listará ocorrências com <code>DataTable</code> e <code>FilterBar</code>; formulário usará <code>FormField</code>; status textual via <code>StatusChip</code>; confirmação explícita via <code>ConfirmDialog</code>; feedback assíncrono via <code>StateFeedback</code>. Esses componentes já existem em <code>frontend/src/components/ui/</code>. A documentação local da FROTA-118 registra que componentes da FROTA-162 foram encontrados no código; não será presumida dependência de componentes adicionais.</p>
+<p>O fluxo de cadastro deve manter a sequência de teclado, foco no primeiro campo quando abrir e envio por teclado. A confirmação deve dizer que os dados recebidos serão conferidos e que a ocorrência passará para <code>CONFIRMED</code>, sem denominar a ação como triagem clínica concluída.</p>
+<h3>Diferenças entre protótipo e suporte confirmado</h3><table><thead><tr><th scope="col">Protótipo</th><th scope="col">Contrato/código atual</th><th scope="col">Limite para esta US</th></tr></thead><tbody>
+<tr><td>Dados iniciais: solicitante, telefone, tipo, local, recebimento e prioridade.</td><td>Criação recebe solicitante, telefone, tipo, local, descrição, meio de recebimento; observações e instante de recebimento são opcionais. Não existe campo de prioridade.</td><td>Não exibir/coletar prioridade sem definição e contrato. Nomear os campos conforme os significados suportados; não inventar equivalência para descrição.</td></tr>
+<tr><td>Triagem com falecido, idade, médico/CRM, causa mortis, documentos, encaminhamento e observações.</td><td>Nenhum desses campos consta do DTO de ocorrência ou confirmação; FROTA-159 definirá os dados e regras da etapa clínica futura.</td><td>Triagem clínica fora desta US; não criar campos ou comportamentos simulados.</td></tr>
+<tr><td>Confirmação da solicitação após resumo da triagem.</td><td>Confirmação recebe objeto vazio e muda <code>PENDING</code> para <code>CONFIRMED</code>, registrando ator e horário.</td><td>Usar a ação para confirmar a conferência dos dados recebidos, não para declarar triagem clínica concluída.</td></tr>
+<tr><td>Gerar ordem, exibir número, notificar equipe e botão Ver Ordem.</td><td>Geração existe separadamente em <code>POST /svo/orders</code>, requer IDs de ocorrência, equipe e veículo e retorna ID e status <code>OPEN</code>.</td><td>Geração, consulta e notificação de ordem fora da US17; sem seleção de equipe/veículo e sem afirmações de notificação.</td></tr>
+</tbody></table>
+<p>O protótipo de quatro etapas será adaptado ao escopo aprovado: cadastro, listagem/detalhes e confirmação técnica da ocorrência. O status <code>CONFIRMED</code> indica a conferência dos dados recebidos definida para esta US; não significa triagem clínica nem ordem gerada. A etapa de triagem clínica depende da FROTA-159. Não haverá geração de ordem, seleção de equipe/veículo, notificação, número ou link de ordem nesta tela.</p>
+<table><thead><tr><th scope="col">Estado</th><th scope="col">Comportamento planejado</th></tr></thead><tbody><tr><td>Carregando</td><td>Feedback acessível durante leitura da lista/detalhe ou envio; impedir duplicação de envio enquanto pendente.</td></tr><tr><td>Vazio</td><td>Informar ausência de solicitações e permitir iniciar cadastro pelo perfil autorizado.</td></tr><tr><td>Erro</td><td>Preservar <code>erro</code> da API; oferecer nova tentativa na leitura. Após falha incerta de criação, consultar listagem antes de sugerir novo envio, pois o POST não tem chave de idempotência.</td></tr><tr><td>Sucesso</td><td>Exibir identificador e status reais da ocorrência; confirmação informa a conferência dos dados recebidos, sem afirmar triagem clínica ou geração de ordem.</td></tr><tr><td>Sem permissão</td><td>Bloquear rota para qualquer perfil diferente de ATENDENTE_SVO e ADMINISTRADOR. A leitura da API também permite GESTOR, mas a tela seguirá o escopo mais restrito aprovado.</td></tr></tbody></table>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<ul class="check">
+  <li><input type="checkbox"> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Todos os campos usam <code>useId()</code> conectando <code>&lt;label htmlFor&gt;</code> ao <code>&lt;input id&gt;</code>, <code>aria-invalid</code> e mensagem de erro com <code>role="alert"</code>.</li>
+  <li><input type="checkbox"> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Operável integralmente via <code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Espaço</code> e <code>Esc</code>, com <code>:focus-visible</code> nítido.</li>
+  <li><input type="checkbox"> <strong>Tamanho do Alvo (2.5.8):</strong> Botões e controles interativos possuem área mínima de <strong>44×44px</strong> em telas operacionais.</li>
+  <li><input type="checkbox"> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste de texto &gt;= 4.5:1 e status acompanhado de rótulo textual além da cor.</li>
+  <li><input type="checkbox"> <strong>Mensagens de Status (4.1.3):</strong> Feedbacks dinâmicos anunciados via <code>role="status"</code> ou <code>aria-live="polite"</code>.</li>
+</ul>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<table><thead><tr><th scope="col">Perfil</th><th scope="col">API atual</th><th scope="col">Rota da US17</th></tr></thead><tbody><tr><td>ATENDENTE_SVO</td><td>Lista, detalhe, cria e confirma.</td><td>Permitido.</td></tr><tr><td>ADMINISTRADOR</td><td>Lista, detalhe, cria e confirma.</td><td>Permitido.</td></tr><tr><td>GESTOR</td><td>Lista e detalhe; escrita retorna 403.</td><td>Sem acesso, conforme escopo aprovado para a tela.</td></tr><tr><td>Demais perfis</td><td>Negados pelo RBAC da API.</td><td>Sem acesso.</td></tr></tbody></table><p>Autenticação: middleware valida token e revalida conta/perfil atual antes das rotas. O frontend usará o cliente autenticado existente. Não há nova variável de ambiente prevista. A restrição na rota frontend não substitui o RBAC do backend.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<p>Na implementação autorizada, validar os fluxos abaixo usando a API real e dados de teste adequados, sem alterar backend nem criar integração fictícia.</p><ul><li>Cliente serializa somente campos permitidos; interpreta respostas de listagem, detalhe, criação e confirmação; preserva mensagens <code>erro</code>.</li><li>Listagem cobre carregamento, vazio, filtros por status/período, erro recuperável e atualização após cadastro/confirmação.</li><li>ATENDENTE_SVO e ADMINISTRADOR acessam a rota e executam ações; GESTOR e demais perfis não acessam a tela US17.</li><li>Cadastro envia todos e somente os obrigatórios e opcionais definidos no DTO; mostra identificador e status reais; não reenvia automaticamente em resultado incerto.</li><li>Confirmação de ocorrência <code>PENDING</code> envia objeto vazio, requer confirmação explícita, mostra <code>CONFIRMED</code> e atualiza a listagem; conflito 409 não mostra sucesso.</li><li>Detalhes apresentam apenas dados devolvidos pela API, sem inferir triagem clínica ou ordem.</li><li>Verificar operação por teclado, foco inicial no formulário, leitores de tela, alvos de 44px, responsividade e estados visuais conforme WCAG 2.2 AA.</li></ul><p>FROTA-159 permanece dependência apenas da etapa futura de triagem clínica; não bloqueia a implementação do escopo aprovado desta US. FROTA-115 não será chamada pela tela US17.</p>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></li>
+  <li><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta (US17)</code>)</li>
+  <li><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e abaixo de 400 linhas</li>
+  <li><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</li>
+  <li><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></li>
+  <li><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</li>
+  <li><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</li>
+  <li><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></li>
+  <li><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</li>
+  <li><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</li>
+</ul>
+<p class="notice-block"><strong>Exceção aprovada em 23/11/2026:</strong> por decisão explícita do solicitante, a US17 permanecerá em um único PR mesmo que o diff ultrapasse 400 linhas. A exceção trata somente do limite de tamanho e não altera o escopo funcional aprovado.</p>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p><strong>Arquivo de referência:</strong> <code>docs/modulos/SVO.html</code> (baseado em <code>docs/modulos/EXEMPLO_MODULO.html</code>)</p>
+<blockquote>Esta tarefa impacta a documentação técnica e funcional do módulo SVO se a tela for implementada. Atualizar <code>docs/modulos/SVO.html</code> apenas com fluxos e capacidades efetivamente entregues, distinguindo ocorrência confirmada de ordem de atendimento.</blockquote>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> proteger a rota US17 para <code>ATENDENTE_SVO</code> e <code>ADMINISTRADOR</code>; documentar a diferença em relação à leitura para <code>GESTOR</code> concedida pela API atual.</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+  <li><strong>Escopo aprovado:</strong> implementar somente registro, listagem, filtros, detalhes e confirmação técnica da ocorrência após conferência dos dados recebidos. A confirmação não representa conclusão de triagem clínica.</li>
+  <li><strong>Dependência futura:</strong> campos e regras da triagem clínica dependem da FROTA-159 e ficam fora desta entrega.</li>
+  <li><strong>Restrições:</strong> geração de ordem e seleção de equipe/veículo ficam fora do escopo; nenhuma alteração backend ou simulação de campos, dados, notificações ou comportamentos.</li>
+</ul>
+
+</body>
+</html>

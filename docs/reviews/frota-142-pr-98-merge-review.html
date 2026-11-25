@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — FROTA-142 — PR 98 — aptidao para merge (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-blocked { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — FROTA-142: PR 98 — aptidao para merge</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>FROTA-142</code> — PR 98 — aptidao para merge</p>
+  <p><strong>Branch Revisada:</strong> <code>feat/frota-142-tela-auditoria</code> (comparada contra <code>develop</code>)</p>
+  <p><strong>Plano SDD de Referência:</strong> <code>docs/plans/frota-142-tela-consulta-auditoria.html</code></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>AUTENTICACAO_RBAC</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>GESTOR, ADMINISTRADOR</code></p>
+  <p><strong>Data da Revisão:</strong> 2026-11-23</p>
+</div>
+
+
+<div class="verdict-blocked">
+  Veredito da Revisão: BLOQUEADO_POR_PENDENCIAS
+</div>
+
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="count" style="color: #dc2626;">1</span>
+    <span class="label">🔴 Bloqueantes</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #d97706;">2</span>
+    <span class="label">🟡 Atenção</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #16a34a;">9</span>
+    <span class="label">🟢 OK</span>
+  </div>
+  <div class="summary-card">
+    <span class="count" style="color: #64748b;">5</span>
+    <span class="label">⚪ N/A</span>
+  </div>
+</div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<p><strong>Veredito:</strong> a correção local foi aplicada. O PR remoto ainda não está apto ao merge até receber os commits e passar os checks correspondentes. HEAD remoto ainda desatualizado: <code>fd7c1b868ce386ae29eb69fac264b1d983cb7852</code>. HEAD local com correções: <code>a082358</code>; merge de develop: <code>a52fd31</code>; base integrada: <code>4406d66ce5b3ac9dbd68bb887fb1dc295da13e3d</code>.</p>
+<p>GitHub: <a href="https://github.com/Squad-24-Residencia-III-FSPH/Aratu/pull/98">PR #98</a> ainda mostra <code>mergeable=false</code>/<code>dirty</code>, pois os commits locais não foram enviados. O merge local foi concluído e não há conflitos no índice. O diff remoto só muda após push.</p>
+<p>Contexto: FROTA-142, tela de leitura para GESTOR e ADMINISTRADOR. Critérios disponíveis: descrição do PR e SDD existente. Jira retornou 404. Revisão por código e testes, sem operação visual completa em navegador e sem banco/Docker locais.</p><div style="overflow-x:auto" tabindex="0" role="region" aria-label="Tabela de referência"><table><thead><tr><th scope="col">Arquivo no diff</th><th scope="col">Área</th></tr></thead><tbody><tr><td><code>docs/manuais/modulos.md</code></td><td>Documentação</td></tr><tr><td><code>docs/modulos/AUTENTICACAO_RBAC.html</code></td><td>Documentação</td></tr><tr><td><code>docs/plans/frota-142-tela-consulta-auditoria.html</code></td><td>Documentação</td></tr><tr><td><code>docs/reviews/frota-142-tela-consulta-auditoria.html</code></td><td>Documentação</td></tr><tr><td><code>frontend/src/App.tsx</code></td><td>Frontend</td></tr><tr><td><code>frontend/src/components/sidebarNavigation.ts</code></td><td>Frontend</td></tr><tr><td><code>frontend/src/components/ui/DataTable.tsx</code></td><td>Frontend</td></tr><tr><td><code>frontend/src/pages/AuditLogsPage.tsx</code></td><td>Frontend</td></tr><tr><td><code>frontend/src/routing/routeDecision.ts</code></td><td>Frontend</td></tr><tr><td><code>frontend/src/services/auditLogs.ts</code></td><td>Frontend</td></tr><tr><td><code>frontend/tests/auditLogs.test.mjs</code></td><td>Frontend</td></tr><tr><td><code>frontend/tests/sidebarNavigation.test.mjs</code></td><td>Frontend</td></tr></tbody></table></div>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Diff original acima de 400 linhas; escopo permanece dentro da entrega de Auditoria e integração SVO.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-block">🔴 Bloqueante</span></td><td>Merge local e commits válidos. A PR remota ainda aponta ao SHA anterior e informa dirty, pois não foi atualizada.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-ok">🟢 OK</span></td><td>SDD desta correção executado. A compatibilidade da tela e da solicitação SVO passou pela suíte combinada.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Nenhum código backend alterado.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Serviço HTTP tipado e reuso de DataTable, FilterBar, PageHeader e StateFeedback.</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>Nenhuma feature flag nova ou ciclo introduzido identificado nos imports do diff.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem SQL no diff.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem alteração de consultas ou índices.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-na">⚪ N/A</span></td><td>Tela de leitura, sem novas transações de gravação.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (Schemas Nativos <code>auth</code>, <code>fleet</code>, etc., tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td><td><span class="badge-na">⚪ N/A</span></td><td>Sem migrações.</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-ok">🟢 OK</span></td><td>canReadAudit limita frontend; backend existente aplica autenticação, usuário vigente e MANAGEMENT_ROLES.</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>Dados fictícios nos testes; before/after exibidos conforme API e aviso de ocultação SVO; sem segredos novos identificados.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Sem any/@ts-ignore introduzido. Build em instalação limpa aprovado.</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-ok">🟢 OK</span></td><td>Código em inglês. Relatório original atualizado para o link da PR #98.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-ok">🟢 OK</span></td><td>Ideal, loading, vazio, erro, parcial e 403 implementados e cobertos por testes.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-ok">🟢 OK</span></td><td>Validação agora retorna campo e mensagem; helper text role=alert está associado ao controle correspondente. Teste cobre aria-invalid e aria-describedby.</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Testes cobrem teclado, Escape e retorno de foco. Inspeção manual com zoom e dispositivos não foi repetida nesta correção.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<h3>Concluído — merge e resolução local</h3>
+<p>O commit <code>a52fd31</code> integra a develop atual. Em <code>frontend/src/App.tsx</code> e <code>frontend/src/routing/routeDecision.ts</code> foram preservadas as páginas Auditoria e Solicitações SVO e suas autorizações. O teste de navegação mantém ambas as rotas e entradas de menu. Nenhum arquivo segue em conflito.</p>
+<h3>Concluído — datas extremas e erros de filtro</h3>
+<p>O commit <code>a082358</code> substitui a conversão com <code>Date.UTC</code> por ajuste do ano UTC, trata <code>9999-12-31</code> mesmo quando só há data final e retorna o campo que contém o erro. A tela marca apenas esse campo e relaciona a mensagem de alerta por <code>aria-describedby</code>. Testes cobrem ano 0099, limite 9999 e associação do erro.</p>
+<h3>Pendente para a PR remota</h3>
+<p>A branch remota ainda está no commit <code>fd7c1b8</code>; os commits locais não foram enviados. O GitHub continua reportando estado <code>dirty</code>. Depois de atualizar a PR, confirmar checks no novo SHA. O link do relatório antigo foi corrigido para #98.</p>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+<p>Validação executada após integrar develop e corrigir os filtros, em cópia limpa da árvore e com dependências do lockfile. O diretório node_modules compartilhado tinha permissões incompatíveis, por isso lint/build/testes rodaram na cópia temporária. Os resultados abaixo são dos commits locais; não há CI remoto desses commits antes de a branch ser atualizada.</p><div style="overflow-x:auto" tabindex="0" role="region" aria-label="Tabela de referência"><table><thead><tr><th scope="col">Verificação</th><th scope="col">Resultado</th></tr></thead><tbody><tr><td>Pré-auditoria Aratu</td><td>0 achados estáticos; executado com --skip-tsc. O build direto abaixo incluiu TypeScript.</td></tr><tr><td>Lint frontend em cópia limpa</td><td>Aprovado.</td></tr><tr><td>Build frontend em cópia limpa</td><td>Aprovado: tsc -b + Vite. Aviso de chunk principal acima de 500 kB.</td></tr><tr><td>Suíte frontend em cópia limpa</td><td>42 suítes passaram; 0 falhas, cancelamentos ou skips. Relatório TAP aprovado pelo script do projeto.</td></tr><tr><td>Checks remotos do HEAD</td><td>Os quatro checks passaram no commit original <code>fd7c1b8</code>. Checks dos commits <code>a52fd31</code>/<code>a082358</code> pendentes de atualização da PR.</td></tr><tr><td>Docker e backend integração local</td><td>Não executados: usuário sem acesso ao socket Docker; CI backend/docker remoto aprovado.</td></tr><tr><td>Merge com develop</td><td>Merge local sem conflitos; PR remota ainda mostra dirty por estar no SHA antigo.</td></tr><tr><td>QA visual/zoom</td><td>Não executado nesta revisão; testes de renderização cobrem estados, detalhes e teclado.</td></tr></tbody></table></div>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+<ul class="check"><li><input type="checkbox" checked> Merge local e conflitos resolvidos pelo plano de integração.</li><li><input type="checkbox" checked> Testes das duas rotas e perfis RBAC combinados aprovados na suíte frontend.</li><li><input type="checkbox"> Conferir responsividade e zoom 200% no navegador.</li><li><input type="checkbox"> Atualizar a branch remota, exigir checks verdes sobre o novo SHA e confirmar GitHub sem conflitos.</li><li><input type="checkbox" checked> Link da revisão anterior corrigido para PR #98.</li></ul><p>Os commits locais são <code>a52fd31</code> e <code>a082358</code>. O relatório continua bloqueando o merge remoto até sincronizar a branch e validar o CI novo.</p><p><strong>Princípios:</strong> compatibilidade dos fluxos e RBAC, DRY no reuso dos componentes, KISS/YAGNI no escopo de integração. Sem decisões de domínio pendentes neste plano.</p>
+
+</body>
+</html>

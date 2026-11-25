@@ -28,9 +28,10 @@ export function createRequestsRouter(
   const currentUser = createCurrentUserMiddleware(users)
 
   router.get('/', authenticate, currentUser, authorizeRoles(REQUEST_READ_ROLES), controller.list)
+  router.get('/:id/history', authenticate, currentUser, authorizeRoles(REQUEST_READ_ROLES), controller.history)
+  router.post('/:id/resubmit', authenticate, currentUser, authorizeRoles(REQUEST_CREATION_ROLES), controller.resubmit)
   router.get('/:id', authenticate, currentUser, authorizeRoles(REQUEST_READ_ROLES), controller.getById)
   router.post('/', authenticate, currentUser, authorizeRoles(REQUEST_CREATION_ROLES), controller.create)
-  router.post('/:id/resubmit', authenticate, currentUser, authorizeRoles(REQUEST_CREATION_ROLES), controller.resubmit)
 
   return router
 }

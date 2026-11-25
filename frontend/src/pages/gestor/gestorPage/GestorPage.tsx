@@ -16,26 +16,35 @@ import {
   Paper,
   Stack,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import { GESTOR_DASHBOARD_PATH, resolveProfile } from '../../../auth/profiles.ts'
 import { useAuth } from '../../../auth/useAuth.ts'
 import { accessibleControls } from '../../../components/ui/accessibleControls.ts'
 import DataTable from '../../../components/ui/DataTable.tsx'
+import { EntityCard } from '../../../components/ui/EntityCard.tsx'
 import PageHeader from '../../../components/ui/PageHeader.tsx'
 import StateFeedback from '../../../components/ui/StateFeedback.tsx'
 import StatCard from '../../../components/ui/StatCard.tsx'
+import StatusChip from '../../../components/ui/StatusChip.tsx'
+import { FINES_PATH } from '../../../fines/fineTypes.ts'
 import { useGestorHome } from '../../../hooks/useDashboard.ts'
 import { REQUEST_ANALYSIS_PATH } from '../../../requests/requestAccess.ts'
 import { TRIP_CONFIRMATION_PATH } from '../../../trips/tripConfirmationTypes.ts'
+import type { GestorTripAgendaItem } from '../../../types/dashboard.ts'
 import { OPERATIONAL_TIME_ZONE } from '../../../utils/dates.ts'
 import { VEHICLES_PATH } from '../../../vehicles/vehicleAccess.ts'
 import {
   FLEET_STATUS_SEGMENTS,
   TRIP_AGENDA_ROUTE_PATH,
+  TRIP_AGENDA_STATUS_LABELS,
+  TRIP_AGENDA_STATUS_TONES,
   buildDocumentsAlertPath,
   formatDocumentsAlertCopy,
   formatNumber,
   formatSafeCalendarDate,
+  formatTimeInMaceio,
 } from './gestorDashboardData.ts'
 import { TRIP_AGENDA_COLUMNS } from './tripAgendaColumns.tsx'
 
@@ -75,9 +84,40 @@ function currentDateLabel(): string {
   }).format(new Date())
 }
 
+function AgendaCard({ trip }: { trip: GestorTripAgendaItem }) {
+  return (
+    <EntityCard>
+      <EntityCard.Header title={`${trip.origin} → ${trip.destination}`}>
+        <EntityCard.Status>
+          <StatusChip
+            label={TRIP_AGENDA_STATUS_LABELS[trip.status] ?? trip.status}
+            tone={TRIP_AGENDA_STATUS_TONES[trip.status] ?? 'neutral'}
+          />
+        </EntityCard.Status>
+      </EntityCard.Header>
+      <EntityCard.Body>
+        <Typography variant="body2">
+          {formatTimeInMaceio(trip.scheduledStart)} – {formatTimeInMaceio(trip.scheduledEnd)} · Solicitação #{trip.requestId}
+        </Typography>
+        <Typography variant="body2">Veículo: {trip.vehicleLicensePlate}</Typography>
+        <Typography variant="body2">Motorista: {trip.driverName}</Typography>
+      </EntityCard.Body>
+      {trip.status === 'FINISHED' && (
+        <EntityCard.Actions>
+          <Button component={RouterLink} to={TRIP_CONFIRMATION_PATH} sx={{ minHeight: 44, width: '100%' }}>
+            Abrir conferência
+          </Button>
+        </EntityCard.Actions>
+      )}
+    </EntityCard>
+  )
+}
+
 /** Início operacional do Gestor integrado às APIs de resumo, agenda e pendências. */
 export default function GestorPage() {
   const { api, session } = useAuth()
+  const theme = useTheme()
+  const compact = useMediaQuery(theme.breakpoints.down('sm'))
   const allowed = session !== null && resolveProfile(session.perfil) === 'GESTOR'
   const home = useGestorHome(api, allowed)
   const firstName = session?.nome.trim().split(/\s+/)[0] || 'Gestor'
@@ -96,7 +136,7 @@ export default function GestorPage() {
       title: 'Veículos disponíveis',
       value: fleet?.available ?? 0,
       icon: <DirectionsCar />,
-      description: 'Prontos para alocação',
+      description: fleet ? `De ${fleet.total} cadastrados` : 'Prontos para alocação',
     },
     {
       title: 'Em manutenção',
@@ -114,7 +154,9 @@ export default function GestorPage() {
       title: 'Viagens hoje',
       value: home.tripsError ? '—' : home.todayTrips.length,
       icon: <LocalShipping />,
-      description: `Programadas para ${formatSafeCalendarDate(home.today)}`,
+      description: summary
+        ? `${formatSafeCalendarDate(home.today)} · ${summary.tripsInProgress} em andamento`
+        : `Programadas para ${formatSafeCalendarDate(home.today)}`,
     },
   ]
 
@@ -181,7 +223,7 @@ export default function GestorPage() {
     : 'Distribuição atual da frota indisponível.'
 
   return (
-    <Box sx={{ maxWidth: 1400, mx: 'auto', ...PAGE_CONTROLS_SX }}>
+    <Box sx={{ maxWidth: 1400, mx: 'auto', minWidth: 0, ...PAGE_CONTROLS_SX }}>
       <PageHeader
         eyebrow={currentDateLabel()}
         title={`${currentGreeting()}, ${firstName}`}
@@ -192,7 +234,7 @@ export default function GestorPage() {
             component={RouterLink}
             to={GESTOR_DASHBOARD_PATH}
             variant="outlined"
-            sx={{ minHeight: 44, minWidth: 44 }}
+            sx={{ minHeight: 44, minWidth: 44, width: { xs: '100%', sm: 'auto' } }}
           >
             Abrir dashboard
           </Button>
@@ -292,11 +334,11 @@ export default function GestorPage() {
 
           <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
             <Grid size={{ xs: 12, lg: 8 }}>
-              <Paper component="section" aria-labelledby="today-agenda-title" variant="outlined" sx={{ height: '100%', p: 2, borderRadius: 2 }}>
+              <Paper component="section" aria-labelledby="today-agenda-title" variant="outlined" sx={{ height: '100%', p: { xs: 1.5, sm: 2 }, borderRadius: 2 }}>
                 <Stack
                   direction={{ xs: 'column', sm: 'row' }}
                   spacing={1}
-                  sx={{ mb: 1.5, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}
+                  sx={{ mb: 1.5, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' } }}
                 >
                   <Box>
                     <Typography id="today-agenda-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>
@@ -328,6 +370,21 @@ export default function GestorPage() {
                     actionLabel="Tentar novamente"
                     onAction={home.refresh}
                   />
+                ) : compact ? (
+                  home.loading ? (
+                    <StateFeedback kind="loading" title="Carregando agenda de hoje..." />
+                  ) : home.todayTrips.length === 0 ? (
+                    <StateFeedback
+                      kind="empty"
+                      title="Nenhuma viagem programada para hoje."
+                      description="Quando novas viagens forem agendadas para a data atual, elas serão exibidas aqui."
+                      centered
+                    />
+                  ) : (
+                    <Stack spacing={1.5}>
+                      {home.todayTrips.map((trip) => <AgendaCard key={trip.id} trip={trip} />)}
+                    </Stack>
+                  )
                 ) : (
                   <DataTable
                     caption={`Agenda operacional de viagens em ${formatSafeCalendarDate(home.today)}`}
@@ -394,6 +451,12 @@ export default function GestorPage() {
                   </>
                 )}
 
+                {summary && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                    Veículos atualmente em viagem: {formatNumber(summary.vehiclesInTrip, 0)}
+                  </Typography>
+                )}
+
                 {summary?.svo && (
                   <Paper variant="outlined" sx={{ mt: 2, p: 1.5, borderRadius: 1.5, bgcolor: '#f8fafc' }}>
                     <Typography variant="body2" sx={{ fontWeight: 700 }}>Operação SVO agora</Typography>
@@ -407,14 +470,26 @@ export default function GestorPage() {
                   </Paper>
                 )}
 
-                <Button
-                  component={RouterLink}
-                  to={VEHICLES_PATH}
-                  variant="outlined"
-                  sx={{ minHeight: 44, minWidth: 44, mt: 2 }}
-                >
-                  Ver todos os veículos
-                </Button>
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 2 }}>
+                  <Button
+                    component={RouterLink}
+                    to={VEHICLES_PATH}
+                    variant="outlined"
+                    sx={{ minHeight: 44, minWidth: 44, width: { xs: '100%', sm: 'auto' } }}
+                  >
+                    Ver todos os veículos
+                  </Button>
+                  {summary && summary.fines.pending > 0 && (
+                    <Button
+                      component={RouterLink}
+                      to={FINES_PATH}
+                      startIcon={<WarningAmber />}
+                      sx={{ minHeight: 44, minWidth: 44, width: { xs: '100%', sm: 'auto' } }}
+                    >
+                      {summary.fines.pending} multas pendentes
+                    </Button>
+                  )}
+                </Stack>
               </Paper>
             </Grid>
           </Grid>

@@ -13,6 +13,12 @@ import { TripsService } from '../src/services/trips.service'
 const NOW = new Date('2026-11-09T12:00:00Z')
 const fakeClient = {} as PoolClient
 const manager: TripActor = { id: '8', name: 'Gestora Fictícia', email: 'gestora@example.test', role: 'GESTOR' }
+const approvedRequest: SchedulableRequest = {
+  id: '41', requesterId: '3', serviceId: '5', status: 'APPROVED', revision: 2,
+  requestedDate: '2026-11-20', requestedTime: '08:00', origin: 'Origem fictícia',
+  destination: 'Destino fictício', purpose: 'Finalidade fictícia', passengers: 2,
+  specialRequirements: null, notes: null,
+}
 const input = {
   requestId: '41', vehicleId: '1', driverId: '7',
   scheduledStart: '2026-11-20T08:00:00-03:00', scheduledEnd: '2026-11-20T12:00:00-03:00',
@@ -24,7 +30,7 @@ function setup(options: {
   driver?: Partial<DriverAvailabilityFacts> | null
 } = {}) {
   const request = options.request === undefined
-    ? { id: '41', requesterId: '3', serviceId: '5', status: 'APPROVED', revision: 2 }
+    ? approvedRequest
     : options.request
   const vehicle = options.vehicle === null ? null : {
     id: '1', licensePlate: 'ABC1234', brand: null, model: null, categories: ['PASSENGER' as const],
@@ -32,13 +38,14 @@ function setup(options: {
   }
   const driver = options.driver === null ? null : {
     id: '7', name: 'Motorista Fictício', cnhCategory: 'D' as const, cnhExpiresAt: '2099-12-31',
-    status: 'ACTIVE' as const, hasConflict: false, ...options.driver,
+    status: 'ACTIVE' as const, hasConflict: false, accountEligible: true, ...options.driver,
   }
   const created: CreateTripData[] = []
   const events: string[] = []
   const audits: CreateAuditInput[] = []
 
   const availabilityRepository: AvailabilityRepositoryContract = {
+    async findRequestForAvailability() { return null },
     async serviceExists(): Promise<boolean> { return true },
     async findRequestPassengers(): Promise<{ passengers: number | null } | null> {
       return request ? { passengers: request.passengers ?? null } : null
@@ -121,7 +128,7 @@ test('dados inválidos retornam 400 e início no passado 422', async () => {
 test('solicitação ausente 404 e não aprovada 409', async () => {
   await assert.rejects(setup({ request: null }).service.scheduleTrip(input, manager.id), domainError(404))
   await assert.rejects(
-    setup({ request: { id: '41', requesterId: '3', serviceId: '5', status: 'PENDING', revision: 1 } }).service.scheduleTrip(input, manager.id),
+    setup({ request: { ...approvedRequest, status: 'PENDING', revision: 1 } }).service.scheduleTrip(input, manager.id),
     domainError(409, 'aprovadas'),
   )
 })
@@ -150,7 +157,7 @@ test('veículo ou motorista inexistente retorna 404', async () => {
 test('lotação no agendamento: bloqueia excesso/zero com 422 e aceita igualdade, legado e exceção SVO/carga', async () => {
   await assert.rejects(
     setup({
-      request: { id: '41', requesterId: '3', serviceId: '5', passengers: 3, status: 'APPROVED', revision: 2 },
+      request: { ...approvedRequest, passengers: 3 },
       vehicle: { seats: 2 },
     }).service.scheduleTrip(input, manager.id),
     domainError(422, 'passageiros'),
@@ -158,7 +165,7 @@ test('lotação no agendamento: bloqueia excesso/zero com 422 e aceita igualdade
 
   await assert.rejects(
     setup({
-      request: { id: '41', requesterId: '3', serviceId: '5', passengers: 0, status: 'APPROVED', revision: 2 },
+      request: { ...approvedRequest, passengers: 0 },
       vehicle: { seats: 0, categories: ['PASSENGER'], operationType: 'ADMINISTRATIVE' },
     }).service.scheduleTrip(input, manager.id),
     domainError(422, 'passageiros'),
@@ -166,14 +173,14 @@ test('lotação no agendamento: bloqueia excesso/zero com 422 e aceita igualdade
 
   await assert.rejects(
     setup({
-      request: { id: '41', requesterId: '3', serviceId: '5', passengers: null, status: 'APPROVED', revision: 2 },
+      request: { ...approvedRequest, passengers: null },
       vehicle: { seats: 0, categories: ['OTHER'], operationType: 'ADMINISTRATIVE' },
     }).service.scheduleTrip(input, manager.id),
     domainError(422, 'passageiros'),
   )
 
   const exactFit = setup({
-    request: { id: '41', requesterId: '3', serviceId: '5', passengers: 4, status: 'APPROVED', revision: 2 },
+    request: { ...approvedRequest, passengers: 4 },
     vehicle: { seats: 4 },
   })
   const tripExact = await exactFit.service.scheduleTrip(input, manager.id)
@@ -181,7 +188,7 @@ test('lotação no agendamento: bloqueia excesso/zero com 422 e aceita igualdade
   assert.equal(exactFit.created[0]?.vehicleSnapshot.seats, 4)
 
   const svoBody = setup({
-    request: { id: '41', requesterId: '3', serviceId: '5', passengers: 2, status: 'APPROVED', revision: 2 },
+    request: { ...approvedRequest, passengers: 2 },
     vehicle: { seats: 0, categories: ['BODY'], operationType: 'SVO' },
   })
   const tripSvo = await svoBody.service.scheduleTrip(input, manager.id)
@@ -189,9 +196,32 @@ test('lotação no agendamento: bloqueia excesso/zero com 422 e aceita igualdade
 
   await assert.rejects(
     setup({
-      request: { id: '41', requesterId: '3', serviceId: '5', passengers: 2, status: 'APPROVED', revision: 2 },
+      request: { ...approvedRequest, passengers: 2 },
       vehicle: { seats: 1, categories: ['PASSENGER', 'BODY'], operationType: 'SVO' },
     }).service.scheduleTrip(input, manager.id),
     domainError(422, 'passageiros'),
   )
+})
+
+test('agendamento impede lotação acima da capacidade e devolve o código estável', async () => {
+  const context = setup({ request: { ...approvedRequest, passengers: 5 } })
+  await assert.rejects(context.service.scheduleTrip(input, manager.id), (error: unknown) =>
+    error instanceof TripServiceError && error.statusCode === 422 && error.code === 'INSUFFICIENT_CAPACITY')
+  assert.equal(context.created.length, 0)
+})
+
+test('necessidades especiais exigem confirmação e evidência do Gestor', async () => {
+  const context = setup({ request: { ...approvedRequest, specialRequirements: 'Acesso sem escadas' } })
+  await assert.rejects(context.service.scheduleTrip(input, manager.id), domainError(422, 'Confirme a conferência'))
+  await assert.rejects(context.service.scheduleTrip({ ...input, specialRequirementsAcknowledged: true }, manager.id), domainError(422, 'Registre como'))
+
+  await context.service.scheduleTrip({ ...input, specialRequirementsAcknowledged: true, evidenceDescription: 'Foi confirmada a entrada sem degraus.' }, manager.id)
+  assert.equal(context.created[0]?.specialRequirementsAcknowledged, true)
+  assert.equal(context.created[0]?.evidenceDescription, 'Foi confirmada a entrada sem degraus.')
+  assert.equal(context.created[0]?.requestSnapshot.specialRequirements, 'Acesso sem escadas')
+})
+
+test('motorista sem conta ativa vinculada não pode receber viagem', async () => {
+  await assert.rejects(setup({ driver: { accountEligible: false } }).service.scheduleTrip(input, manager.id),
+    (error: unknown) => error instanceof TripServiceError && error.statusCode === 422 && error.code === 'ACCOUNT_UNAVAILABLE')
 })

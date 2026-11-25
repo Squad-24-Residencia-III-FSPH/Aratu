@@ -13,6 +13,7 @@ import type { RbacTestUser } from './fixtures/rbac-users.fixture'
 import {
   FICTITIOUS_CPFS,
   insertDriver,
+  insertDriverAccount,
   insertRequest,
   insertService,
   insertTrip,
@@ -56,7 +57,7 @@ async function scenario(): Promise<Scenario> {
   const serviceId = await insertService(pool, 'Transporte Fictício QA')
   const vehicleId = await insertVehicle(pool, 'AGE1A00')
   await linkVehicleToService(pool, vehicleId, serviceId)
-  const driverId = await insertDriver(pool, 'Motorista Fictício QA', FICTITIOUS_CPFS[0])
+  const driverId = await insertDriver(pool, 'Motorista Fictício QA', FICTITIOUS_CPFS[0], '2099-12-31', 'ACTIVE', await insertDriverAccount(pool))
   const requester = getUser('SOLICITANTE').id
   const requestId = await insertRequest(pool, requester, serviceId, 'APPROVED')
   return { serviceId, vehicleId, driverId, requester, requestId }
@@ -145,7 +146,7 @@ test('IT-SCHEDULING-02: solicitação não aprovada retorna 409 (pendente, rejei
 
 test('IT-SCHEDULING-03: veículo já alocado em período sobreposto retorna 409', async () => {
   const base = await scenario()
-  const otherDriver = await insertDriver(pool, 'Motorista Ocupante', FICTITIOUS_CPFS[1])
+  const otherDriver = await insertDriver(pool, 'Motorista Ocupante', FICTITIOUS_CPFS[1], '2099-12-31', 'ACTIVE', await insertDriverAccount(pool))
   await existingTrip(base, base.vehicleId, otherDriver)
   const response = await schedule({
     requestId: base.requestId, vehicleId: base.vehicleId, driverId: base.driverId, scheduledStart: OVERLAP_START, scheduledEnd: OVERLAP_END,
@@ -212,8 +213,12 @@ test('IT-SCHEDULING-08: motorista inativo, afastado ou com CNH vencida antes do 
     ['Motorista Afastado', FICTITIOUS_CPFS[3], '2099-12-31', 'AWAY', /afastado/],
     ['Motorista CNH Vencendo', FICTITIOUS_CPFS[4], '2099-11-30', 'ACTIVE', /CNH vencida/],
   ] as const
+  const unlinkedDriver = await insertDriver(pool, 'Motorista sem conta vinculada', FICTITIOUS_CPFS[7])
+  const unlinkedResponse = await schedule({ requestId: base.requestId, vehicleId: base.vehicleId, driverId: unlinkedDriver, scheduledStart: START, scheduledEnd: END })
+  assert.equal(unlinkedResponse.status, 422)
+  assert.match(((await unlinkedResponse.json()) as { erro: string }).erro, /conta ativa vinculada/)
   for (const [name, cpf, cnhExpiresAt, status, message] of cases) {
-    const driverId = await insertDriver(pool, name, cpf, cnhExpiresAt, status)
+    const driverId = await insertDriver(pool, name, cpf, cnhExpiresAt, status, await insertDriverAccount(pool))
     const response = await schedule({ requestId: base.requestId, vehicleId: base.vehicleId, driverId, scheduledStart: START, scheduledEnd: END })
     assert.equal(response.status, 422, name)
     assert.match(((await response.json()) as { erro: string }).erro, message)
@@ -224,8 +229,8 @@ test('IT-SCHEDULING-08: motorista inativo, afastado ou com CNH vencida antes do 
 test('IT-SCHEDULING-09: dois agendamentos simultâneos do mesmo veículo — só um vence', async () => {
   const base = await scenario()
   const secondRequest = await insertRequest(pool, base.requester, base.serviceId, 'APPROVED')
-  const driverA = await insertDriver(pool, 'Motorista Concorrente A', FICTITIOUS_CPFS[5])
-  const driverB = await insertDriver(pool, 'Motorista Concorrente B', FICTITIOUS_CPFS[6])
+  const driverA = await insertDriver(pool, 'Motorista Concorrente A', FICTITIOUS_CPFS[5], '2099-12-31', 'ACTIVE', await insertDriverAccount(pool))
+  const driverB = await insertDriver(pool, 'Motorista Concorrente B', FICTITIOUS_CPFS[6], '2099-12-31', 'ACTIVE', await insertDriverAccount(pool))
   const responses = await Promise.all([
     schedule({ requestId: base.requestId, vehicleId: base.vehicleId, driverId: driverA, scheduledStart: START, scheduledEnd: END }),
     schedule({ requestId: secondRequest, vehicleId: base.vehicleId, driverId: driverB, scheduledStart: '2099-12-01T09:00:00-03:00', scheduledEnd: '2099-12-01T10:00:00-03:00' }),

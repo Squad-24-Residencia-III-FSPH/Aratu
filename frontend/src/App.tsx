@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+﻿import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/layout';
 import GestorPage from './pages/gestor/gestorPage/GestorPage';
 import GestorDashboardPage from './pages/gestor/gestorPage/DashboardPage';
@@ -17,7 +17,6 @@ import DriversPage from './pages/driversPage/DriversPage';
 import FuelingsPage from './pages/fuelingsPage/FuelingsPage';
 import MyTripsPage from './pages/myTripsPage/MyTripsPage';
 import TripConfirmationPage from './pages/tripConfirmationPage/TripConfirmationPage';
-import ServicesPage from './pages/gestor/servicePage/ServicesPage';
 import ScheduleTripPage from './pages/gestor/schedulingPage/ScheduleTripPage';
 import SvoTeamOrdersPage from './pages/svoOrdersPage/SvoTeamOrdersPage';
 import SvoOrdersPage from './pages/svoOrdersPage/SvoOrdersPage';
@@ -27,12 +26,17 @@ import VehicleDocumentsPage from './pages/vehicleDocumentsPage/VehicleDocumentsP
 import FinesPage from './pages/finesPage/FinesPage';
 import SvoOccurrencesPage from './pages/svoOccurrencesPage/SvoOccurrencesPage';
 import AuditLogsPage from './pages/auditLogsPage/AuditLogsPage';
+import ServicesPage from './pages/gestor/servicePage/ServicesPage';
+import SvoTeamsPage from './pages/svoTeamsPage/SvoTeamsPage';
 
 function LoginRoute() {
   const { session } = useAuth();
   const { pathname } = useLocation();
   const decision = resolveRoute(session, pathname);
   if (decision.kind === 'login') return <LoginPage />;
+  if (decision.kind === 'svo-occurrences') {
+    return <Navigate to={PROFILE_HOMES[decision.profile].path} replace />;
+  }
   const target = decision.kind === 'redirect' ? decision.to : PROFILE_HOMES[decision.profile].path;
   return <Navigate to={target} replace />;
 }
@@ -67,20 +71,25 @@ function PrivateRoute() {
   if (decision.kind === 'vehicles') return <Layout><VehiclesPage /></Layout>;
   if (decision.kind === 'maintenance') return <Layout><MaintenancePage /></Layout>;
   if (decision.kind === 'reports') return <Layout><ReportsPage /></Layout>;
+  if (decision.kind === 'audit') return <Layout><AuditLogsPage /></Layout>;
+  if (decision.kind === 'svo-occurrences') return <Layout><SvoOccurrencesPage /></Layout>;
+  if (decision.kind === 'svo-teams') return <Layout><SvoTeamsPage /></Layout>;
+  if (decision.kind === 'vehicle-documents') return <Layout><VehicleDocumentsPage /></Layout>;
+  if (decision.kind === 'fines') return <Layout><FinesPage /></Layout>;
   if (decision.kind === 'drivers') return <Layout><DriversPage /></Layout>;
   if (decision.kind === 'fuelings') return <Layout><FuelingsPage /></Layout>;
   if (decision.kind === 'trip-confirmation') return <Layout><TripConfirmationPage /></Layout>;
+  if (decision.kind === 'trip-agenda') return <Layout><TripAgendaPage /></Layout>;
   if (decision.kind === 'service-types') return <Layout><ServicesPage /></Layout>;
   if (decision.kind === 'trip-scheduling') return <Layout><ScheduleTripPage /></Layout>;
   if (decision.kind === 'dashboard') return <Layout><GestorDashboardPage /></Layout>;
-  if (decision.kind === 'trip-agenda') return <Layout><TripAgendaPage /></Layout>;
   if (decision.kind === 'svo-orders') return <Layout><SvoOrdersPage /></Layout>;
-  if (decision.kind === 'svo-occurrences') return <Layout><SvoOccurrencesPage /></Layout>;
   if (decision.kind === 'request-analysis') return <Layout><RequestAnalysisPage /></Layout>;
-  if (decision.kind === 'vehicle-documents') return <Layout><VehicleDocumentsPage /></Layout>;
-  if (decision.kind === 'fines') return <Layout><FinesPage /></Layout>;
-  if (decision.kind === 'audit-logs') return <Layout><AuditLogsPage /></Layout>;
-  return <Layout><ProfileHome profile={decision.profile} /></Layout>;
+  return (
+    <Layout>
+      <ProfileHome profile={decision.profile} />
+    </Layout>
+  );
 }
 
 export default function App() {

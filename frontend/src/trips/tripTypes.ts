@@ -47,6 +47,8 @@ export interface ApprovedRequestSummary {
   destination: string
   purpose: string
   passengers: number
+  specialRequirements: string | null
+  revision: number
   status: 'APPROVED'
 }
 
@@ -79,6 +81,8 @@ export interface ScheduleTripInput {
   driverId: string
   scheduledStart: string
   scheduledEnd: string
+  specialRequirementsAcknowledged?: boolean
+  evidenceDescription?: string | null
 }
 
 /** Recortes de apresentação do conjunto de viagens já autorizado pela API. */
@@ -106,12 +110,19 @@ export type TripRequestErrorKind =
 export class TripRequestError extends Error {
   readonly kind: TripRequestErrorKind
   readonly status: number | null
+  readonly code: string | null
 
-  constructor(kind: TripRequestErrorKind, message: string, status: number | null = null) {
+  constructor(
+    kind: TripRequestErrorKind,
+    message: string,
+    status: number | null = null,
+    code: string | null = null,
+  ) {
     super(message)
     this.name = 'TripRequestError'
     this.kind = kind
     this.status = status
+    this.code = code
   }
 }
 

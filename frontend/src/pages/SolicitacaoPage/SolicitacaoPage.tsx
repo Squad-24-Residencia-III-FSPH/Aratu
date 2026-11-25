@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import AddIcon from '@mui/icons-material/Add'
 import {
   Alert,
@@ -9,6 +9,8 @@ import {
   Paper,
   Stack,
   TablePagination,
+  Typography,
+  useMediaQuery,
 } from '@mui/material'
 import { resolveProfile } from '../../auth/profiles'
 import { useSessionDraft } from '../../auth/sessionDrafts'
@@ -16,6 +18,7 @@ import { useAuth } from '../../auth/useAuth'
 import { accessibleControls } from '../../components/ui/accessibleControls'
 import DataTable from '../../components/ui/DataTable'
 import type { DataTableColumn } from '../../components/ui/DataTable'
+import { EntityCard } from '../../components/ui/EntityCard'
 import FilterBar from '../../components/ui/FilterBar'
 import { FormField, FormSelect } from '../../components/ui/FormField'
 import PageHeader from '../../components/ui/PageHeader'
@@ -42,6 +45,11 @@ import {
   validateFilterDateRange,
 } from './requestListFilters'
 import type { RequestFilterValues } from './requestListFilters'
+
+function isOpenNewRequestState(value: unknown): boolean {
+  return typeof value === 'object' && value !== null
+    && 'openNewRequest' in value && value.openNewRequest === true
+}
 
 const DOCUMENT_TITLE = 'Minhas solicitações — Aratu'
 const DEFAULT_LOAD_ERROR = 'Não foi possível carregar suas solicitações.'
@@ -104,6 +112,10 @@ function SolicitacaoContent() {
   const { api, session } = useAuth()
   const profile = session ? resolveProfile(session.perfil) : null
   const allowed = profile === 'SOLICITANTE'
+  const isCompactView = useMediaQuery('(max-width:899.95px)')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const routeRequestsNewForm = isOpenNewRequestState(location.state)
 
   const [searchParams, setSearchParams] = useSearchParams()
   const urlState = useMemo(() => parseRequestUrlState(searchParams), [searchParams])
@@ -146,7 +158,13 @@ function SolicitacaoContent() {
   )
   const draftFilters = draftOverride?.urlKey === urlFiltersKey ? draftOverride.values : urlFilters
   const dateRangeErrors = draftOverride?.urlKey === urlFiltersKey ? draftOverride.errors : {}
-  const newDialogOpen = newDialogLocalOpen || (allowed && urlState.openNewRequested)
+  const newDialogOpen = newDialogLocalOpen || (allowed && (urlState.openNewRequested || routeRequestsNewForm))
+
+  const clearRouteAction = useCallback(() => {
+    if (routeRequestsNewForm) {
+      navigate(location.pathname + location.search, { replace: true, state: null })
+    }
+  }, [location.pathname, location.search, navigate, routeRequestsNewForm])
 
   useEffect(() => {
     const previousTitle = document.title
@@ -281,6 +299,7 @@ function SolicitacaoContent() {
   function handleCloseNewDialog() {
     pendingFocusTriggerRef.current = true
     setNewDialogLocalOpen(false)
+    clearRouteAction()
     if (urlState.openNewRequested) {
       setSearchParams(buildRequestSearchParams(urlFilters, urlPage, urlPageSize), { replace: true })
     }
@@ -289,6 +308,7 @@ function SolicitacaoContent() {
   function handleCreated(created: CreatedRequestResult) {
     pendingFocusNoticeRef.current = true
     setNewDialogLocalOpen(false)
+    clearRouteAction()
     clearNewFormDraft()
     setNotice(
       `Solicitação #${created.id} enviada com sucesso e registrada como ${REQUEST_STATUS_LABELS[created.status]}. Acompanhe o andamento nesta lista.`,
@@ -318,12 +338,14 @@ function SolicitacaoContent() {
         destination: pendingDetail.destination,
         passengers: String(pendingDetail.passengers),
         purpose: pendingDetail.purpose,
+        specialRequirements: pendingDetail.specialRequirements ?? '',
         notes: pendingDetail.notes ?? '',
       })
       setResubmitTarget({
         id: pendingDetail.id,
         revision: pendingDetail.revision ?? 1,
         rejectionReason: pendingDetail.decisionReason,
+        status: pendingDetail.status === 'RETURNED' ? 'RETURNED' : 'REJECTED',
       })
       setNewDialogLocalOpen(true)
       return
@@ -393,7 +415,7 @@ function SolicitacaoContent() {
       <PageHeader
         title="Minhas Solicitações"
         breadcrumbs={['Início', 'Minhas Solicitações']}
-        description="Acompanhe os seus pedidos de transporte institucional ou crie uma nova solicitação."
+        description="Acompanhe os seus pedidos de transporte institucional, crie novas solicitações ou corrija devoluções."
         actions={(
           <Button
             ref={newButtonRef}
@@ -405,7 +427,7 @@ function SolicitacaoContent() {
             }}
             sx={{ minHeight: 44, minWidth: 44 }}
           >
-            Nova Solicitação
+            Nova solicitação
           </Button>
         )}
       />
@@ -498,16 +520,10 @@ function SolicitacaoContent() {
           )}
 
           <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', maxWidth: '100%' }}>
-            <DataTable
-              caption="Solicitações de transporte institucional"
-              columns={REQUEST_COLUMNS}
-              rows={rows}
-              rowKey={(request) => request.id}
-              busy={loading}
-              minWidth={760}
-              paperSx={{ border: 0, boxShadow: 'none' }}
-              loadingContent={<StateFeedback kind="loading" title="Carregando suas solicitações..." />}
-              emptyContent={
+            {isCompactView ? (
+              loading ? (
+                <StateFeedback kind="loading" title="Carregando suas solicitações..." />
+              ) : rows.length === 0 ? (
                 hasFilters ? (
                   <StateFeedback
                     kind="empty"
@@ -518,11 +534,11 @@ function SolicitacaoContent() {
                     centered
                   />
                 ) : (
-                    <StateFeedback
+                  <StateFeedback
                     kind="empty"
                     title="Você ainda não enviou solicitações de viagem."
-                    description="Clique em Nova Solicitação para pedir um transporte institucional."
-                    actionLabel="Nova Solicitação"
+                    description="Clique em Nova solicitação para pedir um transporte institucional."
+                    actionLabel="Nova solicitação"
                     onAction={() => {
                       setNotice('')
                       setNewDialogLocalOpen(true)
@@ -530,23 +546,104 @@ function SolicitacaoContent() {
                     centered
                   />
                 )
-              }
-              renderActions={(request) => (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={(event) => {
-                    detailTriggerRef.current = event.currentTarget
-                    detailSeqRef.current += 1
-                    setSelectedRequest({ id: request.id, seq: detailSeqRef.current })
-                  }}
-                  aria-label={`Ver detalhes da solicitação #${request.id} para ${request.destination}`}
-                  sx={{ minHeight: 44, minWidth: 44, whiteSpace: 'nowrap' }}
-                >
-                  Ver detalhes
-                </Button>
-              )}
-            />
+              ) : (
+                <Stack component="ul" spacing={1.5} aria-label="Solicitações de transporte institucional" sx={{ listStyle: 'none', p: 1.5, m: 0 }}>
+                  {rows.map((request) => (
+                    <Box component="li" key={request.id}>
+                      <EntityCard>
+                        <EntityCard.Header title={`Solicitação #${request.id} · ${request.serviceName}`}>
+                          <EntityCard.Status>
+                            <StatusChip
+                              label={REQUEST_STATUS_LABELS[request.status]}
+                              tone={REQUEST_STATUS_TONES[request.status]}
+                            />
+                          </EntityCard.Status>
+                        </EntityCard.Header>
+                        <EntityCard.Body>
+                          <Stack spacing={0.5}>
+                            <Typography variant="body2">
+                              <strong>Data e horário:</strong>{' '}
+                              {`${formatCalendarDate(request.requestedDate)} às ${request.requestedTime}`}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Destino:</strong> {request.destination}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Finalidade:</strong> {request.purpose}
+                            </Typography>
+                          </Stack>
+                        </EntityCard.Body>
+                        <EntityCard.Actions>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={(event) => {
+                              detailTriggerRef.current = event.currentTarget
+                              detailSeqRef.current += 1
+                              setSelectedRequest({ id: request.id, seq: detailSeqRef.current })
+                            }}
+                            aria-label={`Ver detalhes da solicitação #${request.id} para ${request.destination}`}
+                            sx={{ minHeight: 44, minWidth: 44, width: '100%', whiteSpace: 'nowrap' }}
+                          >
+                            Ver detalhes
+                          </Button>
+                        </EntityCard.Actions>
+                      </EntityCard>
+                    </Box>
+                  ))}
+                </Stack>
+              )
+            ) : (
+              <DataTable
+                caption="Solicitações de transporte institucional"
+                columns={REQUEST_COLUMNS}
+                rows={rows}
+                rowKey={(request) => request.id}
+                busy={loading}
+                minWidth={760}
+                paperSx={{ border: 0, boxShadow: 'none' }}
+                loadingContent={<StateFeedback kind="loading" title="Carregando suas solicitações..." />}
+                emptyContent={
+                  hasFilters ? (
+                    <StateFeedback
+                      kind="empty"
+                      title="Nenhuma solicitação encontrada para os filtros atuais."
+                      description="Ajuste os filtros de situação, período ou serviço para ampliar a busca."
+                      actionLabel="Limpar filtros"
+                      onAction={handleClearFilters}
+                      centered
+                    />
+                  ) : (
+                    <StateFeedback
+                      kind="empty"
+                      title="Você ainda não enviou solicitações de viagem."
+                      description="Clique em Nova solicitação para pedir um transporte institucional."
+                      actionLabel="Nova solicitação"
+                      onAction={() => {
+                        setNotice('')
+                        setNewDialogLocalOpen(true)
+                      }}
+                      centered
+                    />
+                  )
+                }
+                renderActions={(request) => (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={(event) => {
+                      detailTriggerRef.current = event.currentTarget
+                      detailSeqRef.current += 1
+                      setSelectedRequest({ id: request.id, seq: detailSeqRef.current })
+                    }}
+                    aria-label={`Ver detalhes da solicitação #${request.id} para ${request.destination}`}
+                    sx={{ minHeight: 44, minWidth: 44, whiteSpace: 'nowrap' }}
+                  >
+                    Ver detalhes
+                  </Button>
+                )}
+              />
+            )}
 
             <TablePagination
               component="div"

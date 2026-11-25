@@ -305,10 +305,16 @@ function main() {
         ok: beTsc.ok,
         details: beTsc.ok ? '🟢 Zero erros' : `🔴 Falhou:\n${beTsc.output.split('\n').slice(0, 15).join('\n')}`,
       });
+      if (!beTsc.ok) findings.push({
+        severity: '🔴 Bloqueante',
+        rule: 'QA (TypeScript Backend)',
+        file: 'backend/',
+        msg: `O compilador TypeScript falhou:\n${beTsc.output.split('\n').slice(0, 8).join('\n')}`,
+      });
     } else {
       qaResults.push({
         target: 'Backend (`npx tsc --noEmit`)',
-        ok: true,
+        ok: false,
         details: '⚪ `backend/node_modules` não instalado localmente (validar via container Docker)',
       });
     }
@@ -320,11 +326,39 @@ function main() {
         ok: feTsc.ok,
         details: feTsc.ok ? '🟢 Zero erros' : `🔴 Falhou:\n${feTsc.output.split('\n').slice(0, 15).join('\n')}`,
       });
+      if (!feTsc.ok) findings.push({
+        severity: '🔴 Bloqueante',
+        rule: 'QA (TypeScript Frontend)',
+        file: 'frontend/',
+        msg: `O compilador TypeScript falhou:\n${feTsc.output.split('\n').slice(0, 8).join('\n')}`,
+      });
     } else {
       qaResults.push({
         target: 'Frontend (`npx tsc -b --noEmit`)',
-        ok: true,
+        ok: false,
         details: '⚪ `frontend/node_modules` não instalado localmente (validar via container Docker)',
+      });
+    }
+
+    if (fs.existsSync(path.join(REPO_ROOT, 'frontend', 'node_modules'))
+      && fs.existsSync(path.join(REPO_ROOT, 'frontend', 'package.json'))) {
+      const feLint = runCmd('npm run lint', path.join(REPO_ROOT, 'frontend'));
+      qaResults.push({
+        target: 'Frontend (`npm run lint`)',
+        ok: feLint.ok,
+        details: feLint.ok ? '🟢 Zero avisos/erros' : `🔴 Falhou:\n${feLint.output.split('\n').slice(0, 15).join('\n')}`,
+      });
+      if (!feLint.ok) findings.push({
+        severity: '🔴 Bloqueante',
+        rule: 'QA (ESLint Frontend)',
+        file: 'frontend/',
+        msg: `O linter falhou:\n${feLint.output.split('\n').slice(0, 8).join('\n')}`,
+      });
+    } else {
+      qaResults.push({
+        target: 'Frontend (`npm run lint`)',
+        ok: false,
+        details: '⚪ Dependências locais indisponíveis; lint não foi executado',
       });
     }
 
@@ -383,7 +417,7 @@ function main() {
   }
 
   console.log(out.join('\n'));
-  process.exit(blockers.length > 0 ? 1 : 0);
+  process.exit(blockers.length > 0 || qaResults.some((result) => !result.ok) ? 1 : 0);
 }
 
 main();

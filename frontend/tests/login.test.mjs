@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { login, parseLoginResponse, INVALID_CREDENTIALS, SERVICE_UNAVAILABLE } from '../src/auth/loginService.ts'
+import { getCurrentUser, login, parseLoginResponse, INVALID_CREDENTIALS, SERVICE_UNAVAILABLE } from '../src/auth/loginService.ts'
 import { validateLogin } from '../src/auth/validation.ts'
 import { readSession, saveSession, clearSession, SESSION_KEY } from '../src/auth/sessionStorage.ts'
 import { sessionFor, tokenFor } from './fixtures.mjs'
@@ -105,6 +105,25 @@ test('JWT usa perfil como claim e mantém compatibilidade com tokens role anteri
   }
   const legacy = { ...session, token: tokenFor('GESTOR', 3600, { perfil: undefined, role: 'GESTOR' }) }
   assert.equal(parseLoginResponse(legacy).perfil, 'GESTOR')
+})
+
+test('GET /auth/me valida a identidade atual de um token recém-autenticado', async () => {
+  let request
+  const identity = await getCurrentUser(session.token, {
+    baseUrl: 'https://api.example.test/',
+    fetcher: async (url, options) => {
+      request = { url, options }
+      return Response.json({ id: '1', nome: 'Pessoa Atualizada', perfil: 'GESTOR' })
+    },
+  })
+  assert.equal(request.url, 'https://api.example.test/auth/me')
+  assert.equal(request.options.headers.Authorization, `Bearer ${session.token}`)
+  assert.deepEqual(identity, { id: '1', nome: 'Pessoa Atualizada', perfil: 'GESTOR' })
+})
+
+test('GET /auth/me não aceita uma identidade incompleta ou sem autorização atual', async () => {
+  await assert.rejects(getCurrentUser(session.token, { fetcher: respond(200, { id: '1', nome: 'Pessoa' }) }), { message: SERVICE_UNAVAILABLE })
+  await assert.rejects(getCurrentUser(session.token, { fetcher: respond(403, { erro: 'negado' }) }), { message: 'A conta ou o perfil não está mais autorizado.' })
 })
 
 test('outras falhas preservam erro do backend e possuem fallback', async () => {

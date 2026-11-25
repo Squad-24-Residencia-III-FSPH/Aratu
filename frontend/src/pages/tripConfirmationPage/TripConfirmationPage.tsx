@@ -121,7 +121,9 @@ interface AnnouncedResult {
 /** Permite ao Gestor conferir viagens finalizadas (`FINISHED`) e consultar recibos de confirmadas (`CONFIRMED`). */
 export default function TripConfirmationPage() {
   const { api, session } = useAuth()
-  const allowed = session !== null && resolveProfile(session.perfil) === 'GESTOR'
+  const profile = session ? resolveProfile(session.perfil) : null
+  const allowed = profile === 'GESTOR' || profile === 'ADMINISTRADOR'
+  const canOperate = profile === 'GESTOR'
   const [viewMode, setViewMode] = useState<TripConfirmationQueueStatus>('FINISHED')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -256,7 +258,7 @@ export default function TripConfirmationPage() {
   }
 
   async function confirmSelectedTrip() {
-    if (!selectedTrip || selectedTrip.status !== 'FINISHED' || !canConfirmTrip(selectedTrip) || state.invalidatedTripIds.includes(selectedTrip.id)) return
+    if (!canOperate || !selectedTrip || selectedTrip.status !== 'FINISHED' || !canConfirmTrip(selectedTrip) || state.invalidatedTripIds.includes(selectedTrip.id)) return
     const targetTrip = selectedTrip
     const outcome = await state.confirm(targetTrip.id)
     setConfirmOpen(false)
@@ -279,8 +281,7 @@ export default function TripConfirmationPage() {
     <Box sx={{ maxWidth: '100%', minWidth: 0 }}>
       <PageHeader
         title="Confirmar viagens"
-        titleVariant="h4"
-        breadcrumbs={['Início', 'Viagens', 'Conferência']}
+        breadcrumbs={['Início', 'Conferência']}
         description="Confira os registros das viagens finalizadas antes de confirmar a conclusão."
       />
 
@@ -294,6 +295,11 @@ export default function TripConfirmationPage() {
       )}
 
       {allowed && <>
+        {!canOperate && (
+          <Alert severity="info" role="note" sx={{ mb: 2 }}>
+            A consulta está disponível para manutenção e supervisão. A confirmação operacional é feita pelo Gestor.
+          </Alert>
+        )}
         <Tabs
           value={viewMode}
           onChange={(_event, next: TripConfirmationQueueStatus) => handleViewModeChange(next)}
@@ -541,7 +547,7 @@ export default function TripConfirmationPage() {
               <Button onClick={closeDetails} disabled={state.confirmingId !== null} sx={{ minHeight: 44, minWidth: 44 }}>
                 Fechar
               </Button>
-              {selectedTrip.status === 'FINISHED' && (
+              {selectedTrip.status === 'FINISHED' && canOperate && (
                 <Button
                   variant="contained"
                   color="success"

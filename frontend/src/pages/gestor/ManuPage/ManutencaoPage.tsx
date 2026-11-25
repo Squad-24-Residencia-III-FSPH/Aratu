@@ -251,9 +251,9 @@ export default function MaintenancePage() {
                 helperText="Limite final não incluído; horário local."
               />
             </Box>
-            <Button variant="outlined" onClick={applyFilters}>Aplicar filtros</Button>
-            <Button onClick={clearAllFilters}>Limpar filtros</Button>
-            <Button onClick={state.reload}>Atualizar</Button>
+            <Button variant="contained" onClick={applyFilters}>Aplicar filtros</Button>
+            <Button variant="outlined" onClick={clearAllFilters}>Limpar filtros</Button>
+            <Button variant="outlined" onClick={state.reload}>Atualizar</Button>
           </FilterBar>
 
           {filterError && <Alert severity="error" role="alert" sx={{ mb: 2 }}>{filterError}</Alert>}

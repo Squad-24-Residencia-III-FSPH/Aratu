@@ -509,6 +509,9 @@ test('IT15: seed inicial da frota (seedInitialFleet) é idempotente', async () =
 test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restauram o estado e permitem reaplicar', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611240003_add_requester_sector_snapshot.down.sql',
+    '202611240002_svo_automatic_dispatch.down.sql',
+    '202611240001_extend_trip_requests_for_corrections.down.sql',
     '202611160001_add_reports_period_indexes.down.sql',
     '202611090001_add_vehicle_services_active_revision.down.sql',
     '202611080001_add_fine_creation_key.down.sql',
@@ -1029,6 +1032,9 @@ test('IT20: consulta de conflito de agenda por período usando os índices de tr
 test('IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e reaplicação limpa', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611240003_add_requester_sector_snapshot.down.sql',
+    '202611240002_svo_automatic_dispatch.down.sql',
+    '202611240001_extend_trip_requests_for_corrections.down.sql',
     '202611160001_add_reports_period_indexes.down.sql',
     '202611080001_add_fine_creation_key.down.sql',
     '202611050001_extend_fuelings.down.sql',
@@ -1488,6 +1494,9 @@ test('IT25: preservação histórica no SVO: snapshots da época, retificação 
 test('IT26: rollbacks (.down.sql) das migrations 202610280008, 202610280007 e 202610280006 e reaplicação limpa', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611240003_add_requester_sector_snapshot.down.sql',
+    '202611240002_svo_automatic_dispatch.down.sql',
+    '202611240001_extend_trip_requests_for_corrections.down.sql',
     '202611160001_add_reports_period_indexes.down.sql',
     '202611080001_add_fine_creation_key.down.sql',
     '202611050001_extend_fuelings.down.sql',

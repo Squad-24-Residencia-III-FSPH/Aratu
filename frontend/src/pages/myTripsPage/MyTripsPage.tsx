@@ -28,8 +28,7 @@ function isTripFilter(value: string): value is TripFilter {
  * Remonta ao trocar o token da sessão, para nunca exibir dados do usuário anterior.
  */
 export default function MyTripsPage() {
-  const { session } = useAuth()
-  return <MyTripsContent key={session?.token ?? 'anonymous'} />
+  return <MyTripsContent />
 }
 
 function MyTripsContent() {
@@ -73,10 +72,9 @@ function MyTripsContent() {
   }
 
   return (
-    <Box sx={{ maxWidth: 900 }}>
+    <Box sx={{ width: '100%', minWidth: 0 }}>
       <PageHeader
         title="Minhas viagens"
-        titleVariant="h4"
         description="Registre o início e o término das viagens atribuídas a você."
         actions={
           <>

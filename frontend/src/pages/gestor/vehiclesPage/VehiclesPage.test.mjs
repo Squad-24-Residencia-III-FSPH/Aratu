@@ -262,7 +262,10 @@ test('erro inicial 503 não duplica mensagem e recupera com Tentar novamente', a
 
 test('VehicleFormDialog move o foco para o primeiro campo inválido em validação local e em placa duplicada 409', async () => {
   let postCount = 0
-  const user = mountPage(async (_path, options = {}) => {
+  const user = mountPage(async (requestPath, options = {}) => {
+    if (requestPath === '/services') {
+      return Response.json([])
+    }
     if (options.method === 'POST') {
       postCount += 1
       return Response.json({ erro: 'Placa já cadastrada' }, { status: 409 })
@@ -353,6 +356,9 @@ test('VehicleStatusDialog move foco para Justificativa quando vazia, cancela com
 
 test('persiste filtro livre de tipo de veículo na URL e trata edição com conflito de revisão 409', async () => {
   const user = mountPage(async (requestPath, options = {}) => {
+    if (requestPath === '/services') {
+      return Response.json([])
+    }
     if (requestPath === '/vehicles/4' && options.method === 'PUT') {
       return Response.json({ erro: 'O veículo foi alterado por outra operação.' }, { status: 409 })
     }

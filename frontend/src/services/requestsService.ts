@@ -1,9 +1,19 @@
 import type { ApiRequest } from '../api/client'
 import { SESSION_EXPIRED } from '../auth/token'
 import { REQUEST_STATUSES } from '../requests/requestTypes'
-import type { PaginatedRequests, RequestDetail, RequestListFilters, RequestStatus, RequestSummary, RequestTrip } from '../requests/requestTypes'
+import type {
+  PaginatedRequestHistory,
+  PaginatedRequests,
+  RequestDetail,
+  RequestHistoryItem,
+  RequestListFilters,
+  RequestStatus,
+  RequestSubmission,
+  RequestSummary,
+  RequestTrip,
+} from '../requests/requestTypes'
 
-/** Campos aceitos pelo endpoint `POST /requests` (FROTA-79 + extensão L12). */
+/** Campos aceitos pelo endpoint `POST /requests` (FROTA-79 + extensão L12 + necessidades especiais). */
 export interface CreateRequestPayload {
   requestedDate: string
   requestedTime: string
@@ -12,13 +22,14 @@ export interface CreateRequestPayload {
   purpose: string
   serviceId: string
   passengers?: number
+  specialRequirements?: string | null
   notes?: string | null
 }
 
 /** Dados enviados ao endpoint versionado `POST /requests/:id/resubmit`. */
 export interface ResubmitRequestPayload extends CreateRequestPayload {
   expectedRevision: number
-  reason: string
+  reason?: string
 }
 
 /** Confirmação mínima devolvida pela API após persistir a solicitação (`201 Created`). */
@@ -27,7 +38,7 @@ export interface CreatedRequestResult {
   status: RequestStatus
 }
 
-/** Confirmação retornada pela API após reenviar solicitação rejeitada (`200 OK`). */
+/** Confirmação retornada pela API após reenviar solicitação devolvida ou rejeitada (`200 OK`). */
 export interface ResubmitRequestResult {
   id: string
   status: RequestStatus
@@ -45,9 +56,6 @@ export interface RequestEventSummary {
 
 /** Detalhe autorizado de solicitação estendido com setor histórico, observações, revisão e eventos. */
 export interface RequestDetailView extends RequestDetail {
-  requesterSector?: string | null
-  notes?: string | null
-  revision?: number
   events?: RequestEventSummary[]
 }
 
@@ -107,9 +115,11 @@ function isSummary(value: unknown): value is RequestSummary {
     && typeof value.destination === 'string'
     && typeof value.purpose === 'string'
     && Number.isInteger(value.passengers)
+    && (value.specialRequirements === undefined || isNullableText(value.specialRequirements))
     && (value.notes === undefined || isNullableText(value.notes))
     && (value.requesterSector === undefined || isNullableText(value.requesterSector))
     && REQUEST_STATUSES.some(status => status === value.status)
+    && (value.revision === undefined || Number.isInteger(value.revision))
     && typeof value.createdAt === 'string'
     && typeof value.updatedAt === 'string'
 }
@@ -178,12 +188,43 @@ export async function getRequest(api: ApiRequest, id: string): Promise<RequestDe
   return parseRequestDetail(await parseResponse(response, 'Não foi possível carregar a solicitação. Tente novamente.'))
 }
 
+/** Busca a história imutável de decisões e versões da solicitação. */
+export async function getRequestHistory(api: ApiRequest, id: string, page = 1, pageSize = 20): Promise<PaginatedRequestHistory> {
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  const response = await api(`/requests/${encodeURIComponent(id)}/history?${query}`)
+  const body = await parseResponse(response, 'Não foi possível carregar o histórico da solicitação.')
+  if (!isRecord(body) || !Array.isArray(body.items) || !body.items.every(isRequestHistoryItem)
+    || !Number.isInteger(body.total) || !Number.isInteger(body.page)
+    || !Number.isInteger(body.pageSize) || !Number.isInteger(body.totalPages)) {
+    throw new Error('Não foi possível interpretar o histórico da solicitação.')
+  }
+  return body as unknown as PaginatedRequestHistory
+}
+
+function isRequestHistoryItem(value: unknown): value is RequestHistoryItem {
+  return isRecord(value) && typeof value.id === 'string' && typeof value.eventType === 'string'
+    && typeof value.occurredAt === 'string' && typeof value.registeredAt === 'string'
+    && typeof value.reportedBy === 'string' && typeof value.registeredBy === 'string'
+    && isRecord(value.actorSnapshot) && typeof value.reason === 'string'
+    && (value.beforeState === null || isRecord(value.beforeState)) && isRecord(value.afterState)
+}
+
 /** Registra a decisão do Gestor e preserva a mensagem de domínio retornada pela API. */
-export async function decideRequest(api: ApiRequest, id: string, decision: 'approve' | 'reject', reason?: string): Promise<void> {
+export async function decideRequest(
+  api: ApiRequest,
+  id: string,
+  decision: 'approve' | 'reject' | 'return',
+  reason?: string,
+  expectedRevision?: number,
+): Promise<void> {
+  const payload = {
+    ...(reason === undefined ? {} : { reason }),
+    ...(expectedRevision === undefined ? {} : { expectedRevision }),
+  }
   const response = await api(`/requests/${encodeURIComponent(id)}/${decision}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(reason === undefined ? {} : { reason }),
+    body: JSON.stringify(payload),
   })
   await parseResponse(response, 'Não foi possível registrar a decisão. Tente novamente.')
 }
@@ -265,7 +306,7 @@ export async function createRequest(api: ApiRequest, payload: CreateRequestPaylo
 }
 
 /**
- * Reenvia uma solicitação rejeitada (`POST /requests/:id/resubmit`) com controle otimista de revisão.
+ * Reenvia uma solicitação devolvida ou rejeitada (`POST /requests/:id/resubmit`) com controle otimista de revisão.
  *
  * Em `409 Conflict` lança `RequestActionError` com `kind: 'conflict'` para que a tela recarregue o
  * estado vigente antes de tentar novamente.
@@ -274,11 +315,33 @@ export async function resubmitRequest(
   api: ApiRequest,
   id: string,
   payload: ResubmitRequestPayload,
-): Promise<ResubmitRequestResult> {
+): Promise<ResubmitRequestResult>
+export async function resubmitRequest(
+  api: ApiRequest,
+  id: string,
+  expectedRevision: number,
+  input: RequestSubmission,
+): Promise<RequestDetailView>
+export async function resubmitRequest(
+  api: ApiRequest,
+  id: string,
+  payloadOrRevision: ResubmitRequestPayload | number,
+  input?: RequestSubmission,
+): Promise<ResubmitRequestResult | RequestDetailView> {
+  if (typeof payloadOrRevision === 'number') {
+    const { body } = await sendRequestMutation(
+      api,
+      `/requests/${encodeURIComponent(id)}/resubmit`,
+      { expectedRevision: payloadOrRevision, ...(input ?? {}) },
+      200,
+    )
+    return parseRequestDetail(body)
+  }
+
   const { status, body } = await sendRequestMutation(
     api,
     `/requests/${encodeURIComponent(id)}/resubmit`,
-    payload,
+    payloadOrRevision,
     200,
   )
 

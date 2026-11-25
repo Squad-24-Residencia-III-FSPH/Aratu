@@ -67,6 +67,10 @@ export interface SvoOccurrenceSummary {
   receivedAt: string
   createdAt: string
   revision: number
+  dispatchRequestedAt?: string | null
+  dispatchRequestedBy?: string | null
+  dispatchWaitReason?: 'NO_TEAM' | 'NO_VEHICLE' | null
+  executionOrderId?: string | null
 }
 
 /** Detalhe completo de uma solicitação SVO carregado sob demanda. */
@@ -103,6 +107,11 @@ export interface SvoOccurrenceCreationResult {
   revision: number
 }
 
+/** Resultado da tentativa automática de despacho executada pelo backend após triagem ou reavaliação. */
+export type SvoDispatchAutoResult =
+  | { status: 'DISPATCHED'; orderId: string; teamId: string; vehicleId: string; revision: number }
+  | { status: 'WAITING'; reason: 'NO_TEAM' | 'NO_VEHICLE'; revision: number }
+
 /** Resposta de confirmação em `POST /svo/occurrences/:id/confirm`. */
 export interface SvoOccurrenceConfirmationResult {
   id: string
@@ -110,6 +119,7 @@ export interface SvoOccurrenceConfirmationResult {
   triagedAt: string | null
   triagedBy: string | null
   revision: number
+  dispatch?: SvoDispatchAutoResult
 }
 
 /** Filtros suportados pela listagem `GET /svo/occurrences`. */
@@ -117,6 +127,13 @@ export interface SvoOccurrenceListFilters {
   status?: SvoOccurrenceStatus | ''
   from?: string
   to?: string
+}
+
+/** Filtros preenchidos da listagem SVO com campos obrigatórios. */
+export interface SvoOccurrenceFilters {
+  status: SvoOccurrenceStatus | ''
+  from: string
+  to: string
 }
 
 /** Vínculo resumido de ordem já gerada para impedir duplicidade e calcular ocupação. */

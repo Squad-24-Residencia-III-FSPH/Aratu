@@ -1,18 +1,27 @@
 import { Router } from 'express'
 import { createServicesController } from '../controllers/services.controller'
-import { createAuthMiddleware } from '../middlewares/auth.middleware'
+import { createAuthMiddleware, createCurrentUserMiddleware } from '../middlewares/auth.middleware'
 import { authorizeRoles } from '../middlewares/rbac.middleware'
 import type { JwtConfig } from '../types/auth'
 import { SERVICE_MANAGER_ROLES, SERVICE_READER_ROLES } from '../types/fleet-service.types'
 import type { FleetServicesService } from '../services/fleet-services.service'
+import type { UsersRepositoryContract } from '../repositories/users.repository'
 
 /** Cria rotas REST de tipos de serviço: leitura para quem solicita viagens, escrita para GESTOR e ADMINISTRADOR. */
-export function createServicesRouter(service: FleetServicesService, jwtConfig: JwtConfig): Router {
+export function createServicesRouter(
+  service: FleetServicesService,
+  jwtConfig: JwtConfig,
+  users: Pick<UsersRepositoryContract, 'findById'>,
+): Router {
   const router = Router()
   const controller = createServicesController(service)
   const authorizeWrite = authorizeRoles(SERVICE_MANAGER_ROLES)
 
-  router.use(createAuthMiddleware(jwtConfig.secret), authorizeRoles(SERVICE_READER_ROLES))
+  router.use(
+    createAuthMiddleware(jwtConfig.secret),
+    createCurrentUserMiddleware(users),
+    authorizeRoles(SERVICE_READER_ROLES),
+  )
 
   router.get('/', controller.list)
   router.get('/:id', controller.getById)
