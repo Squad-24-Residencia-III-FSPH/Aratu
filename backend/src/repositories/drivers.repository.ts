@@ -4,9 +4,11 @@ import type {
   Driver,
   DriverActorSnapshot,
   DriverFilters,
+  DriverHistoryEvent,
   DriverMutationResult,
   DriverStatus,
   DriverUserAccount,
+  EligibleDriverAccount,
   NormalizedDriverAttributes,
 } from '../types/driver.types'
 import type { EntityHistoryFilters, EntityHistoryPage } from '../types/entity-history.types'
@@ -25,6 +27,8 @@ export interface DriversRepositoryContract {
   findByCpf(cpf: string, client?: PoolClient): Promise<Driver | null>
   findByUserId(userId: string, client?: PoolClient): Promise<Driver | null>
   findUserAccount(userId: string, client?: PoolClient): Promise<DriverUserAccount | null>
+  listEligibleAccounts(driverId?: string): Promise<EligibleDriverAccount[]>
+  listHistoryEvents(driverId: string): Promise<DriverHistoryEvent[]>
   create(attributes: NormalizedDriverAttributes, status: DriverStatus, client: PoolClient): Promise<Driver>
   saveAttributes(id: string, expectedRevision: number, attributes: NormalizedDriverAttributes, client: PoolClient): Promise<DriverMutationResult>
   saveStatus(id: string, expectedRevision: number, status: DriverStatus, client: PoolClient): Promise<DriverMutationResult>
@@ -191,6 +195,45 @@ export class DriversRepository implements DriversRepositoryContract {
       [userId],
     )
     return result.rows[0] ?? null
+  }
+
+  /**
+   * Lista projeção mínima de contas `MOTORISTA` ativas e ainda não vinculadas,
+   * incluindo opcionalmente a conta do motorista em edição (`driverId`).
+   */
+  async listEligibleAccounts(driverId?: string): Promise<EligibleDriverAccount[]> {
+    const result = await this.pool.query<EligibleDriverAccount>(
+      `SELECT u.id::text AS id, u.name, u.email
+         FROM auth.users u
+         JOIN auth.roles r ON r.id = u.role_id
+         LEFT JOIN fleet.drivers d ON d.user_id = u.id
+        WHERE u.active = true
+          AND r.name = 'MOTORISTA'
+          AND (d.id IS NULL OR ($1::bigint IS NOT NULL AND d.id = $1::bigint))
+        ORDER BY u.name ASC, u.id ASC`,
+      [driverId ?? null],
+    )
+    return result.rows
+  }
+
+  /**
+   * Lista a trilha cronológica sanitizada de eventos do motorista sem expor snapshots de CPF/CNH.
+   */
+  async listHistoryEvents(driverId: string): Promise<DriverHistoryEvent[]> {
+    const result = await this.pool.query<DriverHistoryEvent>(
+      `SELECT id::text AS id,
+              event_type AS "eventType",
+              occurred_at AS "occurredAt",
+              reported_by AS "reportedBy",
+              reason,
+              actor_snapshot->>'name' AS "actorName",
+              actor_snapshot->>'role' AS "actorRole"
+         FROM fleet.driver_events
+        WHERE driver_id = $1
+        ORDER BY occurred_at DESC, id DESC`,
+      [driverId],
+    )
+    return result.rows
   }
 
   /** Insere o cadastro inicial com a situação já validada pelo service. */

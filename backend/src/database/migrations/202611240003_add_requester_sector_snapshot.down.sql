@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE auth.users
+  DROP COLUMN IF EXISTS sector;
+
+COMMIT;

@@ -90,6 +90,22 @@ export interface CreateSvoOrderInput {
 }
 export interface SvoOrderCreationResult { id: string; status: typeof SVO_ORDER_INITIAL_STATUS }
 export interface SvoTeamSnapshot { id: string; name: string; active: boolean; revision: number }
+export interface SvoDispatchCandidateTeam { id: string; name: string }
+export interface SvoDispatchCandidateVehicleRow {
+  id: string
+  plate: string
+  brand: string | null
+  model: string | null
+  bodyLimit: number
+  occupyingOrders: number
+}
+export interface SvoDispatchCandidateVehicle extends SvoDispatchCandidateVehicleRow {
+  availableSlots: number
+}
+export interface SvoDispatchCandidatesResult {
+  teams: SvoDispatchCandidateTeam[]
+  vehicles: SvoDispatchCandidateVehicle[]
+}
 export interface SvoAllocationSnapshot {
   teamShiftId: string
   shiftStartsAt: Date | string

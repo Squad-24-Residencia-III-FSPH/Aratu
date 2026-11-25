@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Review — QA-TELAS-E-FLUXOS — QA de telas e fluxos (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #3730a3;
+      --brand: #4f46e5;
+      --brand-surface: #eef2ff;
+      --brand-border: #c7d2fe;
+      --brand-hover: #e0e7ff;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .verdict-approved { background: #dcfce7; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #14532d; font-weight: 600; }
+    .verdict-blocked { background: #fee2e2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 1rem; color: #7f1d1d; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px 14px; text-align: center; }
+    .summary-card .count { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.2; }
+    .summary-card .label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-block { display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-warn { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-ok { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 700; }
+    .badge-na { display: inline-block; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block, .summary-grid { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+  
+    .table-scroll { overflow-x: auto; margin-block: 12px; }
+    .table-scroll:focus-visible, summary:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: 3px; }
+    .file-list td { overflow-wrap: anywhere; }
+    .findings h4 { margin-bottom: 6px; font-size: 1.02rem; }
+    .findings p { margin: 6px 0; }
+    .findings li { margin-bottom: 20px; }
+    .muted { color: var(--text-secondary); font-size: 0.9rem; overflow-wrap: anywhere; }
+    .check label { display: flex; align-items: baseline; gap: 8px; }
+    details summary { cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<h1>Relatório de Revisão de Código (Code Review) — QA-TELAS-E-FLUXOS: QA de telas e fluxos</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>QA-TELAS-E-FLUXOS</code> — QA de telas e fluxos</p>
+  <p><strong>Branch revisada</strong> <code>feat/qa-telas-e-fluxos</code> em <code>13d45bf</code></p>
+  <p><strong>Base verificada</strong> <code>origin/develop</code> em <code>7371b5b</code>, segundo pai do merge. O <code>develop</code> local estava 25 commits atrás.</p>
+  <p><strong>Planos de referência</strong> <a href="../plans/qa-telas-e-fluxos.html">Campanha T01–T26</a> e <a href="../plans/qa-lotes-de-correcoes.html">Lotes L01–L20</a></p>
+  <p><strong>Módulo(s) Afetado(s):</strong> <code>AUTENTICACAO_RBAC, FROTA, MOTORISTAS, MANUTENCOES, VIAGENS, SVO, RELATORIOS E AUDITORIA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>ADMINISTRADOR, GESTOR, SOLICITANTE, MOTORISTA, ATENDENTE_SVO, EQUIPE_SVO</code></p>
+  <p><strong>Data da revisão</strong> 24/11/2026</p>
+</div>
+
+<div class="verdict-blocked">Veredito da revisão · BLOQUEADO_POR_PENDENCIAS</div>
+
+<p>Classificação dos 17 critérios. A revisão registrou 4 achados bloqueantes e 4 pontos de atenção.</p>
+<div class="summary-grid"><div class="summary-card"><span class="count" style="color: #991b1b;">2</span><span class="label">🔴 Bloqueantes</span></div><div class="summary-card"><span class="count" style="color: #92400e;">9</span><span class="label">🟡 Atenção</span></div><div class="summary-card"><span class="count" style="color: #166534;">6</span><span class="label">🟢 OK</span></div><div class="summary-card"><span class="count" style="color: #475569;">0</span><span class="label">⚪ N/A</span></div></div>
+
+<ol class="toc">
+  <li><a href="#r1">Resumo do Diff e Escopo Auditado</a></li>
+  <li><a href="#r2">Matriz de Conformidade Arquitetural (Critérios C1 a C17)</a></li>
+  <li><a href="#r3">Achados Detalhados (Bloqueantes e Pontos de Atenção)</a></li>
+  <li><a href="#r4">Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</a></li>
+  <li><a href="#r5">Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</a></li>
+</ol>
+
+<hr>
+
+<h2 id="r1">1. Resumo do Diff e Escopo Auditado</h2>
+<p>A campanha abrange os seis perfis do Aratu. Os dois planos locais reúnem as histórias e seus critérios por tela. O histórico da branch e os planos não identificam uma única issue Jira para a campanha.</p>
+<p>Comparação <code>7371b5b...13d45bf</code> com 226 arquivos, 41.395 inserções e 4.967 remoções. Foram criados 112 arquivos e modificados 114. O recorte inclui 37 arquivos no backend, 160 no frontend e 29 em documentação e evidências.</p>
+<div class="table-scroll" role="region" aria-label="Escopo por lote" tabindex="0"><table><thead><tr><th scope="col">Área</th><th scope="col">Lotes</th><th scope="col">Mudanças examinadas</th></tr></thead><tbody>
+<tr><td>Autenticação, perfis e navegação</td><td>L01–L04</td><td>Aviso de sessão, identidade atual, menu baseado em perfil, guarda de rota, controles compartilhados e recuperação do catálogo de perfis. B3 e A1.</td></tr>
+<tr><td>Frota, cadastros e controle operacional</td><td>L05–L11</td><td>Filtros e históricos, contas elegíveis de motorista, vínculos, manutenção, abastecimentos, documentos e multas. A1 e A4.</td></tr>
+<tr><td>Solicitações e viagens</td><td>L12–L15</td><td>Filtros persistidos, análise versionada, setor histórico, lotação no agendamento, reconciliação da execução e recibo. B2, A3 e A4.</td></tr>
+<tr><td>Operação SVO</td><td>L16–L17</td><td>Registro, confirmação, despacho, candidatos, foco e recuperação de falha em ordens. B1 e A2.</td></tr>
+<tr><td>Painel, relatórios e auditoria</td><td>L18–L20</td><td>Indicadores, agenda, prévia e impressão, trilha de auditoria e projeção mascarada. B4 e A1.</td></tr>
+</tbody></table></div>
+<details class="file-list"><summary>Inventário do diff · 226 arquivos</summary>
+<div class="table-scroll" role="region" aria-label="Inventário de arquivos" tabindex="0"><table><thead><tr><th scope="col">Arquivo</th><th scope="col">Alteração</th><th scope="col">Inserções</th><th scope="col">Remoções</th></tr></thead><tbody>
+<tr><td><a href="../../backend/src/app.ts"><code>backend/src/app.ts</code></a></td><td>Modificado</td><td>3</td><td>1</td></tr>
+<tr><td><a href="../../backend/src/controllers/auth.controller.ts"><code>backend/src/controllers/auth.controller.ts</code></a></td><td>Modificado</td><td>12</td><td>5</td></tr>
+<tr><td><a href="../../backend/src/controllers/availability.controller.ts"><code>backend/src/controllers/availability.controller.ts</code></a></td><td>Modificado</td><td>2</td><td>2</td></tr>
+<tr><td><a href="../../backend/src/controllers/drivers.controller.ts"><code>backend/src/controllers/drivers.controller.ts</code></a></td><td>Modificado</td><td>12</td><td>1</td></tr>
+<tr><td><a href="../../backend/src/controllers/requests.controller.ts"><code>backend/src/controllers/requests.controller.ts</code></a></td><td>Modificado</td><td>7</td><td>4</td></tr>
+<tr><td><a href="../../backend/src/controllers/svo-orders.controller.ts"><code>backend/src/controllers/svo-orders.controller.ts</code></a></td><td>Modificado</td><td>3</td><td>0</td></tr>
+<tr><td><a href="../../backend/src/database/migrations/202611240003_add_requester_sector_snapshot.down.sql"><code>backend/src/database/migrations/202611240003_add_requester_sector_snapshot.down.sql</code></a></td><td>Novo</td><td>6</td><td>0</td></tr>
+<tr><td><a href="../../backend/src/database/migrations/202611240003_add_requester_sector_snapshot.sql"><code>backend/src/database/migrations/202611240003_add_requester_sector_snapshot.sql</code></a></td><td>Novo</td><td>10</td><td>0</td></tr>
+<tr><td><a href="../../backend/src/repositories/availability.repository.ts"><code>backend/src/repositories/availability.repository.ts</code></a></td><td>Modificado</td><td>12</td><td>1</td></tr>
+<tr><td><a href="../../backend/src/repositories/drivers.repository.ts"><code>backend/src/repositories/drivers.repository.ts</code></a></td><td>Modificado</td><td>43</td><td>0</td></tr>
+<tr><td><a href="../../backend/src/repositories/requests.repository.ts"><code>backend/src/repositories/requests.repository.ts</code></a></td><td>Modificado</td><td>73</td><td>42</td></tr>
+<tr><td><a href="../../backend/src/repositories/svo-orders.repository.ts"><code>backend/src/repositories/svo-orders.repository.ts</code></a></td><td>Modificado</td><td>52</td><td>1</td></tr>
+<tr><td><a href="../../backend/src/routes/auth.routes.ts"><code>backend/src/routes/auth.routes.ts</code></a></td><td>Modificado</td><td>16</td><td>7</td></tr>
+<tr><td><a href="../../backend/src/routes/drivers.routes.ts"><code>backend/src/routes/drivers.routes.ts</code></a></td><td>Modificado</td><td>2</td><td>0</td></tr>
+<tr><td><a href="../../backend/src/routes/svo-orders.routes.ts"><code>backend/src/routes/svo-orders.routes.ts</code></a></td><td>Modificado</td><td>26</td><td>8</td></tr>
+<tr><td><a href="../../backend/src/services/audit-logs.service.ts"><code>backend/src/services/audit-logs.service.ts</code></a></td><td>Modificado</td><td>17</td><td>7</td></tr>
+<tr><td><a href="../../backend/src/services/auth.service.ts"><code>backend/src/services/auth.service.ts</code></a></td><td>Modificado</td><td>11</td><td>0</td></tr>
+<tr><td><a href="../../backend/src/services/availability.service.ts"><code>backend/src/services/availability.service.ts</code></a></td><td>Modificado</td><td>55</td><td>13</td></tr>
+<tr><td><a href="../../backend/src/services/drivers.service.ts"><code>backend/src/services/drivers.service.ts</code></a></td><td>Modificado</td><td>36</td><td>1</td></tr>
+<tr><td><a href="../../backend/src/services/requests.service.ts"><code>backend/src/services/requests.service.ts</code></a></td><td>Modificado</td><td>162</td><td>69</td></tr>
+<tr><td><a href="../../backend/src/services/svo-orders.service.ts"><code>backend/src/services/svo-orders.service.ts</code></a></td><td>Modificado</td><td>34</td><td>3</td></tr>
+<tr><td><a href="../../backend/src/services/trips.service.ts"><code>backend/src/services/trips.service.ts</code></a></td><td>Modificado</td><td>16</td><td>6</td></tr>
+<tr><td><a href="../../backend/src/types/availability.types.ts"><code>backend/src/types/availability.types.ts</code></a></td><td>Modificado</td><td>4</td><td>1</td></tr>
+<tr><td><a href="../../backend/src/types/driver.types.ts"><code>backend/src/types/driver.types.ts</code></a></td><td>Modificado</td><td>28</td><td>2</td></tr>
+<tr><td><a href="../../backend/src/types/request.types.ts"><code>backend/src/types/request.types.ts</code></a></td><td>Modificado</td><td>36</td><td>7</td></tr>
+<tr><td><a href="../../backend/src/types/svo-order.types.ts"><code>backend/src/types/svo-order.types.ts</code></a></td><td>Modificado</td><td>16</td><td>0</td></tr>
+<tr><td><a href="../../backend/src/types/trip.types.ts"><code>backend/src/types/trip.types.ts</code></a></td><td>Modificado</td><td>1</td><td>1</td></tr>
+<tr><td><a href="../../backend/tests/audit-logs.service.test.ts"><code>backend/tests/audit-logs.service.test.ts</code></a></td><td>Modificado</td><td>42</td><td>3</td></tr>
+<tr><td><a href="../../backend/tests/auth.test.ts"><code>backend/tests/auth.test.ts</code></a></td><td>Modificado</td><td>55</td><td>1</td></tr>
+<tr><td><a href="../../backend/tests/availability.service.test.ts"><code>backend/tests/availability.service.test.ts</code></a></td><td>Modificado</td><td>75</td><td>5</td></tr>
+<tr><td><a href="../../backend/tests/database.integration.test.ts"><code>backend/tests/database.integration.test.ts</code></a></td><td>Modificado</td><td>3</td><td>0</td></tr>
+<tr><td><a href="../../backend/tests/drivers.integration.test.ts"><code>backend/tests/drivers.integration.test.ts</code></a></td><td>Modificado</td><td>64</td><td>0</td></tr>
+<tr><td><a href="../../backend/tests/drivers.service.test.ts"><code>backend/tests/drivers.service.test.ts</code></a></td><td>Modificado</td><td>54</td><td>1</td></tr>
+<tr><td><a href="../../backend/tests/request-decisions.service.test.ts"><code>backend/tests/request-decisions.service.test.ts</code></a></td><td>Modificado</td><td>15</td><td>0</td></tr>
+<tr><td><a href="../../backend/tests/requests.service.test.ts"><code>backend/tests/requests.service.test.ts</code></a></td><td>Modificado</td><td>197</td><td>27</td></tr>
+<tr><td><a href="../../backend/tests/svo-orders.service.test.ts"><code>backend/tests/svo-orders.service.test.ts</code></a></td><td>Modificado</td><td>133</td><td>0</td></tr>
+<tr><td><a href="../../backend/tests/trips.service.test.ts"><code>backend/tests/trips.service.test.ts</code></a></td><td>Modificado</td><td>53</td><td>1</td></tr>
+<tr><td><a href="../../docs/plans/qa-lotes-de-correcoes.html"><code>docs/plans/qa-lotes-de-correcoes.html</code></a></td><td>Novo</td><td>609</td><td>0</td></tr>
+<tr><td><a href="../../docs/plans/qa-telas-e-fluxos.html"><code>docs/plans/qa-telas-e-fluxos.html</code></a></td><td>Novo</td><td>130</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T01.md"><code>docs/tests/telas/20261122-1131/T01.md</code></a></td><td>Novo</td><td>98</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T02.md"><code>docs/tests/telas/20261122-1131/T02.md</code></a></td><td>Novo</td><td>75</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T03.md"><code>docs/tests/telas/20261122-1131/T03.md</code></a></td><td>Novo</td><td>56</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T04.md"><code>docs/tests/telas/20261122-1131/T04.md</code></a></td><td>Novo</td><td>138</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T05.md"><code>docs/tests/telas/20261122-1131/T05.md</code></a></td><td>Novo</td><td>59</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T06.md"><code>docs/tests/telas/20261122-1131/T06.md</code></a></td><td>Novo</td><td>57</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T07.md"><code>docs/tests/telas/20261122-1131/T07.md</code></a></td><td>Novo</td><td>56</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T08.md"><code>docs/tests/telas/20261122-1131/T08.md</code></a></td><td>Novo</td><td>71</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T09.md"><code>docs/tests/telas/20261122-1131/T09.md</code></a></td><td>Novo</td><td>62</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T10.md"><code>docs/tests/telas/20261122-1131/T10.md</code></a></td><td>Novo</td><td>64</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T11.md"><code>docs/tests/telas/20261122-1131/T11.md</code></a></td><td>Novo</td><td>60</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T12.md"><code>docs/tests/telas/20261122-1131/T12.md</code></a></td><td>Novo</td><td>63</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T13.md"><code>docs/tests/telas/20261122-1131/T13.md</code></a></td><td>Novo</td><td>84</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T14.md"><code>docs/tests/telas/20261122-1131/T14.md</code></a></td><td>Novo</td><td>74</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T15.md"><code>docs/tests/telas/20261122-1131/T15.md</code></a></td><td>Novo</td><td>66</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T16.md"><code>docs/tests/telas/20261122-1131/T16.md</code></a></td><td>Novo</td><td>64</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T17.md"><code>docs/tests/telas/20261122-1131/T17.md</code></a></td><td>Novo</td><td>74</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T18.md"><code>docs/tests/telas/20261122-1131/T18.md</code></a></td><td>Novo</td><td>72</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T19.md"><code>docs/tests/telas/20261122-1131/T19.md</code></a></td><td>Novo</td><td>85</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T20.md"><code>docs/tests/telas/20261122-1131/T20.md</code></a></td><td>Novo</td><td>92</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T21.md"><code>docs/tests/telas/20261122-1131/T21.md</code></a></td><td>Novo</td><td>92</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T22.md"><code>docs/tests/telas/20261122-1131/T22.md</code></a></td><td>Novo</td><td>67</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T23.md"><code>docs/tests/telas/20261122-1131/T23.md</code></a></td><td>Novo</td><td>103</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T24.md"><code>docs/tests/telas/20261122-1131/T24.md</code></a></td><td>Novo</td><td>95</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T25.md"><code>docs/tests/telas/20261122-1131/T25.md</code></a></td><td>Novo</td><td>70</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/T26.md"><code>docs/tests/telas/20261122-1131/T26.md</code></a></td><td>Novo</td><td>72</td><td>0</td></tr>
+<tr><td><a href="../../docs/tests/telas/20261122-1131/indice.md"><code>docs/tests/telas/20261122-1131/indice.md</code></a></td><td>Novo</td><td>107</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/App.tsx"><code>frontend/src/App.tsx</code></a></td><td>Modificado</td><td>32</td><td>46</td></tr>
+<tr><td><a href="../../frontend/src/api/client.test.mjs"><code>frontend/src/api/client.test.mjs</code></a></td><td>Novo</td><td>88</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/api/client.ts"><code>frontend/src/api/client.ts</code></a></td><td>Modificado</td><td>36</td><td>3</td></tr>
+<tr><td><a href="../../frontend/src/auth/AuthContext.ts"><code>frontend/src/auth/AuthContext.ts</code></a></td><td>Modificado</td><td>2</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/auth/AuthProvider.tsx"><code>frontend/src/auth/AuthProvider.tsx</code></a></td><td>Modificado</td><td>166</td><td>21</td></tr>
+<tr><td><a href="../../frontend/src/auth/SessionExpiryPrompt.tsx"><code>frontend/src/auth/SessionExpiryPrompt.tsx</code></a></td><td>Novo</td><td>362</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/auth/revalidation.ts"><code>frontend/src/auth/revalidation.ts</code></a></td><td>Novo</td><td>29</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/auth/sessionContinuity.test.mjs"><code>frontend/src/auth/sessionContinuity.test.mjs</code></a></td><td>Novo</td><td>246</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/auth/sessionDrafts.ts"><code>frontend/src/auth/sessionDrafts.ts</code></a></td><td>Novo</td><td>202</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/auth/sessionExpiryPrompt.test.mjs"><code>frontend/src/auth/sessionExpiryPrompt.test.mjs</code></a></td><td>Novo</td><td>165</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/auth/token.ts"><code>frontend/src/auth/token.ts</code></a></td><td>Modificado</td><td>7</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/auth/useUnsavedChangesGuard.test.mjs"><code>frontend/src/auth/useUnsavedChangesGuard.test.mjs</code></a></td><td>Novo</td><td>66</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/auth/useUnsavedChangesGuard.ts"><code>frontend/src/auth/useUnsavedChangesGuard.ts</code></a></td><td>Novo</td><td>137</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/components/Sidebar.tsx"><code>frontend/src/components/Sidebar.tsx</code></a></td><td>Modificado</td><td>459</td><td>136</td></tr>
+<tr><td><a href="../../frontend/src/components/Topbar.tsx"><code>frontend/src/components/Topbar.tsx</code></a></td><td>Modificado</td><td>26</td><td>10</td></tr>
+<tr><td><a href="../../frontend/src/components/navigationIcons.ts"><code>frontend/src/components/navigationIcons.ts</code></a></td><td>Modificado</td><td>11</td><td>1</td></tr>
+<tr><td><a href="../../frontend/src/components/sidebarNavigation.ts"><code>frontend/src/components/sidebarNavigation.ts</code></a></td><td>Modificado</td><td>64</td><td>35</td></tr>
+<tr><td><a href="../../frontend/src/components/svo/SvoOrderDetails.tsx"><code>frontend/src/components/svo/SvoOrderDetails.tsx</code></a></td><td>Modificado</td><td>22</td><td>4</td></tr>
+<tr><td><a href="../../frontend/src/components/svo/SvoOrderList.tsx"><code>frontend/src/components/svo/SvoOrderList.tsx</code></a></td><td>Modificado</td><td>11</td><td>10</td></tr>
+<tr><td><a href="../../frontend/src/components/svo/SvoOrderResultDialog.tsx"><code>frontend/src/components/svo/SvoOrderResultDialog.tsx</code></a></td><td>Modificado</td><td>54</td><td>18</td></tr>
+<tr><td><a href="../../frontend/src/components/svo/svoOrderAccessibility.test.mjs"><code>frontend/src/components/svo/svoOrderAccessibility.test.mjs</code></a></td><td>Novo</td><td>322</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/components/svo/svoOrderStyles.ts"><code>frontend/src/components/svo/svoOrderStyles.ts</code></a></td><td>Novo</td><td>60</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/components/ui/ConfirmDialog.tsx"><code>frontend/src/components/ui/ConfirmDialog.tsx</code></a></td><td>Modificado</td><td>71</td><td>7</td></tr>
+<tr><td><a href="../../frontend/src/components/ui/FormField.tsx"><code>frontend/src/components/ui/FormField.tsx</code></a></td><td>Modificado</td><td>45</td><td>4</td></tr>
+<tr><td><a href="../../frontend/src/components/ui/StatusChip.tsx"><code>frontend/src/components/ui/StatusChip.tsx</code></a></td><td>Modificado</td><td>43</td><td>21</td></tr>
+<tr><td><a href="../../frontend/src/components/ui/sharedControls.l03.test.mjs"><code>frontend/src/components/ui/sharedControls.l03.test.mjs</code></a></td><td>Novo</td><td>262</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/fuelings/fuelingTypes.ts"><code>frontend/src/fuelings/fuelingTypes.ts</code></a></td><td>Modificado</td><td>1</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/hooks/useAuditLogs.ts"><code>frontend/src/hooks/useAuditLogs.ts</code></a></td><td>Novo</td><td>187</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/hooks/useDashboard.ts"><code>frontend/src/hooks/useDashboard.ts</code></a></td><td>Novo</td><td>600</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/hooks/useFines.ts"><code>frontend/src/hooks/useFines.ts</code></a></td><td>Novo</td><td>152</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/hooks/useMaintenance.ts"><code>frontend/src/hooks/useMaintenance.ts</code></a></td><td>Modificado</td><td>103</td><td>14</td></tr>
+<tr><td><a href="../../frontend/src/hooks/useMyTrips.ts"><code>frontend/src/hooks/useMyTrips.ts</code></a></td><td>Modificado</td><td>68</td><td>5</td></tr>
+<tr><td><a href="../../frontend/src/hooks/useReports.ts"><code>frontend/src/hooks/useReports.ts</code></a></td><td>Modificado</td><td>258</td><td>39</td></tr>
+<tr><td><a href="../../frontend/src/hooks/useSvoOccurrences.ts"><code>frontend/src/hooks/useSvoOccurrences.ts</code></a></td><td>Modificado</td><td>852</td><td>98</td></tr>
+<tr><td><a href="../../frontend/src/hooks/useTripConfirmations.ts"><code>frontend/src/hooks/useTripConfirmations.ts</code></a></td><td>Modificado</td><td>117</td><td>25</td></tr>
+<tr><td><a href="../../frontend/src/hooks/useVehicleDocuments.ts"><code>frontend/src/hooks/useVehicleDocuments.ts</code></a></td><td>Novo</td><td>218</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/SolicitacaoPage/NewRequestDialog.tsx"><code>frontend/src/pages/SolicitacaoPage/NewRequestDialog.tsx</code></a></td><td>Novo</td><td>680</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/SolicitacaoPage/RequestDetailDialog.tsx"><code>frontend/src/pages/SolicitacaoPage/RequestDetailDialog.tsx</code></a></td><td>Novo</td><td>316</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/SolicitacaoPage/SolicitacaoPage.test.mjs"><code>frontend/src/pages/SolicitacaoPage/SolicitacaoPage.test.mjs</code></a></td><td>Novo</td><td>655</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/SolicitacaoPage/SolicitacaoPage.tsx"><code>frontend/src/pages/SolicitacaoPage/SolicitacaoPage.tsx</code></a></td><td>Modificado</td><td>637</td><td>340</td></tr>
+<tr><td><a href="../../frontend/src/pages/SolicitacaoPage/requestFormValidation.ts"><code>frontend/src/pages/SolicitacaoPage/requestFormValidation.ts</code></a></td><td>Novo</td><td>493</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/SolicitacaoPage/requestListFilters.ts"><code>frontend/src/pages/SolicitacaoPage/requestListFilters.ts</code></a></td><td>Novo</td><td>144</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/auditLogsPage/AuditLogDetailsDialog.tsx"><code>frontend/src/pages/auditLogsPage/AuditLogDetailsDialog.tsx</code></a></td><td>Novo</td><td>209</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/auditLogsPage/AuditLogsPage.module.css"><code>frontend/src/pages/auditLogsPage/AuditLogsPage.module.css</code></a></td><td>Novo</td><td>35</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/auditLogsPage/AuditLogsPage.tsx"><code>frontend/src/pages/auditLogsPage/AuditLogsPage.tsx</code></a></td><td>Novo</td><td>440</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/auditLogsPage/auditLogPresentation.ts"><code>frontend/src/pages/auditLogsPage/auditLogPresentation.ts</code></a></td><td>Novo</td><td>174</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/auditLogsPage/auditLogsPage.test.mjs"><code>frontend/src/pages/auditLogsPage/auditLogsPage.test.mjs</code></a></td><td>Novo</td><td>285</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/driversPage/DriverDetailsDialog.tsx"><code>frontend/src/pages/driversPage/DriverDetailsDialog.tsx</code></a></td><td>Modificado</td><td>79</td><td>8</td></tr>
+<tr><td><a href="../../frontend/src/pages/driversPage/DriverFormDialog.tsx"><code>frontend/src/pages/driversPage/DriverFormDialog.tsx</code></a></td><td>Modificado</td><td>204</td><td>75</td></tr>
+<tr><td><a href="../../frontend/src/pages/driversPage/DriverStatusDialog.tsx"><code>frontend/src/pages/driversPage/DriverStatusDialog.tsx</code></a></td><td>Modificado</td><td>23</td><td>3</td></tr>
+<tr><td><a href="../../frontend/src/pages/driversPage/DriversPage.test.mjs"><code>frontend/src/pages/driversPage/DriversPage.test.mjs</code></a></td><td>Novo</td><td>404</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/driversPage/DriversPage.tsx"><code>frontend/src/pages/driversPage/DriversPage.tsx</code></a></td><td>Modificado</td><td>87</td><td>30</td></tr>
+<tr><td><a href="../../frontend/src/pages/driversPage/driverFormHelper.ts"><code>frontend/src/pages/driversPage/driverFormHelper.ts</code></a></td><td>Novo</td><td>192</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/finesPage/FineDetailDialog.tsx"><code>frontend/src/pages/finesPage/FineDetailDialog.tsx</code></a></td><td>Novo</td><td>396</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/finesPage/FineFormDialog.tsx"><code>frontend/src/pages/finesPage/FineFormDialog.tsx</code></a></td><td>Novo</td><td>748</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/finesPage/FineStatusDialog.tsx"><code>frontend/src/pages/finesPage/FineStatusDialog.tsx</code></a></td><td>Novo</td><td>217</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/finesPage/FinesPage.module.css"><code>frontend/src/pages/finesPage/FinesPage.module.css</code></a></td><td>Novo</td><td>61</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/finesPage/FinesPage.tsx"><code>frontend/src/pages/finesPage/FinesPage.tsx</code></a></td><td>Modificado</td><td>517</td><td>221</td></tr>
+<tr><td><a href="../../frontend/src/pages/finesPage/finesPage.test.mjs"><code>frontend/src/pages/finesPage/finesPage.test.mjs</code></a></td><td>Novo</td><td>631</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/fuelingsPage/FuelingFormDialog.tsx"><code>frontend/src/pages/fuelingsPage/FuelingFormDialog.tsx</code></a></td><td>Modificado</td><td>474</td><td>96</td></tr>
+<tr><td><a href="../../frontend/src/pages/fuelingsPage/FuelingsPage.test.mjs"><code>frontend/src/pages/fuelingsPage/FuelingsPage.test.mjs</code></a></td><td>Novo</td><td>551</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/fuelingsPage/FuelingsPage.tsx"><code>frontend/src/pages/fuelingsPage/FuelingsPage.tsx</code></a></td><td>Modificado</td><td>538</td><td>86</td></tr>
+<tr><td><a href="../../frontend/src/pages/fuelingsPage/fuelingForm.ts"><code>frontend/src/pages/fuelingsPage/fuelingForm.ts</code></a></td><td>Novo</td><td>266</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/ManuPage/MaintenanceDetailDialog.tsx"><code>frontend/src/pages/gestor/ManuPage/MaintenanceDetailDialog.tsx</code></a></td><td>Modificado</td><td>272</td><td>62</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/ManuPage/MaintenanceFormDialog.tsx"><code>frontend/src/pages/gestor/ManuPage/MaintenanceFormDialog.tsx</code></a></td><td>Modificado</td><td>374</td><td>58</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/ManuPage/MaintenanceItems.tsx"><code>frontend/src/pages/gestor/ManuPage/MaintenanceItems.tsx</code></a></td><td>Modificado</td><td>5</td><td>3</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/ManuPage/MaintenanceStatusChip.tsx"><code>frontend/src/pages/gestor/ManuPage/MaintenanceStatusChip.tsx</code></a></td><td>Novo</td><td>78</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/ManuPage/ManutencaoPage.tsx"><code>frontend/src/pages/gestor/ManuPage/ManutencaoPage.tsx</code></a></td><td>Modificado</td><td>248</td><td>99</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/ManuPage/maintenancePage.test.mjs"><code>frontend/src/pages/gestor/ManuPage/maintenancePage.test.mjs</code></a></td><td>Novo</td><td>352</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/ManuPage/maintenancePresentation.ts"><code>frontend/src/pages/gestor/ManuPage/maintenancePresentation.ts</code></a></td><td>Novo</td><td>401</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/gestorPage/DashboardPage.tsx"><code>frontend/src/pages/gestor/gestorPage/DashboardPage.tsx</code></a></td><td>Modificado</td><td>1335</td><td>622</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/gestorPage/GestorPage.tsx"><code>frontend/src/pages/gestor/gestorPage/GestorPage.tsx</code></a></td><td>Modificado</td><td>448</td><td>184</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/gestorPage/TripAgendaPage.tsx"><code>frontend/src/pages/gestor/gestorPage/TripAgendaPage.tsx</code></a></td><td>Novo</td><td>202</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/gestorPage/gestorDashboard.test.mjs"><code>frontend/src/pages/gestor/gestorPage/gestorDashboard.test.mjs</code></a></td><td>Novo</td><td>489</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/gestorPage/gestorDashboardData.ts"><code>frontend/src/pages/gestor/gestorPage/gestorDashboardData.ts</code></a></td><td>Modificado</td><td>371</td><td>49</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/gestorPage/tripAgendaColumns.tsx"><code>frontend/src/pages/gestor/gestorPage/tripAgendaColumns.tsx</code></a></td><td>Novo</td><td>51</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/schedulingPage/ScheduleTripPage.test.mjs"><code>frontend/src/pages/gestor/schedulingPage/ScheduleTripPage.test.mjs</code></a></td><td>Novo</td><td>506</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/schedulingPage/ScheduleTripPage.tsx"><code>frontend/src/pages/gestor/schedulingPage/ScheduleTripPage.tsx</code></a></td><td>Modificado</td><td>572</td><td>213</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/schedulingPage/schedulingHelpers.ts"><code>frontend/src/pages/gestor/schedulingPage/schedulingHelpers.ts</code></a></td><td>Novo</td><td>348</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/servicePage/CompatibleVehiclesField.tsx"><code>frontend/src/pages/gestor/servicePage/CompatibleVehiclesField.tsx</code></a></td><td>Novo</td><td>115</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/servicePage/ServiceFormDialog.tsx"><code>frontend/src/pages/gestor/servicePage/ServiceFormDialog.tsx</code></a></td><td>Novo</td><td>608</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/servicePage/ServiceStatusChip.tsx"><code>frontend/src/pages/gestor/servicePage/ServiceStatusChip.tsx</code></a></td><td>Novo</td><td>37</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/servicePage/ServiceStatusDialog.tsx"><code>frontend/src/pages/gestor/servicePage/ServiceStatusDialog.tsx</code></a></td><td>Novo</td><td>154</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/servicePage/ServicesPage.tsx"><code>frontend/src/pages/gestor/servicePage/ServicesPage.tsx</code></a></td><td>Modificado</td><td>274</td><td>258</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/servicePage/serviceHelpers.ts"><code>frontend/src/pages/gestor/servicePage/serviceHelpers.ts</code></a></td><td>Novo</td><td>233</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/servicePage/servicesPage.test.mjs"><code>frontend/src/pages/gestor/servicePage/servicesPage.test.mjs</code></a></td><td>Novo</td><td>447</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/vehiclesPage/VehicleFormDialog.tsx"><code>frontend/src/pages/gestor/vehiclesPage/VehicleFormDialog.tsx</code></a></td><td>Modificado</td><td>82</td><td>18</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/vehiclesPage/VehicleStatusDialog.tsx"><code>frontend/src/pages/gestor/vehiclesPage/VehicleStatusDialog.tsx</code></a></td><td>Modificado</td><td>18</td><td>2</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/vehiclesPage/VehiclesPage.test.mjs"><code>frontend/src/pages/gestor/vehiclesPage/VehiclesPage.test.mjs</code></a></td><td>Novo</td><td>386</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/vehiclesPage/VehiclesPage.tsx"><code>frontend/src/pages/gestor/vehiclesPage/VehiclesPage.tsx</code></a></td><td>Modificado</td><td>175</td><td>80</td></tr>
+<tr><td><a href="../../frontend/src/pages/gestor/vehiclesPage/vehicleFilters.ts"><code>frontend/src/pages/gestor/vehiclesPage/vehicleFilters.ts</code></a></td><td>Novo</td><td>107</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/loginPage/LoginPage.module.css"><code>frontend/src/pages/loginPage/LoginPage.module.css</code></a></td><td>Modificado</td><td>142</td><td>187</td></tr>
+<tr><td><a href="../../frontend/src/pages/loginPage/LoginPage.tsx"><code>frontend/src/pages/loginPage/LoginPage.tsx</code></a></td><td>Modificado</td><td>148</td><td>32</td></tr>
+<tr><td><a href="../../frontend/src/pages/loginPage/loginPage.l03.test.mjs"><code>frontend/src/pages/loginPage/loginPage.l03.test.mjs</code></a></td><td>Novo</td><td>185</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/myTripsPage/MyTripsPage.tsx"><code>frontend/src/pages/myTripsPage/MyTripsPage.tsx</code></a></td><td>Modificado</td><td>20</td><td>6</td></tr>
+<tr><td><a href="../../frontend/src/pages/myTripsPage/TripExecutionDialog.tsx"><code>frontend/src/pages/myTripsPage/TripExecutionDialog.tsx</code></a></td><td>Modificado</td><td>14</td><td>3</td></tr>
+<tr><td><a href="../../frontend/src/pages/myTripsPage/TripStatusChip.tsx"><code>frontend/src/pages/myTripsPage/TripStatusChip.tsx</code></a></td><td>Novo</td><td>50</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/myTripsPage/myTripsPage.l15.test.mjs"><code>frontend/src/pages/myTripsPage/myTripsPage.l15.test.mjs</code></a></td><td>Novo</td><td>191</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/profilePermissionsPage/ProfilePermissionsPage.tsx"><code>frontend/src/pages/profilePermissionsPage/ProfilePermissionsPage.tsx</code></a></td><td>Modificado</td><td>92</td><td>25</td></tr>
+<tr><td><a href="../../frontend/src/pages/profilePermissionsPage/profilePermissionsPage.l04.test.mjs"><code>frontend/src/pages/profilePermissionsPage/profilePermissionsPage.l04.test.mjs</code></a></td><td>Novo</td><td>131</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/reportsPage/ReportPrintView.tsx"><code>frontend/src/pages/reportsPage/ReportPrintView.tsx</code></a></td><td>Modificado</td><td>98</td><td>15</td></tr>
+<tr><td><a href="../../frontend/src/pages/reportsPage/ReportsPage.module.css"><code>frontend/src/pages/reportsPage/ReportsPage.module.css</code></a></td><td>Modificado</td><td>103</td><td>7</td></tr>
+<tr><td><a href="../../frontend/src/pages/reportsPage/ReportsPage.tsx"><code>frontend/src/pages/reportsPage/ReportsPage.tsx</code></a></td><td>Modificado</td><td>348</td><td>69</td></tr>
+<tr><td><a href="../../frontend/src/pages/reportsPage/reportHelpers.ts"><code>frontend/src/pages/reportsPage/reportHelpers.ts</code></a></td><td>Novo</td><td>245</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/reportsPage/reportsPage.test.mjs"><code>frontend/src/pages/reportsPage/reportsPage.test.mjs</code></a></td><td>Novo</td><td>296</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/requestAnalysisPage/RequestAnalysisDetails.tsx"><code>frontend/src/pages/requestAnalysisPage/RequestAnalysisDetails.tsx</code></a></td><td>Novo</td><td>141</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/requestAnalysisPage/RequestAnalysisPage.test.mjs"><code>frontend/src/pages/requestAnalysisPage/RequestAnalysisPage.test.mjs</code></a></td><td>Novo</td><td>388</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/requestAnalysisPage/RequestAnalysisPage.tsx"><code>frontend/src/pages/requestAnalysisPage/RequestAnalysisPage.tsx</code></a></td><td>Modificado</td><td>748</td><td>154</td></tr>
+<tr><td><a href="../../frontend/src/pages/requestAnalysisPage/requestAnalysisHelpers.ts"><code>frontend/src/pages/requestAnalysisPage/requestAnalysisHelpers.ts</code></a></td><td>Novo</td><td>182</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/svoOccurrencesPage/SvoOccurrenceConfirmDialog.tsx"><code>frontend/src/pages/svoOccurrencesPage/SvoOccurrenceConfirmDialog.tsx</code></a></td><td>Novo</td><td>96</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/svoOccurrencesPage/SvoOccurrenceCreateDialog.tsx"><code>frontend/src/pages/svoOccurrencesPage/SvoOccurrenceCreateDialog.tsx</code></a></td><td>Novo</td><td>272</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/svoOccurrencesPage/SvoOccurrenceDetailsDialog.tsx"><code>frontend/src/pages/svoOccurrencesPage/SvoOccurrenceDetailsDialog.tsx</code></a></td><td>Novo</td><td>158</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/svoOccurrencesPage/SvoOccurrencesPage.test.mjs"><code>frontend/src/pages/svoOccurrencesPage/SvoOccurrencesPage.test.mjs</code></a></td><td>Novo</td><td>417</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/svoOccurrencesPage/SvoOccurrencesPage.tsx"><code>frontend/src/pages/svoOccurrencesPage/SvoOccurrencesPage.tsx</code></a></td><td>Novo</td><td>420</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/svoOccurrencesPage/SvoOrderDispatchDialog.tsx"><code>frontend/src/pages/svoOccurrencesPage/SvoOrderDispatchDialog.tsx</code></a></td><td>Novo</td><td>217</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/tripConfirmationPage/TripConfirmationPage.tsx"><code>frontend/src/pages/tripConfirmationPage/TripConfirmationPage.tsx</code></a></td><td>Modificado</td><td>498</td><td>106</td></tr>
+<tr><td><a href="../../frontend/src/pages/tripConfirmationPage/tripConfirmationPage.l15.test.mjs"><code>frontend/src/pages/tripConfirmationPage/tripConfirmationPage.l15.test.mjs</code></a></td><td>Novo</td><td>335</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/userManagementPage/UserManagementPage.module.css"><code>frontend/src/pages/userManagementPage/UserManagementPage.module.css</code></a></td><td>Modificado</td><td>6</td><td>6</td></tr>
+<tr><td><a href="../../frontend/src/pages/userManagementPage/UserManagementPage.tsx"><code>frontend/src/pages/userManagementPage/UserManagementPage.tsx</code></a></td><td>Modificado</td><td>467</td><td>202</td></tr>
+<tr><td><a href="../../frontend/src/pages/userManagementPage/userManagementHelpers.ts"><code>frontend/src/pages/userManagementPage/userManagementHelpers.ts</code></a></td><td>Novo</td><td>104</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/userManagementPage/userManagementPage.l04.test.mjs"><code>frontend/src/pages/userManagementPage/userManagementPage.l04.test.mjs</code></a></td><td>Novo</td><td>502</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/vehicleDocumentsPage/VehicleDocumentAnnulDialog.tsx"><code>frontend/src/pages/vehicleDocumentsPage/VehicleDocumentAnnulDialog.tsx</code></a></td><td>Novo</td><td>178</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/vehicleDocumentsPage/VehicleDocumentDetailDialog.tsx"><code>frontend/src/pages/vehicleDocumentsPage/VehicleDocumentDetailDialog.tsx</code></a></td><td>Novo</td><td>347</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/vehicleDocumentsPage/VehicleDocumentFormDialog.tsx"><code>frontend/src/pages/vehicleDocumentsPage/VehicleDocumentFormDialog.tsx</code></a></td><td>Novo</td><td>376</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/vehicleDocumentsPage/VehicleDocumentsPage.test.mjs"><code>frontend/src/pages/vehicleDocumentsPage/VehicleDocumentsPage.test.mjs</code></a></td><td>Novo</td><td>423</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/pages/vehicleDocumentsPage/VehicleDocumentsPage.tsx"><code>frontend/src/pages/vehicleDocumentsPage/VehicleDocumentsPage.tsx</code></a></td><td>Modificado</td><td>818</td><td>174</td></tr>
+<tr><td><a href="../../frontend/src/pages/vehicleDocumentsPage/vehicleDocumentForm.ts"><code>frontend/src/pages/vehicleDocumentsPage/vehicleDocumentForm.ts</code></a></td><td>Novo</td><td>193</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/requests/requestTypes.ts"><code>frontend/src/requests/requestTypes.ts</code></a></td><td>Modificado</td><td>1</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/routing/routeDecision.ts"><code>frontend/src/routing/routeDecision.ts</code></a></td><td>Modificado</td><td>52</td><td>21</td></tr>
+<tr><td><a href="../../frontend/src/services/auditLogsService.ts"><code>frontend/src/services/auditLogsService.ts</code></a></td><td>Novo</td><td>115</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/services/dashboardService.ts"><code>frontend/src/services/dashboardService.ts</code></a></td><td>Modificado</td><td>418</td><td>183</td></tr>
+<tr><td><a href="../../frontend/src/services/driversService.ts"><code>frontend/src/services/driversService.ts</code></a></td><td>Modificado</td><td>144</td><td>7</td></tr>
+<tr><td><a href="../../frontend/src/services/finesService.ts"><code>frontend/src/services/finesService.ts</code></a></td><td>Modificado</td><td>346</td><td>97</td></tr>
+<tr><td><a href="../../frontend/src/services/fleetServicesService.ts"><code>frontend/src/services/fleetServicesService.ts</code></a></td><td>Modificado</td><td>56</td><td>13</td></tr>
+<tr><td><a href="../../frontend/src/services/fuelingsService.ts"><code>frontend/src/services/fuelingsService.ts</code></a></td><td>Modificado</td><td>97</td><td>21</td></tr>
+<tr><td><a href="../../frontend/src/services/maintenanceService.ts"><code>frontend/src/services/maintenanceService.ts</code></a></td><td>Modificado</td><td>18</td><td>3</td></tr>
+<tr><td><a href="../../frontend/src/services/reportsService.ts"><code>frontend/src/services/reportsService.ts</code></a></td><td>Modificado</td><td>18</td><td>1</td></tr>
+<tr><td><a href="../../frontend/src/services/requestsService.ts"><code>frontend/src/services/requestsService.ts</code></a></td><td>Modificado</td><td>237</td><td>34</td></tr>
+<tr><td><a href="../../frontend/src/services/schedulingService.ts"><code>frontend/src/services/schedulingService.ts</code></a></td><td>Modificado</td><td>48</td><td>16</td></tr>
+<tr><td><a href="../../frontend/src/services/svoOccurrencesService.ts"><code>frontend/src/services/svoOccurrencesService.ts</code></a></td><td>Modificado</td><td>314</td><td>83</td></tr>
+<tr><td><a href="../../frontend/src/services/tripsService.ts"><code>frontend/src/services/tripsService.ts</code></a></td><td>Modificado</td><td>34</td><td>9</td></tr>
+<tr><td><a href="../../frontend/src/services/usersService.ts"><code>frontend/src/services/usersService.ts</code></a></td><td>Modificado</td><td>40</td><td>4</td></tr>
+<tr><td><a href="../../frontend/src/services/vehicleDocumentsService.ts"><code>frontend/src/services/vehicleDocumentsService.ts</code></a></td><td>Modificado</td><td>306</td><td>68</td></tr>
+<tr><td><a href="../../frontend/src/svo/svoOccurrenceTypes.ts"><code>frontend/src/svo/svoOccurrenceTypes.ts</code></a></td><td>Modificado</td><td>18</td><td>91</td></tr>
+<tr><td><a href="../../frontend/src/theme.ts"><code>frontend/src/theme.ts</code></a></td><td>Modificado</td><td>133</td><td>13</td></tr>
+<tr><td><a href="../../frontend/src/trips/tripTypes.ts"><code>frontend/src/trips/tripTypes.ts</code></a></td><td>Modificado</td><td>8</td><td>1</td></tr>
+<tr><td><a href="../../frontend/src/types/auditLog.ts"><code>frontend/src/types/auditLog.ts</code></a></td><td>Novo</td><td>52</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/types/dashboard.ts"><code>frontend/src/types/dashboard.ts</code></a></td><td>Novo</td><td>219</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/types/fine.ts"><code>frontend/src/types/fine.ts</code></a></td><td>Novo</td><td>278</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/types/svoOccurrence.ts"><code>frontend/src/types/svoOccurrence.ts</code></a></td><td>Novo</td><td>240</td><td>0</td></tr>
+<tr><td><a href="../../frontend/src/types/vehicleDocument.ts"><code>frontend/src/types/vehicleDocument.ts</code></a></td><td>Novo</td><td>237</td><td>0</td></tr>
+<tr><td><a href="../../frontend/tests/appRoutingDom.l02.test.mjs"><code>frontend/tests/appRoutingDom.l02.test.mjs</code></a></td><td>Novo</td><td>118</td><td>0</td></tr>
+<tr><td><a href="../../frontend/tests/driversPage.test.mjs"><code>frontend/tests/driversPage.test.mjs</code></a></td><td>Modificado</td><td>7</td><td>4</td></tr>
+<tr><td><a href="../../frontend/tests/navigationDom.l02.test.mjs"><code>frontend/tests/navigationDom.l02.test.mjs</code></a></td><td>Novo</td><td>152</td><td>0</td></tr>
+<tr><td><a href="../../frontend/tests/reportsPage.test.mjs"><code>frontend/tests/reportsPage.test.mjs</code></a></td><td>Modificado</td><td>3</td><td>1</td></tr>
+<tr><td><a href="../../frontend/tests/requestAnalysisPage.test.mjs"><code>frontend/tests/requestAnalysisPage.test.mjs</code></a></td><td>Modificado</td><td>29</td><td>7</td></tr>
+<tr><td><a href="../../frontend/tests/requesterRequestsPage.test.mjs"><code>frontend/tests/requesterRequestsPage.test.mjs</code></a></td><td>Modificado</td><td>55</td><td>2</td></tr>
+<tr><td><a href="../../frontend/tests/routing.test.mjs"><code>frontend/tests/routing.test.mjs</code></a></td><td>Modificado</td><td>139</td><td>49</td></tr>
+<tr><td><a href="../../frontend/tests/schedulingService.test.mjs"><code>frontend/tests/schedulingService.test.mjs</code></a></td><td>Modificado</td><td>35</td><td>1</td></tr>
+<tr><td><a href="../../frontend/tests/sidebarNavigation.test.mjs"><code>frontend/tests/sidebarNavigation.test.mjs</code></a></td><td>Modificado</td><td>190</td><td>28</td></tr>
+</tbody></table></div></details>
+
+<hr>
+
+<h2 id="r2">2. Matriz de Conformidade Arquitetural (Critérios C1 a C17)</h2>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Código</th>
+      <th scope="col">Eixo / Critério Auditado</th>
+      <th scope="col">Status</th>
+      <th scope="col">Evidência / Observação Técnica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Escopo focado e tamanho do diff (&lt; 400 linhas)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>226 arquivos e 46.362 linhas alteradas no total, em 20 lotes. O manual pede PR com menos de 400 linhas ou justificativa explícita.</td></tr>
+    <tr><td><code>C2</code></td><td>Fluxo Gitflow (base <code>develop</code>) e Conventional Commits</td><td><span class="badge-ok">🟢 OK</span></td><td>Prefixo válido, ponta de develop já incorporada e 22 commits aceitos pelo verificador. A consulta ao remoto não retornou a branch da tarefa.</td></tr>
+    <tr><td><code>C3</code></td><td>Cumprimento do SDD e ausência de escopo especulativo (YAGNI)</td><td><span class="badge-block">🔴 Bloqueante</span></td><td>Desvios no despacho SVO, reenvio de pedidos, continuidade de sessão e cobertura de CI. B1–B4.</td></tr>
+    <tr><td><code>C4</code></td><td>Invariantes de camada Backend (<code>Routes</code> → <code>Controllers</code> → <code>Services</code> → <code>Repositories</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>As consultas novas estão nos repositórios. Os três alertas estáticos de C4 apontam operation: UPDATE em chamadas de auditoria já presentes na base.</td></tr>
+    <tr><td><code>C5</code></td><td>Invariantes de camada Frontend (reuso de <code>components/ui/</code> e <code>services/</code>)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Há reuso de FormField, DataTable e StateFeedback. A integração deixou páginas paralelas na Central SVO, Auditoria e Agenda, com comportamentos e testes divergentes.</td></tr>
+    <tr><td><code>C6</code></td><td>Ausência de ciclos de importação e feature flags não autorizadas</td><td><span class="badge-ok">🟢 OK</span></td><td>As fronteiras alteradas examinadas mantêm a direção das dependências. Nenhuma feature flag nova nos lotes.</td></tr>
+    <tr><td><code>C7</code></td><td>Prevenção de SQL Injection (queries parametrizadas <code>$1, $2</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>Dados de requisição são vinculados por parâmetros posicionais nas consultas adicionadas e alteradas.</td></tr>
+    <tr><td><code>C8</code></td><td>Projeção SQL explícita (sem <code>SELECT *</code>, mapeamento limpo de colunas) e filtros sargáveis</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Projeção explícita nas consultas revisadas. Novas leituras de histórico sem paginação ou medição em volume. A4.</td></tr>
+    <tr><td><code>C9</code></td><td>Transações atômicas, <code>FOR UPDATE</code> e <code>client.release()</code> no <code>finally</code></td><td><span class="badge-warn">🟡 Atenção</span></td><td>Escritas críticas revisadas preservam transação e revisão. O detalhe lê estado e eventos em consultas separadas. A4.</td></tr>
+    <tr><td><code>C10</code></td><td>Padrão SQL PostgreSQL 18 (Schemas Nativos <code>auth</code>, <code>fleet</code>, etc., tabelas no plural <code>&lt;schema&gt;.&lt;plural_entity&gt;</code>, PK <code>id</code>, FKs <code>&lt;entity&gt;_id</code>)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Migração de setor transacional aplicada no banco de testes. A origem operacional do campo segue pendente. A3.</td></tr>
+    <tr><td><code>C11</code></td><td>Autorização RBAC validada no middleware do Backend</td><td><span class="badge-block">🔴 Bloqueante</span></td><td>As guardas estão no Express. A Central expõe ação a um perfil recusado pela API e omite a do perfil autorizado. B1.</td></tr>
+    <tr><td><code>C12</code></td><td>Proteção de Dados (LGPD e Sigilo SVO) — zero dados pessoais reais</td><td><span class="badge-ok">🟢 OK</span></td><td>Projeção de auditoria SVO oculta motivo e snapshots sem modificar o evento. Testes e evidências revisados com dados fictícios.</td></tr>
+    <tr><td><code>C13</code></td><td>Tipagem TypeScript estrita (zero <code>any</code> e zero <code>@ts-ignore</code>)</td><td><span class="badge-ok">🟢 OK</span></td><td>TypeScript passou nos dois projetos. A inspeção do código alterado não encontrou introdução de any ou @ts-ignore.</td></tr>
+    <tr><td><code>C14</code></td><td>Código, métodos, classes, rotas e enums (<code>UPPER_SNAKE_CASE</code>) em inglês + TSDoc em português</td><td><span class="badge-warn">🟡 Atenção</span></td><td>A renovação de sessão tem caminhos paralelos e há telas substituídas que permanecem no código.</td></tr>
+    <tr><td><code>C15</code></td><td>Tratamento explícito dos 5 estados visuais (Ideal, Carregando, Vazio, Erro, Parcial)</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Há feedback explícito nos fluxos revisados. A Central ativa omite o estado operacional aguardando despacho. B1.</td></tr>
+    <tr><td><code>C16</code></td><td>Formulários acessíveis com <code>useId()</code>, <code>aria-invalid</code>, <code>aria-describedby</code> e <code>role="alert"</code></td><td><span class="badge-warn">🟡 Atenção</span></td><td>Componentes compartilhados vinculam rótulos e mensagens. Cobertura no CI e verificação com tecnologia assistiva continuam pendentes.</td></tr>
+    <tr><td><code>C17</code></td><td>Operação por teclado (<code>Tab</code>/<code>Esc</code>), <code>:focus-visible</code>, alvos &gt;= 44×44px e status sem depender só de cor</td><td><span class="badge-warn">🟡 Atenção</span></td><td>Há testes DOM de foco e controles. O aceite visual em 320 px, 200% de zoom, alvos de toque e aparelho real segue pendente.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="r3">3. Achados Detalhados (Bloqueantes e Pontos de Atenção)</h2>
+<h3>3.1 Achados bloqueantes</h3>
+<ol class="findings"><li id="B1"><h4>B1 · L16 · Gestor perde o reprocessamento da fila SVO</h4><p>A rota ativa passou a montar outra Central SVO. Nela, “Gerar ordem” usa a mesma permissão de cadastro e triagem. O atendente recebe o botão, mas o POST responde 403 para seu perfil. O Gestor deixa de ver a fila “Aguardando despacho” e a ação de reprocessamento da tela anterior. Uma ocorrência confirmada sem equipe ou viatura pode ficar sem tratamento na interface do responsável.</p><p>Reintegrar a fila à tela roteada e usar as permissões vigentes para triagem, despacho e reprocessamento. Testar a passagem de uma ocorrência sem recurso pela triagem, fila do gestor e execução pela equipe.</p><p class="muted"><a href="../../frontend/src/App.tsx"><code>frontend/src/App.tsx:26</code></a> · <a href="../../frontend/src/pages/svoOccurrencesPage/SvoOccurrencesPage.tsx"><code>frontend/src/pages/svoOccurrencesPage/SvoOccurrencesPage.tsx:342</code></a> · <a href="../../backend/src/routes/svo-orders.routes.ts"><code>backend/src/routes/svo-orders.routes.ts:45</code></a> · <a href="../../frontend/src/pages/SvoOccurrencesPage.tsx"><code>frontend/src/pages/SvoOccurrencesPage.tsx:261</code></a></p></li>
+<li id="B2"><h4>B2 · L12–L13 · Recusa definitiva volta à fila de análise</h4><p>O serviço e a consulta de atualização aceitam <code>REJECTED</code> para reenvio e alteram o pedido para <code>PENDING</code>. A tela exibe a opção para o solicitante. A base <code>develop</code> admite o reenvio apenas a partir de <code>RETURNED</code>. A análise continua apresentando <code>REJECTED</code> ao gestor como “recusa definitiva”.</p><p>Restaurar a transição a partir de <code>RETURNED</code> na interface, no serviço e no repositório. Verificar que <code>REJECTED</code> preserva a decisão e a revisão quando recebe um pedido de reenvio.</p><p class="muted"><a href="../../backend/src/services/requests.service.ts"><code>backend/src/services/requests.service.ts:258</code></a> · <a href="../../backend/src/repositories/requests.repository.ts"><code>backend/src/repositories/requests.repository.ts:324</code></a> · <a href="../../frontend/src/pages/SolicitacaoPage/RequestDetailDialog.tsx"><code>frontend/src/pages/SolicitacaoPage/RequestDetailDialog.tsx:300</code></a> · <a href="../../frontend/src/pages/requestAnalysisPage/RequestAnalysisPage.tsx"><code>frontend/src/pages/requestAnalysisPage/RequestAnalysisPage.tsx:811</code></a></p></li>
+<li id="B3"><h4>B3 · L01 · A retomada de sessão perde a rota e o preenchimento</h4><p>O provedor armazena o caminho ao expirar a sessão, mas a aplicação não lê esse valor. Após o login, o roteador envia a pessoa ao início do perfil. O mecanismo de rascunho em memória só é usado para nova solicitação institucional. Uma expiração durante a execução de viagem desmonta a tela e descarta a leitura digitada. O aviso ativo também usa um caminho de renovação diferente daquele que valida a identidade e o perfil atuais em <code>GET /auth/me</code>.</p><p>Integrar o caminho de retorno à guarda do mesmo usuário, aplicar a retenção dos campos permitidos aos fluxos do L01 e conectar o aviso à validação de identidade vigente. Conferir retomada em campo e descarte de dados sensíveis ou de outra conta.</p><p class="muted"><a href="../../frontend/src/auth/AuthProvider.tsx"><code>frontend/src/auth/AuthProvider.tsx:120</code></a> · <a href="../../frontend/src/App.tsx"><code>frontend/src/App.tsx:33</code></a> · <a href="../../frontend/src/pages/SolicitacaoPage/SolicitacaoPage.tsx"><code>frontend/src/pages/SolicitacaoPage/SolicitacaoPage.tsx:136</code></a> · <a href="../../frontend/src/auth/AuthProvider.tsx"><code>frontend/src/auth/AuthProvider.tsx:383</code></a></p></li>
+<li id="B4"><h4>B4 · L01–L20 · O CI deixa 25 arquivos novos de teste de fora</h4><p>Os scripts oficiais coletam somente <code>frontend/tests/*.test.mjs</code>. Os 25 arquivos novos em <code>frontend/src/</code> ficam fora do pipeline. Na execução direta, o teste de auditoria falhou de forma reproduzível. Ele espera ausência de atalho de análise de solicitações para Administrador, embora o perfil tenha consulta autorizada na base.</p><p>Executar as duas árvores no CI, alinhar as expectativas ao contrato de cada perfil e conferir especialmente o comportamento das páginas que o roteador monta.</p><p class="muted"><a href="../../frontend/package.json"><code>frontend/package.json:11</code></a> · <a href="../../.github/workflows/ci.yml"><code>.github/workflows/ci.yml:41</code></a> · <a href="../../frontend/src/pages/auditLogsPage/auditLogsPage.test.mjs"><code>frontend/src/pages/auditLogsPage/auditLogsPage.test.mjs:150</code></a> · <a href="../../frontend/src/pages/auditLogsPage/auditLogPresentation.ts"><code>frontend/src/pages/auditLogsPage/auditLogPresentation.ts:116</code></a></p></li></ol>
+<h3>3.2 Pontos de atenção</h3>
+<ol class="findings"><li id="A1"><h4>A1 · L02, L10, L11 e L18 · Favoritos e agenda em modo consulta</h4><p>Os caminhos de <code>develop</code> <code>/frota/documentos</code> e <code>/frota/multas</code> passaram a redirecionar ao início do perfil. Links salvos perdem a tela e os filtros. A agenda também deixou de permitir Administrador, embora o <code>GET /trips</code> permita leitura pelo perfil.</p><p>Preservar os caminhos publicados com guarda e parâmetros. Confirmar a política da agenda do Administrador e alinhar menu, rota e testes.</p><p class="muted"><a href="../../frontend/src/routing/routeDecision.ts"><code>frontend/src/routing/routeDecision.ts:97</code></a> · <a href="../../frontend/src/routing/routeDecision.ts"><code>frontend/src/routing/routeDecision.ts:125</code></a> · <a href="../../frontend/src/vehicleDocuments/vehicleDocumentTypes.ts"><code>frontend/src/vehicleDocuments/vehicleDocumentTypes.ts:1</code></a> · <a href="../../frontend/src/fines/fineTypes.ts"><code>frontend/src/fines/fineTypes.ts:1</code></a> · <a href="../../backend/src/routes/trips.routes.ts"><code>backend/src/routes/trips.routes.ts:28</code></a></p></li>
+<li id="A2"><h4>A2 · L16 · Candidatos exibidos podem estar inelegíveis para despacho</h4><p>O GET lista equipes apenas por situação ativa. O POST requer plantão e integrante elegível. A lista de viaturas tampouco verifica conflito com viagem institucional. A mesma opção inelegível pode reaparecer após a reconsulta. No fluxo legado sem intenção de despacho, o formulário não envia revisão e justificativa exigidas.</p><p>Compartilhar os critérios de elegibilidade na projeção e manter a validação definitiva sob trava. Integrar os campos exigidos quando houver despacho manual de ocorrência legada.</p><p class="muted"><a href="../../backend/src/repositories/svo-orders.repository.ts"><code>backend/src/repositories/svo-orders.repository.ts:178</code></a> · <a href="../../backend/src/repositories/svo-orders.repository.ts"><code>backend/src/repositories/svo-orders.repository.ts:230</code></a> · <a href="../../backend/src/services/svo-orders.service.ts"><code>backend/src/services/svo-orders.service.ts:371</code></a> · <a href="../../backend/src/services/svo-orders.service.ts"><code>backend/src/services/svo-orders.service.ts:385</code></a> · <a href="../../frontend/src/hooks/useSvoOccurrences.ts"><code>frontend/src/hooks/useSvoOccurrences.ts:861</code></a></p></li>
+<li id="A3"><h4>A3 · L13 · Setor histórico sem fluxo de alimentação</h4><p>A migração cria <code>auth.users.sector</code> anulável. O cadastro e a edição de usuários não escrevem a coluna. Com contas cadastradas pelo Aratu, o snapshot do pedido continuará sem setor enquanto a origem desse valor não estiver integrada.</p><p>Confirmar a origem oficial do dado e testar a captura do setor no pedido, incluindo mudança cadastral posterior e ausência em registros antigos.</p><p class="muted"><a href="../../backend/src/database/migrations/202611240003_add_requester_sector_snapshot.sql"><code>backend/src/database/migrations/202611240003_add_requester_sector_snapshot.sql:3</code></a> · <a href="../../backend/src/repositories/requests.repository.ts"><code>backend/src/repositories/requests.repository.ts:205</code></a> · <a href="../../backend/src/repositories/users.repository.ts"><code>backend/src/repositories/users.repository.ts:255</code></a> · <a href="../../docs/plans/qa-lotes-de-correcoes.html"><code>docs/plans/qa-lotes-de-correcoes.html:401</code></a></p></li>
+<li id="A4"><h4>A4 · L06, L12 e L14 · Limites de histórico e de quantidade</h4><p>Os detalhes de motorista e solicitação passaram a buscar eventos sem paginação. O detalhe de solicitação também lê versão e eventos em consultas separadas e pode misturar revisões durante uma decisão concorrente. A validação de <code>passengers</code> admite inteiros acima do limite de <code>INTEGER</code> e adia a rejeição para o banco.</p><p>Reaproveitar os contratos paginados, garantir consistência de leitura quando a tela juntar versão e eventos e validar a quantidade no limite do tipo persistido.</p><p class="muted"><a href="../../backend/src/repositories/requests.repository.ts"><code>backend/src/repositories/requests.repository.ts:433</code></a> · <a href="../../backend/src/repositories/drivers.repository.ts"><code>backend/src/repositories/drivers.repository.ts:222</code></a> · <a href="../../backend/src/services/requests.service.ts"><code>backend/src/services/requests.service.ts:81</code></a> · <a href="../../backend/src/database/migrations/202610280004_create_trip_requests.sql"><code>backend/src/database/migrations/202610280004_create_trip_requests.sql:29</code></a></p></li></ol>
+
+<hr>
+
+<h2 id="r4">4. Resultado do QA Automatizado e Pré-Auditoria (<code>aratu-check.mjs</code>)</h2>
+
+<p>Node.js 24.14.1 e PostgreSQL 18. A integração usou um container temporário, acessível apenas localmente, com dados fictícios. A revisão de interface combinou código e testes DOM. O aceite em navegador real, leitor de tela e aparelho físico permanece pendente.</p>
+<div class="table-scroll" role="region" aria-label="Resultados das verificações" tabindex="0"><table><thead><tr><th scope="col">Verificação</th><th scope="col">Comando</th><th scope="col">Resultado</th></tr></thead><tbody>
+<tr><td>Pré-auditoria</td><td><code>node docs/scripts/aratu-check.mjs --base origin/develop --skip-tsc</code></td><td>197 arquivos examinados. Código de saída 1 por três falsos positivos C4, em <code>operation: 'UPDATE'</code> no logger SVO. A execução combinada foi interrompida após pressão de memória do runner paralelo. Compilação, lint e suítes foram executados separadamente.</td></tr>
+<tr><td>Backend · TypeScript</td><td><code>npm exec -- tsc --noEmit</code></td><td><span class="badge-ok">🟢 OK</span> Sem erros.</td></tr>
+<tr><td>Frontend · lint e build</td><td><code>npm run lint</code> e <code>npm run build</code></td><td><span class="badge-ok">🟢 OK</span> ESLint, TypeScript e build Vite passaram. O maior pacote gerado tem 1.276 kB minificado, com aviso de tamanho do Vite.</td></tr>
+<tr><td>Backend · PostgreSQL 18</td><td><code>npm test</code> e reexecução direcionada de Multas e SVO</td><td><span class="badge-ok">🟢 OK</span> Dos 546 testes, 471 passaram na primeira execução. Os 75 restantes foram bloqueados pela guarda de isolamento, pois os dois nomes de banco estavam iguais na configuração inicial. Reexecutados com bancos distintos, passaram 18 testes de Multas e 57 de SVO. Os resultados cobrem os 546 testes em execuções separadas, incluindo a aplicação da migração de setor.</td></tr>
+<tr><td>Frontend · suíte oficial</td><td><code>npm test</code></td><td><span class="badge-warn">🟡 Atenção</span> 307 de 309 passaram na rodada completa. A falha de confirmação de inativação passou na repetição isolada (1/1). O arquivo de serviços de usuários, que sofreu falta de memória na rodada, passou na repetição (6/6).</td></tr>
+<tr><td>Frontend · testes fora do CI</td><td><code>node --test --test-concurrency=1</code> com os arquivos de <code>src</code></td><td><span class="badge-block">🔴 Bloqueante</span> A divergência do teste de auditoria foi confirmada em repetição isolada. A rodada complementar também acusou falha em Tipos de Serviço, com pressão de memória na tentativa de repetição. A suíte complementar não concluiu com resumo confiável.</td></tr>
+<tr><td>Integridade do diff</td><td><code>git diff --check origin/develop...HEAD</code></td><td><span class="badge-warn">🟡 Atenção</span> Encontrou espaços finais num plano e linhas vazias extras em 12 arquivos de evidência.</td></tr>
+</tbody></table></div>
+
+<hr>
+
+<h2 id="r5">5. Foco Obrigatório do(s) Revisor(es) Humano(s) antes do Merge</h2>
+
+<ul class="check"><li><label><input type="checkbox">Atendente confirma triagem sem recurso. Gestor acompanha a espera, reprocessa e entrega uma única ordem à equipe.</label></li>
+<li><label><input type="checkbox">Gestor devolve um pedido e recusa outro. Solicitante corrige somente o devolvido. O histórico e a revisão continuam rastreáveis.</label></li>
+<li><label><input type="checkbox">Expirar a sessão no formulário e durante viagem. Verificar aviso, reautenticação, retorno à rota e descarte de dados sensíveis e de outra conta.</label></li>
+<li><label><input type="checkbox">Conferir favoritos e filtros de Documentos e Multas, acesso administrativo à Agenda e destino do atalho na Auditoria.</label></li>
+<li><label><input type="checkbox">Testar 320 px, zoom de 200%, teclado, foco, leitor de tela e alvos de 44 × 44 px. Conferir a impressão de relatórios em várias páginas.</label></li>
+<li><label><input type="checkbox">Executar o CI com os 25 arquivos incluídos e validar os casos de falha com as APIs e o PostgreSQL de homologação.</label></li></ul>
+<p>Revisão → compatibilidade de contratos, escopo por perfil, preservação histórica e acessibilidade · dúvidas: 1) Qual é a fonte oficial para o setor cadastral? 2) A agenda deve preservar a consulta do Administrador já disponível em develop?</p>
+
+</body>
+</html>

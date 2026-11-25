@@ -1,20 +1,57 @@
 import type { ApiRequest } from '../api/client'
+import { SERVICE_UNAVAILABLE } from '../auth/loginService.ts'
+import { SESSION_EXPIRED } from '../auth/token.ts'
 import { FUEL_TYPES } from '../fuelings/fuelingTypes.ts'
 import type { CreateFuelingInput, FuelingDetail, FuelingFilters, FuelingHistoryEvent, FuelingList, FuelingVersion, FuelType, RectifyFuelingInput } from '../fuelings/fuelingTypes.ts'
 
 const INVALID_RESPONSE_MESSAGE = 'A resposta de abastecimentos da API está em um formato inválido.'
 
+/** Erro HTTP da API de abastecimentos preservando o código de status retornado. */
+export class FuelingRequestError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'FuelingRequestError'
+    this.status = status
+  }
+}
+
+/** Erro de gravação de abastecimento que sinaliza se o desfecho no servidor permanece incerto. */
 export class FuelingWriteError extends Error {
   readonly outcomeUncertain: boolean
+  readonly status?: number
 
-  constructor(message: string, outcomeUncertain: boolean) {
+  constructor(message: string, outcomeUncertain: boolean, status?: number) {
     super(message)
     this.name = 'FuelingWriteError'
     this.outcomeUncertain = outcomeUncertain
+    this.status = status
   }
 }
-export class FuelingCreateError extends FuelingWriteError { override name = 'FuelingCreateError' }
-export class FuelingRectifyError extends FuelingWriteError { override name = 'FuelingRectifyError' }
+
+export class FuelingCreateError extends FuelingWriteError {
+  override name = 'FuelingCreateError'
+}
+
+export class FuelingRectifyError extends FuelingWriteError {
+  override name = 'FuelingRectifyError'
+}
+
+/** Indica falha sem resposta conclusiva do servidor (rede, timeout, 5xx ou payload inválido). */
+export function isUncertainFuelingOutcome(error: unknown): boolean {
+  if (error instanceof FuelingWriteError) {
+    return error.outcomeUncertain
+  }
+  if (error instanceof FuelingRequestError) {
+    return error.status >= 500
+  }
+  if (error instanceof Error) {
+    if (error.message === SESSION_EXPIRED) return false
+    return error.message === SERVICE_UNAVAILABLE || error.message === INVALID_RESPONSE_MESSAGE || error.name !== 'AbortError'
+  }
+  return true
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -26,7 +63,7 @@ function readErrorMessage(body: unknown, fallback: string): string {
 
 async function throwRequestError(response: Response, fallback: string): Promise<never> {
   const body: unknown = await response.json().catch(() => null)
-  throw new Error(readErrorMessage(body, fallback))
+  throw new FuelingRequestError(response.status, readErrorMessage(body, fallback))
 }
 
 function parseFueling(value: unknown): FuelingVersion {
@@ -112,8 +149,12 @@ export function buildFuelingsQuery(filters: FuelingFilters = {}): string {
 }
 
 /** Consulta os abastecimentos e os totais calculados para os filtros aplicados. */
-export async function listFuelings(api: ApiRequest, filters: FuelingFilters = {}): Promise<FuelingList> {
-  const response = await api(`/fuelings${buildFuelingsQuery(filters)}`)
+export async function listFuelings(
+  api: ApiRequest,
+  filters: FuelingFilters = {},
+  signal?: AbortSignal,
+): Promise<FuelingList> {
+  const response = await api(`/fuelings${buildFuelingsQuery(filters)}`, signal ? { signal } : undefined)
   if (!response.ok) await throwRequestError(response, 'Não foi possível carregar os abastecimentos.')
   const body: unknown = await response.json().catch(() => null)
   if (!isRecord(body) || !Array.isArray(body.items)
@@ -140,42 +181,77 @@ export async function getFuelingDetail(api: ApiRequest, id: string): Promise<Fue
   const body: unknown = await response.json().catch(() => null)
   if (!isRecord(body) || !isRecord(body.fueling) || typeof body.currentId !== 'string'
     || !Array.isArray(body.versions) || !Array.isArray(body.events)) throw new Error(INVALID_RESPONSE_MESSAGE)
-  return { fueling: parseFueling(body.fueling), currentId: body.currentId,
-    versions: body.versions.map(parseFueling), events: body.events.map(parseHistoryEvent) }
+  return {
+    fueling: parseFueling(body.fueling),
+    currentId: body.currentId,
+    versions: body.versions.map(parseFueling),
+    events: body.events.map(parseHistoryEvent),
+  }
 }
 
 async function sendWrite<TError extends FuelingWriteError>(
-  api: ApiRequest, path: string, method: 'POST' | 'PUT', input: object, key: string,
-  fallback: string, makeError: (message: string, uncertain: boolean) => TError,
+  api: ApiRequest,
+  path: string,
+  method: 'POST' | 'PUT',
+  input: object,
+  key: string,
+  fallback: string,
+  makeError: (message: string, uncertain: boolean, status?: number) => TError,
 ): Promise<FuelingVersion> {
   let response: Response
   try {
-    response = await api(path, { method, headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key }, body: JSON.stringify(input) })
+    response = await api(path, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key },
+      body: JSON.stringify(input),
+    })
   } catch (error) {
-    throw makeError(error instanceof Error ? error.message : fallback, true)
+    const message = error instanceof Error ? error.message : fallback
+    const uncertain = !(error instanceof Error && (error.message === SESSION_EXPIRED || error.name === 'AbortError'))
+    throw makeError(message, uncertain)
   }
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => null)
-    throw makeError(readErrorMessage(body, fallback), response.status >= 500)
+    throw makeError(readErrorMessage(body, fallback), response.status >= 500, response.status)
   }
-  try { return parseFueling(await response.json().catch(() => null)) }
-  catch (error) { throw makeError(error instanceof Error ? error.message : INVALID_RESPONSE_MESSAGE, true) }
+  try {
+    return parseFueling(await response.json().catch(() => null))
+  } catch (error) {
+    throw makeError(error instanceof Error ? error.message : INVALID_RESPONSE_MESSAGE, true, response.status)
+  }
 }
 
 /** Reenvia a mesma intenção com a chave estável até o servidor confirmar o resultado. */
 export async function createFueling(
   api: ApiRequest,
   input: CreateFuelingInput,
-  idempotencyKey: string,
+  idempotencyKey: string = crypto.randomUUID(),
 ): Promise<FuelingVersion> {
-  return sendWrite(api, '/fuelings', 'POST', input, idempotencyKey,
-    'Não foi possível registrar o abastecimento.', (message, uncertain) => new FuelingCreateError(message, uncertain))
+  return sendWrite(
+    api,
+    '/fuelings',
+    'POST',
+    input,
+    idempotencyKey,
+    'Não foi possível registrar o abastecimento.',
+    (message, uncertain, status) => new FuelingCreateError(message, uncertain, status),
+  )
 }
 
 /** Retifica uma versão preservando a mesma chave e o mesmo payload durante retries. */
 export async function rectifyFueling(
-  api: ApiRequest, id: string, input: RectifyFuelingInput, idempotencyKey: string,
+  api: ApiRequest,
+  id: string,
+  input: RectifyFuelingInput,
+  idempotencyKey: string = crypto.randomUUID(),
 ): Promise<FuelingVersion> {
-  return sendWrite(api, `/fuelings/${encodeURIComponent(id)}`, 'PUT', input, idempotencyKey,
-    'Não foi possível retificar o abastecimento.', (message, uncertain) => new FuelingRectifyError(message, uncertain))
+  return sendWrite(
+    api,
+    `/fuelings/${encodeURIComponent(id)}`,
+    'PUT',
+    input,
+    idempotencyKey,
+    'Não foi possível retificar o abastecimento.',
+    (message, uncertain, status) => new FuelingRectifyError(message, uncertain, status),
+  )
 }

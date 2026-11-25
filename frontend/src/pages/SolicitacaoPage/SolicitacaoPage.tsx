@@ -1,409 +1,706 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import AddIcon from '@mui/icons-material/Add'
 import {
   Alert,
   Box,
   Button,
-  Card,
-  CardActions,
-  CardContent,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  MenuItem,
+  Paper,
   Stack,
   TablePagination,
-  TextField,
   Typography,
   useMediaQuery,
-  useTheme,
 } from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
-import EditNoteIcon from '@mui/icons-material/EditNote'
-import HistoryIcon from '@mui/icons-material/History'
+import { resolveProfile } from '../../auth/profiles'
+import { useSessionDraft } from '../../auth/sessionDrafts'
+import { useAuth } from '../../auth/useAuth'
+import { accessibleControls } from '../../components/ui/accessibleControls'
+import DataTable from '../../components/ui/DataTable'
+import type { DataTableColumn } from '../../components/ui/DataTable'
+import { EntityCard } from '../../components/ui/EntityCard'
+import FilterBar from '../../components/ui/FilterBar'
+import { FormField, FormSelect } from '../../components/ui/FormField'
 import PageHeader from '../../components/ui/PageHeader'
 import StateFeedback from '../../components/ui/StateFeedback'
 import StatusChip from '../../components/ui/StatusChip'
-import { FormField, FormSelect } from '../../components/ui/FormField'
-import { useAuth } from '../../auth/useAuth'
-import { listFleetServices } from '../../services/fleetServicesService'
-import type { FleetService } from '../../services/fleetServicesService'
-import {
-  createRequest,
-  getRequest,
-  getRequestHistory,
-  listRequests,
-  resubmitRequest,
-} from '../../services/requestsService'
-import type {
-  PaginatedRequestHistory,
-  PaginatedRequests,
-  RequestDetail,
-  RequestHistoryItem,
-  RequestStatus,
-  RequestSubmission,
-  RequestSummary,
-} from '../../requests/requestTypes'
 import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONES } from '../../requests/requestPresentation'
-import { formatCalendarDate, formatDateTime } from '../../utils/dates'
-
-const PAGE_SIZE = 10
-const EMPTY_FORM: RequestSubmission = {
-  requestedDate: '', requestedTime: '', origin: '', destination: '', purpose: '', serviceId: '',
-  passengers: 1, specialRequirements: null, notes: null,
-}
-
-interface FormValues extends RequestSubmission {
-  specialRequirements: string
-  notes: string
-}
-
-function formValues(request?: RequestDetail | null): FormValues {
-  if (!request) return { ...EMPTY_FORM, specialRequirements: '', notes: '' }
-  return {
-    requestedDate: request.requestedDate,
-    requestedTime: request.requestedTime,
-    origin: request.origin,
-    destination: request.destination,
-    purpose: request.purpose,
-    serviceId: request.serviceId,
-    passengers: request.passengers,
-    specialRequirements: request.specialRequirements ?? '',
-    notes: request.notes ?? '',
-  }
-}
-
-function submission(values: FormValues): RequestSubmission {
-  return {
-    ...values,
-    specialRequirements: values.specialRequirements.trim() || null,
-    notes: values.notes.trim() || null,
-  }
-}
+import { REQUEST_STATUSES } from '../../requests/requestTypes'
+import type { PaginatedRequests, RequestSummary } from '../../requests/requestTypes'
+import { listRequests } from '../../services/requestsService'
+import type { CreatedRequestResult, RequestDetailView, ResubmitRequestResult } from '../../services/requestsService'
+import { formatCalendarDate } from '../../utils/dates'
+import NewRequestDialog from './NewRequestDialog'
+import RequestDetailDialog from './RequestDetailDialog'
+import { EMPTY_REQUEST_FORM } from './requestFormValidation'
+import type { RequestFormValues, ResubmitTarget } from './requestFormValidation'
+import {
+  areRequestFiltersEqual,
+  buildRequestSearchParams,
+  EMPTY_REQUEST_FILTERS,
+  hasActiveRequestFilters,
+  parseRequestUrlState,
+  REQUEST_PAGE_SIZE_OPTIONS,
+  toApiRequestFilters,
+  validateFilterDateRange,
+} from './requestListFilters'
+import type { RequestFilterValues } from './requestListFilters'
 
 function isOpenNewRequestState(value: unknown): boolean {
   return typeof value === 'object' && value !== null
     && 'openNewRequest' in value && value.openNewRequest === true
 }
 
-/** Lista e registra solicitações reais, com correção disponível após devolução do Gestor. */
+const DOCUMENT_TITLE = 'Minhas solicitações — Aratu'
+const DEFAULT_LOAD_ERROR = 'Não foi possível carregar suas solicitações.'
+
+const STATUS_OPTIONS = REQUEST_STATUSES.map((value) => ({
+  value,
+  label: REQUEST_STATUS_LABELS[value],
+}))
+
+const REQUEST_COLUMNS: readonly DataTableColumn<RequestSummary>[] = [
+  { key: 'id', header: 'Nº', width: 88, render: (request) => <strong>#{request.id}</strong> },
+  { key: 'service', header: 'Tipo de serviço', render: (request) => request.serviceName },
+  { key: 'destination', header: 'Destino', render: (request) => request.destination },
+  {
+    key: 'dateTime',
+    header: 'Data e horário',
+    render: (request) => `${formatCalendarDate(request.requestedDate)} às ${request.requestedTime}`,
+  },
+  { key: 'purpose', header: 'Finalidade', render: (request) => request.purpose },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (request) => (
+      <StatusChip
+        label={REQUEST_STATUS_LABELS[request.status]}
+        tone={REQUEST_STATUS_TONES[request.status]}
+      />
+    ),
+  },
+]
+
+interface ConfirmedSnapshot {
+  filters: RequestFilterValues
+  page: number
+  pageSize: number
+  data: PaginatedRequests
+}
+
+interface FetchState {
+  completedKey: string | null
+  confirmed: ConfirmedSnapshot | null
+  errorKey: string | null
+  errorMessage: string
+}
+
+const INITIAL_FETCH_STATE: FetchState = {
+  completedKey: null,
+  confirmed: null,
+  errorKey: null,
+  errorMessage: '',
+}
+
+/** Tela do Solicitante para criação (`POST /requests`) e acompanhamento (`GET /requests` e `/requests/:id`). */
 export default function SolicitacaoPage() {
-  const { api } = useAuth()
-  const theme = useTheme()
-  const mobileViewport = useMediaQuery(theme.breakpoints.down('sm'))
+  const { session } = useAuth()
+  return <SolicitacaoContent key={session?.token ?? 'anonymous'} />
+}
+
+function SolicitacaoContent() {
+  const { api, session } = useAuth()
+  const profile = session ? resolveProfile(session.perfil) : null
+  const allowed = profile === 'SOLICITANTE'
+  const isCompactView = useMediaQuery('(max-width:899.95px)')
   const location = useLocation()
   const navigate = useNavigate()
   const routeRequestsNewForm = isOpenNewRequestState(location.state)
-  const [servicesState, setServicesState] = useState<{ data?: FleetService[]; error?: string }>({})
-  const [serviceReload, setServiceReload] = useState(0)
-  const [listState, setListState] = useState<{ key: string; data?: PaginatedRequests; error?: string } | null>(null)
-  const [statusFilter, setStatusFilter] = useState<RequestStatus | ''>('')
-  const [page, setPage] = useState(0)
-  const [reload, setReload] = useState(0)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [editingRequest, setEditingRequest] = useState<RequestDetail | null>(null)
-  const [values, setValues] = useState<FormValues>(() => formValues())
-  const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState('')
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlState = useMemo(() => parseRequestUrlState(searchParams), [searchParams])
+  const urlFilters = urlState.filters
+  const urlPage = urlState.page
+  const urlPageSize = urlState.pageSize
+
+  const [draftOverride, setDraftOverride] = useState<{
+    urlKey: string
+    values: RequestFilterValues
+    errors: { fromError?: string; toError?: string }
+  } | null>(null)
+
+  const [fetchState, setFetchState] = useState<FetchState>(INITIAL_FETCH_STATE)
+  const [reloadCount, setReloadCount] = useState(0)
+
+  const [newDialogLocalOpen, setNewDialogLocalOpen] = useSessionDraft('solicitacao:request-dialog-open', false)
+  const [newFormDraft, setNewFormDraft, clearNewFormDraft] = useSessionDraft<RequestFormValues>(
+    'solicitacao:new-request-draft',
+    EMPTY_REQUEST_FORM,
+  )
+  const [resubmitTarget, setResubmitTarget] = useSessionDraft<ResubmitTarget | null>('solicitacao:resubmit-target', null)
+  const [selectedRequest, setSelectedRequest] = useState<{ id: string; seq: number } | null>(null)
   const [notice, setNotice] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [detailState, setDetailState] = useState<{ id: string; request?: RequestDetail; history?: PaginatedRequestHistory; error?: string } | null>(null)
-  const [detailReload, setDetailReload] = useState(0)
-  const [historyPage, setHistoryPage] = useState(1)
 
-  const filters = useMemo(() => ({
-    ...(statusFilter ? { status: statusFilter } : {}), page: page + 1, pageSize: PAGE_SIZE,
-  }), [page, statusFilter])
-  const queryKey = JSON.stringify({ filters, reload })
-  const currentList = listState?.key === queryKey ? listState : null
-  const rows = currentList?.data?.requests ?? []
-  const dialogOpen = createOpen || editingRequest !== null || routeRequestsNewForm
-  const activeServices = (servicesState.data ?? []).filter(service => service.active)
+  const newButtonRef = useRef<HTMLButtonElement>(null)
+  const noticeRef = useRef<HTMLDivElement>(null)
+  const filterFromRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const filterToRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const detailTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const detailSeqRef = useRef(0)
+  const pendingFocusNoticeRef = useRef(false)
+  const pendingFocusTriggerRef = useRef(false)
+  const pendingDetailIdRef = useRef<string | null>(null)
+  const pendingResubmitDetailRef = useRef<RequestDetailView | null>(null)
+
+  const urlFiltersKey = useMemo(
+    () => `${urlFilters.status}|${urlFilters.from}|${urlFilters.to}|${urlFilters.service}`,
+    [urlFilters],
+  )
+  const draftFilters = draftOverride?.urlKey === urlFiltersKey ? draftOverride.values : urlFilters
+  const dateRangeErrors = draftOverride?.urlKey === urlFiltersKey ? draftOverride.errors : {}
+  const newDialogOpen = newDialogLocalOpen || (allowed && (urlState.openNewRequested || routeRequestsNewForm))
+
+  const clearRouteAction = useCallback(() => {
+    if (routeRequestsNewForm) {
+      navigate(location.pathname + location.search, { replace: true, state: null })
+    }
+  }, [location.pathname, location.search, navigate, routeRequestsNewForm])
 
   useEffect(() => {
+    const previousTitle = document.title
+    document.title = DOCUMENT_TITLE
+    return () => {
+      document.title = previousTitle
+    }
+  }, [])
+
+  const apiFilters = useMemo(
+    () => toApiRequestFilters(urlFilters, urlPage, urlPageSize),
+    [urlFilters, urlPage, urlPageSize],
+  )
+  const requestKey = useMemo(
+    () => JSON.stringify({ apiFilters, reloadCount }),
+    [apiFilters, reloadCount],
+  )
+
+  useEffect(() => {
+    if (!allowed) return
     let current = true
-    void listFleetServices(api)
-      .then(data => { if (current) setServicesState({ data }) })
-      .catch((failure: unknown) => {
-        if (current) setServicesState({ error: failure instanceof Error ? failure.message : 'Não foi possível carregar os tipos de serviço.' })
+    void listRequests(api, apiFilters)
+      .then((data) => {
+        if (!current) return
+        setFetchState({
+          completedKey: requestKey,
+          confirmed: { filters: urlFilters, page: urlPage, pageSize: urlPageSize, data },
+          errorKey: null,
+          errorMessage: '',
+        })
       })
-    return () => { current = false }
-  }, [api, serviceReload])
-
-  useEffect(() => {
-    let current = true
-    void listRequests(api, filters)
-      .then(data => { if (current) setListState({ key: queryKey, data }) })
-      .catch((failure: unknown) => {
-        if (current) setListState({ key: queryKey,
-          error: failure instanceof Error ? failure.message : 'Não foi possível carregar suas solicitações.' })
+      .catch((error: unknown) => {
+        if (!current) return
+        setFetchState((previous) => ({
+          completedKey: null,
+          confirmed: previous.confirmed,
+          errorKey: requestKey,
+          errorMessage: error instanceof Error && error.message ? error.message : DEFAULT_LOAD_ERROR,
+        }))
       })
-    return () => { current = false }
-  }, [api, filters, queryKey])
+    return () => {
+      current = false
+    }
+  }, [allowed, api, apiFilters, requestKey, urlFilters, urlPage, urlPageSize])
 
-  useEffect(() => {
-    if (!selectedId) return
-    let current = true
-    void Promise.all([
-      getRequest(api, selectedId),
-      getRequestHistory(api, selectedId, historyPage),
-    ]).then(([request, history]) => {
-      if (current) setDetailState({ id: selectedId, request, history })
-    }).catch((failure: unknown) => {
-      if (current) setDetailState({ id: selectedId,
-        error: failure instanceof Error ? failure.message : 'Não foi possível carregar os detalhes.' })
-    })
-    return () => { current = false }
-  }, [api, selectedId, detailReload, historyPage])
-
-  function clearRouteAction() {
-    if (routeRequestsNewForm) navigate(location.pathname, { replace: true, state: null })
-  }
-
-  function openCreate() {
-    setFormError('')
-    setValues(formValues())
-    setEditingRequest(null)
-    setCreateOpen(true)
-    setNotice('')
-  }
-
-  function closeForm() {
-    if (saving) return
-    setCreateOpen(false)
-    setEditingRequest(null)
-    setFormError('')
-    clearRouteAction()
-  }
-
-  function editReturnedRequest(request: RequestDetail) {
-    setSelectedId(null)
-    setEditingRequest(request)
-    setCreateOpen(false)
-    setValues(formValues(request))
-    setFormError('')
-    setNotice('')
-  }
-
-  async function submitRequest(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (saving) return
-    setSaving(true)
-    setFormError('')
+  const refreshListAndReport = useCallback(async (): Promise<boolean> => {
+    if (!allowed) return false
     try {
-      if (editingRequest) {
-        await resubmitRequest(api, editingRequest.id, editingRequest.revision, submission(values))
-        setNotice(`Solicitação #${editingRequest.id} reenviada para análise.`)
-      } else {
-        const created = await createRequest(api, submission(values))
-        setNotice(`Solicitação #${created.id} enviada para análise.`)
+      const cleanFilters = EMPTY_REQUEST_FILTERS
+      const cleanApiFilters = toApiRequestFilters(cleanFilters, 1, urlPageSize)
+      const data = await listRequests(api, cleanApiFilters)
+      const nextKey = JSON.stringify({ apiFilters: cleanApiFilters, reloadCount })
+      setDraftOverride(null)
+      if (urlPage !== 1 || hasActiveRequestFilters(urlFilters)) {
+        if (urlState.openNewRequested) {
+          setNewDialogLocalOpen(true)
+        }
+        setSearchParams(buildRequestSearchParams(cleanFilters, 1, urlPageSize), { replace: true })
       }
-      setCreateOpen(false)
-      setEditingRequest(null)
-      clearRouteAction()
-      setPage(0)
-      setStatusFilter('')
-      setReload(value => value + 1)
-    } catch (failure) {
-      setFormError(failure instanceof Error ? failure.message : 'Não foi possível enviar a solicitação.')
-    } finally {
-      setSaving(false)
+      setFetchState({
+        completedKey: nextKey,
+        confirmed: { filters: cleanFilters, page: 1, pageSize: urlPageSize, data },
+        errorKey: null,
+        errorMessage: '',
+      })
+      return true
+    } catch {
+      return false
+    }
+  }, [allowed, api, reloadCount, setNewDialogLocalOpen, setSearchParams, urlFilters, urlPage, urlPageSize, urlState.openNewRequested])
+
+  const loadError = fetchState.errorKey === requestKey ? fetchState.errorMessage : ''
+  const loading = allowed && loadError === '' && fetchState.completedKey !== requestKey
+  const confirmed = fetchState.confirmed
+  const rows = confirmed?.data.requests ?? []
+  const total = confirmed?.data.total ?? 0
+  const isStale = confirmed !== null && (
+    loading
+    || loadError !== ''
+    || !areRequestFiltersEqual(confirmed.filters, urlFilters)
+    || confirmed.page !== urlPage
+    || confirmed.pageSize !== urlPageSize
+  )
+  const hasFilters = hasActiveRequestFilters(urlFilters)
+
+  function syncUrl(nextFilters: RequestFilterValues, nextPage: number, nextPageSize: number) {
+    setSearchParams(buildRequestSearchParams(nextFilters, nextPage, nextPageSize))
+  }
+
+  function updateDraftFilters(
+    nextValues: RequestFilterValues,
+    nextErrors: { fromError?: string; toError?: string } = dateRangeErrors,
+  ) {
+    setDraftOverride({
+      urlKey: urlFiltersKey,
+      values: nextValues,
+      errors: nextErrors,
+    })
+  }
+
+  function handleApplyFilters(event: FormEvent) {
+    event.preventDefault()
+    const validation = validateFilterDateRange(draftFilters.from, draftFilters.to)
+    updateDraftFilters(draftFilters, validation)
+    if (validation.fromError) {
+      filterFromRef.current?.focus()
+      return
+    }
+    if (validation.toError) {
+      filterToRef.current?.focus()
+      return
+    }
+
+    const normalized: RequestFilterValues = {
+      ...draftFilters,
+      service: draftFilters.service.trim(),
+    }
+    setNotice('')
+    setDraftOverride(null)
+    syncUrl(normalized, 1, urlPageSize)
+  }
+
+  function handleClearFilters() {
+    setDraftOverride(null)
+    setNotice('')
+    syncUrl(EMPTY_REQUEST_FILTERS, 1, urlPageSize)
+    if (loadError !== '' && areRequestFiltersEqual(urlFilters, EMPTY_REQUEST_FILTERS)) {
+      setReloadCount((count) => count + 1)
     }
   }
 
-  function openDetails(request: RequestSummary) {
-    setDetailState(null)
-    setHistoryPage(1)
-    setSelectedId(request.id)
+  function handleCloseNewDialog() {
+    pendingFocusTriggerRef.current = true
+    setNewDialogLocalOpen(false)
+    clearRouteAction()
+    if (urlState.openNewRequested) {
+      setSearchParams(buildRequestSearchParams(urlFilters, urlPage, urlPageSize), { replace: true })
+    }
   }
 
-  function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
-    setValues(current => ({ ...current, [key]: value }))
+  function handleCreated(created: CreatedRequestResult) {
+    pendingFocusNoticeRef.current = true
+    setNewDialogLocalOpen(false)
+    clearRouteAction()
+    clearNewFormDraft()
+    setNotice(
+      `Solicitação #${created.id} enviada com sucesso e registrada como ${REQUEST_STATUS_LABELS[created.status]}. Acompanhe o andamento nesta lista.`,
+    )
+    if (urlPage !== 1 || hasFilters || urlState.openNewRequested) {
+      syncUrl(EMPTY_REQUEST_FILTERS, 1, urlPageSize)
+    } else {
+      setReloadCount((count) => count + 1)
+    }
   }
 
-  const detail = detailState?.id === selectedId ? detailState : null
-  const isLoadingList = !currentList
+  function handleStartResubmit(detail: RequestDetailView) {
+    if (detail.status !== 'RETURNED' || typeof detail.revision !== 'number') return
+    pendingResubmitDetailRef.current = detail
+    setSelectedRequest(null)
+    setNotice('')
+  }
+
+  function handleDetailDialogExited() {
+    const pendingDetail = pendingResubmitDetailRef.current
+    if (pendingDetail) {
+      pendingResubmitDetailRef.current = null
+      setNewFormDraft({
+        serviceId: pendingDetail.serviceId,
+        requestedDate: pendingDetail.requestedDate,
+        requestedTime: pendingDetail.requestedTime,
+        origin: pendingDetail.origin,
+        destination: pendingDetail.destination,
+        passengers: String(pendingDetail.passengers),
+        purpose: pendingDetail.purpose,
+        specialRequirements: pendingDetail.specialRequirements ?? '',
+        notes: pendingDetail.notes ?? '',
+      })
+      setResubmitTarget({
+        id: pendingDetail.id,
+        revision: pendingDetail.revision ?? 1,
+        rejectionReason: pendingDetail.decisionReason,
+      })
+      setNewDialogLocalOpen(true)
+      return
+    }
+    detailTriggerRef.current?.focus()
+  }
+
+  function handleResubmitted(result: ResubmitRequestResult) {
+    pendingFocusNoticeRef.current = true
+    setNewDialogLocalOpen(false)
+    clearNewFormDraft()
+    setNotice(
+      `Solicitação #${result.id} reenviada com sucesso (revisão ${result.revision}) e retornou para ${REQUEST_STATUS_LABELS[result.status]}.`,
+    )
+    if (urlPage !== 1 || hasFilters || urlState.openNewRequested) {
+      syncUrl(EMPTY_REQUEST_FILTERS, 1, urlPageSize)
+    } else {
+      setReloadCount((count) => count + 1)
+    }
+  }
+
+  function handleConflictRefresh(requestId: string) {
+    pendingDetailIdRef.current = requestId
+    setNewDialogLocalOpen(false)
+    clearNewFormDraft()
+    setReloadCount((count) => count + 1)
+  }
+
+  function handleNewDialogExited() {
+    if (resubmitTarget) {
+      setResubmitTarget(null)
+      clearNewFormDraft()
+    }
+    const pendingDetailId = pendingDetailIdRef.current
+    if (pendingDetailId) {
+      pendingDetailIdRef.current = null
+      detailSeqRef.current += 1
+      setSelectedRequest({ id: pendingDetailId, seq: detailSeqRef.current })
+      return
+    }
+    if (pendingFocusNoticeRef.current) {
+      pendingFocusNoticeRef.current = false
+      noticeRef.current?.focus()
+      return
+    }
+    if (pendingFocusTriggerRef.current) {
+      pendingFocusTriggerRef.current = false
+      newButtonRef.current?.focus()
+    }
+  }
+
+  if (!allowed) {
+    return (
+      <Box sx={{ maxWidth: 1200, mx: 'auto', minWidth: 0, ...accessibleControls }}>
+        <PageHeader title="Minhas Solicitações" breadcrumbs={['Início', 'Minhas Solicitações']} />
+        <StateFeedback
+          kind="forbidden"
+          title="Acesso restrito"
+          description="Esta tela é exclusiva para o perfil Solicitante."
+        />
+      </Box>
+    )
+  }
 
   return (
-    <Box sx={{ minWidth: 0 }} component="section" aria-label="Minhas solicitações">
+    <Box sx={{ maxWidth: 1200, mx: 'auto', minWidth: 0, ...accessibleControls }}>
       <PageHeader
-        title="Minhas solicitações"
-        description="Acompanhe seus pedidos e atualize os dados quando o Gestor solicitar correções."
-        actions={<Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ minHeight: 48 }}>
-          Nova solicitação
-        </Button>}
+        title="Minhas Solicitações"
+        breadcrumbs={['Início', 'Minhas Solicitações']}
+        description="Acompanhe os seus pedidos de transporte institucional, crie novas solicitações ou corrija devoluções."
+        actions={(
+          <Button
+            ref={newButtonRef}
+            variant="contained"
+            startIcon={<AddIcon aria-hidden="true" />}
+            onClick={() => {
+              setNotice('')
+              setNewDialogLocalOpen(true)
+            }}
+            sx={{ minHeight: 44, minWidth: 44 }}
+          >
+            Nova solicitação
+          </Button>
+        )}
       />
 
-      {notice && <Alert severity="success" role="status" sx={{ mb: 2 }}>{notice}</Alert>}
-      {servicesState.error && <StateFeedback kind="error" title="Não foi possível carregar os tipos de serviço."
-        description={servicesState.error} actionLabel="Tentar novamente" onAction={() => setServiceReload(value => value + 1)} />}
-      {currentList?.error && <StateFeedback kind={notice ? 'partial' : 'error'}
-        title={notice ? 'A solicitação foi gravada, mas a lista pode estar desatualizada.' : 'Não foi possível carregar suas solicitações.'}
-        description={currentList.error} actionLabel="Tentar novamente" onAction={() => setReload(value => value + 1)} />}
-
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
-        <TextField select label="Filtrar por situação" value={statusFilter}
-          onChange={event => { setStatusFilter(event.target.value as RequestStatus | ''); setPage(0) }}
-          sx={{ width: { xs: '100%', sm: 280 } }}>
-          <MenuItem value="">Todas as situações</MenuItem>
-          {Object.entries(REQUEST_STATUS_LABELS).map(([status, label]) => <MenuItem key={status} value={status}>{label}</MenuItem>)}
-        </TextField>
-        <Button variant="outlined" onClick={() => setReload(value => value + 1)} sx={{ minHeight: 48, alignSelf: { sm: 'flex-start' } }}>
-          Atualizar lista
-        </Button>
-      </Stack>
-
-      {!currentList?.error && (isLoadingList
-        ? <StateFeedback kind="loading" title="Carregando suas solicitações..." />
-        : rows.length === 0
-          ? <StateFeedback kind="empty" title="Nenhuma solicitação encontrada."
-            description="Crie uma solicitação para iniciar o atendimento." centered />
-          : <>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 2 }}>
-              {rows.map(request => <RequestCard key={request.id} request={request}
-                onDetails={() => openDetails(request)} />)}
-            </Box>
-            <TablePagination
-              component="div" count={currentList?.data?.total ?? 0} page={page}
-              onPageChange={(_event, nextPage) => setPage(nextPage)} rowsPerPage={PAGE_SIZE}
-              rowsPerPageOptions={[PAGE_SIZE]} labelRowsPerPage="Solicitações por página:"
-              labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
-            />
-          </>)}
-
-      <Dialog open={dialogOpen} onClose={closeForm} fullWidth maxWidth="sm" fullScreen={mobileViewport}
-        sx={{ '& .MuiDialog-paper': { m: { xs: 0, sm: 3 }, width: { xs: '100%', sm: undefined }, maxHeight: { xs: '100dvh', sm: 'calc(100% - 64px)' }, borderRadius: { xs: 0, sm: 2 } } }}>
-        <Box component="form" onSubmit={event => { void submitRequest(event) }}>
-          <DialogTitle>{editingRequest ? 'Corrigir solicitação' : 'Nova solicitação'}</DialogTitle>
-          <DialogContent dividers>
-            {editingRequest?.decisionReason && <Alert severity="warning" sx={{ mb: 2 }}>
-              <strong>Observação do Gestor:</strong> {editingRequest.decisionReason}
-            </Alert>}
-            {formError && <Alert severity="error" role="alert" sx={{ mb: 2 }}>{formError}</Alert>}
-            {servicesState.error && <Alert severity="error" sx={{ mb: 2 }}>{servicesState.error}</Alert>}
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 2 }}>
-              <FormField label="Data da viagem" type="date" value={values.requestedDate}
-                onChange={value => update('requestedDate', value)} required />
-              <FormField label="Horário" type="time" value={values.requestedTime}
-                onChange={value => update('requestedTime', value)} required />
-              <FormSelect label="Tipo de serviço" value={values.serviceId}
-                onChange={value => update('serviceId', value)} required
-                options={activeServices.map(service => ({ value: service.id, label: service.name }))}
-                disabled={!servicesState.data || activeServices.length === 0} />
-              <FormField label="Passageiros" type="number" inputMode="numeric" value={String(values.passengers)}
-                onChange={value => update('passengers', Number(value))} required />
-              <FormField label="Origem" value={values.origin} onChange={value => update('origin', value)} required />
-              <FormField label="Destino" value={values.destination} onChange={value => update('destination', value)} required />
-              <FormField label="Finalidade" value={values.purpose} onChange={value => update('purpose', value)} required sx={{ gridColumn: { sm: '1 / -1' } }} />
-              <FormField label="Necessidades especiais" value={values.specialRequirements}
-                onChange={value => update('specialRequirements', value)} multiline minRows={2}
-                helperText="Descreva adaptações ou apoio necessários para a viagem." sx={{ gridColumn: { sm: '1 / -1' } }} />
-              <FormField label="Observações" value={values.notes} onChange={value => update('notes', value)}
-                multiline minRows={2} sx={{ gridColumn: { sm: '1 / -1' } }} />
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, pb: 'max(16px, env(safe-area-inset-bottom))' }}>
-            <Button onClick={closeForm} disabled={saving} sx={{ minHeight: 48 }}>Cancelar</Button>
-            <Button type="submit" variant="contained" disabled={saving || !servicesState.data || activeServices.length === 0}
-              aria-busy={saving} sx={{ minHeight: 48 }}>
-              {saving ? 'Enviando…' : editingRequest ? 'Reenviar para análise' : 'Enviar solicitação'}
-            </Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
-
-      <Dialog open={selectedId !== null} onClose={() => setSelectedId(null)} fullWidth maxWidth="sm" fullScreen={mobileViewport}
-        sx={{ '& .MuiDialog-paper': { m: { xs: 0, sm: 3 }, width: { xs: '100%', sm: undefined }, maxHeight: { xs: '100dvh', sm: 'calc(100% - 64px)' }, borderRadius: { xs: 0, sm: 2 } } }}>
-        <DialogTitle>Detalhes e histórico</DialogTitle>
-        <DialogContent dividers>
-          {!detail && <StateFeedback kind="loading" title="Carregando detalhes e histórico..." />}
-          {detail?.error && <StateFeedback kind="error" title="Não foi possível carregar os detalhes."
-            description={detail.error} actionLabel="Tentar novamente" onAction={() => setDetailReload(value => value + 1)} />}
-          {detail?.request && <RequestDetailContent request={detail.request} history={detail.history?.items ?? []} />}
-          {detail?.request?.status === 'RETURNED' && (
-            <Button variant="contained" startIcon={<EditNoteIcon />} onClick={() => editReturnedRequest(detail.request!)}
-              sx={{ mt: 2, minHeight: 48, width: { xs: '100%', sm: 'auto' } }}>
-              Corrigir e reenviar
-            </Button>
-          )}
-          {detail?.history && detail.history.totalPages > 1 && (
-            <TablePagination component="div" count={detail.history.total} page={historyPage - 1} rowsPerPage={20}
-              rowsPerPageOptions={[20]} onPageChange={(_event, nextPage) => setHistoryPage(nextPage + 1)}
-              labelRowsPerPage="Eventos por página:" labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`} />
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, pb: 'max(16px, env(safe-area-inset-bottom))' }}>
-          <Button onClick={() => setSelectedId(null)} sx={{ minHeight: 48 }}>Fechar</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  )
-}
-
-function RequestCard({ request, onDetails }: { request: RequestSummary; onDetails: () => void }) {
-  return (
-    <Card variant="outlined" component="article" sx={{ minWidth: 0 }}>
-      <CardContent sx={{ pb: 1 }}>
-        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1 }}>
-          <Typography component="h2" variant="subtitle1" sx={{ fontWeight: 700 }}>Solicitação #{request.id}</Typography>
-          <StatusChip label={REQUEST_STATUS_LABELS[request.status]} tone={REQUEST_STATUS_TONES[request.status]} />
-        </Stack>
-        <Typography variant="body2" color="text.secondary">{formatCalendarDate(request.requestedDate)} às {request.requestedTime}</Typography>
-        <Typography sx={{ mt: 1, overflowWrap: 'anywhere' }}><strong>{request.origin}</strong> → <strong>{request.destination}</strong></Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{request.serviceName} · {request.passengers} passageiros</Typography>
-      </CardContent>
-      <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end' }}>
-        <Button onClick={onDetails} startIcon={<HistoryIcon />} sx={{ minHeight: 44 }}>Ver detalhes e histórico</Button>
-      </CardActions>
-    </Card>
-  )
-}
-
-function RequestDetailContent({ request, history }: { request: RequestDetail; history: readonly RequestHistoryItem[] }) {
-  return (
-    <Stack spacing={2}>
-      <StatusChip label={REQUEST_STATUS_LABELS[request.status]} tone={REQUEST_STATUS_TONES[request.status]} />
-      <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
-        <Detail label="Tipo de serviço" value={request.serviceName} />
-        <Detail label="Data e horário" value={`${formatCalendarDate(request.requestedDate)} às ${request.requestedTime}`} />
-        <Detail label="Origem" value={request.origin} />
-        <Detail label="Destino" value={request.destination} />
-        <Detail label="Finalidade" value={request.purpose} />
-        <Detail label="Passageiros" value={String(request.passengers)} />
-        <Detail label="Necessidades especiais" value={request.specialRequirements || 'Não informadas'} />
-        <Detail label="Observações" value={request.notes || 'Nenhuma'} />
-      </Box>
-      {request.decisionReason && <Alert severity={request.status === 'RETURNED' ? 'warning' : 'info'}>
-        <strong>{request.status === 'RETURNED' ? 'Observação para correção:' : 'Motivo da decisão:'}</strong> {request.decisionReason}
-      </Alert>}
-      <Box>
-        <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Histórico</Typography>
-        {history.length === 0 ? <Typography color="text.secondary">Nenhum evento registrado.</Typography> : (
-          <Stack component="ol" spacing={1.5} sx={{ m: 0, pl: 2.5 }}>
-            {history.map(event => <Box component="li" key={event.id}>
-              <Typography sx={{ fontWeight: 600 }}>{historyEventLabel(event.eventType)}</Typography>
-              <Typography variant="body2" color="text.secondary">{formatDateTime(event.occurredAt)} · {event.reportedBy}</Typography>
-              <Typography variant="body2">{event.reason}</Typography>
-            </Box>)}
-          </Stack>
+      <Box
+        ref={noticeRef}
+        role="status"
+        aria-live="polite"
+        tabIndex={-1}
+        sx={{ '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.dark', outlineOffset: 2 } }}
+      >
+        {notice && (
+          <Alert severity="success" role="none" sx={{ mb: 2 }} onClose={() => setNotice('')}>
+            {notice}
+          </Alert>
         )}
       </Box>
-    </Stack>
+
+      <Box component="form" noValidate onSubmit={handleApplyFilters}>
+        <FilterBar label="Filtros das suas solicitações">
+          <FormSelect
+            label="Situação"
+            value={draftFilters.status}
+            onChange={(status) => updateDraftFilters({ ...draftFilters, status: status as RequestFilterValues['status'] })}
+            options={STATUS_OPTIONS}
+            emptyLabel="Todas as situações"
+            displayEmpty
+            sx={{ flex: 1, minWidth: { xs: 0, sm: 170 }, width: { xs: '100%', md: 'auto' } }}
+          />
+          <FormField
+            label="Data inicial"
+            type="date"
+            value={draftFilters.from}
+            onChange={(from) => updateDraftFilters({ ...draftFilters, from }, {})}
+            error={dateRangeErrors.fromError}
+            inputRef={filterFromRef}
+            sx={{ flex: 1, minWidth: { xs: 0, sm: 165 }, width: { xs: '100%', md: 'auto' } }}
+          />
+          <FormField
+            label="Data final"
+            type="date"
+            value={draftFilters.to}
+            onChange={(to) => updateDraftFilters({ ...draftFilters, to }, {})}
+            error={dateRangeErrors.toError}
+            inputRef={filterToRef}
+            sx={{ flex: 1, minWidth: { xs: 0, sm: 165 }, width: { xs: '100%', md: 'auto' } }}
+          />
+          <FormField
+            label="Tipo de serviço"
+            value={draftFilters.service}
+            onChange={(service) => updateDraftFilters({ ...draftFilters, service })}
+            placeholder="Filtrar por serviço"
+            maxLength={120}
+            sx={{ flex: 1, minWidth: { xs: 0, sm: 180 }, width: { xs: '100%', md: 'auto' } }}
+          />
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', minWidth: 0 }}>
+            <Button type="submit" variant="contained" sx={{ minHeight: 44, minWidth: 44 }}>
+              Aplicar filtros
+            </Button>
+            <Button
+              type="button"
+              variant="outlined"
+              onClick={handleClearFilters}
+              sx={{ minHeight: 44, minWidth: 44 }}
+            >
+              Limpar
+            </Button>
+          </Stack>
+        </FilterBar>
+      </Box>
+
+      {loadError && confirmed === null ? (
+        <StateFeedback
+          kind="error"
+          title="Não foi possível carregar suas solicitações."
+          description={loadError}
+          actionLabel="Tentar novamente"
+          onAction={() => setReloadCount((count) => count + 1)}
+        />
+      ) : (
+        <>
+          {loadError && isStale && (
+            <StateFeedback
+              kind="partial"
+              title={notice ? 'A solicitação foi enviada, mas a lista pode estar desatualizada.' : 'A lista exibida pode estar desatualizada.'}
+              description={loadError}
+              actionLabel="Tentar novamente"
+              onAction={() => setReloadCount((count) => count + 1)}
+            />
+          )}
+
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', maxWidth: '100%' }}>
+            {isCompactView ? (
+              loading ? (
+                <StateFeedback kind="loading" title="Carregando suas solicitações..." />
+              ) : rows.length === 0 ? (
+                hasFilters ? (
+                  <StateFeedback
+                    kind="empty"
+                    title="Nenhuma solicitação encontrada para os filtros atuais."
+                    description="Ajuste os filtros de situação, período ou serviço para ampliar a busca."
+                    actionLabel="Limpar filtros"
+                    onAction={handleClearFilters}
+                    centered
+                  />
+                ) : (
+                  <StateFeedback
+                    kind="empty"
+                    title="Você ainda não enviou solicitações de viagem."
+                    description="Clique em Nova solicitação para pedir um transporte institucional."
+                    actionLabel="Nova solicitação"
+                    onAction={() => {
+                      setNotice('')
+                      setNewDialogLocalOpen(true)
+                    }}
+                    centered
+                  />
+                )
+              ) : (
+                <Stack component="ul" spacing={1.5} aria-label="Solicitações de transporte institucional" sx={{ listStyle: 'none', p: 1.5, m: 0 }}>
+                  {rows.map((request) => (
+                    <Box component="li" key={request.id}>
+                      <EntityCard>
+                        <EntityCard.Header title={`Solicitação #${request.id} · ${request.serviceName}`}>
+                          <EntityCard.Status>
+                            <StatusChip
+                              label={REQUEST_STATUS_LABELS[request.status]}
+                              tone={REQUEST_STATUS_TONES[request.status]}
+                            />
+                          </EntityCard.Status>
+                        </EntityCard.Header>
+                        <EntityCard.Body>
+                          <Stack spacing={0.5}>
+                            <Typography variant="body2">
+                              <strong>Data e horário:</strong>{' '}
+                              {`${formatCalendarDate(request.requestedDate)} às ${request.requestedTime}`}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Destino:</strong> {request.destination}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Finalidade:</strong> {request.purpose}
+                            </Typography>
+                          </Stack>
+                        </EntityCard.Body>
+                        <EntityCard.Actions>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={(event) => {
+                              detailTriggerRef.current = event.currentTarget
+                              detailSeqRef.current += 1
+                              setSelectedRequest({ id: request.id, seq: detailSeqRef.current })
+                            }}
+                            aria-label={`Ver detalhes da solicitação #${request.id} para ${request.destination}`}
+                            sx={{ minHeight: 44, minWidth: 44, width: '100%', whiteSpace: 'nowrap' }}
+                          >
+                            Ver detalhes
+                          </Button>
+                        </EntityCard.Actions>
+                      </EntityCard>
+                    </Box>
+                  ))}
+                </Stack>
+              )
+            ) : (
+              <DataTable
+                caption="Solicitações de transporte institucional"
+                columns={REQUEST_COLUMNS}
+                rows={rows}
+                rowKey={(request) => request.id}
+                busy={loading}
+                minWidth={760}
+                paperSx={{ border: 0, boxShadow: 'none' }}
+                loadingContent={<StateFeedback kind="loading" title="Carregando suas solicitações..." />}
+                emptyContent={
+                  hasFilters ? (
+                    <StateFeedback
+                      kind="empty"
+                      title="Nenhuma solicitação encontrada para os filtros atuais."
+                      description="Ajuste os filtros de situação, período ou serviço para ampliar a busca."
+                      actionLabel="Limpar filtros"
+                      onAction={handleClearFilters}
+                      centered
+                    />
+                  ) : (
+                    <StateFeedback
+                      kind="empty"
+                      title="Você ainda não enviou solicitações de viagem."
+                      description="Clique em Nova solicitação para pedir um transporte institucional."
+                      actionLabel="Nova solicitação"
+                      onAction={() => {
+                        setNotice('')
+                        setNewDialogLocalOpen(true)
+                      }}
+                      centered
+                    />
+                  )
+                }
+                renderActions={(request) => (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={(event) => {
+                      detailTriggerRef.current = event.currentTarget
+                      detailSeqRef.current += 1
+                      setSelectedRequest({ id: request.id, seq: detailSeqRef.current })
+                    }}
+                    aria-label={`Ver detalhes da solicitação #${request.id} para ${request.destination}`}
+                    sx={{ minHeight: 44, minWidth: 44, whiteSpace: 'nowrap' }}
+                  >
+                    Ver detalhes
+                  </Button>
+                )}
+              />
+            )}
+
+            <TablePagination
+              component="div"
+              count={total}
+              page={Math.max(0, urlPage - 1)}
+              onPageChange={(_event, nextPage) => syncUrl(urlFilters, nextPage + 1, urlPageSize)}
+              rowsPerPage={urlPageSize}
+              onRowsPerPageChange={(event) => syncUrl(urlFilters, 1, Number(event.target.value))}
+              rowsPerPageOptions={[...REQUEST_PAGE_SIZE_OPTIONS]}
+              labelRowsPerPage="Solicitações por página:"
+              labelDisplayedRows={({ from, to, count }) => (count === 0 ? '0 de 0' : `${from}–${to} de ${count}`)}
+              getItemAriaLabel={(type) => (type === 'next' ? 'Ir para a próxima página' : 'Ir para a página anterior')}
+              sx={{
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                '& .MuiTablePagination-toolbar': {
+                  flexWrap: 'wrap',
+                  justifyContent: 'flex-end',
+                  gap: 1,
+                  px: { xs: 1, sm: 2 },
+                },
+                '& .MuiTablePagination-spacer': {
+                  display: 'none',
+                },
+                '& .MuiTablePagination-select': {
+                  minHeight: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                },
+              }}
+            />
+          </Paper>
+        </>
+      )}
+
+      <NewRequestDialog
+        open={newDialogOpen}
+        api={api}
+        draft={newFormDraft}
+        resubmitTarget={resubmitTarget}
+        onChangeDraft={setNewFormDraft}
+        onClose={handleCloseNewDialog}
+        onExited={handleNewDialogExited}
+        onCreated={handleCreated}
+        onResubmitted={handleResubmitted}
+        onConflictRefresh={handleConflictRefresh}
+        onRefreshList={refreshListAndReport}
+      />
+
+      <RequestDetailDialog
+        requestId={selectedRequest?.id ?? null}
+        openSeq={selectedRequest?.seq ?? 0}
+        api={api}
+        onClose={() => setSelectedRequest(null)}
+        onExited={handleDetailDialogExited}
+        onResubmit={handleStartResubmit}
+      />
+    </Box>
   )
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return <Box><Typography component="dt" variant="body2" color="text.secondary">{label}</Typography>
-    <Typography component="dd" sx={{ m: 0, overflowWrap: 'anywhere' }}>{value}</Typography></Box>
-}
-
-function historyEventLabel(eventType: string): string {
-  const labels: Record<string, string> = {
-    CREATED: 'Solicitação enviada', RETURNED: 'Devolvida para correção', RESUBMITTED: 'Solicitação reenviada',
-    APPROVED: 'Aprovada', REJECTED: 'Recusada definitivamente', SCHEDULED: 'Viagem agendada',
-    CANCELED: 'Cancelada', UPDATED: 'Dados atualizados',
-  }
-  return labels[eventType] ?? 'Atualização registrada'
 }

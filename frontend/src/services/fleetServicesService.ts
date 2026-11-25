@@ -1,5 +1,6 @@
-import type { ApiRequest } from '../api/client'
-import type { VehicleCategory } from '../vehicles/vehicleTypes'
+import type { ApiRequest } from '../api/client.ts'
+import { VEHICLE_STATUSES } from '../vehicles/vehicleTypes.ts'
+import type { VehicleCategory, VehicleStatus } from '../vehicles/vehicleTypes.ts'
 
 export interface FleetService {
   id: string
@@ -13,10 +14,19 @@ export interface FleetService {
   revision: number
 }
 
+/** Resumo de veículo compatível retornado pelo catálogo de vínculos. */
+export interface CompatibleVehicleSummary {
+  id: string
+  licensePlate: string
+  brand?: string | null
+  model?: string | null
+  status?: VehicleStatus
+}
+
 export interface CompatibleVehiclesView {
   serviceId: string
   revision: number
-  vehicles: { id: string; licensePlate: string }[]
+  vehicles: CompatibleVehicleSummary[]
 }
 
 /** Snapshot de compatibilidade usado para editar serviços direto no cadastro do veículo. */
@@ -33,6 +43,9 @@ export interface FleetServiceAssignmentSaveResult {
 
 export type FleetServiceErrorKind = 'validation' | 'forbidden' | 'not-found' | 'conflict' | 'unavailable'
 
+/** Mensagem canônica de conflito por duplicidade de nome devolvida pela API (HTTP 409). */
+export const DUPLICATE_SERVICE_NAME_MESSAGE = 'Tipo de serviço já cadastrado'
+
 export class FleetServiceRequestError extends Error {
   readonly kind: FleetServiceErrorKind
 
@@ -41,6 +54,21 @@ export class FleetServiceRequestError extends Error {
     this.name = 'FleetServiceRequestError'
     this.kind = kind
   }
+}
+
+/** Indica se a falha representa conflito de nome já cadastrado. */
+export function isDuplicateServiceNameError(error: unknown): boolean {
+  return error instanceof FleetServiceRequestError
+    && error.kind === 'conflict'
+    && error.message.trim().toLocaleLowerCase('pt-BR') === DUPLICATE_SERVICE_NAME_MESSAGE.toLocaleLowerCase('pt-BR')
+}
+
+/** Indica resultado incerto (erro de rede ou indisponibilidade 5xx) que exige consulta antes de regravar. */
+export function isUncertainServiceError(error: unknown): boolean {
+  if (error instanceof FleetServiceRequestError) {
+    return error.kind === 'unavailable'
+  }
+  return true
 }
 
 const CATEGORIES: readonly VehicleCategory[] = ['PASSENGER', 'BODY', 'OTHER']
@@ -52,6 +80,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isCategory(value: unknown): value is VehicleCategory {
   return typeof value === 'string' && CATEGORIES.includes(value as VehicleCategory)
+}
+
+function isVehicleStatus(value: unknown): value is VehicleStatus {
+  return typeof value === 'string' && VEHICLE_STATUSES.includes(value as VehicleStatus)
 }
 
 function parseFleetService(value: unknown): FleetService {
@@ -77,12 +109,30 @@ function parseFleetService(value: unknown): FleetService {
   }
 }
 
+function parseCompatibleVehicle(value: unknown): CompatibleVehicleSummary {
+  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.licensePlate !== 'string') {
+    throw new Error(INVALID_RESPONSE)
+  }
+  const vehicle: CompatibleVehicleSummary = {
+    id: value.id,
+    licensePlate: value.licensePlate,
+  }
+  if (value.brand === null || typeof value.brand === 'string') {
+    vehicle.brand = value.brand
+  }
+  if (value.model === null || typeof value.model === 'string') {
+    vehicle.model = value.model
+  }
+  if (isVehicleStatus(value.status)) {
+    vehicle.status = value.status
+  }
+  return vehicle
+}
+
 function parseCompatibleView(value: unknown): CompatibleVehiclesView {
   if (!isRecord(value) || typeof value.serviceId !== 'string'
     || typeof value.revision !== 'number' || !Number.isInteger(value.revision)
-    || !Array.isArray(value.vehicles)
-    || value.vehicles.some((vehicle) => !isRecord(vehicle)
-      || typeof vehicle.id !== 'string' || typeof vehicle.licensePlate !== 'string')) {
+    || !Array.isArray(value.vehicles)) {
     throw new Error(INVALID_RESPONSE)
   }
   return {
@@ -90,13 +140,6 @@ function parseCompatibleView(value: unknown): CompatibleVehiclesView {
     revision: value.revision,
     vehicles: value.vehicles.map(parseCompatibleVehicle),
   }
-}
-
-function parseCompatibleVehicle(value: unknown): { id: string; licensePlate: string } {
-  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.licensePlate !== 'string') {
-    throw new Error(INVALID_RESPONSE)
-  }
-  return { id: value.id, licensePlate: value.licensePlate }
 }
 
 async function fail(response: Response, fallback: string): Promise<never> {

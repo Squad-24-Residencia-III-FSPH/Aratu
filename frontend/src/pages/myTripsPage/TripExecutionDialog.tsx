@@ -64,7 +64,7 @@ export default function TripExecutionDialog({
   onRefresh,
 }: TripExecutionDialogProps) {
   const kmRef = useRef<HTMLInputElement>(null)
-  const confirmBlocked = confirmDisabled ?? (Boolean(issue) || draft.denied || draft.reconciling || stale)
+  const confirmBlocked = confirmDisabled ?? (Boolean(issue) || draft.denied || draft.reconciling || draft.uncertain || stale)
 
   useEffect(() => {
     if (draft.fieldError) kmRef.current?.focus()
@@ -98,6 +98,7 @@ export default function TripExecutionDialog({
       onEntered={() => kmRef.current?.focus()}
       onConfirm={confirmExecution}
       onCancel={onCancel}
+      actionsSx={{ p: 2, flexWrap: 'wrap', gap: 1 }}
     >
       <Box component="form" noValidate onSubmit={(event) => { event.preventDefault(); confirmExecution() }} sx={{ mt: 2 }}>
         <FormField
@@ -113,10 +114,20 @@ export default function TripExecutionDialog({
           required
         />
       </Box>
-      {issue && <Alert severity="warning" role="alert" sx={{ mt: 1 }}>{issue}</Alert>}
+      {draft.reconciliationNotice && (
+        <Alert
+          severity={draft.reconciledOutcome === 'PERSISTED' ? 'success' : 'info'}
+          role="status"
+          aria-live="polite"
+          sx={{ mt: 1 }}
+        >
+          {draft.reconciliationNotice}
+        </Alert>
+      )}
+      {issue && draft.reconciledOutcome !== 'PERSISTED' && <Alert severity="warning" role="alert" sx={{ mt: 1 }}>{issue}</Alert>}
       {draft.submitError && <Alert severity="error" role="alert" sx={{ mt: 1 }}>{draft.submitError}</Alert>}
       {(draft.uncertain || draft.reconciling || stale || Boolean(issue)) && (
-        <Button color="inherit" onClick={onRefresh} disabled={refreshing || submitting} sx={{ mt: 1, minHeight: 44 }}>
+        <Button color="inherit" onClick={onRefresh} disabled={refreshing || submitting} sx={{ mt: 1, minHeight: 44, minWidth: 44 }}>
           {refreshing ? 'Atualizando...' : 'Atualizar situação'}
         </Button>
       )}

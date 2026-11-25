@@ -102,7 +102,9 @@ test('impressão aguarda renderização do resultado completo com emissor e colu
   }
   const user = mount(async path => path === '/reports/catalog' ? Response.json(catalog) : Response.json({ ...preview,
     generatedAt: '2026-11-16T12:00:00Z', generatedBy: { id: '1', name: 'Gestor Fictício QA', role: 'GESTOR' }, appliedFilters: [{ label: 'Combustível', value: 'Diesel' }] }))
-  await user.click(await screen.findByRole('button', { name: 'Imprimir relatório' }))
+  await user.click(await screen.findByRole('button', { name: 'Gerar prévia' }))
+  await screen.findByText('QAF1A32')
+  await user.click(screen.getByRole('button', { name: 'Imprimir relatório' }))
   await waitFor(() => assert.equal(printed, true))
   await waitFor(() => assert.equal(document.querySelector('article'), null))
 })

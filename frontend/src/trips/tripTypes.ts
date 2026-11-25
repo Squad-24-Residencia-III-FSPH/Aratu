@@ -110,12 +110,19 @@ export type TripRequestErrorKind =
 export class TripRequestError extends Error {
   readonly kind: TripRequestErrorKind
   readonly status: number | null
+  readonly code: string | null
 
-  constructor(kind: TripRequestErrorKind, message: string, status: number | null = null) {
+  constructor(
+    kind: TripRequestErrorKind,
+    message: string,
+    status: number | null = null,
+    code: string | null = null,
+  ) {
     super(message)
     this.name = 'TripRequestError'
     this.kind = kind
     this.status = status
+    this.code = code
   }
 }
 

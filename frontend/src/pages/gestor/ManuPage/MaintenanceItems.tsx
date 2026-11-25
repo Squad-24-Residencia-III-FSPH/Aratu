@@ -1,4 +1,5 @@
 import { Box, Button, Paper, Stack, Typography } from '@mui/material'
+import type { Ref } from 'react'
 import { FormField } from '../../../components/ui/FormField'
 import type { MaintenanceItem, PricedItem } from '../../../maintenance/maintenanceTypes'
 import { formatMoney } from '../../../maintenance/maintenanceTypes'
@@ -11,18 +12,19 @@ interface ItemsEditorProps {
   onChange: (items: MaintenanceItem[]) => void
   disabled?: boolean
   validate?: boolean
+  containerRef?: Ref<HTMLDivElement>
 }
 /** Usa campos compartilhados e permite peças fracionárias sem impor periodicidade de troca. */
-export function ItemsEditor({ label, items, onChange, disabled, validate }: ItemsEditorProps) {
+export function ItemsEditor({ label, items, onChange, disabled, validate, containerRef }: ItemsEditorProps) {
   function change(index: number, patch: Partial<MaintenanceItem>) {
     onChange(items.map((item, position) => position === index ? { ...item, ...patch } as MaintenanceItem : item))
   }
-  return <Stack spacing={2}>
+  return <Stack ref={containerRef} spacing={2}>
     <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>{label}</Typography>
     {items.length === 0 && <Typography variant="body2">Nenhuma peça ou serviço informado.</Typography>}
     {items.map((item, index) => {
       const errors = validate ? maintenanceItemErrors(item) : {}
-      return <Paper key={index} variant="outlined" sx={{ p: 2 }}>
+      return <Paper key={index} data-item-index={index} variant="outlined" sx={{ p: 2 }}>
       <Stack spacing={2}>
         <FormField label={`${label} — ${item.kind === 'PART' ? 'peça' : 'serviço'} ${index + 1}`} value={item.description}
           onChange={description => change(index, { description })} error={errors.description} required disabled={disabled} />

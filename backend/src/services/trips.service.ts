@@ -27,7 +27,7 @@ import type {
 } from '../types/trip.types'
 import type { FuelingsRepositoryContract } from '../repositories/fuelings.repository'
 import type { TripsRepositoryContract } from '../repositories/trips.repository'
-import { parsePeriod } from './availability.service'
+import { parsePeriod, requiresSeatCapacity, resolveRequiredPassengers } from './availability.service'
 import type { AvailabilityService } from './availability.service'
 
 const ID_PATTERN = /^[1-9]\d*$/
@@ -43,6 +43,7 @@ const REASON_LABELS: Readonly<Record<AvailabilityReason, string>> = {
   CONFLICT: 'já tem viagem no período',
   MAINTENANCE: 'está em manutenção',
   INCOMPATIBLE: 'não atende ao tipo de serviço da solicitação',
+  CAPACITY_EXCEEDED: 'não comporta a quantidade de passageiros da solicitação',
   INACTIVE: 'está inativo',
   AWAY: 'está afastado',
   CNH_EXPIRED: 'tem CNH vencida antes do fim da viagem',
@@ -152,12 +153,21 @@ export class TripsService {
           throw new TripServiceError(400, 'A conferência especial só pode ser registrada quando a solicitação informar uma necessidade especial.')
         }
 
-        const vehicle = await this.availability.assessVehicle(vehicleId, request.serviceId, period, client)
+        const requiredPassengers = resolveRequiredPassengers(request.passengers)
+        const vehicle = await this.availability.assessVehicle(
+          vehicleId,
+          request.serviceId,
+          period,
+          client,
+          requiredPassengers,
+        )
         if (!vehicle) throw new TripServiceError(404, 'Veículo não encontrado.')
-        if (request.passengers > vehicle.seats) {
-          throw new TripServiceError(422,
-            `O veículo comporta ${vehicle.seats} passageiros, mas a solicitação informa ${request.passengers}.`,
-            'INSUFFICIENT_CAPACITY')
+        if (requiresSeatCapacity(vehicle) && requiredPassengers > vehicle.seats) {
+          throw new TripServiceError(
+            422,
+            `O veículo comporta ${vehicle.seats} passageiros, mas a solicitação informa ${requiredPassengers}.`,
+            'INSUFFICIENT_CAPACITY',
+          )
         }
         const driver = await this.availability.assessDriver(driverId, period, client)
         if (!driver) throw new TripServiceError(404, 'Motorista não encontrado.')

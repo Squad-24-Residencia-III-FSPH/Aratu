@@ -6,7 +6,6 @@ import type { RequestsRepositoryContract } from '../src/repositories/requests.re
 import { RequestsService } from '../src/services/requests.service'
 import type {
   CreateRequestEventInput,
-  CreateRequestLifecycleEventInput,
   CreateRequestInput,
   PaginatedRequestHistory,
   PaginatedRequests,
@@ -21,7 +20,11 @@ import { RequestServiceError } from '../src/types/request.types'
 
 const client = {} as PoolClient
 const actor: RequestActorSnapshot = {
-  id: '3', name: 'Solicitante Fictício', email: 'solicitante@example.test', role: 'SOLICITANTE',
+  id: '3',
+  name: 'Solicitante Fictício',
+  email: 'solicitante@example.test',
+  role: 'SOLICITANTE',
+  sector: 'Laboratório Central Fictício',
 }
 const serviceSnapshot: RequestServiceSnapshot = {
   id: '5', name: 'Transporte fictício', requiresTriage: false, requiresWeight: false,
@@ -54,37 +57,53 @@ function createSummary(overrides: Partial<RequestSummary> = {}): RequestSummary 
 function createDetail(overrides: Partial<RequestDetail> = {}): RequestDetail {
   return {
     ...createSummary(),
+    requesterSector: 'Laboratório Central Fictício',
     decidedBy: null,
     decidedByName: null,
     decidedAt: null,
     decisionReason: null,
     revision: 1,
+    events: [],
     trip: null,
     ...overrides,
   }
 }
 
-function setup(options: { serviceAvailable?: boolean; failAudit?: boolean; requestStatus?: TripRequest['status']; revision?: number } = {}) {
+function setup(options: {
+  serviceAvailable?: boolean
+  failAudit?: boolean
+  storedForUpdate?: TripRequest | null
+  resubmitRaceLost?: boolean
+  actorSnapshot?: RequestActorSnapshot
+  requestStatus?: TripRequest['status']
+  revision?: number
+} = {}) {
   const saved: {
     input?: CreateRequestInput
     actor?: RequestActorSnapshot
     event?: CreateRequestEventInput
-    lifecycle?: CreateRequestLifecycleEventInput
-  } = {}
+    events: CreateRequestEventInput[]
+    lifecycle?: CreateRequestEventInput
+    audits: Array<{ operation: string; reason?: string | null; after?: Record<string, unknown> | null }>
+  } = { events: [], audits: [] }
   const calls: Array<RequestListFilters & { requesterId?: string }> = []
   let detail: RequestDetail | null = createDetail()
   let receivedDetailArgs: { id: string; requesterId?: string } | null = null
-  let versionState: TripRequest | null = {
-    id: '10', requesterId: actor.id, serviceId: serviceSnapshot.id,
-    requestedDate: '2099-12-01', requestedTime: '08:30', origin: 'Origem anterior',
-    destination: 'Destino anterior', purpose: 'Finalidade anterior', passengers: 1,
-    specialRequirements: null, notes: null, status: options.requestStatus ?? 'PENDING',
-    revision: options.revision ?? 1, requesterSnapshot: actor, serviceSnapshot,
-  }
+  const currentActor: RequestActorSnapshot = options.actorSnapshot ?? actor
+  let versionState: TripRequest | null = options.storedForUpdate !== undefined
+    ? options.storedForUpdate
+    : {
+        id: '10', requesterId: actor.id, serviceId: serviceSnapshot.id,
+        requestedDate: '2099-12-01', requestedTime: '08:30', origin: 'Origem anterior',
+        destination: 'Destino anterior', purpose: 'Finalidade anterior', passengers: 1,
+        specialRequirements: null, notes: null, status: options.requestStatus ?? 'PENDING',
+        revision: options.revision ?? 1, requesterSector: actor.sector ?? null,
+        requesterSnapshot: actor, serviceSnapshot,
+      }
 
   const repository: RequestsRepositoryContract = {
     async withTransaction<T>(work: (transaction: PoolClient) => Promise<T>): Promise<T> { return work(client) },
-    async findActorSnapshot(): Promise<RequestActorSnapshot> { return actor },
+    async findActorSnapshot(): Promise<RequestActorSnapshot> { return currentActor },
     async findActiveServiceForUpdate(): Promise<RequestServiceSnapshot | null> {
       return options.serviceAvailable === false ? null : serviceSnapshot
     },
@@ -92,11 +111,53 @@ function setup(options: { serviceAvailable?: boolean; failAudit?: boolean; reque
       saved.input = input
       saved.actor = requester
       return {
-        id: '41', requesterId: requester.id, ...input,
-        status: 'PENDING', revision: 1, requesterSnapshot: requester, serviceSnapshot: service,
+        id: '41',
+        requesterId: requester.id,
+        ...input,
+        status: 'PENDING',
+        revision: 1,
+        requesterSector: requester.sector ?? null,
+        requesterSnapshot: requester,
+        serviceSnapshot: service,
       }
     },
-    async createEvent(input): Promise<void> { saved.event = input },
+    async findByIdForUpdate(id): Promise<TripRequest | null> {
+      return versionState?.id === id ? versionState : null
+    },
+    async resubmit(id, expectedRevision, input, requester, service): Promise<TripRequest | null> {
+      if (options.resubmitRaceLost) return null
+      if (!versionState || versionState.id !== id
+        || versionState.status !== 'RETURNED'
+        || versionState.revision !== expectedRevision || versionState.requesterId !== requester.id) return null
+      saved.input = input
+      saved.actor = requester
+      versionState = {
+        ...versionState,
+        ...input,
+        status: 'PENDING',
+        revision: versionState.revision + 1,
+        requesterSector: requester.sector ?? null,
+        requesterSnapshot: requester,
+        serviceSnapshot: service,
+      }
+      detail = {
+        ...createDetail(),
+        id,
+        requesterId: requester.id,
+        ...input,
+        requesterSector: requester.sector ?? null,
+        status: 'PENDING',
+        revision: versionState.revision,
+      }
+      return versionState
+    },
+    async createEvent(input): Promise<void> {
+      saved.event = input
+      saved.events.push(input)
+      if (input.eventType === 'RESUBMITTED') {
+        saved.lifecycle = input
+      }
+    },
     async list(filters): Promise<PaginatedRequests> {
       calls.push(filters)
       return {
@@ -112,16 +173,6 @@ function setup(options: { serviceAvailable?: boolean; failAudit?: boolean; reque
       if (!detail || detail.id !== id || (requesterId !== undefined && detail.requesterId !== requesterId)) return null
       return detail
     },
-    async findByIdForUpdate(id): Promise<TripRequest | null> { return versionState?.id === id ? versionState : null },
-    async resubmit(id, expectedRevision, input, requester, service): Promise<TripRequest | null> {
-      if (!versionState || versionState.id !== id || versionState.status !== 'RETURNED'
-        || versionState.revision !== expectedRevision || versionState.requesterId !== requester.id) return null
-      versionState = { ...versionState, ...input, status: 'PENDING', revision: versionState.revision + 1,
-        requesterSnapshot: requester, serviceSnapshot: service }
-      detail = { ...createDetail(), id, requesterId: requester.id, ...input, status: 'PENDING', revision: versionState.revision }
-      return versionState
-    },
-    async createLifecycleEvent(input): Promise<void> { saved.lifecycle = input },
     async listHistory(): Promise<PaginatedRequestHistory> {
       return { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }
     },
@@ -130,6 +181,7 @@ function setup(options: { serviceAvailable?: boolean; failAudit?: boolean; reque
   const auditService: AuditLogger = {
     async recordAudit(input): Promise<AuditEntry> {
       if (options.failAudit) throw new Error('falha fictícia de auditoria')
+      saved.audits.push({ operation: input.operation, reason: input.reason ?? null, after: input.after ?? null })
       return {
         id: '1', userId: String(input.userId), table: input.table, recordId: String(input.recordId),
         operation: input.operation, before: input.before ?? null, after: input.after ?? null,
@@ -191,7 +243,7 @@ test('reenviada devolução com revisão atual preserva os snapshots e os estado
   assert.equal(result.status, 'PENDING')
   assert.equal(result.revision, 5)
   assert.equal(context.saved.lifecycle?.eventType, 'RESUBMITTED')
-  assert.equal(context.saved.lifecycle?.beforeState.status, 'RETURNED')
+  assert.equal(context.saved.lifecycle?.beforeState?.status, 'RETURNED')
   assert.equal(context.saved.lifecycle?.afterState.revision, 5)
   assert.equal(context.saved.lifecycle?.reason, 'Solicitação reenviada após correção pelo Solicitante.')
 })
@@ -324,4 +376,130 @@ test('não repassa escopo de solicitante para gestor no detalhe', async () => {
   await service.getRequest('10', { id: '4', role: 'GESTOR' })
 
   assert.deepEqual(getDetailArgs(), { id: '10' })
+})
+
+test('criação aceita passengers e notes opcionais mantendo compatibilidade com 6 campos', async () => {
+  const withExtras = setup()
+  await withExtras.service.createRequest({ ...futureRequest, passengers: 3, notes: '  Levar pasta fictícia  ' }, actor.id)
+  assert.equal(withExtras.saved.input?.passengers, 3)
+  assert.equal(withExtras.saved.input?.notes, 'Levar pasta fictícia')
+
+  const defaultPayload = setup()
+  await defaultPayload.service.createRequest(futureRequest, actor.id)
+  assert.equal(defaultPayload.saved.input?.passengers, 1)
+  assert.equal(defaultPayload.saved.input?.notes, null)
+
+  await assert.rejects(defaultPayload.service.createRequest({ ...futureRequest, passengers: 0 }, actor.id), isServiceError(400))
+  await assert.rejects(defaultPayload.service.createRequest({ ...futureRequest, notes: 123 }, actor.id), isServiceError(400))
+})
+
+test('reenvio de solicitação devolvida preserva histórico e recusa definitiva impede alteração', async () => {
+  const returnedStored: TripRequest = {
+    id: '41',
+    requesterId: actor.id,
+    serviceId: '5',
+    requestedDate: '2099-12-01',
+    requestedTime: '08:30',
+    origin: 'Origem anterior',
+    destination: 'Destino anterior',
+    purpose: 'Finalidade anterior',
+    passengers: 1,
+    specialRequirements: null,
+    notes: null,
+    status: 'RETURNED',
+    revision: 2,
+    requesterSector: actor.sector ?? null,
+    requesterSnapshot: actor,
+    serviceSnapshot,
+  }
+
+  const context = setup({ storedForUpdate: returnedStored })
+  const result = await context.service.resubmitRequest('41', {
+    ...futureRequest,
+    requestedTime: '10:30',
+    passengers: 4,
+    notes: 'Ajustado horário conforme orientação',
+    expectedRevision: 2,
+    reason: 'Horário ajustado para cobertura operacional',
+  }, actor.id)
+
+  assert.equal(result.id, '41')
+  assert.equal(result.status, 'PENDING')
+  assert.equal(result.revision, 3)
+  assert.equal(context.saved.events.length, 1)
+  assert.equal(context.saved.events[0]?.eventType, 'RESUBMITTED')
+  assert.equal(context.saved.events[0]?.beforeState?.status, 'RETURNED')
+  assert.equal(context.saved.events[0]?.afterState.status, 'PENDING')
+  assert.equal(context.saved.events[0]?.reason, 'Horário ajustado para cobertura operacional')
+  assert.equal(context.saved.audits[0]?.operation, 'STATUS_CHANGE')
+
+  await assert.rejects(
+    setup({ storedForUpdate: returnedStored }).service.resubmitRequest('41', {
+      ...futureRequest,
+      expectedRevision: 1,
+      reason: 'Tentativa obsoleta',
+    }, actor.id),
+    isServiceError(409),
+  )
+
+  await assert.rejects(
+    setup({ storedForUpdate: { ...returnedStored, status: 'PENDING' } }).service.resubmitRequest('41', {
+      ...futureRequest,
+      expectedRevision: 2,
+      reason: 'Não rejeitada',
+    }, actor.id),
+    isServiceError(409),
+  )
+
+  await assert.rejects(
+    setup({ storedForUpdate: null }).service.resubmitRequest('41', {
+      ...futureRequest,
+      expectedRevision: 2,
+      reason: 'Outro titular',
+    }, actor.id),
+    isServiceError(404),
+  )
+
+  await assert.rejects(
+    setup({ storedForUpdate: returnedStored }).service.resubmitRequest('41', {
+      ...futureRequest,
+      expectedRevision: 2,
+      reason: '   ',
+    }, actor.id),
+    isServiceError(400),
+  )
+
+  const rejected = setup({ storedForUpdate: { ...returnedStored, status: 'REJECTED' } })
+  await assert.rejects(
+    rejected.service.resubmitRequest('41', { ...futureRequest, expectedRevision: 2, reason: 'Tentativa de correção' }, actor.id),
+    isServiceError(409),
+  )
+  assert.deepEqual(rejected.saved.events, [])
+  assert.deepEqual(rejected.saved.audits, [])
+})
+
+test('congela setor histórico do solicitante no snapshot e devolve null para pedidos antigos sem setor', async () => {
+  const context = setup({
+    actorSnapshot: {
+      id: '3',
+      name: 'Solicitante Fictício',
+      email: 'solicitante@example.test',
+      role: 'SOLICITANTE',
+      sector: 'Hemocentro Fictício',
+    },
+  })
+  await context.service.createRequest(futureRequest, '3')
+  assert.equal(context.saved.actor?.sector, 'Hemocentro Fictício')
+  assert.equal(context.saved.event?.afterState.requesterSector, 'Hemocentro Fictício')
+  assert.equal(context.saved.audits[0]?.after?.requesterSector, 'Hemocentro Fictício')
+
+  // Simula solicitação legada anterior sem setor no snapshot
+  context.setDetail(createDetail({ requesterSector: null }))
+  const legacyDetail = await context.service.getRequest('10', { id: '4', role: 'GESTOR' })
+  assert.equal(legacyDetail.requesterSector, null)
+
+  // Simula solicitação com setor histórico preservado no detalhe
+  context.setDetail(createDetail({ requesterSector: 'Hemocentro Fictício' }))
+  const snapshotDetail = await context.service.getRequest('10', { id: '4', role: 'GESTOR' })
+  assert.equal(snapshotDetail.requesterSector, 'Hemocentro Fictício')
 })

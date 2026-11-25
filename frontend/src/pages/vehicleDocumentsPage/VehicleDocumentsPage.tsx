@@ -1,195 +1,839 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Card, CardActions, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Stack, useMediaQuery, useTheme, Typography } from '@mui/material'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import AddIcon from '@mui/icons-material/Add'
-import EditOutlined from '@mui/icons-material/EditOutlined'
-import HistoryOutlined from '@mui/icons-material/HistoryOutlined'
 import Autorenew from '@mui/icons-material/Autorenew'
 import BlockOutlined from '@mui/icons-material/BlockOutlined'
-import { useAuth } from '../../auth/useAuth'
-import { resolveProfile } from '../../auth/profiles'
-import DataTable from '../../components/ui/DataTable'
-import type { DataTableColumn } from '../../components/ui/DataTable'
-import FilterBar from '../../components/ui/FilterBar'
-import { FormField, FormSelect } from '../../components/ui/FormField'
-import PageHeader from '../../components/ui/PageHeader'
-import StateFeedback from '../../components/ui/StateFeedback'
-import StatusChip from '../../components/ui/StatusChip'
-import type { StatusTone } from '../../components/ui/StatusChip'
-import type { Vehicle } from '../../vehicles/vehicleTypes'
-import { listVehicles } from '../../services/vehiclesService'
+import EditOutlined from '@mui/icons-material/EditOutlined'
+import HistoryOutlined from '@mui/icons-material/HistoryOutlined'
+import { Alert, Box, Button, Card, CardActions, CardContent, Paper, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
+import { resolveProfile } from '../../auth/profiles.ts'
+import { useAuth } from '../../auth/useAuth.ts'
+import { accessibleControls } from '../../components/ui/accessibleControls.ts'
+import DataTable from '../../components/ui/DataTable.tsx'
+import type { DataTableColumn } from '../../components/ui/DataTable.tsx'
+import FilterBar from '../../components/ui/FilterBar.tsx'
+import { FormField, FormSelect } from '../../components/ui/FormField.tsx'
+import PageHeader from '../../components/ui/PageHeader.tsx'
+import StateFeedback from '../../components/ui/StateFeedback.tsx'
+import StatusChip from '../../components/ui/StatusChip.tsx'
+import { useVehicleDocuments } from '../../hooks/useVehicleDocuments.ts'
 import {
-  annulVehicleDocument, createVehicleDocument, getVehicleDocument, listExpiringVehicleDocuments,
-  listVehicleDocuments, updateVehicleDocument,
-} from '../../services/vehicleDocumentsService'
-import type { VehicleDocument, VehicleDocumentDetail, VehicleDocumentFilters, VehicleDocumentStatus, VehicleDocumentType } from '../../vehicleDocuments/vehicleDocumentTypes'
-import { canManageVehicleDocuments, VEHICLE_DOCUMENT_STATUS_LABELS, VEHICLE_DOCUMENT_STATUSES, VEHICLE_DOCUMENT_TYPE_LABELS, VEHICLE_DOCUMENT_TYPES } from '../../vehicleDocuments/vehicleDocumentTypes'
+  canManageVehicleDocuments,
+  formatDaysUntilExpiration,
+  parseAlertDaysInput,
+  VEHICLE_DOCUMENT_STATUS_LABELS,
+  VEHICLE_DOCUMENT_STATUS_TONES,
+  VEHICLE_DOCUMENT_STATUSES,
+  VEHICLE_DOCUMENT_TYPE_LABELS,
+  VEHICLE_DOCUMENT_TYPES,
+} from '../../types/vehicleDocument.ts'
+import type {
+  VehicleDocument,
+  VehicleDocumentFilters,
+  VehicleDocumentStatus,
+  VehicleDocumentType,
+} from '../../types/vehicleDocument.ts'
+import { formatCalendarDate } from '../../utils/dates.ts'
+import VehicleDocumentAnnulDialog from './VehicleDocumentAnnulDialog.tsx'
+import VehicleDocumentDetailDialog from './VehicleDocumentDetailDialog.tsx'
+import VehicleDocumentFormDialog from './VehicleDocumentFormDialog.tsx'
+import type { DocumentFormMode } from './VehicleDocumentFormDialog.tsx'
+import {
+  buildDocumentsSearchParams,
+  parseDocumentsUrlParams,
+} from './vehicleDocumentForm.ts'
 
-type FormMode = { kind: 'create' } | { kind: 'renew'; previous: VehicleDocument } | { kind: 'edit'; document: VehicleDocument }
-const STATUS_TONE: Record<VehicleDocumentStatus, StatusTone> = { VALID: 'success', EXPIRING: 'warning', EXPIRED: 'warning', RENEWED: 'info', ANNULLED: 'neutral' }
-const EVENT_LABELS = { REGISTERED: 'Cadastrado', RENEWED: 'Renovado', UPDATED: 'Corrigido', ANNULLED: 'Anulado' }
-const DATE_FORMAT = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' })
+const TYPE_OPTIONS = VEHICLE_DOCUMENT_TYPES.map((value) => ({
+  value,
+  label: VEHICLE_DOCUMENT_TYPE_LABELS[value],
+}))
 
-function displayDate(value: string | null): string { return value ? DATE_FORMAT.format(new Date(`${value.slice(0, 10)}T12:00:00`)) : 'Não informado' }
-function freshDraft(document?: VehicleDocument) {
-  return { vehicleId: document?.vehicleId ?? '', documentType: document?.documentType ?? 'CRLV' as VehicleDocumentType,
-    documentNumber: document?.documentNumber ?? '', issuedAt: document?.issuedAt ?? '', expiresAt: document?.expiresAt ?? '', notes: document?.notes ?? '', reason: '' }
+const STATUS_OPTIONS = VEHICLE_DOCUMENT_STATUSES.map((value) => ({
+  value,
+  label: VEHICLE_DOCUMENT_STATUS_LABELS[value],
+}))
+
+function buildDocumentColumns(includeExpirationDetails: boolean): readonly DataTableColumn<VehicleDocument>[] {
+  return [
+    {
+      key: 'plate',
+      header: 'Placa / Veículo',
+      render: (document) => (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {document.vehicle.licensePlate}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {document.vehicle.model ?? 'Modelo não informado'}
+            {document.vehicle.status === 'INACTIVE' ? ' · Inativo' : ''}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Tipo',
+      render: (document) => (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]}
+          </Typography>
+          {document.documentNumber && (
+            <Typography variant="caption" color="text.secondary">
+              Nº {document.documentNumber}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    ...(includeExpirationDetails
+      ? [
+          {
+            key: 'issuedAt',
+            header: 'Emissão',
+            render: (document: VehicleDocument) =>
+              document.issuedAt ? formatCalendarDate(document.issuedAt) : 'Não informada',
+          } satisfies DataTableColumn<VehicleDocument>,
+        ]
+      : []),
+    {
+      key: 'expiresAt',
+      header: 'Vencimento',
+      render: (document) => (
+        <Box>
+          <Typography
+            variant="body2"
+            color={document.status === 'EXPIRED' ? 'error.main' : 'text.primary'}
+            sx={{ fontWeight: document.status === 'EXPIRED' || document.status === 'EXPIRING' ? 700 : 400 }}
+          >
+            {formatCalendarDate(document.expiresAt)}
+          </Typography>
+          <Typography
+            variant="caption"
+            color={document.status === 'EXPIRED'
+              ? 'error.main'
+              : document.status === 'EXPIRING'
+                ? 'warning.dark'
+                : 'text.secondary'}
+            sx={{ fontWeight: document.status === 'EXPIRED' || document.status === 'EXPIRING' ? 700 : 400 }}
+          >
+            {formatDaysUntilExpiration(document.daysUntilExpiration, document.status)}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Situação',
+      render: (document) => (
+        <StatusChip
+          label={VEHICLE_DOCUMENT_STATUS_LABELS[document.status]}
+          tone={VEHICLE_DOCUMENT_STATUS_TONES[document.status]}
+        />
+      ),
+    },
+  ]
 }
 
-/** Consulta, renova e mantém a história dos documentos da frota usando a API existente. */
-export default function VehicleDocumentsPage() {
+const ALERT_COLUMNS = buildDocumentColumns(false)
+const LIST_COLUMNS = buildDocumentColumns(true)
+
+/**
+ * Tela de gestão de documentos de veículos e alertas de vencimento (FROTA-70).
+ *
+ * Consome `/vehicle-documents`, `/vehicle-documents/expiring` e `/vehicle-documents/:id`,
+ * sincronizando filtros e janela do alerta com os parâmetros de busca da URL.
+ */
+export function VehicleDocumentsPage() {
   const { api, session } = useAuth()
   const profile = session ? resolveProfile(session.perfil) : null
   const allowed = canManageVehicleDocuments(profile)
   const theme = useTheme()
   const smallScreen = useMediaQuery(theme.breakpoints.down('sm'))
-  const [items, setItems] = useState<VehicleDocument[] | null>(null)
-  const [vehicles, setVehicles] = useState<Vehicle[]>([])
-  const [expiringCount, setExpiringCount] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [vehiclesLoading, setVehiclesLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [vehiclesError, setVehiclesError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [refresh, setRefresh] = useState(0)
-  const [vehicleId, setVehicleId] = useState('')
-  const [status, setStatus] = useState<VehicleDocumentStatus | ''>('')
-  const [documentType, setDocumentType] = useState<VehicleDocumentType | ''>('')
-  const [form, setForm] = useState<FormMode | null>(null)
-  const [draft, setDraft] = useState(freshDraft())
-  const [saving, setSaving] = useState(false)
-  const [details, setDetails] = useState<{ item: VehicleDocumentDetail | null; error: string; loading: boolean } | null>(null)
-  const [annul, setAnnul] = useState<VehicleDocument | null>(null)
-  const [annulReason, setAnnulReason] = useState('')
 
-  const vehicleOptions = useMemo(() => vehicles.map((vehicle) => ({ value: vehicle.id, label: `${vehicle.licensePlate}${vehicle.model ? ` — ${vehicle.model}` : ''}` })), [vehicles])
-  const filters: VehicleDocumentFilters = { ...(vehicleId ? { vehicleId } : {}), ...(status ? { status } : {}), ...(documentType ? { documentType } : {}) }
-  const reload = useCallback(() => { setLoading(true); setError(''); setRefresh((value) => value + 1) }, [])
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlState = useMemo(() => parseDocumentsUrlParams(searchParams), [searchParams])
+  const filters = urlState.filters
+  const alertDays = urlState.alertDays
+
+  const [daysDraft, setDaysDraft] = useState<string | null>(null)
+  const [daysDraftError, setDaysDraftError] = useState('')
+  const daysInput = daysDraft ?? urlState.alertDaysInput
+  const daysError = daysDraft !== null ? daysDraftError : urlState.alertDaysError
+
+  const [formDialog, setFormDialog] = useState<
+    | { mode: 'create' }
+    | { mode: 'edit'; document: VehicleDocument }
+    | { mode: 'renew'; document: VehicleDocument }
+    | null
+  >(null)
+  const [annulTarget, setAnnulTarget] = useState<VehicleDocument | null>(null)
+  const [feedback, setFeedback] = useState<{ severity: 'success' | 'warning'; message: string } | null>(null)
+  const feedbackRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!allowed) return
-    let active = true
-    Promise.all([listVehicles(api), listVehicleDocuments(api, filters), listExpiringVehicleDocuments(api)])
-      .then(([vehicleRows, list, expiring]) => {
-        if (!active) return
-        setVehicles(vehicleRows); setItems(list.items); setExpiringCount(expiring.items.length); setError(''); setVehiclesError('')
-      })
-      .catch((requestError: unknown) => { if (active) setError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar os documentos.') })
-      .finally(() => { if (active) { setLoading(false); setVehiclesLoading(false) } })
-    return () => { active = false }
-  // Each filter is explicit so each requested result has its own stable dependency.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, api, documentType, refresh, status, vehicleId])
+    const previous = document.title
+    document.title = 'Documentos de Veículos — Aratu'
+    return () => { document.title = previous }
+  }, [])
 
-  function openCreate(): void { setDraft(freshDraft()); setForm({ kind: 'create' }); setError('') }
-  function openRenew(item: VehicleDocument): void { setDraft(freshDraft(item)); setForm({ kind: 'renew', previous: item }); setError('') }
-  function openEdit(item: VehicleDocument): void { setDraft(freshDraft(item)); setForm({ kind: 'edit', document: item }); setError('') }
-  async function openDetails(item: VehicleDocument): Promise<void> {
-    setDetails({ item: null, error: '', loading: true })
-    try { setDetails({ item: await getVehicleDocument(api, item.id), error: '', loading: false }) }
-    catch (requestError) { setDetails({ item: null, error: requestError instanceof Error ? requestError.message : 'Não foi possível consultar o histórico.', loading: false }) }
+  const state = useVehicleDocuments(api, filters, alertDays, allowed)
+
+  const vehicleOptions = useMemo(
+    () =>
+      state.vehicles.map((vehicle) => ({
+        value: vehicle.id,
+        label: `${vehicle.licensePlate}${vehicle.model ? ` — ${vehicle.model}` : ''}${vehicle.status === 'INACTIVE' ? ' (Inativo)' : ''}`,
+      })),
+    [state.vehicles],
+  )
+
+  const referenceDate = state.expiringData?.referenceDate ?? state.listData?.referenceDate
+  const effectiveAlertDays = state.expiringData?.alertDays ?? state.listData?.alertDays
+
+  const expiredAlertCount = useMemo(
+    () => (state.expiringData?.items ?? []).filter((item) => item.status === 'EXPIRED').length,
+    [state.expiringData],
+  )
+  const expiringAlertCount = useMemo(
+    () => (state.expiringData?.items ?? []).filter((item) => item.status === 'EXPIRING').length,
+    [state.expiringData],
+  )
+
+  function syncUrl(nextFilters: VehicleDocumentFilters, nextAlertDays: number | undefined) {
+    setSearchParams(buildDocumentsSearchParams(nextFilters, nextAlertDays), { replace: true })
   }
 
-  async function saveDocument(): Promise<void> {
-    if (!form || saving) return
-    setSaving(true); setError('')
-    const metadata = { reportedBy: session?.nome ?? 'Gestor de frota', reason: draft.reason.trim() }
-    try {
-      if (form.kind === 'edit') {
-        await updateVehicleDocument(api, form.document.id, { expectedRevision: form.document.revision, ...metadata,
-          documentNumber: draft.documentNumber || null, issuedAt: draft.issuedAt || null, expiresAt: draft.expiresAt, notes: draft.notes || null })
-        setNotice('Documento corrigido. A versão anterior permanece no histórico.')
-      } else {
-        await createVehicleDocument(api, { vehicleId: form.kind === 'renew' ? form.previous.vehicleId : draft.vehicleId,
-          documentType: form.kind === 'renew' ? form.previous.documentType : draft.documentType,
-          documentNumber: draft.documentNumber || null, issuedAt: draft.issuedAt || null, expiresAt: draft.expiresAt,
-          notes: draft.notes || null, ...(form.kind === 'renew' ? { supersedesId: form.previous.id } : {}), ...metadata })
-        setNotice(form.kind === 'renew' ? 'Renovação registrada e vinculada ao documento anterior.' : 'Documento cadastrado.')
-      }
-      setForm(null); reload()
-    } catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'Não foi possível salvar o documento.') }
-    finally { setSaving(false) }
+  function updateFilters(patch: Partial<VehicleDocumentFilters>) {
+    const next: VehicleDocumentFilters = {
+      ...filters,
+      ...patch,
+    }
+    if (!next.vehicleId) delete next.vehicleId
+    if (!next.documentType) delete next.documentType
+    if (!next.status) delete next.status
+    syncUrl(next, alertDays)
   }
 
-  async function annulDocument(): Promise<void> {
-    if (!annul || saving) return
-    setSaving(true); setError('')
-    try {
-      await annulVehicleDocument(api, annul.id, { expectedRevision: annul.revision,
-        reportedBy: session?.nome ?? 'Gestor de frota', reason: annulReason.trim() })
-      setAnnul(null); setAnnulReason(''); setNotice('Documento anulado com justificativa. O registro permanece no histórico.'); reload()
-    } catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'Não foi possível anular o documento.') }
-    finally { setSaving(false) }
+  function clearAllFilters() {
+    syncUrl({}, alertDays)
   }
 
-  const columns: readonly DataTableColumn<VehicleDocument>[] = [
-    { key: 'vehicle', header: 'Veículo', width: 165, render: (item) => `${item.vehicle.licensePlate}${item.vehicle.model ? ` · ${item.vehicle.model}` : ''}` },
-    { key: 'type', header: 'Documento', width: 180, render: (item) => VEHICLE_DOCUMENT_TYPE_LABELS[item.documentType] },
-    { key: 'number', header: 'Número', width: 140, render: (item) => item.documentNumber || 'Não informado' },
-    { key: 'expires', header: 'Vencimento', width: 140, render: (item) => displayDate(item.expiresAt) },
-    { key: 'status', header: 'Situação', width: 150, render: (item) => <StatusChip label={VEHICLE_DOCUMENT_STATUS_LABELS[item.status]} tone={STATUS_TONE[item.status]} /> },
-  ]
+  function applyAlertWindow() {
+    const parsed = parseAlertDaysInput(daysInput)
+    if (parsed.error) {
+      setDaysDraft(daysInput)
+      setDaysDraftError(parsed.error)
+      return
+    }
+    setDaysDraft(null)
+    setDaysDraftError('')
+    syncUrl(filters, parsed.days)
+  }
 
-  return <Box>
-    <PageHeader title="Documentos de veículos" description="Consulte vencimentos, registre renovações e mantenha a trilha de correções." actions={allowed ? <Button variant="contained" startIcon={<AddIcon aria-hidden="true" />} onClick={openCreate} disabled={vehiclesLoading || Boolean(vehiclesError) || vehicles.length === 0} sx={{ minHeight: 48 }}>Novo documento</Button> : undefined} />
-    {!allowed && <StateFeedback kind="forbidden" title="Acesso restrito" description="Somente gestor de frota e administrador podem consultar documentos de veículos." />}
-    {allowed && <>
-      {notice && <Alert severity="success" role="status" sx={{ mb: 2 }}>{notice}</Alert>}
-      {error && <Alert severity="error" role="alert" sx={{ mb: 2 }} action={<Button color="inherit" onClick={reload}>Tentar novamente</Button>}>{error}</Alert>}
-      {expiringCount > 0 && <Alert severity="warning" sx={{ mb: 2 }}>{expiringCount} documento(s) vencido(s) ou com vencimento próximo. Confira os filtros e a regularização da frota.</Alert>}
-      {vehicles.length === 0 && !vehiclesLoading && <StateFeedback kind="empty" title="Nenhum veículo cadastrado" description="Cadastre um veículo antes de registrar documentos." />}
-      <FilterBar label="Filtros de documentos">
-        <Box sx={{ flex: '1 1 210px', minWidth: { xs: '100%', sm: 210 } }}><FormSelect label="Veículo" value={vehicleId} onChange={setVehicleId} options={vehicleOptions} emptyLabel="Todos os veículos" /></Box>
-        <Box sx={{ flex: '1 1 180px', minWidth: { xs: '100%', sm: 180 } }}><FormSelect label="Tipo" value={documentType} onChange={(value) => setDocumentType(value as VehicleDocumentType | '')} options={VEHICLE_DOCUMENT_TYPES.map((value) => ({ value, label: VEHICLE_DOCUMENT_TYPE_LABELS[value] }))} emptyLabel="Todos os tipos" /></Box>
-        <Box sx={{ flex: '1 1 180px', minWidth: { xs: '100%', sm: 180 } }}><FormSelect label="Situação" value={status} onChange={(value) => setStatus(value as VehicleDocumentStatus | '')} options={VEHICLE_DOCUMENT_STATUSES.map((value) => ({ value, label: VEHICLE_DOCUMENT_STATUS_LABELS[value] }))} emptyLabel="Todas as situações" /></Box>
-        <Button sx={{ minHeight: 44 }} onClick={() => { setVehicleId(''); setDocumentType(''); setStatus('') }} disabled={!vehicleId && !documentType && !status}>Limpar filtros</Button>
-      </FilterBar>
-      {smallScreen ? <Stack spacing={1.5}>
-        {loading ? <StateFeedback kind="loading" title="Carregando documentos..." /> : items?.length ? items.map((item) => <Card key={item.id} variant="outlined"><CardContent>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}><Box><Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{item.vehicle.licensePlate}</Typography><Typography variant="body2" color="text.secondary">{VEHICLE_DOCUMENT_TYPE_LABELS[item.documentType]} · vence {displayDate(item.expiresAt)}</Typography></Box><StatusChip label={VEHICLE_DOCUMENT_STATUS_LABELS[item.status]} tone={STATUS_TONE[item.status]} /></Stack>
-          <Typography variant="body2" sx={{ mt: 1 }}>Número: {item.documentNumber || 'Não informado'} · revisão {item.revision}</Typography>
-        </CardContent><CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-          <Button onClick={() => { void openDetails(item) }} sx={{ minHeight: 48 }} startIcon={<HistoryOutlined aria-hidden="true" />}>Histórico</Button>
-          <Button onClick={() => openRenew(item)} disabled={item.status === 'ANNULLED' || item.status === 'RENEWED'} sx={{ minHeight: 48 }} startIcon={<Autorenew aria-hidden="true" />}>Renovar</Button>
-          <Button onClick={() => openEdit(item)} disabled={item.status === 'ANNULLED'} sx={{ minHeight: 48 }} startIcon={<EditOutlined aria-hidden="true" />}>Corrigir</Button>
-          <Button color="error" onClick={() => { setAnnul(item); setAnnulReason('') }} disabled={item.status === 'ANNULLED'} sx={{ minHeight: 48 }} startIcon={<BlockOutlined aria-hidden="true" />}>Anular</Button>
-        </CardActions></Card>) : <StateFeedback kind="empty" title="Nenhum documento encontrado" description="Ajuste os filtros ou cadastre um documento." />}
-      </Stack> : <DataTable caption="Documentos de veículos" columns={columns} rows={items ?? []} rowKey={(item) => item.id} busy={loading} minWidth={930}
-        loadingContent={<StateFeedback kind="loading" title="Carregando documentos..." />} emptyContent={<StateFeedback kind="empty" title="Nenhum documento encontrado" description="Ajuste os filtros ou cadastre um documento." />}
-        renderActions={(item) => <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
-          <Button onClick={() => { void openDetails(item) }} sx={{ minHeight: 44 }}>Histórico</Button><Button onClick={() => openRenew(item)} disabled={item.status === 'ANNULLED' || item.status === 'RENEWED'} sx={{ minHeight: 44 }}>Renovar</Button><Button onClick={() => openEdit(item)} disabled={item.status === 'ANNULLED'} sx={{ minHeight: 44 }}>Corrigir</Button><Button color="error" onClick={() => { setAnnul(item); setAnnulReason('') }} disabled={item.status === 'ANNULLED'} sx={{ minHeight: 44 }}>Anular</Button>
-        </Stack>} />}
-    </>}
+  function resetAlertWindow() {
+    setDaysDraft(null)
+    setDaysDraftError('')
+    syncUrl(filters, undefined)
+  }
 
-    <Dialog open={Boolean(form)} onClose={() => !saving && setForm(null)} fullScreen={smallScreen} fullWidth maxWidth="sm" aria-labelledby="vehicle-document-form-title">
-      <DialogTitle id="vehicle-document-form-title">{form?.kind === 'edit' ? 'Corrigir documento' : form?.kind === 'renew' ? 'Registrar renovação' : 'Novo documento'}</DialogTitle>
-      <DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
-        {form?.kind === 'renew' && <Alert severity="info">A renovação será vinculada ao documento #{form.previous.id}; o registro anterior será preservado.</Alert>}
-        {form?.kind !== 'edit' && form?.kind !== 'renew' && <FormSelect label="Veículo" required value={draft.vehicleId} onChange={(value) => setDraft((current) => ({ ...current, vehicleId: value }))} options={vehicleOptions} emptyLabel="Selecione um veículo" emptyOptionDisabled />}
-        {form?.kind !== 'edit' && form?.kind !== 'renew' && <FormSelect label="Tipo de documento" required value={draft.documentType} onChange={(value) => setDraft((current) => ({ ...current, documentType: value as VehicleDocumentType }))} options={VEHICLE_DOCUMENT_TYPES.map((value) => ({ value, label: VEHICLE_DOCUMENT_TYPE_LABELS[value] }))} />}
-        <FormField label="Número do documento" value={draft.documentNumber} onChange={(value) => setDraft((current) => ({ ...current, documentNumber: value }))} maxLength={100} />
-        <FormField label="Data de emissão" type="date" value={draft.issuedAt} onChange={(value) => setDraft((current) => ({ ...current, issuedAt: value }))} />
-        <FormField label="Data de vencimento" type="date" required value={draft.expiresAt} onChange={(value) => setDraft((current) => ({ ...current, expiresAt: value }))} />
-        <FormField label="Observações" value={draft.notes} onChange={(value) => setDraft((current) => ({ ...current, notes: value }))} multiline minRows={2} maxLength={1000} />
-        <FormField label="Motivo do cadastro ou alteração" value={draft.reason} onChange={(value) => setDraft((current) => ({ ...current, reason: value }))} required multiline minRows={2} maxLength={500} />
-      </Stack></DialogContent>
-      <DialogActions sx={{ p: 2 }}><Button onClick={() => setForm(null)} disabled={saving} sx={{ minHeight: 48 }}>Cancelar</Button><Button variant="contained" onClick={() => { void saveDocument() }} disabled={saving || !draft.expiresAt || !draft.reason.trim() || ((form?.kind === 'create') && !draft.vehicleId)} sx={{ minHeight: 48 }}>Salvar</Button></DialogActions>
-    </Dialog>
-    <Dialog open={Boolean(details)} onClose={() => setDetails(null)} fullScreen={smallScreen} fullWidth maxWidth="md" aria-labelledby="vehicle-document-history-title">
-      <DialogTitle id="vehicle-document-history-title">Histórico do documento</DialogTitle><DialogContent>
-        {details?.loading && <StateFeedback kind="loading" title="Carregando histórico..." />}{details?.error && <Alert severity="error">{details.error}</Alert>}
-        {details?.item && <Stack spacing={1.5}>
-          <Typography variant="h6">{details.item.vehicle.licensePlate} · {VEHICLE_DOCUMENT_TYPE_LABELS[details.item.documentType]}</Typography>
-          <Typography variant="body2">Vencimento {displayDate(details.item.expiresAt)} · situação {VEHICLE_DOCUMENT_STATUS_LABELS[details.item.status]} · revisão {details.item.revision}</Typography>
-          {details.item.events.map((event) => <Card key={event.id} variant="outlined"><CardContent>
-            <Typography sx={{ fontWeight: 700 }}>{EVENT_LABELS[event.eventType]} · {displayDate(event.occurredAt)}</Typography>
-            <Typography variant="body2" color="text.secondary">Registrado por {event.actor.name} ({event.actor.role}) · {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.registeredAt))}</Typography>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>{event.reason} — {event.reportedBy}</Typography>
-          </CardContent></Card>)}
-        </Stack>}
-      </DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setDetails(null)} sx={{ minHeight: 48 }}>Fechar</Button></DialogActions>
-    </Dialog>
-    <Dialog open={Boolean(annul)} onClose={() => !saving && setAnnul(null)} fullScreen={smallScreen} fullWidth maxWidth="sm" aria-labelledby="vehicle-document-annul-title">
-      <DialogTitle id="vehicle-document-annul-title">Anular documento</DialogTitle><DialogContent><Alert severity="warning" sx={{ mb: 2 }}>A anulação é permanente no histórico. Cadastre um novo documento se o registro correto precisar substituir este.</Alert><FormField label="Motivo da anulação" value={annulReason} onChange={setAnnulReason} required multiline minRows={3} /></DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setAnnul(null)} disabled={saving} sx={{ minHeight: 48 }}>Cancelar</Button><Button color="error" variant="contained" onClick={() => { void annulDocument() }} disabled={saving || !annulReason.trim()} sx={{ minHeight: 48 }}>Anular documento</Button></DialogActions>
-    </Dialog>
-  </Box>
+  function announceSuccess(message: string) {
+    setFeedback({ severity: 'success', message })
+    requestAnimationFrame(() => feedbackRef.current?.focus())
+  }
+
+  function handleSaved(saved: VehicleDocument, mode: DocumentFormMode) {
+    setFormDialog(null)
+    const typeLabel = VEHICLE_DOCUMENT_TYPE_LABELS[saved.documentType]
+    const message = mode === 'edit'
+      ? `Documento #${saved.id} (${typeLabel} · ${saved.vehicle.licensePlate}) corrigido com sucesso.`
+      : mode === 'renew'
+        ? `Renovação #${saved.id} (${typeLabel} · ${saved.vehicle.licensePlate}) registrada com sucesso.`
+        : `Documento #${saved.id} (${typeLabel} · ${saved.vehicle.licensePlate}) cadastrado com sucesso.`
+    announceSuccess(message)
+    state.reloadList()
+    state.reloadExpiring()
+    if (state.selection?.id === saved.id) {
+      void state.openDetail(saved.id)
+    }
+  }
+
+  function handleAnnulled(annulled: VehicleDocument) {
+    setAnnulTarget(null)
+    announceSuccess(
+      `Documento #${annulled.id} (${VEHICLE_DOCUMENT_TYPE_LABELS[annulled.documentType]} · ${annulled.vehicle.licensePlate}) anulado com preservação histórica.`,
+    )
+    state.reloadList()
+    state.reloadExpiring()
+    if (state.selection?.id === annulled.id) {
+      void state.openDetail(annulled.id)
+    }
+  }
+
+  function handleConflictReload(documentId: string) {
+    setFormDialog(null)
+    setAnnulTarget(null)
+    setFeedback({
+      severity: 'warning',
+      message: 'Os dados do documento foram recarregados após alteração concorrente.',
+    })
+    state.reloadList()
+    state.reloadExpiring()
+    void state.openDetail(documentId)
+  }
+
+  const filtersActive = Boolean(filters.vehicleId || filters.documentType || filters.status)
+  const accessDenied = !allowed || state.forbidden
+
+  return (
+    <Box sx={{ minWidth: 0, ...accessibleControls }}>
+      <PageHeader
+        title="Documentos de Veículos"
+        titleVariant="h4"
+        breadcrumbs={['Início', 'Documentos de Veículos']}
+        description="Gerencie CRLV, licenciamento, IPVA, seguro e contratos da frota com controle de vencimentos e histórico de renovações."
+        actions={!accessDenied
+          ? (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon aria-hidden="true" />}
+                onClick={() => setFormDialog({ mode: 'create' })}
+                sx={{ minHeight: 44 }}
+              >
+                Cadastrar documento
+              </Button>
+            )
+          : undefined}
+      />
+
+      {accessDenied && (
+        <StateFeedback
+          kind="forbidden"
+          title="Acesso restrito"
+          description="Seu perfil não tem permissão para consultar ou gerenciar documentos de veículos."
+        />
+      )}
+
+      {!accessDenied && (
+        <Stack spacing={3}>
+          <Box ref={feedbackRef} role="status" aria-live="polite" tabIndex={-1}>
+            {feedback && (
+              <Alert severity={feedback.severity} onClose={() => setFeedback(null)}>
+                {feedback.message}
+              </Alert>
+            )}
+          </Box>
+
+          <Paper
+            component="section"
+            aria-labelledby="expiring-alerts-heading"
+            variant="outlined"
+            sx={{ p: 2.5, borderRadius: 2 }}
+          >
+            <Stack
+              direction={{ xs: 'column', lg: 'row' }}
+              spacing={2}
+              sx={{ justifyContent: 'space-between', alignItems: { lg: 'flex-start' }, mb: 2 }}
+            >
+              <Box>
+                <Typography id="expiring-alerts-heading" component="h2" variant="h6" sx={{ fontWeight: 700 }}>
+                  Alertas de vencimento
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {referenceDate && effectiveAlertDays !== undefined
+                    ? `Data de referência FSPH: ${formatCalendarDate(referenceDate)} · Janela atual: ${effectiveAlertDays} dia(s) · Veículos inativos excluídos do alerta.`
+                    : 'Documentos vencidos ou próximos do vencimento para veículos ativos.'}
+                </Typography>
+              </Box>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'flex-start' } }}>
+                <Box sx={{ width: { xs: '100%', sm: 210 } }}>
+                  <FormField
+                    label="Janela do alerta (dias)"
+                    value={daysInput}
+                    onChange={(value) => {
+                      setDaysDraft(value)
+                      if (daysDraftError) setDaysDraftError('')
+                    }}
+                    error={daysError || undefined}
+                    inputMode="numeric"
+                    placeholder={effectiveAlertDays ? String(effectiveAlertDays) : '30'}
+                    helperText="Inteiro de 1 a 365 dias."
+                  />
+                </Box>
+                <Button
+                  variant="outlined"
+                  onClick={applyAlertWindow}
+                  sx={{ minHeight: 44 }}
+                >
+                  Aplicar janela
+                </Button>
+                {alertDays !== undefined && (
+                  <Button
+                    color="inherit"
+                    onClick={resetAlertWindow}
+                    sx={{ minHeight: 44 }}
+                  >
+                    Usar padrão
+                  </Button>
+                )}
+              </Stack>
+            </Stack>
+
+            {state.expiringLoading && state.expiringData === null && (
+              <StateFeedback kind="loading" title="Carregando alertas de vencimento..." />
+            )}
+
+            {!state.expiringLoading && state.expiringError && state.expiringData === null && (
+              <StateFeedback
+                kind={state.listData ? 'partial' : 'error'}
+                title="Não foi possível carregar os alertas de vencimento."
+                description={state.expiringError}
+                actionLabel="Tentar novamente"
+                onAction={state.reloadExpiring}
+              />
+            )}
+
+            {state.expiringStale && (
+              <StateFeedback
+                kind="partial"
+                title="Os alertas exibidos podem estar desatualizados."
+                description={state.expiringError}
+                actionLabel="Tentar novamente"
+                onAction={state.reloadExpiring}
+              />
+            )}
+
+            {state.expiringData && (
+              <Stack spacing={2}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1.5}
+                  sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between', flexWrap: 'wrap' }}
+                >
+                  <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap' }} useFlexGap>
+                    <Paper variant="outlined" sx={{ px: 2, py: 1.25, borderRadius: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        Documentos vencidos
+                      </Typography>
+                      <Typography variant="h6" color={expiredAlertCount > 0 ? 'error.main' : 'text.primary'} sx={{ fontWeight: 700 }}>
+                        {expiredAlertCount} {expiredAlertCount === 1 ? 'documento' : 'documentos'}
+                      </Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ px: 2, py: 1.25, borderRadius: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        A vencer em até {state.expiringData.alertDays} dia(s)
+                      </Typography>
+                      <Typography variant="h6" color={expiringAlertCount > 0 ? 'warning.dark' : 'text.primary'} sx={{ fontWeight: 700 }}>
+                        {expiringAlertCount} {expiringAlertCount === 1 ? 'documento' : 'documentos'}
+                      </Typography>
+                    </Paper>
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
+                    <Button
+                      size="small"
+                      variant={filters.status === 'EXPIRED' ? 'contained' : 'outlined'}
+                      onClick={() => updateFilters({ status: filters.status === 'EXPIRED' ? undefined : 'EXPIRED' })}
+                      sx={{ minHeight: 44 }}
+                    >
+                      Filtrar vencidos
+                    </Button>
+                    <Button
+                      size="small"
+                      variant={filters.status === 'EXPIRING' ? 'contained' : 'outlined'}
+                      onClick={() => updateFilters({ status: filters.status === 'EXPIRING' ? undefined : 'EXPIRING' })}
+                      sx={{ minHeight: 44 }}
+                    >
+                      Filtrar a vencer
+                    </Button>
+                  </Stack>
+                </Stack>
+
+                {state.expiringData.items.length === 0 ? (
+                  <Alert severity="success" role="status">
+                    Nenhum documento vencido ou a vencer nos próximos {state.expiringData.alertDays} dias.
+                  </Alert>
+                ) : smallScreen ? (
+                  <Stack spacing={1.5}>
+                    {state.expiringData.items.map((document) => {
+                      const labelTarget = `${VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} do veículo ${document.vehicle.licensePlate}`
+                      return (
+                        <Card key={`alert-${document.id}`} variant="outlined">
+                          <CardContent>
+                            <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
+                              <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{document.vehicle.licensePlate}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} · vence {formatCalendarDate(document.expiresAt)}
+                                </Typography>
+                              </Box>
+                              <StatusChip
+                                label={VEHICLE_DOCUMENT_STATUS_LABELS[document.status]}
+                                tone={VEHICLE_DOCUMENT_STATUS_TONES[document.status]}
+                              />
+                            </Stack>
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                              {formatDaysUntilExpiration(document.daysUntilExpiration, document.status)}
+                            </Typography>
+                          </CardContent>
+                          <CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
+                            <Button
+                              variant="outlined"
+                              onClick={() => { void state.openDetail(document.id) }}
+                              aria-label={`Ver detalhes do documento ${labelTarget}`}
+                              startIcon={<HistoryOutlined aria-hidden="true" />}
+                              sx={{ minHeight: 44 }}
+                            >
+                              Ver detalhes
+                            </Button>
+                            {!document.isAnnulled && document.supersededById === null && (
+                              <Button
+                                variant="contained"
+                                onClick={() => setFormDialog({ mode: 'renew', document })}
+                                aria-label={`Renovar documento ${labelTarget}`}
+                                startIcon={<Autorenew aria-hidden="true" />}
+                                sx={{ minHeight: 44 }}
+                              >
+                                Renovar
+                              </Button>
+                            )}
+                          </CardActions>
+                        </Card>
+                      )
+                    })}
+                  </Stack>
+                ) : (
+                  <DataTable
+                    caption={`Alertas de vencimento para os próximos ${state.expiringData.alertDays} dias`}
+                    columns={ALERT_COLUMNS}
+                    rows={state.expiringData.items}
+                    rowKey={(document) => `alert-${document.id}`}
+                    busy={state.expiringLoading}
+                    minWidth={760}
+                    renderActions={(document) => (
+                      <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => { void state.openDetail(document.id) }}
+                          aria-label={`Ver detalhes do documento ${VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} do veículo ${document.vehicle.licensePlate}`}
+                          sx={{ minHeight: 44 }}
+                        >
+                          Ver detalhes
+                        </Button>
+                        {!document.isAnnulled && document.supersededById === null && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => setFormDialog({ mode: 'renew', document })}
+                            aria-label={`Renovar documento ${VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} do veículo ${document.vehicle.licensePlate}`}
+                            sx={{ minHeight: 44 }}
+                          >
+                            Renovar
+                          </Button>
+                        )}
+                      </Stack>
+                    )}
+                  />
+                )}
+              </Stack>
+            )}
+          </Paper>
+
+          <Box component="section" aria-labelledby="documents-list-heading">
+            <Typography id="documents-list-heading" component="h2" variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
+              Todos os documentos
+            </Typography>
+
+            <FilterBar label="Filtros de documentos de veículos">
+              <Box sx={{ flex: '1 1 220px', minWidth: { xs: '100%', sm: 220 } }}>
+                <FormSelect
+                  label="Veículo"
+                  value={filters.vehicleId ?? ''}
+                  onChange={(value) => updateFilters({ vehicleId: value || undefined })}
+                  options={vehicleOptions}
+                  emptyLabel="Todos os veículos"
+                  displayEmpty
+                />
+              </Box>
+              <Box sx={{ flex: '1 1 190px', minWidth: { xs: '100%', sm: 190 } }}>
+                <FormSelect
+                  label="Tipo"
+                  value={filters.documentType ?? ''}
+                  onChange={(value) => updateFilters({ documentType: (value || undefined) as VehicleDocumentType | undefined })}
+                  options={TYPE_OPTIONS}
+                  emptyLabel="Todos os tipos"
+                  displayEmpty
+                />
+              </Box>
+              <Box sx={{ flex: '1 1 190px', minWidth: { xs: '100%', sm: 190 } }}>
+                <FormSelect
+                  label="Situação"
+                  value={filters.status ?? ''}
+                  onChange={(value) => updateFilters({ status: (value || undefined) as VehicleDocumentStatus | undefined })}
+                  options={STATUS_OPTIONS}
+                  emptyLabel="Todas as situações"
+                  displayEmpty
+                />
+              </Box>
+              <Button
+                variant="outlined"
+                onClick={clearAllFilters}
+                disabled={!filtersActive}
+                sx={{ minHeight: 44 }}
+              >
+                Limpar filtros
+              </Button>
+              <Button
+                onClick={() => {
+                  state.reloadList()
+                  state.reloadExpiring()
+                }}
+                sx={{ minHeight: 44 }}
+              >
+                Atualizar
+              </Button>
+            </FilterBar>
+
+            {state.vehiclesError && (
+              <StateFeedback
+                kind="partial"
+                title="Não foi possível carregar o catálogo completo de veículos para filtro."
+                description={state.vehiclesError}
+                actionLabel="Tentar novamente"
+                onAction={state.reloadVehicles}
+              />
+            )}
+
+            {state.listLoading && state.listData === null && (
+              <StateFeedback kind="loading" title="Carregando documentos de veículos..." />
+            )}
+
+            {!state.listLoading && state.listError && state.listData === null && (
+              <StateFeedback
+                kind="error"
+                title="Não foi possível carregar os documentos."
+                description={state.listError}
+                actionLabel="Tentar novamente"
+                onAction={state.reloadList}
+              />
+            )}
+
+            {state.listStale && (
+              <StateFeedback
+                kind="partial"
+                title="A lista exibida pode estar desatualizada."
+                description={state.listError}
+                actionLabel="Tentar novamente"
+                onAction={state.reloadList}
+              />
+            )}
+
+            {state.listLoading && state.listData !== null && (
+              <Box role="status" aria-live="polite" sx={{ mb: 2 }}>
+                Atualizando documentos...
+              </Box>
+            )}
+
+            {state.listData && state.listData.items.length === 0 && !state.listLoading && (
+              <StateFeedback
+                kind="empty"
+                title={filtersActive
+                  ? 'Nenhum documento encontrado com os filtros selecionados.'
+                  : 'Nenhum documento cadastrado.'}
+                description={filtersActive
+                  ? 'Ajuste ou limpe os filtros para consultar outros registros.'
+                  : 'Cadastre o primeiro documento para acompanhar os vencimentos da frota.'}
+                actionLabel={filtersActive ? 'Limpar filtros' : 'Cadastrar documento'}
+                onAction={filtersActive ? clearAllFilters : () => setFormDialog({ mode: 'create' })}
+              />
+            )}
+
+            {state.listData && state.listData.items.length > 0 && (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  {state.listData.items.length}{' '}
+                  {state.listData.items.length === 1 ? 'documento encontrado' : 'documentos encontrados'}
+                  {` · Referência: ${formatCalendarDate(state.listData.referenceDate)} (janela padrão ${state.listData.alertDays} dias)`}
+                </Typography>
+
+                {smallScreen ? (
+                  <Stack spacing={1.5}>
+                    {state.listData.items.map((document) => {
+                      const labelTarget = `${VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} do veículo ${document.vehicle.licensePlate}`
+                      const canRenewOrAnnul = !document.isAnnulled && document.supersededById === null
+                      return (
+                        <Card key={document.id} variant="outlined">
+                          <CardContent>
+                            <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
+                              <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{document.vehicle.licensePlate}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} · vence {formatCalendarDate(document.expiresAt)}
+                                </Typography>
+                              </Box>
+                              <StatusChip
+                                label={VEHICLE_DOCUMENT_STATUS_LABELS[document.status]}
+                                tone={VEHICLE_DOCUMENT_STATUS_TONES[document.status]}
+                              />
+                            </Stack>
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                              Número: {document.documentNumber || 'Não informado'} · revisão {document.revision}
+                            </Typography>
+                          </CardContent>
+                          <CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
+                            <Button
+                              variant="outlined"
+                              onClick={() => { void state.openDetail(document.id) }}
+                              aria-label={`Ver detalhes do documento ${labelTarget}`}
+                              startIcon={<HistoryOutlined aria-hidden="true" />}
+                              sx={{ minHeight: 48 }}
+                            >
+                              Ver detalhes
+                            </Button>
+                            {canRenewOrAnnul && (
+                              <Button
+                                onClick={() => setFormDialog({ mode: 'renew', document })}
+                                aria-label={`Renovar documento ${labelTarget}`}
+                                startIcon={<Autorenew aria-hidden="true" />}
+                                sx={{ minHeight: 48 }}
+                              >
+                                Renovar
+                              </Button>
+                            )}
+                            {!document.isAnnulled && (
+                              <Button
+                                onClick={() => setFormDialog({ mode: 'edit', document })}
+                                aria-label={`Corrigir documento ${labelTarget}`}
+                                startIcon={<EditOutlined aria-hidden="true" />}
+                                sx={{ minHeight: 48 }}
+                              >
+                                Corrigir
+                              </Button>
+                            )}
+                            {canRenewOrAnnul && (
+                              <Button
+                                color="error"
+                                onClick={() => setAnnulTarget(document)}
+                                aria-label={`Anular documento ${labelTarget}`}
+                                startIcon={<BlockOutlined aria-hidden="true" />}
+                                sx={{ minHeight: 48 }}
+                              >
+                                Anular
+                              </Button>
+                            )}
+                          </CardActions>
+                        </Card>
+                      )
+                    })}
+                  </Stack>
+                ) : (
+                  <DataTable
+                    caption="Documentos de veículos cadastrados"
+                    columns={LIST_COLUMNS}
+                    rows={state.listData.items}
+                    rowKey={(document) => document.id}
+                    busy={state.listLoading}
+                    minWidth={980}
+                    renderActions={(document) => {
+                      const labelTarget = `${VEHICLE_DOCUMENT_TYPE_LABELS[document.documentType]} do veículo ${document.vehicle.licensePlate}`
+                      const canRenewOrAnnul = !document.isAnnulled && document.supersededById === null
+                      return (
+                        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => { void state.openDetail(document.id) }}
+                            aria-label={`Ver detalhes do documento ${labelTarget}`}
+                            sx={{ minHeight: 44 }}
+                          >
+                            Ver detalhes
+                          </Button>
+                          {!document.isAnnulled && (
+                            <Button
+                              size="small"
+                              onClick={() => setFormDialog({ mode: 'edit', document })}
+                              aria-label={`Corrigir documento ${labelTarget}`}
+                              sx={{ minHeight: 44 }}
+                            >
+                              Corrigir
+                            </Button>
+                          )}
+                          {canRenewOrAnnul && (
+                            <Button
+                              size="small"
+                              onClick={() => setFormDialog({ mode: 'renew', document })}
+                              aria-label={`Renovar documento ${labelTarget}`}
+                              sx={{ minHeight: 44 }}
+                            >
+                              Renovar
+                            </Button>
+                          )}
+                          {canRenewOrAnnul && (
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => setAnnulTarget(document)}
+                              aria-label={`Anular documento ${labelTarget}`}
+                              sx={{ minHeight: 44 }}
+                            >
+                              Anular
+                            </Button>
+                          )}
+                        </Stack>
+                      )
+                    }}
+                  />
+                )}
+              </>
+            )}
+          </Box>
+        </Stack>
+      )}
+
+      {formDialog && (
+        <VehicleDocumentFormDialog
+          key={formDialog.mode === 'create' ? 'create' : `${formDialog.mode}-${formDialog.document.id}-${formDialog.document.revision}`}
+          api={api}
+          mode={formDialog.mode}
+          document={formDialog.mode === 'create' ? undefined : formDialog.document}
+          vehicles={state.vehicles}
+          referenceDate={referenceDate}
+          onSaved={handleSaved}
+          onCancel={() => setFormDialog(null)}
+          onConflictReload={handleConflictReload}
+        />
+      )}
+
+      {annulTarget && (
+        <VehicleDocumentAnnulDialog
+          key={`annul-${annulTarget.id}-${annulTarget.revision}`}
+          api={api}
+          document={annulTarget}
+          onAnnulled={handleAnnulled}
+          onCancel={() => setAnnulTarget(null)}
+          onConflictReload={handleConflictReload}
+        />
+      )}
+
+      {state.selection && !formDialog && !annulTarget && (
+        <VehicleDocumentDetailDialog
+          selection={state.selection}
+          canWrite={allowed}
+          referenceDate={referenceDate}
+          onClose={state.dismissDetail}
+          onRetry={() => {
+            if (state.selection) void state.openDetail(state.selection.id)
+          }}
+          onSelectDocument={(id) => { void state.openDetail(id) }}
+          onEdit={(document) => setFormDialog({ mode: 'edit', document })}
+          onRenew={(document) => setFormDialog({ mode: 'renew', document })}
+          onAnnul={(document) => setAnnulTarget(document)}
+        />
+      )}
+    </Box>
+  )
 }
+
+export default VehicleDocumentsPage

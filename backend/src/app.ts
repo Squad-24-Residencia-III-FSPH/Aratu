@@ -59,7 +59,7 @@ import { SvoOccurrencesService } from './services/svo-occurrences.service'
 import { createSvoOccurrencesRouter, svoErrorHandler } from './routes/svo-occurrences.routes'
 import { SvoOrdersRepository } from './repositories/svo-orders.repository'
 import { SvoOrdersService } from './services/svo-orders.service'
-import { createSvoOrdersRouter, svoOrderErrorHandler } from './routes/svo-orders.routes'
+import { createSvoDispatchCandidatesRouter, createSvoOrdersRouter, svoOrderErrorHandler } from './routes/svo-orders.routes'
 import { SvoTeamsRepository } from './repositories/svo-teams.repository'
 import { SvoTeamsService } from './services/svo-teams.service'
 import { createSvoTeamsRouter, svoTeamsErrorHandler } from './routes/svo-teams.routes'
@@ -179,6 +179,7 @@ export function createApp({
     const svoOrdersService = new SvoOrdersService(
       new SvoOccurrencesRepository(pool), new SvoOrdersRepository(), vehiclesRepository, auditService,
     )
+    app.use('/svo/dispatch-candidates', createSvoDispatchCandidatesRouter(svoOrdersService, jwtConfig, currentUsersRepository))
     const svoService = new SvoOccurrencesService(
       new SvoOccurrencesRepository(pool), auditService,
       (occurrenceId, userId) => svoOrdersService.dispatchAfterTriage(occurrenceId, userId),
@@ -193,6 +194,7 @@ export function createApp({
     app.use('/users', createUsersRouter(usersService, jwtConfig, currentUsersRepository))
   }
   app.use('/svo/occurrences', svoErrorHandler)
+  app.use('/svo/dispatch-candidates', svoOrderErrorHandler)
   app.use('/svo/orders', svoOrderErrorHandler)
   app.use('/svo/teams', svoTeamsErrorHandler)
   app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {

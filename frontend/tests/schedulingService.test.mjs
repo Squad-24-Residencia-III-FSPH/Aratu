@@ -1,7 +1,7 @@
 // Somente dados 100% fictícios (LGPD/SVO): unidades, serviços e finalidades inventados.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { listApprovedRequests } from '../src/services/schedulingService.ts'
+import { listApprovedRequests, listAvailableVehicles } from '../src/services/schedulingService.ts'
 import { TripRequestError } from '../src/trips/tripTypes.ts'
 import { jsonResponse } from './my-trips.fixture.mjs'
 
@@ -140,4 +140,38 @@ test('falha de rede vira erro tipado de conexão', async () => {
     listApprovedRequests(async () => { throw new Error('fetch failed') }),
     { kind: 'network' },
   )
+})
+
+test('listAvailableVehicles envia requestId opcional e preserva CAPACITY_EXCEEDED nos motivos', async () => {
+  const calls = []
+  const api = async (path) => {
+    calls.push(path)
+    return jsonResponse([{
+      id: '7',
+      licensePlate: 'TQA0T15',
+      brand: 'Marca Fictícia',
+      model: 'Utilitário QA',
+      categories: ['PASSENGER'],
+      seats: 0,
+      bodyLimit: 0,
+      status: 'AVAILABLE',
+      available: false,
+      reasons: ['CAPACITY_EXCEEDED'],
+    }])
+  }
+
+  const result = await listAvailableVehicles(
+    api,
+    '2026-12-03T09:00:00-03:00',
+    '2026-12-03T10:00:00-03:00',
+    '6',
+    undefined,
+    { requestId: '8', passengers: 1 },
+  )
+
+  assert.equal(calls.length, 1)
+  const parsedUrl = new URL(calls[0], 'http://aratu.test')
+  assert.equal(parsedUrl.searchParams.get('serviceId'), '6')
+  assert.equal(parsedUrl.searchParams.get('requestId'), '8')
+  assert.deepEqual(result[0]?.reasons, ['CAPACITY_EXCEEDED'])
 })

@@ -148,7 +148,7 @@ export interface SchedulableRequest {
   origin: string
   destination: string
   purpose: string
-  passengers: number
+  passengers: number | null
   specialRequirements: string | null
   notes: string | null
 }

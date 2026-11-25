@@ -8,60 +8,222 @@ function allItems(navigation) {
   return [
     ...navigation.topItems,
     ...navigation.sections.flatMap((section) => section.items),
+    ...navigation.footerItems,
   ]
 }
 
-test('cada item de navegação executa uma rota ou uma ação identificável', () => {
+function getLabels(navigation) {
+  return allItems(navigation).map((item) => item.label)
+}
+
+test('todos os itens renderizados nos seis perfis são links ativos sem controles mortos', () => {
   for (const profile of PROFILES) {
     const navigation = getSidebarNavigation(profile)
-    for (const item of allItems(navigation)) {
-      assert.ok(
-        item.behavior === 'link' ? typeof item.path === 'string' : typeof item.action === 'string',
-        `${profile}: ${item.label} precisa de uma rota ou ação real`,
-      )
+    const items = allItems(navigation)
+    assert.ok(items.length > 0, `perfil ${profile} deve ter itens`)
+    for (const item of items) {
+      assert.equal(item.behavior, 'link', `${profile}: ${item.label} deve ser link`)
+      assert.ok(item.path && item.path.startsWith('/'), `${profile}: ${item.label} deve ter destino`)
     }
     for (const item of navigation.mobileItems) {
       assert.equal(item.behavior, 'link')
       assert.equal(typeof item.path, 'string')
     }
     assert.ok(navigation.mobileItems.length <= 5)
+    assert.equal(items.some((item) => item.label === 'Ajuda' || item.label === 'Configurações' || item.label === 'Viagens'), false)
   }
+  assert.deepEqual(allItems(getSidebarNavigation(null)), [])
 })
 
-test('links operacionais aparecem apenas nos perfis autorizados', () => {
-  const linksFor = (profile) => allItems(getSidebarNavigation(profile)).map((item) => item.path)
+test('links SVO, Equipes, Análise, Confirmação, Dashboard e Agenda aparecem somente para os perfis autorizados', () => {
   for (const profile of PROFILES) {
-    assert.equal(linksFor(profile).includes('/svo/ordens'), profile === 'EQUIPE_SVO')
-    assert.equal(linksFor(profile).includes('/svo/acompanhamento'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR' || profile === 'ADMINISTRADOR')
-    assert.equal(linksFor(profile).includes('/svo/solicitacoes'), profile === 'ATENDENTE_SVO' || profile === 'GESTOR' || profile === 'ADMINISTRADOR')
-    assert.equal(linksFor(profile).includes('/svo/equipes'), profile === 'GESTOR' || profile === 'ADMINISTRADOR')
-    assert.equal(linksFor(profile).includes('/frota/solicitacoes/analise'), profile === 'GESTOR' || profile === 'ADMINISTRADOR')
-    assert.equal(linksFor(profile).includes('/viagens/agenda'), profile === 'GESTOR' || profile === 'ADMINISTRADOR')
-    assert.equal(linksFor(profile).includes('/viagens/confirmacao'), profile === 'GESTOR' || profile === 'ADMINISTRADOR')
+    const items = allItems(getSidebarNavigation(profile))
+    assert.equal(items.some((item) => item.path === '/svo/ordens'), profile === 'EQUIPE_SVO')
+    assert.equal(
+      items.some((item) => item.path === '/svo/acompanhamento'),
+      profile === 'ATENDENTE_SVO' || profile === 'GESTOR' || profile === 'ADMINISTRADOR',
+    )
+    assert.equal(
+      items.some((item) => item.path === '/svo/solicitacoes'),
+      profile === 'ATENDENTE_SVO' || profile === 'GESTOR' || profile === 'ADMINISTRADOR',
+    )
+    assert.equal(
+      items.some((item) => item.path === '/svo/equipes'),
+      profile === 'GESTOR' || profile === 'ADMINISTRADOR',
+    )
+    assert.equal(
+      items.some((item) => item.path === '/frota/solicitacoes/analise'),
+      profile === 'GESTOR' || profile === 'ADMINISTRADOR',
+    )
+    assert.equal(
+      items.some((item) => item.path === '/viagens/confirmacao'),
+      profile === 'GESTOR' || profile === 'ADMINISTRADOR',
+    )
+    assert.equal(
+      items.some((item) => item.path === '/frota/dashboard'),
+      profile === 'GESTOR' || profile === 'ADMINISTRADOR',
+    )
+    assert.equal(items.some((item) => item.path === '/viagens/agenda'), profile === 'GESTOR')
   }
 })
 
-test('SOLICITANTE recebe ação para criar pedido e destinos reais no celular', () => {
-  const navigation = getSidebarNavigation('SOLICITANTE')
-  const createAction = allItems(navigation).find((item) => item.label === 'Nova solicitação')
+test('ADMINISTRADOR recebe menu administrativo completo com supervisão, Equipes SVO, Documentos, Multas, Dashboard e Auditoria', () => {
+  const navigation = getSidebarNavigation('ADMINISTRADOR')
 
+  assert.deepEqual(getLabels(navigation), [
+    'Início',
+    'Usuários',
+    'Perfis e Permissões',
+    'Tipos de serviço',
+    'Analisar solicitações',
+    'Confirmar viagens',
+    'Equipes e plantões',
+    'Veículos',
+    'Motoristas',
+    'Manutenção',
+    'Abastecimentos',
+    'Documentos',
+    'Multas e Infrações',
+    'Solicitações SVO',
+    'Acompanhamento de ordens',
+    'Dashboard',
+    'Relatórios',
+    'Auditoria',
+  ])
   assert.deepEqual(
-    { behavior: createAction?.behavior, action: createAction?.action },
-    { behavior: 'action', action: 'open-request' },
+    navigation.topItems.map(({ label, path }) => ({ label, path })),
+    [
+      { label: 'Início', path: '/administracao/usuarios' },
+      { label: 'Usuários', path: '/administracao/usuarios' },
+      { label: 'Perfis e Permissões', path: '/administracao/perfis' },
+      { label: 'Tipos de serviço', path: '/tipos-de-servico' },
+      { label: 'Analisar solicitações', path: '/frota/solicitacoes/analise' },
+      { label: 'Confirmar viagens', path: '/viagens/confirmacao' },
+      { label: 'Equipes e plantões', path: '/svo/equipes' },
+      { label: 'Veículos', path: '/veiculos' },
+      { label: 'Motoristas', path: '/motoristas' },
+      { label: 'Manutenção', path: '/maintenance-orders' },
+      { label: 'Abastecimentos', path: '/abastecimentos' },
+      { label: 'Documentos', path: '/vehicle-documents' },
+      { label: 'Multas e Infrações', path: '/multas' },
+      { label: 'Solicitações SVO', path: '/svo/solicitacoes' },
+      { label: 'Acompanhamento de ordens', path: '/svo/acompanhamento' },
+      { label: 'Dashboard', path: '/frota/dashboard' },
+      { label: 'Relatórios', path: '/relatorios' },
+      { label: 'Auditoria', path: '/auditoria' },
+    ],
+  )
+  assert.equal(navigation.showDividerAfterTop, false)
+})
+
+test('GESTOR mantém os grupos operacionais e liga Agenda, Equipes SVO, Documentos, Multas, SVO e Auditoria', () => {
+  const navigation = getSidebarNavigation('GESTOR')
+
+  assert.deepEqual(getLabels(navigation), [
+    'Início',
+    'Analisar solicitações',
+    'Agenda de viagens',
+    'Confirmar viagens',
+    'Solicitações SVO',
+    'Acompanhamento de ordens',
+    'Equipes e plantões',
+    'Veículos',
+    'Motoristas',
+    'Tipos de serviço',
+    'Agendar viagem',
+    'Manutenção',
+    'Abastecimentos',
+    'Documentos',
+    'Multas e Infrações',
+    'Dashboard',
+    'Relatórios',
+    'Auditoria',
+  ])
+  assert.deepEqual(navigation.sections.map((section) => section.label), [
+    'OPERAÇÃO',
+    'FROTA',
+    'CONTROLE',
+    'GESTÃO',
+  ])
+  const byLabel = new Map(allItems(navigation).map((item) => [item.label, item]))
+  assert.equal(byLabel.get('Início')?.path, '/frota/inicio')
+  assert.equal(byLabel.get('Agenda de viagens')?.path, '/viagens/agenda')
+  assert.equal(byLabel.get('Equipes e plantões')?.path, '/svo/equipes')
+  assert.equal(byLabel.get('Documentos')?.path, '/vehicle-documents')
+  assert.equal(byLabel.get('Multas e Infrações')?.path, '/multas')
+  assert.equal(byLabel.get('Solicitações SVO')?.path, '/svo/solicitacoes')
+  assert.equal(byLabel.get('Auditoria')?.path, '/auditoria')
+  assert.equal(byLabel.get('Dashboard')?.path, '/frota/dashboard')
+  assert.notEqual(byLabel.get('Solicitações SVO')?.icon, byLabel.get('Analisar solicitações')?.icon)
+  assert.notEqual(byLabel.get('Solicitações SVO')?.icon, byLabel.get('Acompanhamento de ordens')?.icon)
+  assert.equal(navigation.showDividerAfterTop, true)
+})
+
+test('SOLICITANTE navega direto para a rota canônica, abre Nova Solicitação via query param e mantém ação móvel', () => {
+  const navigation = getSidebarNavigation('SOLICITANTE')
+  assert.deepEqual(
+    navigation.topItems.map(({ label, behavior, path }) => ({ label, behavior, path })),
+    [
+      { label: 'Início', behavior: 'link', path: '/solicitacoes/minhas' },
+      { label: 'Nova Solicitação', behavior: 'link', path: '/solicitacoes/minhas?nova=1' },
+      { label: 'Minhas Solicitações', behavior: 'link', path: '/solicitacoes/minhas' },
+    ],
   )
   assert.equal(navigation.primaryAction?.action, 'open-request')
   assert.deepEqual(navigation.mobileItems.map(({ path }) => path), ['/solicitacoes/minhas'])
+  assert.equal(navigation.showDividerAfterTop, false)
 })
 
-test('controles sem destino não são publicados e módulos conectados têm rotas reais', () => {
-  for (const profile of PROFILES) {
-    const labels = allItems(getSidebarNavigation(profile)).map(({ label }) => label)
-    assert.equal(labels.includes('Configurações'), false)
-    assert.equal(labels.includes('Ajuda'), false)
-    assert.equal(labels.includes('Documentos'), profile === 'GESTOR' || profile === 'ADMINISTRADOR')
-    assert.equal(labels.includes('Multas e Infrações'), profile === 'GESTOR' || profile === 'ADMINISTRADOR')
+test('ATENDENTE_SVO recebe Início, Solicitações SVO, Acompanhamento, Veículos e Relatórios', () => {
+  const navigation = getSidebarNavigation('ATENDENTE_SVO')
+  assert.deepEqual(
+    allItems(navigation).map(({ label, path }) => ({ label, path })),
+    [
+      { label: 'Início', path: '/svo/solicitacoes' },
+      { label: 'Solicitações SVO', path: '/svo/solicitacoes' },
+      { label: 'Acompanhamento de ordens', path: '/svo/acompanhamento' },
+      { label: 'Veículos', path: '/veiculos' },
+      { label: 'Relatórios', path: '/relatorios' },
+    ],
+  )
+})
+
+test('somente perfis com leitura de veículos recebem o atalho no menu', () => {
+  for (const profile of ['SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO']) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Veículos'), false)
   }
-  assert.deepEqual(allItems(getSidebarNavigation(null)), [])
+  for (const profile of ['GESTOR', 'ATENDENTE_SVO', 'ADMINISTRADOR']) {
+    assert.equal(getLabels(getSidebarNavigation(profile)).includes('Veículos'), true)
+  }
+  assert.equal(getLabels(getSidebarNavigation(null)).includes('Veículos'), false)
+})
+
+test('somente GESTOR e ADMINISTRADOR recebem Documentos, Multas, Abastecimentos e Auditoria', () => {
+  for (const label of ['Abastecimentos', 'Documentos', 'Multas e Infrações', 'Auditoria']) {
+    for (const profile of ['SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO', null]) {
+      assert.equal(getLabels(getSidebarNavigation(profile)).includes(label), false, `${profile} não deve ver ${label}`)
+    }
+    for (const profile of ['GESTOR', 'ADMINISTRADOR']) {
+      assert.equal(getLabels(getSidebarNavigation(profile)).includes(label), true, `${profile} deve ver ${label}`)
+    }
+  }
+})
+
+test('MOTORISTA e EQUIPE_SVO recebem apenas Início e a própria operação', () => {
+  assert.deepEqual(
+    allItems(getSidebarNavigation('MOTORISTA')).map(({ label, path }) => ({ label, path })),
+    [
+      { label: 'Início', path: '/viagens/minhas' },
+      { label: 'Minhas viagens', path: '/viagens/minhas' },
+    ],
+  )
+  assert.deepEqual(
+    allItems(getSidebarNavigation('EQUIPE_SVO')).map(({ label, path }) => ({ label, path })),
+    [
+      { label: 'Início', path: '/svo/ordens' },
+      { label: 'Ordens da equipe', path: '/svo/ordens' },
+    ],
+  )
 })
 
 test('menu mobile mantém ações no grupo primário e dentro do limite de destinos', () => {

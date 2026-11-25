@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AppBar, Toolbar, Typography, Box, Button, IconButton, Menu, MenuItem, Divider, ListItemIcon, ListItemText } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -18,14 +18,21 @@ export default function Topbar({ isCompactViewport, navigationExpanded, onMenuTo
   const nome = session?.nome ?? 'Usuário';
   const perfil = session ? profileLabel(session.perfil) : '';
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const isMenuOpen = Boolean(menuAnchor);
 
   function closeAccountMenu() {
     setMenuAnchor(null);
+    queueMicrotask(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) {
+        menuButtonRef.current?.focus();
+      }
+    });
   }
 
   function handleLogout() {
-    closeAccountMenu();
+    setMenuAnchor(null);
     logout();
   }
 
@@ -70,6 +77,7 @@ export default function Topbar({ isCompactViewport, navigationExpanded, onMenuTo
         {/* Acesso à conta */}
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Button
+            ref={menuButtonRef}
             id="account-menu-button"
             type="button"
             aria-label={`Conta de ${nome}${perfil ? `, perfil ${perfil}` : ''}`}
@@ -79,9 +87,10 @@ export default function Topbar({ isCompactViewport, navigationExpanded, onMenuTo
             onClick={(event) => setMenuAnchor(event.currentTarget)}
             endIcon={<ExpandMoreIcon aria-hidden="true" />}
             sx={{
-              color: 'primary.contrastText',
+              color: '#111827',
               minWidth: 44,
               minHeight: 44,
+              scrollMarginTop: '80px',
               px: { xs: 0.5, sm: 1.5 },
               gap: { xs: 0, sm: 1 },
               borderRadius: 2,
@@ -91,16 +100,16 @@ export default function Topbar({ isCompactViewport, navigationExpanded, onMenuTo
                 transform: isMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
               },
               '&:hover': { backgroundColor: 'rgba(17, 24, 39, 0.08)' },
-              '&.Mui-focusVisible': { outline: '2px solid #111827', outlineOffset: 2 },
+              '&.Mui-focusVisible, &:focus-visible': { outline: '3px solid #111827', outlineOffset: 2 },
             }}
           >
             <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'right' }}>
               <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827', lineHeight: 1.2 }}>
                 {nome}
               </Typography>
-              {perfil && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{perfil}</Typography>}
+              {perfil && <Typography variant="caption" sx={{ color: '#111827', fontWeight: 500 }}>{perfil}</Typography>}
             </Box>
-            <Typography component="span" variant="body2" sx={{ display: { xs: 'block', sm: 'none' }, color: '#111827' }}>
+            <Typography component="span" variant="body2" sx={{ display: { xs: 'block', sm: 'none' }, color: '#111827', fontWeight: 600 }}>
               Conta
             </Typography>
           </Button>
@@ -117,12 +126,19 @@ export default function Topbar({ isCompactViewport, navigationExpanded, onMenuTo
             }}
           >
             <Box sx={{ px: 2, py: 1.5 }}>
-              <Typography variant="body2" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{nome}</Typography>
-              {perfil && <Typography variant="caption" color="text.secondary">{perfil}</Typography>}
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#111827', overflowWrap: 'anywhere' }}>{nome}</Typography>
+              {perfil && <Typography variant="caption" sx={{ color: '#374151' }}>{perfil}</Typography>}
             </Box>
             <Divider />
-            <MenuItem onClick={handleLogout} sx={{ minHeight: 48 }}>
-              <ListItemIcon><LogoutIcon fontSize="small" aria-hidden="true" /></ListItemIcon>
+            <MenuItem
+              onClick={handleLogout}
+              sx={{
+                minHeight: 48,
+                color: '#111827',
+                '&.Mui-focusVisible, &:focus-visible': { outline: '3px solid #b94700', outlineOffset: -2 },
+              }}
+            >
+              <ListItemIcon sx={{ color: '#111827' }}><LogoutIcon fontSize="small" aria-hidden="true" /></ListItemIcon>
               <ListItemText>Sair</ListItemText>
             </MenuItem>
           </Menu>

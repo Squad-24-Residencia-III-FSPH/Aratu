@@ -26,10 +26,13 @@ function bodyRecord(body: unknown): CreateRequestBody {
 }
 
 function resubmitBody(body: unknown): ResubmitRequestBody {
-  const value = typeof body === 'object' && body !== null && !Array.isArray(body)
-    ? body as Record<string, unknown>
-    : {}
-  return { ...bodyRecord(body), expectedRevision: value.expectedRevision }
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return {}
+  const value = body as Record<string, unknown>
+  return {
+    ...bodyRecord(value),
+    expectedRevision: value.expectedRevision,
+    reason: value.reason,
+  }
 }
 
 function queryText(value: unknown): string | undefined {

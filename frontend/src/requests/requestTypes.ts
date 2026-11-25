@@ -6,6 +6,7 @@ export interface RequestSummary {
   id: string
   requesterId: string
   requesterName: string
+  requesterSector?: string | null
   serviceId: string
   serviceName: string
   requestedDate: string

@@ -18,7 +18,7 @@ const query = { start: '2026-11-20T08:00:00-03:00', end: '2026-11-20T12:00:00-03
 function vehicle(overrides: Partial<VehicleAvailabilityFacts> = {}): VehicleAvailabilityFacts {
   return {
     id: '1', licensePlate: 'ABC1234', brand: null, model: null, categories: ['PASSENGER'],
-    seats: 4, bodyLimit: 0, status: 'AVAILABLE', compatible: true, hasConflict: false, ...overrides,
+    seats: 4, bodyLimit: 0, operationType: 'ADMINISTRATIVE', status: 'AVAILABLE', compatible: true, hasConflict: false, ...overrides,
   }
 }
 
@@ -29,12 +29,41 @@ function driver(overrides: Partial<DriverAvailabilityFacts> = {}): DriverAvailab
   }
 }
 
-function setup(vehicles: VehicleAvailabilityFacts[], drivers: DriverAvailabilityFacts[], serviceExists = true,
-  request: AvailabilityRequest | null = null) {
+function isAvailabilityRequest(
+  value: AvailabilityRequest | Record<string, number | null> | null,
+): value is AvailabilityRequest {
+  return value !== null && typeof value === 'object' && 'serviceId' in value && 'status' in value
+}
+
+function setup(
+  vehicles: VehicleAvailabilityFacts[],
+  drivers: DriverAvailabilityFacts[],
+  serviceExists = true,
+  requestOrMap: AvailabilityRequest | Record<string, number | null> | null = null,
+) {
   const locked: string[] = []
+  const singleRequest = isAvailabilityRequest(requestOrMap) ? requestOrMap : null
+  const passengerMap: Record<string, number | null> = !isAvailabilityRequest(requestOrMap) && requestOrMap ? requestOrMap : {}
   const repository: AvailabilityRepositoryContract = {
-    async findRequestForAvailability(): Promise<AvailabilityRequest | null> { return request },
+    async findRequestForAvailability(requestId: string): Promise<AvailabilityRequest | null> {
+      if (singleRequest) return singleRequest
+      if (requestId in passengerMap) {
+        return {
+          id: requestId,
+          serviceId: '5',
+          status: 'APPROVED',
+          passengers: passengerMap[requestId] ?? 0,
+          specialRequirements: null,
+          revision: 1,
+        }
+      }
+      return null
+    },
     async serviceExists(): Promise<boolean> { return serviceExists },
+    async findRequestPassengers(requestId: string): Promise<{ passengers: number | null } | null> {
+      if (singleRequest && singleRequest.id === requestId) return { passengers: singleRequest.passengers }
+      return requestId in passengerMap ? { passengers: passengerMap[requestId] ?? null } : null
+    },
     async listVehicleFacts(_serviceId: string, _period: Period, vehicleId: string | null): Promise<VehicleAvailabilityFacts[]> {
       return vehicleId ? vehicles.filter((item) => item.id === vehicleId) : vehicles.filter((item) => item.status !== 'INACTIVE')
     },
@@ -82,7 +111,7 @@ test('pedido com requestId inclui impedimento por capacidade insuficiente', asyn
   const { service } = setup([vehicle({ seats: 4 })], [], true, approvedRequest)
   const result = await service.listVehicles({ ...query, requestId: '41' })
   assert.equal(result[0]?.available, false)
-  assert.deepEqual(result[0]?.reasons, ['INSUFFICIENT_CAPACITY'])
+  assert.deepEqual(result[0]?.reasons, ['CAPACITY_EXCEEDED'])
 })
 
 test('consulta de veículos exige serviceId válido (400) e existente (404)', async () => {
@@ -126,4 +155,45 @@ test('avaliação para o agendamento trava o registro e reconhece inativos', asy
   assert.deepEqual(assessedDriver?.reasons, ['INACTIVE'])
   assert.deepEqual(locked, ['vehicle:9', 'driver:8'])
   assert.equal(await service.assessVehicle('404', '5', period, fakeClient), null)
+})
+
+test('lotação valida igualdade, excesso, zero/nulo e exceção SVO/carga na consulta de veículos', async () => {
+  const { service } = setup(
+    [
+      vehicle({ id: '1', seats: 0, categories: ['PASSENGER'], operationType: 'ADMINISTRATIVE' }),
+      vehicle({ id: '2', seats: 3, categories: ['PASSENGER'], operationType: 'ADMINISTRATIVE' }),
+      vehicle({ id: '3', seats: 2, categories: ['PASSENGER'], operationType: 'ADMINISTRATIVE' }),
+      vehicle({ id: '4', seats: 0, categories: ['BODY'], operationType: 'SVO' }),
+      vehicle({ id: '5', seats: 1, categories: ['PASSENGER', 'BODY'], operationType: 'SVO' }),
+      vehicle({ id: '6', seats: 0, categories: ['OTHER'], operationType: 'ADMINISTRATIVE' }),
+    ],
+    [],
+    true,
+    { '10': 3, '11': 0, '12': null },
+  )
+
+  const byRequest = await service.listVehicles({ ...query, requestId: '10' })
+  assert.deepEqual(byRequest.map((item) => [item.id, item.available, item.reasons]), [
+    ['1', false, ['CAPACITY_EXCEEDED']],
+    ['2', true, []],
+    ['3', false, ['CAPACITY_EXCEEDED']],
+    ['4', true, []],
+    ['5', false, ['CAPACITY_EXCEEDED']],
+    ['6', false, ['CAPACITY_EXCEEDED']],
+  ])
+
+  const legacyZero = await service.listVehicles({ ...query, requestId: '11' })
+  assert.deepEqual(legacyZero.find((item) => item.id === '1')?.reasons, ['CAPACITY_EXCEEDED'])
+  assert.deepEqual(legacyZero.find((item) => item.id === '5')?.available, true)
+
+  const legacyNull = await service.listVehicles({ ...query, requestId: '12' })
+  assert.deepEqual(legacyNull.find((item) => item.id === '1')?.reasons, ['CAPACITY_EXCEEDED'])
+  assert.deepEqual(legacyNull.find((item) => item.id === '5')?.available, true)
+
+  const byPassengers = await service.listVehicles({ ...query, passengers: '2' })
+  assert.equal(byPassengers.find((item) => item.id === '3')?.available, true)
+
+  await assert.rejects(service.listVehicles({ ...query, requestId: 'abc' }), domainError(400))
+  await assert.rejects(service.listVehicles({ ...query, requestId: '999' }), domainError(404))
+  await assert.rejects(service.listVehicles({ ...query, passengers: '0' }), domainError(400))
 })

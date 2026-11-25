@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import express from 'express'
+import jwt = require('jsonwebtoken')
 import type { PoolClient } from 'pg'
+import { SvoOrdersRepository } from '../src/repositories/svo-orders.repository'
+import { createSvoDispatchCandidatesRouter, svoOrderErrorHandler } from '../src/routes/svo-orders.routes'
 import { SvoOrdersService } from '../src/services/svo-orders.service'
 import type { SvoOccurrencesRepositoryContract } from '../src/repositories/svo-occurrences.repository'
 import type { SvoOrdersRepositoryContract } from '../src/repositories/svo-orders.repository'
@@ -68,6 +72,11 @@ function harness() {
     async countOccupyingOrders(_id, transaction) { step('capacity', transaction); return 0 },
     async create(order, transaction) { step('create', transaction); return { ...order, id: '4' } },
     async createOpenedEvent(event, transaction) { step('event', transaction); events.push(event) },
+    async listActiveTeams(transaction) { step('listActiveTeams', transaction); return [{ id: team.id, name: team.name }] },
+    async listEligibleVehiclesForDispatch(transaction) {
+      step('listEligibleVehiclesForDispatch', transaction)
+      return [{ id: vehicle.id, plate: vehicle.licensePlate, brand: vehicle.brand, model: vehicle.model, bodyLimit: vehicle.bodyLimit, occupyingOrders: 0 }]
+    },
     async lockEligibleDispatchTeams(_now, transaction) { step('lockTeams', transaction) },
     async rankDispatchTeams(_now, transaction) { step('rankTeams', transaction); return team.active ? [candidate] : [] },
     async listDispatchVehicleIds() { throw new Error('Despacho inesperado') },
@@ -425,5 +434,129 @@ test('SVO result: contrato estrito, motivo condicional, datas, encerramento pré
     if (step === 'revision') failed.orders.updateResult = async () => false
     await assert.rejects(failed.service.recordResult('4', { result: 'COMPLETED', revision: 1 }, '1'))
     assert.equal(failed.calls.at(-1), 'rollback'); assert.ok(!failed.calls.includes('commit'))
+  }
+})
+
+test('DISP unit: candidatos exigem perfil de despacho SVO e conta ativa antes da consulta', async () => {
+  for (const role of ['GESTOR', 'ADMINISTRADOR'] as const) {
+    const h = harness()
+    h.actor.role = role
+    const result = await h.service.listDispatchCandidates('1')
+    assert.deepEqual(result.teams, [{ id: '2', name: 'Equipe Fictícia' }])
+    assert.equal(result.vehicles.length, 1)
+    assert.deepEqual(h.calls, ['begin', 'actor', 'listActiveTeams', 'listEligibleVehiclesForDispatch', 'commit'])
+  }
+
+  for (const role of ['ATENDENTE_SVO', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
+    const h = harness()
+    h.actor.role = role
+    await assert.rejects(h.service.listDispatchCandidates('1'), code('ACCESS_DENIED'))
+    assert.deepEqual(h.calls, ['begin', 'actor', 'rollback'])
+  }
+
+  const inactive = harness()
+  inactive.occurrences.findActorSnapshot = async () => {
+    inactive.calls.push('actor')
+    return null
+  }
+  await assert.rejects(inactive.service.listDispatchCandidates('1'), code('ACCOUNT_UNAVAILABLE'))
+  assert.deepEqual(inactive.calls, ['begin', 'actor', 'rollback'])
+})
+
+test('DISP unit: calcula availableSlots e exclui viaturas sem vaga disponível', async () => {
+  const h = harness()
+  h.actor.role = 'GESTOR'
+  h.orders.listActiveTeams = async () => [
+    { id: '1', name: 'Equipe Alfa Fictícia' },
+    { id: '2', name: 'Equipe Beta Fictícia' },
+  ]
+  h.orders.listEligibleVehiclesForDispatch = async () => [
+    { id: '10', plate: 'FIC0A01', brand: 'Marca Fictícia', model: 'Modelo A', bodyLimit: 2, occupyingOrders: 1 },
+    { id: '11', plate: 'FIC0B02', brand: null, model: 'Modelo B', bodyLimit: 2, occupyingOrders: 2 },
+    { id: '12', plate: 'FIC0C03', brand: 'Marca Fictícia', model: null, bodyLimit: 0, occupyingOrders: 0 },
+  ]
+
+  const result = await h.service.listDispatchCandidates('1')
+  assert.deepEqual(result.teams, [
+    { id: '1', name: 'Equipe Alfa Fictícia' },
+    { id: '2', name: 'Equipe Beta Fictícia' },
+  ])
+  assert.deepEqual(result.vehicles, [
+    { id: '10', plate: 'FIC0A01', brand: 'Marca Fictícia', model: 'Modelo A', bodyLimit: 2, occupyingOrders: 1, availableSlots: 1 },
+  ])
+})
+
+test('DISP repo: queries de equipes ativas e viaturas sem manutenção impeditiva usam filtros e parâmetros corretos', async () => {
+  const repository = new SvoOrdersRepository()
+  const queries: Array<{ sql: string; params: unknown[] | undefined }> = []
+  const fakeClient = {
+    async query(sql: string, params?: unknown[]) {
+      queries.push({ sql, params })
+      return { rows: [] }
+    },
+  } as unknown as PoolClient
+
+  await repository.listActiveTeams(fakeClient)
+  await repository.listEligibleVehiclesForDispatch(fakeClient)
+
+  assert.equal(queries.length, 2)
+  assert.doesNotMatch(queries[0]!.sql, /SELECT \*/i)
+  assert.match(queries[0]!.sql, /FROM svo\.teams/i)
+  assert.match(queries[0]!.sql, /WHERE active = true/i)
+
+  assert.doesNotMatch(queries[1]!.sql, /SELECT \*/i)
+  assert.match(queries[1]!.sql, /v\.status = 'AVAILABLE'/i)
+  assert.match(queries[1]!.sql, /v\.operation_type = 'SVO'/i)
+  assert.match(queries[1]!.sql, /'BODY' = ANY\(v\.categories\)/i)
+  assert.match(queries[1]!.sql, /NOT EXISTS\s*\(\s*SELECT 1\s+FROM fleet\.maintenance_orders m[\s\S]*m\.blocks_vehicle = true[\s\S]*m\.status IN \('OPEN', 'IN_PROGRESS'\)/i)
+  assert.deepEqual(queries[1]!.params, [['OPEN', 'IN_TRANSIT', 'IN_SERVICE', 'IN_PROGRESS']])
+})
+
+test('DISP route: HTTP 401/403/200 respeita RBAC na rota /svo/dispatch-candidates', async () => {
+  const h = harness()
+  const secret = 'segredo-ficticio-unit-dispatch-candidates'
+  const usersRepo = {
+    async findById(id: string) {
+      return {
+        id,
+        name: h.actor.name,
+        email: h.actor.email,
+        roleId: '1',
+        role: h.actor.role,
+        active: true,
+        revision: 1,
+        passwordHash: 'x',
+        createdAt: h.time,
+        updatedAt: h.time,
+      }
+    },
+  }
+  const app = express()
+  app.use('/svo/dispatch-candidates', createSvoDispatchCandidatesRouter(h.service, { secret, expiresInSeconds: 3600 }, usersRepo))
+  app.use('/svo/dispatch-candidates', svoOrderErrorHandler)
+  const server = app.listen(0)
+  try {
+    const port = (server.address() as { port: number }).port
+    const url = `http://127.0.0.1:${port}/svo/dispatch-candidates`
+
+    const unauth = await fetch(url)
+    assert.equal(unauth.status, 401)
+
+    for (const role of ['ATENDENTE_SVO', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
+      h.actor.role = role
+      const token = jwt.sign({ id: '1', perfil: role }, secret, { expiresIn: 3600 })
+      const denied = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      assert.equal(denied.status, 403)
+    }
+
+    h.actor.role = 'GESTOR'
+    const token = jwt.sign({ id: '1', perfil: 'GESTOR' }, secret, { expiresIn: 3600 })
+    const allowed = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    assert.equal(allowed.status, 200)
+    const body = await allowed.json() as { teams: unknown[]; vehicles: unknown[] }
+    assert.equal(body.teams.length, 1)
+    assert.equal(body.vehicles.length, 1)
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())))
   }
 })

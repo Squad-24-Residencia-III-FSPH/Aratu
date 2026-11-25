@@ -174,24 +174,27 @@ test('edição envia campos atualizados e a revisão retornada pela consulta', a
   assert.ok(await screen.findByText('Motorista atualizado com sucesso.'))
 })
 
-test('gestor não recebe seletor de contas, administrador recebe e pode carregá-las', async () => {
+test('gestor e administrador carregam seletor de contas via /drivers/eligible-accounts sem consultar /users', async () => {
   const seen = []
   const api = async (path) => {
     seen.push(path)
-    if (path.startsWith('/users?')) return jsonResponse({ users: [], total: 0, page: 1, pageSize: 100, totalPages: 0 })
+    if (path === '/drivers/eligible-accounts') return jsonResponse([])
     return jsonResponse([])
   }
   const { unmount } = renderPage(api, 'GESTOR')
   await screen.findByText('Nenhum motorista cadastrado')
   await userEvent.setup().click(screen.getByRole('button', { name: 'Cadastrar Motorista' }))
-  assert.equal(screen.queryByLabelText('Conta de usuário vinculada (opcional)'), null)
+  assert.ok(await screen.findByRole('combobox', { name: 'Conta de usuário vinculada (opcional)' }))
+  await waitFor(() => assert.ok(seen.includes('/drivers/eligible-accounts')))
   assert.equal(seen.some((path) => path.startsWith('/users?')), false)
   unmount()
+  seen.length = 0
   renderPage(api, 'ADMINISTRADOR')
   await screen.findByText('Nenhum motorista cadastrado')
   await userEvent.setup().click(screen.getByRole('button', { name: 'Cadastrar Motorista' }))
   assert.ok(await screen.findByRole('combobox', { name: 'Conta de usuário vinculada (opcional)' }))
-  await waitFor(() => assert.ok(seen.some((path) => path.startsWith('/users?'))))
+  await waitFor(() => assert.ok(seen.includes('/drivers/eligible-accounts')))
+  assert.equal(seen.some((path) => path.startsWith('/users?')), false)
 })
 
 test('limpar filtros refaz a consulta e volta a exibir a lista completa', async () => {

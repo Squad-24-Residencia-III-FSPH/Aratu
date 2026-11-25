@@ -3,11 +3,13 @@ import type { ParamsDictionary } from 'express-serve-static-core'
 import type { LoginRequestBody } from '../types/auth'
 import { AuthService } from '../services/auth.service'
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 function isLoginRequestBody(value: unknown): value is LoginRequestBody {
   if (typeof value !== 'object' || value === null) return false
   const body = value as Record<string, unknown>
   return typeof body.email === 'string'
-    && body.email.trim().length > 0
+    && EMAIL_PATTERN.test(body.email.trim())
     && typeof body.senha === 'string'
     && body.senha.length > 0
 }
@@ -19,15 +21,16 @@ function isLoginRequestBody(value: unknown): value is LoginRequestBody {
  * aciona a camada de domínio (`AuthService`) e retorna status HTTP e mensagens padronizadas.
  *
  * @param authService - Instância do serviço de autenticação de usuários.
- * @returns Objeto com os manipuladores das rotas de login e logout.
+ * @returns Objeto com os manipuladores das rotas de login, logout e consulta de sessão atual.
  */
 export function createAuthController(authService: AuthService) {
   return {
     /**
      * Manipulador HTTP para login de usuários (`POST /auth/login`).
      *
-     * Valida payload com e-mail e senha, aciona o serviço e responde com 200 (sucesso),
-     * 400 (corpo inválido), 401 (credenciais incorretas) ou 403 (conta desativada).
+     * Valida formato básico de e-mail e presença da senha, aciona o serviço e responde
+     * com 200 (sucesso), 400 (corpo ou e-mail inválido), 401 (credenciais incorretas)
+     * ou 403 (conta desativada).
      */
     login: async (
       req: Request<ParamsDictionary, unknown, unknown>,
@@ -61,7 +64,11 @@ export function createAuthController(authService: AuthService) {
       await authService.logout(req.usuario)
       res.status(200).json({ mensagem: 'Logout realizado. Apague o token armazenado no cliente.' })
     },
-    /** Retorna somente a identidade e o perfil revalidados no cadastro atual. */
+    /**
+     * Manipulador HTTP para revalidação da identidade ativa (`GET /auth/me`).
+     *
+     * Retorna apenas identificador, nome e perfil vigentes do usuário revalidado sem expor credenciais.
+     */
     me: (
       req: Request<ParamsDictionary, unknown, unknown>,
       res: Response<unknown>,

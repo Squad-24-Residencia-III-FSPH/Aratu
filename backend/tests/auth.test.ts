@@ -144,7 +144,10 @@ test('login não diferencia usuário inexistente de senha incorreta; conta inati
 })
 
 async function withServer(
-  users: { findByEmail(email: string): Promise<UserForLogin | null> },
+  users: {
+    findByEmail(email: string): Promise<UserForLogin | null>
+    findById?: (id: string) => Promise<User | null>
+  },
   run: (baseUrl: string) => Promise<void>,
   configure?: (app: ReturnType<typeof createApp>) => void,
   roles?: RoleRepositoryContract,
@@ -215,6 +218,57 @@ test('POST /auth/login mantém contrato do frontend e mensagens de erro definida
       body: JSON.stringify({ email: 'motorista@example.test' }),
     })
     assert.equal(malformedBody.status, 400)
+
+    const malformedEmail = await fetch(`${baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'motorista-sem-arroba', senha: password }),
+    })
+    assert.equal(malformedEmail.status, 400)
+    assert.deepEqual(await malformedEmail.json(), { erro: 'Informe um e-mail e uma senha válidos.' })
+  })
+})
+
+test('GET /auth/me revalida conta ativa para qualquer perfil sem expor dados internos', async () => {
+  const activeDriver: User = {
+    id: '4',
+    name: 'Motorista Fictício QA',
+    email: 'motorista.me@example.test',
+    roleId: '4',
+    role: 'MOTORISTA',
+    active: true,
+    revision: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+  let currentAccount: User | null = activeDriver
+
+  await withServer({
+    findByEmail: async () => user(),
+    findById: async (id) => (id === '4' ? currentAccount : null),
+  }, async (baseUrl) => {
+    const withoutToken = await fetch(`${baseUrl}/auth/me`)
+    assert.equal(withoutToken.status, 401)
+
+    const driverToken = jwt.sign({ id: '4', perfil: 'MOTORISTA' }, jwtConfig.secret)
+    const activeResponse = await fetch(`${baseUrl}/auth/me`, {
+      headers: { Authorization: `Bearer ${driverToken}` },
+    })
+    assert.equal(activeResponse.status, 200)
+    assert.deepEqual(await activeResponse.json(), {
+      id: '4',
+      nome: 'Motorista Fictício QA',
+      perfil: 'MOTORISTA',
+    })
+
+    currentAccount = { ...activeDriver, active: false }
+    const deactivatedResponse = await fetch(`${baseUrl}/auth/me`, {
+      headers: { Authorization: `Bearer ${driverToken}` },
+    })
+    assert.equal(deactivatedResponse.status, 401)
+    assert.deepEqual(await deactivatedResponse.json(), {
+      erro: 'Sua conta não está ativa. Entre novamente ou procure a administração.',
+    })
   })
 })
 

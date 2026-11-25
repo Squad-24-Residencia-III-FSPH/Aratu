@@ -10,9 +10,9 @@ import {
   SVO_ORDER_STATUSES, SVO_ORDER_TRANSITIONS, SVO_ORDER_STATUS_AUDIT_OPERATION, SvoOrderServiceError,
 } from '../types/svo-order.types'
 import type {
-  CreateSvoOrderInput, RecordSvoOrderResultInput, SvoOrderCreationResult, SvoOrderSummary, SvoOrderDetail,
-  SvoOrderDetailRow, SvoOrderReadRow, SvoOrderResult, SvoOrderState, SvoOrderStatus, SvoOrderTransition, UpdateSvoOrderStatusInput,
-  SvoDispatchTeamCandidate, SvoAllocationSnapshot,
+  CreateSvoOrderInput, RecordSvoOrderResultInput, SvoDispatchCandidatesResult, SvoOrderCreationResult,
+  SvoOrderSummary, SvoOrderDetail, SvoOrderDetailRow, SvoOrderReadRow, SvoOrderResult, SvoOrderState,
+  SvoOrderStatus, SvoOrderTransition, UpdateSvoOrderStatusInput, SvoDispatchTeamCandidate, SvoAllocationSnapshot,
 } from '../types/svo-order.types'
 
 const CREATE_FIELDS = ['occurrenceId', 'teamId', 'vehicleId', 'expectedRevision', 'reason'] as const
@@ -171,6 +171,37 @@ export class SvoOrdersService {
     private readonly vehicles: Pick<VehiclesRepositoryContract, 'findByIdForUpdate' | 'hasActiveMaintenanceBlock'>,
     private readonly audit: AuditLogger,
   ) {}
+
+  /**
+   * Lista equipes ativas e viaturas SVO elegíveis com vagas livres para o diálogo de despacho.
+   *
+   * Reaproveita os mesmos critérios de elegibilidade aplicados em `createOrder`, sem conceder
+   * acesso administrativo ao módulo de manutenção para o perfil da Central SVO.
+   *
+   * @param userId - Identificador do operador autenticado.
+   * @returns Equipes ativas e viaturas elegíveis com cálculo de `availableSlots`.
+   * @throws {SvoOrderServiceError} Se a conta estiver inativa ou sem perfil de escrita SVO.
+   */
+  async listDispatchCandidates(userId: string): Promise<SvoDispatchCandidatesResult> {
+    return this.occurrences.withTransaction(async (client) => {
+      const actor = await this.occurrences.findActorSnapshot(userId, client)
+      if (!actor) {
+        throw new SvoOrderServiceError('ACCOUNT_UNAVAILABLE', 'Sua conta não está ativa. Entre novamente ou procure a administração.')
+      }
+      if (!SVO_MAINTAIN_ROLES.some((role) => role === actor.role)) {
+        throw new SvoOrderServiceError('ACCESS_DENIED', 'Seu perfil atual não permite consultar candidatos para despacho SVO.')
+      }
+      const teams = await this.orders.listActiveTeams(client)
+      const vehicleRows = await this.orders.listEligibleVehiclesForDispatch(client)
+      const vehicles = vehicleRows
+        .map((vehicle) => ({
+          ...vehicle,
+          availableSlots: vehicle.bodyLimit - vehicle.occupyingOrders,
+        }))
+        .filter((vehicle) => vehicle.availableSlots > 0)
+      return { teams, vehicles }
+    })
+  }
 
   /**
    * Consulta a união das equipes com vínculo vigente, sem expor dados pessoais do chamado.

@@ -57,7 +57,8 @@ async function failureFrom(response: Response): Promise<TripRequestError> {
   const kind = KIND_BY_STATUS[response.status] ?? (response.status >= 500 ? 'server' : 'rejected')
   const body: unknown = await response.json().catch(() => null)
   const apiMessage = isRecord(body) && typeof body.erro === 'string' && body.erro.trim() ? body.erro : null
-  return new TripRequestError(kind, kind !== 'server' && apiMessage ? apiMessage : FALLBACK_MESSAGES[kind], response.status)
+  const apiCode = isRecord(body) && typeof body.codigo === 'string' && body.codigo.trim() ? body.codigo.trim() : null
+  return new TripRequestError(kind, kind !== 'server' && apiMessage ? apiMessage : FALLBACK_MESSAGES[kind], response.status, apiCode)
 }
 
 function parseDriverTrip(value: unknown): DriverTrip {
@@ -122,11 +123,19 @@ function parseTrip(value: unknown): Trip {
   }
 }
 
-function parseTripConfirmationItem(value: unknown): TripConfirmationItem {
+/** Viagem confirmada devolvida pelo GET gerencial (`status=CONFIRMED`, contrato FROTA-106). */
+export interface ConfirmedTripItem extends Omit<TripConfirmationItem, 'status'> {
+  status: 'CONFIRMED'
+}
+
+function parseTripSummary<TStatus extends 'FINISHED' | 'CONFIRMED'>(
+  value: unknown,
+  expectedStatus: TStatus,
+): Omit<TripConfirmationItem, 'status'> & { status: TStatus } {
   if (!isRecord(value)
     || !isString(value.id)
     || !isString(value.requestId)
-    || value.status !== 'FINISHED'
+    || value.status !== expectedStatus
     || !isIsoDate(value.scheduledStart)
     || !isIsoDate(value.scheduledEnd)
     || !isNullable(value.startedAt, isIsoDate)
@@ -144,7 +153,7 @@ function parseTripConfirmationItem(value: unknown): TripConfirmationItem {
   return {
     id: value.id,
     requestId: value.requestId,
-    status: 'FINISHED',
+    status: expectedStatus,
     scheduledStart: value.scheduledStart,
     scheduledEnd: value.scheduledEnd,
     startedAt: value.startedAt,
@@ -160,19 +169,35 @@ function parseTripConfirmationItem(value: unknown): TripConfirmationItem {
   }
 }
 
-/** Consulta viagens finalizadas com o filtro de período aceito pelo GET gerencial FROTA-106. */
-export async function listTripConfirmations(
+async function listTripsByConfirmationStatus<TStatus extends 'FINISHED' | 'CONFIRMED'>(
   api: ApiRequest,
+  status: TStatus,
   filters: TripConfirmationFilters = {},
-): Promise<TripConfirmationItem[]> {
-  const query = new URLSearchParams({ status: 'FINISHED' })
+): Promise<Array<Omit<TripConfirmationItem, 'status'> & { status: TStatus }>> {
+  const query = new URLSearchParams({ status })
   if (filters.from) query.set('from', filters.from)
   if (filters.to) query.set('to', filters.to)
   const response = await send(api, `/trips?${query.toString()}`)
   if (!response.ok) throw await failureFrom(response)
   const body: unknown = await response.json().catch(() => null)
   if (!Array.isArray(body)) throw new TripRequestError('invalidResponse', INVALID_RESPONSE_MESSAGE)
-  return body.map(parseTripConfirmationItem)
+  return body.map((item) => parseTripSummary(item, status))
+}
+
+/** Consulta viagens finalizadas com o filtro de período aceito pelo GET gerencial FROTA-106. */
+export async function listTripConfirmations(
+  api: ApiRequest,
+  filters: TripConfirmationFilters = {},
+): Promise<TripConfirmationItem[]> {
+  return listTripsByConfirmationStatus(api, 'FINISHED', filters)
+}
+
+/** Consulta viagens já confirmadas para recibo somente leitura pelo contrato FROTA-106. */
+export async function listConfirmedTrips(
+  api: ApiRequest,
+  filters: TripConfirmationFilters = {},
+): Promise<ConfirmedTripItem[]> {
+  return listTripsByConfirmationStatus(api, 'CONFIRMED', filters)
 }
 
 /** Confirma uma viagem e valida a resposta de transição antes de informar sucesso à tela. */

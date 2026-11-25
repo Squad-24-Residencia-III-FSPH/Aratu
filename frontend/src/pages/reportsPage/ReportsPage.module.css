@@ -1,13 +1,109 @@
 .pageContainer { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .printRoot { display: none; }
+
 @media print {
+  @page {
+    size: A4;
+    margin: 14mm 10mm;
+    @bottom-right {
+      content: "Página " counter(page) " de " counter(pages);
+      font-size: 8pt;
+      color: #334155;
+    }
+  }
+
   :global(body) > :not(.printRoot) { display: none !important; }
-  .printRoot { display: block; color: #0f172a; background: white; font: 10pt Arial, sans-serif; }
-  .printRoot h1 { font-size: 16pt; }
-  .printRoot p { margin: 4px 0; }
-  .printRoot table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 8pt; table-layout: fixed; }
-  .printRoot th, .printRoot td { border: 1px solid #64748b; padding: 4px; overflow-wrap: anywhere; text-align: left; }
+
+  .printRoot {
+    display: block;
+    color: #0f172a;
+    background: #ffffff;
+    font: 10pt Arial, sans-serif;
+  }
+
+  .printPageLayout {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .printRepeatBanner {
+    display: table-header-group;
+  }
+
+  .printRepeatInner {
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    border-bottom: 1.5px solid #334155;
+  }
+
+  .printRepeatMeta {
+    margin: 2px 0 0;
+    font-size: 8pt;
+    color: #1e293b;
+  }
+
+  .printBodyGroup {
+    display: table-row-group;
+  }
+
+  .printSummary {
+    margin-top: 8px;
+    margin-bottom: 10px;
+  }
+
+  .printRoot h1 { font-size: 15pt; margin: 0 0 6px; }
+  .printRoot p { margin: 3px 0; }
+
+  .printRoot table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 8pt;
+    table-layout: auto;
+  }
+
+  .printRoot caption {
+    text-align: left;
+    font-size: 8.5pt;
+    color: #334155;
+    margin-bottom: 4px;
+  }
+
+  .printRoot th,
+  .printRoot td {
+    border: 1px solid #64748b;
+    padding: 4px 5px;
+    vertical-align: top;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .printRoot th {
+    background: #f1f5f9;
+    font-weight: 700;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
+  }
+
+  .printNoWrapCell {
+    white-space: nowrap;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  .printTextCell {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  .alignLeft { text-align: left; }
+  .alignRight { text-align: right; }
+  .alignCenter { text-align: center; }
+
   .printRoot thead { display: table-header-group; }
-  .printRoot tfoot { display: table-row-group; font-weight: bold; }
-  .printRoot tr { break-inside: avoid; }
+  .printRoot tfoot { display: table-row-group; font-weight: bold; break-inside: avoid; page-break-inside: avoid; }
+  .printRoot tr { break-inside: avoid; page-break-inside: avoid; }
 }

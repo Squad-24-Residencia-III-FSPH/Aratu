@@ -34,6 +34,12 @@ export interface CreateRequestBody {
   notes?: unknown
 }
 
+/** Campos recebidos no reenvio versionado de solicitação devolvida para correção. */
+export interface ResubmitRequestBody extends CreateRequestBody {
+  expectedRevision?: unknown
+  reason?: unknown
+}
+
 /** Dados normalizados da solicitação, prontos para persistência. */
 export interface CreateRequestInput {
   requestedDate: string
@@ -47,12 +53,19 @@ export interface CreateRequestInput {
   notes: string | null
 }
 
+/** Dados normalizados para reenvio versionado da solicitação. */
+export interface ResubmitRequestInput extends CreateRequestInput {
+  expectedRevision: number
+  reason: string
+}
+
 /** Ator autenticado preservado no contexto histórico da solicitação. */
 export interface RequestActorSnapshot {
   id: string
   name: string
   email: string
   role: UserRole
+  sector?: string | null
 }
 
 /** Serviço ativo copiado para o contexto vigente no momento da solicitação. */
@@ -79,18 +92,37 @@ export interface TripRequest {
   notes: string | null
   status: RequestStatus
   revision: number
+  requesterSector: string | null
   requesterSnapshot: RequestActorSnapshot
   serviceSnapshot: RequestServiceSnapshot
 }
 
-/** Evento imutável que registra a abertura da solicitação. */
+/** Evento imutável registrado na trilha da solicitação. */
 export interface CreateRequestEventInput {
   requestId: string
+  eventType?: 'CREATED' | 'RESUBMITTED'
   reportedBy: string
   registeredBy: string
   actorSnapshot: RequestActorSnapshot
   reason: string
+  beforeState?: TripRequest | null
   afterState: TripRequest
+}
+
+/** Evento histórico resumido retornado no detalhe da solicitação. */
+export interface RequestEventSummary {
+  id: string
+  eventType: string
+  occurredAt: string
+  reportedBy: string
+  reason: string
+}
+
+/** Resultado retornado após reenvio versionado da solicitação. */
+export interface ResubmitRequestResult {
+  id: string
+  status: RequestStatus
+  revision: number
 }
 
 /** Evento imutável que preserva os estados anterior e posterior de uma retificação. */
@@ -169,18 +201,15 @@ export interface RequestTrip {
   }
 }
 
-/** Detalhe completo de uma solicitação, incluindo decisão e viagem. */
+/** Detalhe completo de uma solicitação, incluindo setor histórico, decisão, revisão, eventos e viagem. */
 export interface RequestDetail extends RequestSummary {
+  requesterSector: string | null
   decidedBy: string | null
   decidedByName: string | null
   decidedAt: string | null
   decisionReason: string | null
+  events?: RequestEventSummary[]
   trip: RequestTrip | null
-}
-
-/** Entrada validada para reenviar uma solicitação devolvida para correção. */
-export interface ResubmitRequestBody extends CreateRequestBody {
-  expectedRevision?: unknown
 }
 
 /** Evento histórico imutável da solicitação. */

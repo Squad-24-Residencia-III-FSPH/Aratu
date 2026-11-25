@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
-import { Alert, Box, Button } from '@mui/material'
+import RefreshIcon from '@mui/icons-material/Refresh'
+import { Alert, Box, Button, Typography } from '@mui/material'
 import { useAuth } from '../../../auth/useAuth'
 import { resolveProfile } from '../../../auth/profiles'
 import DataTable from '../../../components/ui/DataTable'
@@ -10,66 +11,22 @@ import FilterBar from '../../../components/ui/FilterBar'
 import { FormField } from '../../../components/ui/FormField'
 import PageHeader from '../../../components/ui/PageHeader'
 import StateFeedback from '../../../components/ui/StateFeedback'
-import StatusChip from '../../../components/ui/StatusChip'
-import ConfirmDialog from '../../../components/ui/ConfirmDialog'
+import { accessibleControls } from '../../../components/ui/accessibleControls'
+import { listVehicles, VehicleRequestError } from '../../../services/vehiclesService'
 import { canManageServiceTypes } from '../../../services/fleetServicesAccess'
 import {
-  createFleetService,
   FleetServiceRequestError,
+  listCompatibleVehicles,
   listFleetServices,
-  setFleetServiceActive,
-  updateFleetService,
 } from '../../../services/fleetServicesService'
-import type { FleetService } from '../../../services/fleetServicesService'
+import type { CompatibleVehicleSummary, FleetService } from '../../../services/fleetServicesService'
+import type { Vehicle } from '../../../vehicles/vehicleTypes'
 import { VEHICLE_CATEGORY_LABELS } from '../../../vehicles/vehicleTypes'
-
-interface ServiceRow {
-  service: FleetService
-}
-
-interface ServiceFormValue {
-  name: string
-  description: string
-  reason: string
-}
-
-const EMPTY_FORM: ServiceFormValue = { name: '', description: '', reason: '' }
-
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback
-}
-
-const SERVICE_COLUMNS: readonly DataTableColumn<ServiceRow>[] = [
-  {
-    key: 'name',
-    header: 'Tipo de serviço',
-    render: (row) => (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        <Box component="span" sx={{ fontWeight: 600 }}>{row.service.name}</Box>
-        {row.service.description && (
-          <Box component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-            {row.service.description}
-          </Box>
-        )}
-      </Box>
-    ),
-  },
-  {
-    key: 'categories',
-    header: 'Categoria compatível',
-    render: (row) => row.service.categories.map((category) => VEHICLE_CATEGORY_LABELS[category]).join(', '),
-  },
-  {
-    key: 'active',
-    header: 'Situação',
-    render: (row) => (
-      <StatusChip
-        label={row.service.active ? 'Ativo' : 'Inativo'}
-        tone={row.service.active ? 'success' : 'neutral'}
-      />
-    ),
-  },
-]
+import ServiceFormDialog from './ServiceFormDialog'
+import ServiceStatusChip from './ServiceStatusChip'
+import ServiceStatusDialog from './ServiceStatusDialog'
+import { readServiceErrorMessage } from './serviceHelpers'
+import type { ServiceLinksState, ServiceRow } from './serviceHelpers'
 
 /** Gerencia o catálogo independente de tipos de serviço. */
 export default function ServicesPage() {
@@ -78,35 +35,115 @@ export default function ServicesPage() {
   const allowed = canManageServiceTypes(profile)
   const forbidden = !allowed
 
-  const [rows, setRows] = useState<ServiceRow[]>([])
+  const [services, setServices] = useState<FleetService[] | null>(null)
+  const [linksByServiceId, setLinksByServiceId] = useState<Record<string, ServiceLinksState>>({})
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [vehiclesError, setVehiclesError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loadingCatalog, setLoadingCatalog] = useState(true)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
   const [refreshCount, setRefreshCount] = useState(0)
-  const [feedback, setFeedback] = useState<string | null>(null)
-  const [formTarget, setFormTarget] = useState<ServiceRow | 'new' | null>(null)
+  const [feedback, setFeedback] = useState<{ kind: 'success' | 'partial'; message: string } | null>(null)
+  const [formTarget, setFormTarget] = useState<{ mode: 'new' } | { mode: 'edit'; serviceId: string } | null>(null)
   const [statusTarget, setStatusTarget] = useState<FleetService | null>(null)
+
+  const loadEpochRef = useRef(0)
+
+  const previousTitleRef = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    if (previousTitleRef.current === null) {
+      previousTitleRef.current = document.title
+    }
+    return () => {
+      if (previousTitleRef.current !== null) {
+        document.title = previousTitleRef.current
+        previousTitleRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    document.title = 'Tipos de serviço — Aratu'
+  }, [])
+
+  const fetchVehiclesCatalog = useCallback(async (epoch: number) => {
+    try {
+      const loadedVehicles = await listVehicles(api)
+      if (loadEpochRef.current !== epoch) return
+      setVehicles(loadedVehicles)
+      setVehiclesError(null)
+    } catch (error) {
+      if (loadEpochRef.current !== epoch) return
+      if (error instanceof VehicleRequestError && error.kind === 'forbidden') return
+      setVehiclesError(readServiceErrorMessage(error, 'Não foi possível carregar os veículos da frota para seleção.'))
+    }
+  }, [api])
+
+  const fetchServiceLinks = useCallback(async (serviceId: string, epoch: number): Promise<CompatibleVehicleSummary[] | null> => {
+    setLinksByServiceId((current) => ({ ...current, [serviceId]: { status: 'loading' } }))
+    try {
+      const view = await listCompatibleVehicles(api, serviceId)
+      if (loadEpochRef.current !== epoch) return null
+      setLinksByServiceId((current) => ({
+        ...current,
+        [serviceId]: { status: 'loaded', vehicles: view.vehicles },
+      }))
+      return view.vehicles
+    } catch (error) {
+      if (loadEpochRef.current !== epoch) return null
+      setLinksByServiceId((current) => ({
+        ...current,
+        [serviceId]: {
+          status: 'error',
+          message: readServiceErrorMessage(error, 'Não foi possível consultar os veículos compatíveis.'),
+        },
+      }))
+      return null
+    }
+  }, [api])
 
   useEffect(() => {
     if (!allowed) return
 
-    let current = true
-    listFleetServices(api)
-      .then((services) => {
-        if (!current) return
-        setRows(services.map((service) => ({ service })))
-        setLoading(false)
+    const epoch = ++loadEpochRef.current
+    let active = true
+
+    void fetchVehiclesCatalog(epoch)
+
+    void listFleetServices(api)
+      .then((loadedServices) => {
+        if (!active || loadEpochRef.current !== epoch) return
+        setServices(loadedServices)
+        setCatalogError(null)
+        setLoadingCatalog(false)
+
+        const initialLinks: Record<string, ServiceLinksState> = {}
+        for (const service of loadedServices) {
+          initialLinks[service.id] = { status: 'loading' }
+        }
+        setLinksByServiceId(initialLinks)
+
+        void Promise.allSettled(loadedServices.map((service) => fetchServiceLinks(service.id, epoch)))
       })
       .catch((error: unknown) => {
-        if (!current) return
-        setLoading(false)
-        if (error instanceof FleetServiceRequestError && error.kind === 'forbidden') {
-          return
-        }
-        setLoadError(errorMessage(error, 'Não foi possível carregar os tipos de serviço.'))
+        if (!active || loadEpochRef.current !== epoch) return
+        setLoadingCatalog(false)
+        if (error instanceof FleetServiceRequestError && error.kind === 'forbidden') return
+        setCatalogError(readServiceErrorMessage(error, 'Não foi possível carregar os tipos de serviço.'))
       })
-    return () => { current = false }
-  }, [api, allowed, refreshCount])
+
+    return () => {
+      active = false
+    }
+  }, [api, allowed, refreshCount, fetchServiceLinks, fetchVehiclesCatalog])
+
+  const rows: ServiceRow[] = useMemo(() => {
+    if (!services) return []
+    return services.map((service) => ({
+      service,
+      links: linksByServiceId[service.id] ?? { status: 'loading' },
+    }))
+  }, [services, linksByServiceId])
 
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR')
@@ -115,22 +152,120 @@ export default function ServicesPage() {
       .toLocaleLowerCase('pt-BR').includes(normalizedQuery))
   }, [query, rows])
 
+  const failedLinkRows = useMemo(
+    () => rows.filter((row) => row.links.status === 'error'),
+    [rows],
+  )
+
+  const knownServiceIds = useMemo(
+    () => new Set((services ?? []).map((service) => service.id)),
+    [services],
+  )
+
+  const editingRow = useMemo(() => {
+    if (!formTarget || formTarget.mode !== 'edit') return null
+    return rows.find((row) => row.service.id === formTarget.serviceId) ?? null
+  }, [formTarget, rows])
+
   function reload() {
-    setLoading(true)
-    setLoadError(null)
+    setLoadingCatalog(true)
+    setCatalogError(null)
     setRefreshCount((count) => count + 1)
+  }
+
+  function retryFailedLinks() {
+    const epoch = loadEpochRef.current
+    void Promise.allSettled(failedLinkRows.map((row) => fetchServiceLinks(row.service.id, epoch)))
+  }
+
+  function retryVehicles() {
+    void fetchVehiclesCatalog(loadEpochRef.current)
+  }
+
+  function handleServicePersisted(saved: FleetService, linkedVehicles?: readonly CompatibleVehicleSummary[]) {
+    setServices((current) => {
+      if (!current) return [saved]
+      const exists = current.some((item) => item.id === saved.id)
+      return exists ? current.map((item) => (item.id === saved.id ? saved : item)) : [...current, saved]
+    })
+    if (linkedVehicles !== undefined) {
+      setLinksByServiceId((current) => ({
+        ...current,
+        [saved.id]: { status: 'loaded', vehicles: [...linkedVehicles] },
+      }))
+    }
   }
 
   function handleSaved(message: string) {
     setFormTarget(null)
     setStatusTarget(null)
-    setFeedback(message)
+    setFeedback({ kind: 'success', message })
     reload()
   }
 
-  const columns = SERVICE_COLUMNS
+  const columns: readonly DataTableColumn<ServiceRow>[] = useMemo(() => [
+    {
+      key: 'name',
+      header: 'Tipo de serviço',
+      render: (row) => (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <Box component="span" sx={{ fontWeight: 600 }}>{row.service.name}</Box>
+          {row.service.description && (
+            <Box component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+              {row.service.description}
+            </Box>
+          )}
+        </Box>
+      ),
+    },
+    {
+      key: 'categories',
+      header: 'Categoria compatível',
+      render: (row) => row.service.categories.map((category) => VEHICLE_CATEGORY_LABELS[category]).join(', '),
+    },
+    {
+      key: 'vehicles',
+      header: 'Veículos compatíveis',
+      render: (row) => {
+        if (row.links.status === 'loading') {
+          return (
+            <Typography variant="body2" color="text.secondary" role="status">
+              Consultando vínculos...
+            </Typography>
+          )
+        }
+        if (row.links.status === 'error') {
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Typography variant="body2" color="error.main" role="alert">
+                Falha ao consultar
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<RefreshIcon aria-hidden="true" />}
+                onClick={() => void fetchServiceLinks(row.service.id, loadEpochRef.current)}
+                aria-label={`Consultar novamente veículos compatíveis de ${row.service.name}`}
+                sx={{ minHeight: 44 }}
+              >
+                Consultar novamente
+              </Button>
+            </Box>
+          )
+        }
+        const count = row.links.vehicles.length
+        return count === 1 ? '1 veículo' : `${count} veículos`
+      },
+    },
+    {
+      key: 'active',
+      header: 'Situação',
+      render: (row) => <ServiceStatusChip active={row.service.active} />,
+    },
+  ], [fetchServiceLinks])
+
   return (
-    <Box>
+    <Box sx={accessibleControls}>
       <PageHeader
         title="Tipos de serviço"
         breadcrumbs={['Início', 'Tipos de serviço']}
@@ -139,7 +274,7 @@ export default function ServicesPage() {
           <Button
             variant="contained"
             startIcon={<AddIcon aria-hidden="true" />}
-            onClick={() => { setFeedback(null); setFormTarget('new') }}
+            onClick={() => { setFeedback(null); setFormTarget({ mode: 'new' }) }}
             sx={{ minHeight: 44 }}
           >
             Novo tipo
@@ -153,12 +288,46 @@ export default function ServicesPage() {
         <>
           {feedback && (
             <Alert
-              severity="success"
+              severity={feedback.kind === 'partial' ? 'warning' : 'success'}
+              role="status"
               onClose={() => setFeedback(null)}
               sx={{ mb: 2 }}
             >
-              <strong>Alteração salva: </strong>{feedback}
+              <strong>Alteração salva: </strong>{feedback.message}
             </Alert>
+          )}
+
+          {catalogError && services !== null && (
+            <StateFeedback
+              kind="partial"
+              title="Não foi possível atualizar os tipos de serviço"
+              description={catalogError}
+              actionLabel="Tentar novamente"
+              onAction={reload}
+              sx={{ mb: 2 }}
+            />
+          )}
+
+          {!catalogError && failedLinkRows.length > 0 && (
+            <StateFeedback
+              kind="partial"
+              title="Leitura parcial dos veículos compatíveis"
+              description={`Não foi possível consultar os veículos compatíveis de: ${failedLinkRows.map((item) => item.service.name).join(', ')}. O restante do catálogo permanece disponível.`}
+              actionLabel="Tentar novamente"
+              onAction={retryFailedLinks}
+              sx={{ mb: 2 }}
+            />
+          )}
+
+          {!catalogError && vehiclesError && (
+            <StateFeedback
+              kind="partial"
+              title="Lista de veículos da frota indisponível"
+              description={vehiclesError}
+              actionLabel="Tentar novamente"
+              onAction={retryVehicles}
+              sx={{ mb: 2 }}
+            />
           )}
 
           <FilterBar label="Pesquisar tipos de serviço" sx={{ mb: 2 }}>
@@ -172,10 +341,15 @@ export default function ServicesPage() {
             </Box>
           </FilterBar>
 
-          {loadError ? (
-            <StateFeedback kind="error" title="Não foi possível carregar os tipos de serviço" description={loadError}
-              actionLabel="Tentar novamente" onAction={reload} />
-          ) : loading ? (
+          {catalogError && services === null ? (
+            <StateFeedback
+              kind="error"
+              title="Não foi possível carregar os tipos de serviço"
+              description={catalogError}
+              actionLabel="Tentar novamente"
+              onAction={reload}
+            />
+          ) : loadingCatalog && services === null ? (
             <StateFeedback kind="loading" title="Carregando tipos de serviço..." />
           ) : (
             <DataTable
@@ -189,7 +363,7 @@ export default function ServicesPage() {
                   <Button
                     size="small"
                     startIcon={<EditIcon aria-hidden="true" />}
-                    onClick={() => { setFeedback(null); setFormTarget(row) }}
+                    onClick={() => { setFeedback(null); setFormTarget({ mode: 'edit', serviceId: row.service.id }) }}
                     aria-label={`Editar tipo de serviço ${row.service.name}`}
                     sx={{ minHeight: 44 }}
                   >
@@ -205,7 +379,7 @@ export default function ServicesPage() {
                   </Button>
                 </Box>
               )}
-              busy={loading}
+              busy={loadingCatalog}
               emptyContent={(
                 <StateFeedback
                   kind="empty"
@@ -221,190 +395,32 @@ export default function ServicesPage() {
         </>
       )}
 
-      {formTarget && (
+      {formTarget && (formTarget.mode === 'new' || editingRow) && (
         <ServiceFormDialog
-          key={formTarget === 'new' ? 'new' : formTarget.service.id}
+          key={formTarget.mode === 'new' ? 'new' : editingRow?.service.id}
           api={api}
-          row={formTarget === 'new' ? null : formTarget}
+          vehicles={vehicles}
+          vehiclesLoadError={vehiclesError}
+          onRetryVehicles={retryVehicles}
+          knownServiceIds={knownServiceIds}
+          row={editingRow}
+          onRetryRowLinks={(serviceId) => fetchServiceLinks(serviceId, loadEpochRef.current)}
+          onServicePersisted={handleServicePersisted}
           onSaved={handleSaved}
           onCancel={() => setFormTarget(null)}
         />
       )}
+
       {statusTarget && (
         <ServiceStatusDialog
           key={statusTarget.id}
           api={api}
           service={statusTarget}
+          onServiceRefreshed={(updated) => handleServicePersisted(updated)}
           onSaved={(service) => handleSaved(`Tipo de serviço “${service.name}” ${service.active ? 'ativado' : 'inativado'}.`)}
           onCancel={() => setStatusTarget(null)}
         />
       )}
     </Box>
-  )
-}
-
-interface ServiceFormDialogProps {
-  api: ReturnType<typeof useAuth>['api']
-  row: ServiceRow | null
-  onSaved: (message: string) => void
-  onCancel: () => void
-}
-
-function ServiceFormDialog({ api, row, onSaved, onCancel }: ServiceFormDialogProps) {
-  const [value, setValue] = useState<ServiceFormValue>(() => row
-    ? {
-        name: row.service.name,
-        description: row.service.description ?? '',
-        reason: '',
-      }
-    : EMPTY_FORM)
-  const [fieldError, setFieldError] = useState<string | null>(null)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-
-  const attributesChanged = !row || value.name.trim() !== row.service.name
-    || value.description.trim() !== (row.service.description ?? '')
-
-  async function handleSave() {
-    if (!value.name.trim()) {
-      setFieldError('Informe o nome do tipo de serviço.')
-      return
-    }
-    if (!value.reason.trim()) {
-      setFieldError('Informe a justificativa da alteração.')
-      return
-    }
-    setSubmitting(true)
-    setSubmitError(null)
-    setFieldError(null)
-    try {
-      const persistedService = row
-        ? attributesChanged
-          ? await updateFleetService(api, row.service, {
-              name: value.name.trim(), description: value.description.trim(), reason: value.reason.trim(),
-            })
-          : row.service
-        : await createFleetService(api, {
-            name: value.name.trim(), description: value.description.trim(), reason: value.reason.trim(),
-          })
-
-      onSaved(row ? `Tipo de serviço “${persistedService.name}” atualizado.`
-        : `Tipo de serviço “${persistedService.name}” cadastrado.`)
-    } catch (error) {
-      setSubmitError(errorMessage(error, 'Não foi possível salvar o tipo de serviço.'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <ConfirmDialog
-      open
-      title={row ? 'Editar tipo de serviço' : 'Novo tipo de serviço'}
-      description="Informe os dados do tipo de serviço. A associação aos veículos é feita no cadastro de cada veículo."
-      confirmLabel={row ? 'Salvar alterações' : 'Cadastrar tipo'}
-      onConfirm={handleSave}
-      onCancel={onCancel}
-      cancelLabel="Voltar"
-      loading={submitting}
-      confirmDisabled={submitting || !attributesChanged}
-      paperSx={{ maxWidth: 560 }}
-    >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-        {submitError && <Alert severity="error" role="alert">{submitError}</Alert>}
-        <FormField
-          label="Nome"
-          value={value.name}
-          onChange={(name) => setValue((current) => ({ ...current, name }))}
-          error={fieldError?.includes('nome') ? fieldError : undefined}
-          required
-          autoFocus={!row}
-        />
-        <FormField
-          label="Descrição"
-          value={value.description}
-          onChange={(description) => setValue((current) => ({ ...current, description }))}
-          multiline
-          minRows={2}
-        />
-        <FormField
-          label="Justificativa"
-          value={value.reason}
-          onChange={(reason) => setValue((current) => ({ ...current, reason }))}
-          error={fieldError?.includes('justificativa') ? fieldError : undefined}
-          helperText="Registrada na auditoria da alteração."
-          required
-          multiline
-          minRows={2}
-        />
-      </Box>
-    </ConfirmDialog>
-  )
-}
-
-interface ServiceStatusDialogProps {
-  api: ReturnType<typeof useAuth>['api']
-  service: FleetService
-  onSaved: (service: FleetService) => void
-  onCancel: () => void
-}
-
-function ServiceStatusDialog({ api, service, onSaved, onCancel }: ServiceStatusDialogProps) {
-  const [reason, setReason] = useState('')
-  const [reasonError, setReasonError] = useState<string | undefined>()
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const nextActive = !service.active
-
-  async function handleConfirm() {
-    if (!reason.trim()) {
-      setReasonError('Informe a justificativa da mudança de situação.')
-      return
-    }
-    setSubmitting(true)
-    setSubmitError(null)
-    try {
-      const updated = await setFleetServiceActive(api, service, nextActive, reason.trim())
-      onSaved(updated)
-    } catch (error) {
-      setSubmitError(errorMessage(error, 'Não foi possível alterar a situação do tipo de serviço.'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <ConfirmDialog
-      open
-      title={`${nextActive ? 'Ativar' : 'Inativar'} tipo de serviço`}
-      description={nextActive
-        ? `Deseja ativar “${service.name}”? O tipo ficará disponível para novas solicitações.`
-        : `Deseja inativar “${service.name}”? O tipo deixará de aparecer em novas solicitações; registros existentes serão preservados.`}
-      confirmLabel={nextActive ? 'Ativar tipo' : 'Inativar tipo'}
-      danger={!nextActive}
-      onConfirm={handleConfirm}
-      onCancel={onCancel}
-      cancelLabel="Manter situação atual"
-      loading={submitting}
-      confirmDisabled={submitting}
-    >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-        {submitError && <Alert severity="error" role="alert">{submitError}</Alert>}
-        <FormField
-          label="Justificativa"
-          value={reason}
-          onChange={(nextReason) => {
-            setReason(nextReason)
-            setReasonError(undefined)
-          }}
-          error={reasonError}
-          helperText="Registrada na auditoria do tipo de serviço."
-          required
-          multiline
-          minRows={2}
-          autoFocus
-        />
-      </Box>
-    </ConfirmDialog>
   )
 }

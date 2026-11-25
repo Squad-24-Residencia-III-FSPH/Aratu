@@ -1,10 +1,13 @@
-/** Categorias de CNH aceitas pelo cadastro de motoristas (espelha o CHECK de `fleet.drivers`). */
+/** Categorias de CNH aceitas pela API de motoristas (espelha o CHECK de `fleet.drivers`). */
 export const CNH_CATEGORIES = ['A', 'B', 'C', 'D', 'E', 'AB', 'AC', 'AD', 'AE'] as const
 export type CnhCategory = typeof CNH_CATEGORIES[number]
 
 /** Situações vigentes de um motorista: ativo, afastado ou inativo. */
 export const DRIVER_STATUSES = ['ACTIVE', 'AWAY', 'INACTIVE'] as const
 export type DriverStatus = typeof DRIVER_STATUSES[number]
+
+/** Tipos de eventos imutáveis da linha do tempo do motorista (`fleet.driver_events`). */
+export type DriverEventType = 'CREATED' | 'UPDATED' | 'STATUS_CHANGED'
 
 /** Operações de auditoria associadas às mutações de motorista. */
 export const DRIVER_AUDIT_OPERATIONS = {
@@ -27,6 +30,29 @@ export interface Driver {
   revision: number
   createdAt: Date
   updatedAt: Date
+}
+
+/** Projeção sanitizada de evento histórico do motorista (sem snapshots de CPF/CNH). */
+export interface DriverHistoryEvent {
+  id: string
+  eventType: DriverEventType
+  occurredAt: Date
+  reportedBy: string
+  reason: string
+  actorName: string | null
+  actorRole: string | null
+}
+
+/** Detalhe do motorista enriquecido com sua linha do tempo operacional sanitizada. */
+export interface DriverDetails extends Driver {
+  events: DriverHistoryEvent[]
+}
+
+/** Projeção mínima de conta `MOTORISTA` ativa e elegível para vínculo operacional. */
+export interface EligibleDriverAccount {
+  id: string
+  name: string
+  email: string
 }
 
 /** Origem e justificativa obrigatórias em toda mutação registrada no histórico. */
@@ -97,7 +123,7 @@ export interface DriverActorSnapshot {
 /** Evento append-only da história de um motorista (`fleet.driver_events`). */
 export interface CreateDriverEventInput {
   driverId: string
-  eventType: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED'
+  eventType: DriverEventType
   reportedBy: string
   registeredBy: string
   actorSnapshot: DriverActorSnapshot

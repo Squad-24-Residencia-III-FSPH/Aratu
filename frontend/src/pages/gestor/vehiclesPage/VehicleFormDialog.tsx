@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   Alert,
@@ -11,6 +11,7 @@ import {
   Stack,
 } from '@mui/material'
 import type { ApiRequest } from '../../../api/client'
+import { accessibleControls } from '../../../components/ui/accessibleControls'
 import { FormField, FormSelect } from '../../../components/ui/FormField'
 import {
   listFleetServiceAssignments,
@@ -65,6 +66,21 @@ type VehicleFormDialogProps = VehicleFormDialogBaseProps & (
   | { mode: 'edit'; vehicle: Vehicle }
 )
 
+type FocusableVehicleField = keyof VehicleFormErrors
+
+const FIELD_FOCUS_ORDER: readonly FocusableVehicleField[] = [
+  'licensePlate',
+  'year',
+  'seats',
+  'bodyLimit',
+  'categories',
+  'reason',
+]
+
+function firstInvalidField(errors: VehicleFormErrors): FocusableVehicleField | null {
+  return FIELD_FOCUS_ORDER.find((field) => Boolean(errors[field])) ?? null
+}
+
 /** Formulário de cadastro/edição com validação local e erro do campo vindo da API. */
 export default function VehicleFormDialog(props: VehicleFormDialogProps) {
   const titleId = useId()
@@ -73,6 +89,7 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
   const [errors, setErrors] = useState<VehicleFormErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [focusRequest, setFocusRequest] = useState<{ field: FocusableVehicleField; seq: number } | null>(null)
   const [serviceAssignments, setServiceAssignments] = useState<FleetServiceAssignmentSnapshot[] | null>(null)
   const [serviceLoadError, setServiceLoadError] = useState<string | null>(null)
   const [serviceReload, setServiceReload] = useState(0)
@@ -82,6 +99,35 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
   const [vehicleAttributesChanged, setVehicleAttributesChanged] = useState(true)
 
   const editingVehicleId = props.mode === 'edit' ? props.vehicle.id : null
+
+  const licensePlateRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const yearRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const seatsRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const bodyLimitRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const categoriesContainerRef = useRef<HTMLDivElement>(null)
+  const reasonRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (!focusRequest) return
+    const target: HTMLElement | null = focusRequest.field === 'categories'
+      ? categoriesContainerRef.current?.querySelector<HTMLElement>('[role="combobox"], input, select') ?? null
+      : ({
+          licensePlate: licensePlateRef.current,
+          year: yearRef.current,
+          seats: seatsRef.current,
+          bodyLimit: bodyLimitRef.current,
+          reason: reasonRef.current,
+        })[focusRequest.field]
+    if (!target) return
+    target.focus()
+    if (typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ block: 'nearest' })
+    }
+  }, [focusRequest])
+
+  function requestFieldFocus(field: FocusableVehicleField) {
+    setFocusRequest((current) => ({ field, seq: (current?.seq ?? 0) + 1 }))
+  }
 
   useEffect(() => {
     let current = true
@@ -117,7 +163,11 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
     event.preventDefault()
     const nextErrors = validateVehicleForm(values)
     setErrors(nextErrors)
-    if (Object.keys(nextErrors).length > 0) return
+    const firstField = firstInvalidField(nextErrors)
+    if (firstField) {
+      requestFieldFocus(firstField)
+      return
+    }
     if (!serviceAssignments) {
       setSubmitError(serviceLoadError ?? 'Aguarde o carregamento dos tipos de serviço antes de salvar.')
       return
@@ -176,6 +226,7 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
       if (error instanceof VehicleRequestError) {
         if (error.kind === 'conflict-plate') {
           setErrors((current) => ({ ...current, licensePlate: error.message }))
+          requestFieldFocus('licensePlate')
           return
         }
         if (error.kind === 'conflict-revision') {
@@ -204,6 +255,7 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
       aria-labelledby={titleId}
       fullWidth
       maxWidth="md"
+      sx={accessibleControls}
     >
       <Box component="form" onSubmit={handleSubmit} noValidate>
         <DialogTitle id={titleId}>{title}</DialogTitle>
@@ -211,13 +263,18 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
           {submitError && (
             <Alert
               severity="error"
+              role="alert"
               sx={{ mb: 2 }}
               action={serviceConflict ? (
-                <Button color="inherit" onClick={() => {
-                  setSubmitError(null)
-                  setServiceConflict(false)
-                  setServiceReload((value) => value + 1)
-                }}>
+                <Button
+                  color="inherit"
+                  sx={{ minHeight: 44 }}
+                  onClick={() => {
+                    setSubmitError(null)
+                    setServiceConflict(false)
+                    setServiceReload((value) => value + 1)
+                  }}
+                >
                   Recarregar seleção
                 </Button>
               ) : undefined}
@@ -237,6 +294,7 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
                 autoComplete="off"
                 maxLength={7}
                 placeholder="ABC1D23"
+                inputRef={licensePlateRef}
               />
               <FormField
                 label="Ano"
@@ -246,6 +304,7 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
                 inputMode="numeric"
                 maxLength={4}
                 placeholder="2024"
+                inputRef={yearRef}
               />
             </Stack>
 
@@ -296,6 +355,7 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
                 error={errors.seats}
                 inputMode="numeric"
                 required
+                inputRef={seatsRef}
               />
               <FormField
                 label="Limite de corpos"
@@ -304,19 +364,22 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
                 error={errors.bodyLimit}
                 inputMode="numeric"
                 required
+                inputRef={bodyLimitRef}
               />
             </Stack>
 
-            <FormSelect
-              label="Categorias"
-              value={values.categories}
-              onChange={(value) => update('categories', value as VehicleFormValues['categories'])}
-              options={CATEGORY_OPTIONS}
-              multiple
-              required
-              error={errors.categories}
-              helperText="Selecione ao menos uma categoria operacional."
-            />
+            <Box ref={categoriesContainerRef}>
+              <FormSelect
+                label="Categorias"
+                value={values.categories}
+                onChange={(value) => update('categories', value as VehicleFormValues['categories'])}
+                options={CATEGORY_OPTIONS}
+                multiple
+                required
+                error={errors.categories}
+                helperText="Selecione ao menos uma categoria operacional."
+              />
+            </Box>
 
             {serviceLoadError ? (
               <Alert severity="error" role="alert" action={(
@@ -351,10 +414,11 @@ export default function VehicleFormDialog(props: VehicleFormDialogProps) {
               required
               multiline
               minRows={2}
+              inputRef={reasonRef}
             />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions sx={{ p: 2, flexWrap: 'wrap', gap: 1 }}>
           <Button onClick={props.onCancel} disabled={submitting} color="inherit" sx={{ minHeight: 44 }}>
             Cancelar
           </Button>

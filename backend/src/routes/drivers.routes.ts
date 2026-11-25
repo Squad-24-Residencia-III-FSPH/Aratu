@@ -24,6 +24,8 @@ export function createDriversRouter(
   )
 
   router.get('/', controller.list)
+  router.get('/eligible-accounts', controller.listEligibleAccounts)
+  router.get('/:id/events', controller.listEvents)
   router.get('/:id', controller.getById)
   router.get('/:id/history', controller.history)
   router.post('/', controller.create)

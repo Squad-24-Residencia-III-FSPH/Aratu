@@ -2,12 +2,12 @@ import type { Pool, PoolClient } from 'pg'
 import { INITIAL_REQUEST_STATUS } from '../types/request.types'
 import type {
   CreateRequestEventInput,
-  CreateRequestLifecycleEventInput,
   CreateRequestInput,
   PaginatedRequests,
   PaginatedRequestHistory,
   RequestActorSnapshot,
   RequestDetail,
+  RequestEventSummary,
   RequestHistoryItem,
   RequestListFilters,
   RequestServiceSnapshot,
@@ -21,7 +21,7 @@ type RequestListQuery = RequestListFilters & { requesterId?: string }
 
 /** Linha da consulta de detalhe antes da montagem do objeto `trip`. */
 interface RequestDetailRow extends RequestSummary {
-  revision: number
+  requesterSector: string | null
   decidedBy: string | null
   decidedByName: string | null
   decidedAt: string | null
@@ -38,15 +38,12 @@ interface RequestDetailRow extends RequestSummary {
   driverName: string | null
 }
 
-/** Contrato de persistência transacional da abertura e da consulta de solicitações. */
+/** Contrato de persistência transacional da abertura, reenvio e consulta de solicitações. */
 export interface RequestsRepositoryContract {
   withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
   findActorSnapshot(id: string, client: PoolClient): Promise<RequestActorSnapshot | null>
   findActiveServiceForUpdate(id: string, client: PoolClient): Promise<RequestServiceSnapshot | null>
   create(input: CreateRequestInput, actor: RequestActorSnapshot, service: RequestServiceSnapshot, client: PoolClient): Promise<TripRequest>
-  createEvent(input: CreateRequestEventInput, client: PoolClient): Promise<void>
-  list(filters: RequestListQuery): Promise<PaginatedRequests>
-  findById(id: string, requesterId?: string): Promise<RequestDetail | null>
   findByIdForUpdate(id: string, client: PoolClient): Promise<TripRequest | null>
   resubmit(
     id: string,
@@ -56,7 +53,9 @@ export interface RequestsRepositoryContract {
     service: RequestServiceSnapshot,
     client: PoolClient,
   ): Promise<TripRequest | null>
-  createLifecycleEvent(input: CreateRequestLifecycleEventInput, client: PoolClient): Promise<void>
+  createEvent(input: CreateRequestEventInput, client: PoolClient): Promise<void>
+  list(filters: RequestListQuery): Promise<PaginatedRequests>
+  findById(id: string, requesterId?: string): Promise<RequestDetail | null>
   listHistory(id: string, page: number, pageSize: number): Promise<PaginatedRequestHistory>
 }
 
@@ -104,6 +103,7 @@ const DETAIL_SQL = `
 SELECT r.id::text AS id,
        r.requester_id::text AS "requesterId",
        u.name AS "requesterName",
+       NULLIF(btrim(r.requester_snapshot ->> 'sector'), '') AS "requesterSector",
        r.service_id::text AS "serviceId",
        s.name AS "serviceName",
        to_char(r.requested_date, 'YYYY-MM-DD') AS "requestedDate",
@@ -203,7 +203,8 @@ export class RequestsRepository implements RequestsRepositoryContract {
   /** Bloqueia a conta enquanto o snapshot é capturado, impedindo desativação concorrente. */
   async findActorSnapshot(id: string, client: PoolClient): Promise<RequestActorSnapshot | null> {
     const result = await client.query<RequestActorSnapshot>(
-      `SELECT u.id::text AS id, u.name, u.email, r.name AS role
+      `SELECT u.id::text AS id, u.name, u.email, r.name AS role,
+              NULLIF(btrim(u.sector), '') AS sector
          FROM auth.users u
          JOIN auth.roles r ON r.id = u.role_id
         WHERE u.id = $1 AND u.active = true
@@ -235,6 +236,13 @@ export class RequestsRepository implements RequestsRepositoryContract {
     service: RequestServiceSnapshot,
     client: PoolClient,
   ): Promise<TripRequest> {
+    const actorSnapshot: RequestActorSnapshot = {
+      id: actor.id,
+      name: actor.name,
+      email: actor.email,
+      role: actor.role,
+      sector: actor.sector ?? null,
+    }
     const result = await client.query<TripRequest>(
       `INSERT INTO trip.requests (
          requester_id, service_id, requested_date, requested_time, origin, destination, purpose,
@@ -244,27 +252,17 @@ export class RequestsRepository implements RequestsRepositoryContract {
                  to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
                  to_char(requested_time, 'HH24:MI') AS "requestedTime",
                  origin, destination, purpose, passengers,
-                 special_requirements AS "specialRequirements", notes, status,
-                 revision, requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"`,
+                 special_requirements AS "specialRequirements", notes, status, revision,
+                 NULLIF(btrim(requester_snapshot ->> 'sector'), '') AS "requesterSector",
+                 requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"`,
       [actor.id, input.serviceId, input.requestedDate, input.requestedTime,
         input.origin, input.destination, input.purpose, input.passengers,
         input.specialRequirements, input.notes, INITIAL_REQUEST_STATUS,
-        JSON.stringify(actor), JSON.stringify(service)],
+        JSON.stringify(actorSnapshot), JSON.stringify(service)],
     )
     const request = result.rows[0]
     if (!request) throw new Error('A solicitação não foi retornada após a gravação.')
     return request
-  }
-
-  /** Registra a abertura com o estado inicial e autoria imutáveis. */
-  async createEvent(input: CreateRequestEventInput, client: PoolClient): Promise<void> {
-    await client.query(
-      `INSERT INTO trip.request_events (
-         request_id, event_type, occurred_at, reported_by, registered_by, actor_snapshot, reason, after_state
-       ) VALUES ($1, 'CREATED', clock_timestamp(), $2, $3, $4::jsonb, $5, $6::jsonb)`,
-      [input.requestId, input.reportedBy, input.registeredBy, JSON.stringify(input.actorSnapshot), input.reason,
-        JSON.stringify(input.afterState)],
-    )
   }
 
   /** Bloqueia a versão atual para validar proprietário, estado e revisão antes do reenvio. */
@@ -275,7 +273,9 @@ export class RequestsRepository implements RequestsRepositoryContract {
               to_char(requested_time, 'HH24:MI') AS "requestedTime",
               origin, destination, purpose, passengers,
               special_requirements AS "specialRequirements", notes, status, revision,
-              requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"
+              NULLIF(btrim(requester_snapshot ->> 'sector'), '') AS "requesterSector",
+              COALESCE(requester_snapshot, '{}'::jsonb) AS "requesterSnapshot",
+              COALESCE(service_snapshot, '{}'::jsonb) AS "serviceSnapshot"
          FROM trip.requests
         WHERE id = $1
         FOR UPDATE`,
@@ -284,7 +284,7 @@ export class RequestsRepository implements RequestsRepositoryContract {
     return result.rows[0] ?? null
   }
 
-  /** Atualiza somente uma versão devolvida e ainda vigente, mantendo o estado anterior no evento. */
+  /** Atualiza somente uma versão devolvida e ainda vigente, mantendo controle otimista por `revision`. */
   async resubmit(
     id: string,
     expectedRevision: number,
@@ -293,6 +293,13 @@ export class RequestsRepository implements RequestsRepositoryContract {
     service: RequestServiceSnapshot,
     client: PoolClient,
   ): Promise<TripRequest | null> {
+    const actorSnapshot: RequestActorSnapshot = {
+      id: actor.id,
+      name: actor.name,
+      email: actor.email,
+      role: actor.role,
+      sector: actor.sector ?? null,
+    }
     const result = await client.query<TripRequest>(
       `UPDATE trip.requests
           SET service_id = $1,
@@ -304,41 +311,51 @@ export class RequestsRepository implements RequestsRepositoryContract {
               passengers = $7,
               special_requirements = $8,
               notes = $9,
-              status = 'PENDING',
+              status = $10,
               decided_by = NULL,
               decided_at = NULL,
               decision_reason = NULL,
-              requester_snapshot = $10::jsonb,
-              service_snapshot = $11::jsonb,
+              requester_snapshot = $11::jsonb,
+              service_snapshot = $12::jsonb,
               revision = revision + 1,
               updated_at = clock_timestamp()
-        WHERE id = $12 AND requester_id = $13 AND status = 'RETURNED' AND revision = $14
+        WHERE id = $13
+          AND requester_id = $14
+          AND status = 'RETURNED'
+          AND revision = $15
         RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
                   to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
                   to_char(requested_time, 'HH24:MI') AS "requestedTime",
                   origin, destination, purpose, passengers,
-                  special_requirements AS "specialRequirements", notes, status,
-                  revision, requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"`,
-      [input.serviceId, input.requestedDate, input.requestedTime, input.origin, input.destination, input.purpose,
-        input.passengers, input.specialRequirements, input.notes, JSON.stringify(actor), JSON.stringify(service),
-        id, actor.id, expectedRevision],
+                  special_requirements AS "specialRequirements", notes, status, revision,
+                  NULLIF(btrim(requester_snapshot ->> 'sector'), '') AS "requesterSector",
+                  requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"`,
+      [
+        input.serviceId, input.requestedDate, input.requestedTime, input.origin, input.destination,
+        input.purpose, input.passengers, input.specialRequirements, input.notes, INITIAL_REQUEST_STATUS,
+        JSON.stringify(actorSnapshot), JSON.stringify(service), id, actor.id, expectedRevision,
+      ],
     )
     return result.rows[0] ?? null
   }
 
-  /** Registra a nova versão sem alterar ou remover eventos anteriores. */
-  async createLifecycleEvent(
-    input: CreateRequestLifecycleEventInput,
-    client: PoolClient,
-  ): Promise<void> {
+  /** Registra evento append-only da solicitação preservando o histórico anterior. */
+  async createEvent(input: CreateRequestEventInput, client: PoolClient): Promise<void> {
     await client.query(
       `INSERT INTO trip.request_events (
          request_id, event_type, occurred_at, reported_by, registered_by,
          actor_snapshot, reason, before_state, after_state
        ) VALUES ($1, $2, clock_timestamp(), $3, $4, $5::jsonb, $6, $7::jsonb, $8::jsonb)`,
-      [input.requestId, input.eventType, input.reportedBy, input.registeredBy,
-        JSON.stringify(input.actorSnapshot), input.reason, JSON.stringify(input.beforeState),
-        JSON.stringify(input.afterState)],
+      [
+        input.requestId,
+        input.eventType ?? 'CREATED',
+        input.reportedBy,
+        input.registeredBy,
+        JSON.stringify(input.actorSnapshot),
+        input.reason,
+        input.beforeState ? JSON.stringify(input.beforeState) : null,
+        JSON.stringify(input.afterState),
+      ],
     )
   }
 
@@ -413,10 +430,23 @@ export class RequestsRepository implements RequestsRepositoryContract {
     const row = result.rows[0]
     if (!row) return null
 
+    const eventsResult = await this.pool.query<RequestEventSummary>(
+      `SELECT id::text AS id,
+              event_type AS "eventType",
+              occurred_at AS "occurredAt",
+              reported_by AS "reportedBy",
+              reason
+         FROM trip.request_events
+        WHERE request_id = $1
+        ORDER BY occurred_at ASC, id ASC`,
+      [row.id],
+    )
+
     return {
       id: row.id,
       requesterId: row.requesterId,
       requesterName: row.requesterName,
+      requesterSector: row.requesterSector ?? null,
       serviceId: row.serviceId,
       serviceName: row.serviceName,
       requestedDate: row.requestedDate,
@@ -426,7 +456,7 @@ export class RequestsRepository implements RequestsRepositoryContract {
       purpose: row.purpose,
       passengers: row.passengers,
       specialRequirements: row.specialRequirements,
-      notes: row.notes,
+      notes: row.notes ?? null,
       status: row.status,
       revision: row.revision,
       decidedBy: row.decidedBy,
@@ -435,6 +465,7 @@ export class RequestsRepository implements RequestsRepositoryContract {
       decisionReason: row.decisionReason,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      events: eventsResult.rows,
       trip: toRequestTrip(row),
     }
   }

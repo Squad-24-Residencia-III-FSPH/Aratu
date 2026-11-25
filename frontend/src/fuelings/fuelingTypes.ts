@@ -26,6 +26,7 @@ export interface FuelingVersion {
   driverSnapshot: { id: string; name: string } | null
   isAnnulled: boolean
   reportedBy?: string
+  notes?: string | null
   reason?: string | null
   evidenceDescription?: string | null
   attachmentUrl?: string | null

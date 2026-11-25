@@ -1,238 +1,534 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Card, CardActions, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Link, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
-import HistoryOutlined from '@mui/icons-material/HistoryOutlined'
-import EditOutlined from '@mui/icons-material/EditOutlined'
-import { useAuth } from '../../auth/useAuth'
-import { resolveProfile } from '../../auth/profiles'
-import DataTable from '../../components/ui/DataTable'
-import type { DataTableColumn } from '../../components/ui/DataTable'
-import FilterBar from '../../components/ui/FilterBar'
-import { FormField, FormSelect } from '../../components/ui/FormField'
-import PageHeader from '../../components/ui/PageHeader'
-import StateFeedback from '../../components/ui/StateFeedback'
-import StatusChip from '../../components/ui/StatusChip'
-import type { StatusTone } from '../../components/ui/StatusChip'
-import { listDrivers } from '../../services/driversService'
-import { listVehicles } from '../../services/vehiclesService'
-import { changeFineStatus, createFine, getFine, listFines, suggestFineDrivers, updateFine } from '../../services/finesService'
-import type { Driver } from '../../drivers/driverTypes'
-import type { Vehicle } from '../../vehicles/vehicleTypes'
-import type { CreateFineInput, Fine, FineDetail, FineDriverSuggestion, FineFilters, FineStatus } from '../../fines/fineTypes'
-import { canManageFines, FINE_STATUS_LABELS, FINE_STATUSES, FINE_TRANSITIONS } from '../../fines/fineTypes'
-import { formatOperationalDateTime, operationalDateTimeInput, operationalDateTimeToIso, operationalDayEndExclusive, operationalDayStart } from '../../time/operationalTime'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Alert, Box, Button, Card, CardActions, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
+import { resolveProfile } from '../../auth/profiles.ts'
+import { useAuth } from '../../auth/useAuth.ts'
+import DataTable from '../../components/ui/DataTable.tsx'
+import type { DataTableColumn } from '../../components/ui/DataTable.tsx'
+import FilterBar from '../../components/ui/FilterBar.tsx'
+import { FormField, FormSelect } from '../../components/ui/FormField.tsx'
+import PageHeader from '../../components/ui/PageHeader.tsx'
+import StateFeedback from '../../components/ui/StateFeedback.tsx'
+import StatusChip from '../../components/ui/StatusChip.tsx'
+import { accessibleControls } from '../../components/ui/accessibleControls.ts'
+import { useFines } from '../../hooks/useFines.ts'
+import {
+  canManageFines,
+  FINE_STATUS_LABELS,
+  FINE_STATUS_TONES,
+  FINE_STATUSES,
+  formatFineMoney,
+  isValidLocalDateTime,
+  localDateTimeToIso,
+  sumFineAmounts,
+} from '../../types/fine.ts'
+import type { Fine, FineDetail, FineFilters, FineStatus } from '../../types/fine.ts'
+import { formatCalendarDate, formatDateTime } from '../../utils/dates.ts'
+import FineDetailDialog from './FineDetailDialog.tsx'
+import FineFormDialog from './FineFormDialog.tsx'
+import FineStatusDialog from './FineStatusDialog.tsx'
+import styles from './FinesPage.module.css'
 
-type FormMode = { kind: 'create' } | { kind: 'edit'; fine: Fine }
-const STATUS_TONE: Record<FineStatus, StatusTone> = { PENDING: 'warning', PAID: 'success', CONTESTED: 'info', CANCELED: 'neutral' }
-const EVENT_LABELS: Record<string, string> = {
-  REGISTERED: 'Multa registrada', DRIVER_IDENTIFIED: 'Motorista identificado', DRIVER_CHANGED: 'Motorista alterado',
-  RECTIFIED: 'Dados retificados', PAID: 'Pagamento registrado', CONTESTED: 'Contestação registrada',
-  CANCELED: 'Multa cancelada', REOPENED: 'Multa reaberta',
-}
-const CURRENCY = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-function localInput(value?: string): string {
-  return operationalDateTimeInput(value ?? new Date().toISOString())
-}
-function toInstant(value: string): string { return operationalDateTimeToIso(value) }
-function formatDate(value: string | null): string { return value ? formatOperationalDateTime(value) : 'Não informado' }
-function freshDraft(fine?: Fine) {
-  return { vehicleId: fine?.vehicleId ?? '', driverId: fine?.driverId ?? '', tripId: fine?.tripId ?? '',
-    infractionAt: fine ? localInput(fine.infractionAt) : localInput(), infractionCode: fine?.infractionCode ?? '',
-    description: fine?.description ?? '', location: fine?.location ?? '', amount: fine?.amount ?? '', dueAt: fine?.dueAt ?? '',
-    notes: fine?.notes ?? '', reason: '', evidenceDescription: '', attachmentUrl: '' }
-}
+const COLUMNS: readonly DataTableColumn<Fine>[] = [
+  {
+    key: 'infractionCode',
+    header: 'Código',
+    width: 140,
+    render: (fine) => <strong>{fine.infractionCode}</strong>,
+  },
+  {
+    key: 'vehicle',
+    header: 'Veículo',
+    width: 180,
+    render: (fine) => {
+      const plate = fine.vehicleSnapshot?.licensePlate ?? fine.vehicle.licensePlate
+      const model = fine.vehicleSnapshot?.model ?? fine.vehicle.model
+      return (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>{plate}</Typography>
+          <Typography variant="caption" color="text.secondary">{model ?? 'Modelo não informado'}</Typography>
+        </Box>
+      )
+    },
+  },
+  {
+    key: 'driver',
+    header: 'Motorista / Viagem',
+    width: 210,
+    render: (fine) => {
+      const driverName = fine.driverSnapshot?.name ?? fine.driver?.name
+      return (
+        <Box>
+          <Typography variant="body2">{driverName ?? 'Sem motorista vinculado'}</Typography>
+          {fine.tripId && (
+            <Typography variant="caption" color="text.secondary">
+              Viagem #{fine.tripId}
+            </Typography>
+          )}
+        </Box>
+      )
+    },
+  },
+  {
+    key: 'infractionAt',
+    header: 'Data da infração',
+    width: 170,
+    render: (fine) => formatDateTime(fine.infractionAt),
+  },
+  {
+    key: 'dueAt',
+    header: 'Vencimento',
+    width: 130,
+    render: (fine) => (fine.dueAt ? formatCalendarDate(fine.dueAt) : 'Não informado'),
+  },
+  {
+    key: 'amount',
+    header: 'Valor',
+    align: 'right',
+    width: 140,
+    render: (fine) => formatFineMoney(fine.amount),
+  },
+  {
+    key: 'status',
+    header: 'Situação',
+    width: 140,
+    render: (fine) => (
+      <StatusChip label={FINE_STATUS_LABELS[fine.status]} tone={FINE_STATUS_TONES[fine.status]} />
+    ),
+  },
+]
 
-/** Gestão de multas e infrações integrada ao histórico e aos contratos REST existentes. */
-export default function FinesPage() {
+/** Tela principal de gestão de multas e infrações (FROTA-74). */
+export function FinesPage() {
   const { api, session } = useAuth()
   const profile = session ? resolveProfile(session.perfil) : null
   const allowed = canManageFines(profile)
-  const theme = useTheme(); const smallScreen = useMediaQuery(theme.breakpoints.down('sm'))
-  const [items, setItems] = useState<Fine[] | null>(null)
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]); const [drivers, setDrivers] = useState<Driver[]>([])
-  const [loading, setLoading] = useState(true); const [optionsLoading, setOptionsLoading] = useState(true)
-  const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [refresh, setRefresh] = useState(0)
-  const [vehicleId, setVehicleId] = useState(''); const [driverId, setDriverId] = useState('')
-  const [status, setStatus] = useState<FineStatus | ''>(''); const [from, setFrom] = useState(''); const [to, setTo] = useState('')
-  const [form, setForm] = useState<FormMode | null>(null); const [draft, setDraft] = useState(freshDraft())
-  const [saving, setSaving] = useState(false); const [suggestions, setSuggestions] = useState<FineDriverSuggestion[]>([])
-  const [suggestionError, setSuggestionError] = useState(''); const [suggestionsLoading, setSuggestionsLoading] = useState(false)
-  const [details, setDetails] = useState<{ fine: FineDetail | null; error: string; loading: boolean } | null>(null)
-  const [statusChange, setStatusChange] = useState<{ fine: Fine; target: FineStatus } | null>(null)
-  const [statusReason, setStatusReason] = useState(''); const [statusEvidence, setStatusEvidence] = useState(''); const [occurredAt, setOccurredAt] = useState(localInput())
+  const theme = useTheme()
+  const smallScreen = useMediaQuery(theme.breakpoints.down('sm'))
 
-  const vehicleOptions = useMemo(() => vehicles.map((vehicle) => ({ value: vehicle.id, label: `${vehicle.licensePlate}${vehicle.model ? ` — ${vehicle.model}` : ''}` })), [vehicles])
-  const driverOptions = useMemo(() => drivers.map((driver) => ({ value: driver.id, label: driver.name })), [drivers])
-  const filters: FineFilters = { ...(vehicleId ? { vehicleId } : {}), ...(driverId ? { driverId } : {}), ...(status ? { status } : {}), ...(from ? { from: operationalDayStart(from) } : {}), ...(to ? { to: operationalDayEndExclusive(to) } : {}) }
-  const reload = useCallback(() => { setLoading(true); setError(''); setRefresh((value) => value + 1) }, [])
+  const [filterInputs, setFilterInputs] = useState({
+    vehicleId: '',
+    driverId: '',
+    status: '',
+    from: '',
+    to: '',
+  })
+  const [filters, setFilters] = useState<FineFilters>({})
+  const [filterError, setFilterError] = useState('')
+  const [formState, setFormState] = useState<{ fine?: Fine } | null>(null)
+  const [statusDialog, setStatusDialog] = useState<{ fine: FineDetail; nextStatus: FineStatus } | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState('')
 
-  useEffect(() => {
-    if (!allowed) return
-    let active = true
-    Promise.all([listVehicles(api), listDrivers(api)])
-      .then(([vehicleRows, driverRows]) => { if (active) { setVehicles(vehicleRows); setDrivers(driverRows) } })
-      .catch((requestError: unknown) => { if (active) setError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar veículos e motoristas.') })
-      .finally(() => { if (active) setOptionsLoading(false) })
-    return () => { active = false }
-  }, [allowed, api, refresh])
+  const triggerRef = useRef<HTMLElement | null>(null)
+
+  const state = useFines(api, allowed, filters)
 
   useEffect(() => {
-    if (!allowed) return
-    let active = true
-    listFines(api, filters).then((rows) => { if (active) { setItems(rows); setError('') } })
-      .catch((requestError: unknown) => { if (active) setError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar as multas.') })
-      .finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, api, driverId, from, refresh, status, to, vehicleId])
-
-  useEffect(() => {
-    let active = true
-    if (!form || !draft.vehicleId || !draft.infractionAt) {
-      queueMicrotask(() => { if (active) { setSuggestions([]); setSuggestionError(''); setSuggestionsLoading(false) } })
-      return () => { active = false }
+    const previous = document.title
+    document.title = 'Multas e Infrações — Aratu'
+    return () => {
+      document.title = previous
     }
-    queueMicrotask(() => { if (active) { setSuggestionsLoading(true); setSuggestionError('') } })
-    suggestFineDrivers(api, draft.vehicleId, toInstant(draft.infractionAt))
-      .then((rows) => { if (active) setSuggestions(rows) })
-      .catch((requestError: unknown) => { if (active) setSuggestionError(requestError instanceof Error ? requestError.message : 'Não foi possível buscar sugestões de motorista.') })
-      .finally(() => { if (active) setSuggestionsLoading(false) })
-    return () => { active = false }
-  }, [api, draft.infractionAt, draft.vehicleId, form])
+  }, [])
 
-  function openCreate(): void { setDraft(freshDraft()); setForm({ kind: 'create' }); setNotice(''); setError('') }
-  function openEdit(fine: Fine): void { setDraft(freshDraft(fine)); setForm({ kind: 'edit', fine }); setNotice(''); setError('') }
-  async function openDetails(fine: Fine): Promise<void> {
-    setDetails({ fine: null, error: '', loading: true })
-    try { setDetails({ fine: await getFine(api, fine.id), error: '', loading: false }) }
-    catch (requestError) { setDetails({ fine: null, error: requestError instanceof Error ? requestError.message : 'Não foi possível carregar o histórico.', loading: false }) }
+  const restoreFocus = () => {
+    const target = triggerRef.current
+    if (target && target.isConnected) {
+      window.setTimeout(() => target.focus(), 0)
+    }
+    triggerRef.current = null
   }
 
-  async function saveFine(): Promise<void> {
-    if (!form || saving) return
-    setSaving(true); setError('')
-    const metadata = { reportedBy: session?.nome ?? 'Gestor de frota', reason: draft.reason.trim(),
-      evidenceDescription: draft.evidenceDescription.trim(), attachmentUrl: draft.attachmentUrl.trim() || null }
-    try {
-      if (form.kind === 'edit') {
-        await updateFine(api, form.fine.id, { expectedRevision: form.fine.revision, occurredAt: toInstant(draft.infractionAt),
-          vehicleId: draft.vehicleId, driverId: draft.driverId || null, tripId: draft.tripId || null,
-          infractionAt: toInstant(draft.infractionAt), infractionCode: draft.infractionCode.trim(), description: draft.description.trim(),
-          location: draft.location.trim() || null, amount: draft.amount, dueAt: draft.dueAt || null, notes: draft.notes.trim() || null, ...metadata })
-        setNotice('Multa retificada e registrada no histórico.')
-      } else {
-        const input: CreateFineInput = { vehicleId: draft.vehicleId, ...(draft.driverId ? { driverId: draft.driverId } : {}),
-          ...(draft.tripId ? { tripId: draft.tripId } : {}), infractionAt: toInstant(draft.infractionAt),
-          infractionCode: draft.infractionCode.trim(), description: draft.description.trim(), location: draft.location.trim() || null,
-          amount: draft.amount, dueAt: draft.dueAt || null, notes: draft.notes.trim() || null, ...metadata }
-        await createFine(api, input, crypto.randomUUID())
-        setNotice('Multa registrada e incluída no histórico.')
-      }
-      setForm(null); reload()
-    } catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'Não foi possível salvar a multa.') }
-    finally { setSaving(false) }
+  const summaryCards = useMemo(() => {
+    const list = state.items ?? []
+    return [
+      ['Total no recorte', state.items ? String(list.length) : '—'],
+      ['Pendentes', state.items ? String(list.filter((item) => item.status === 'PENDING').length) : '—'],
+      ['Em recurso', state.items ? String(list.filter((item) => item.status === 'CONTESTED').length) : '—'],
+      ['Valor total no recorte', state.items ? sumFineAmounts(list) : '—'],
+    ] as const
+  }, [state.items])
+
+  const vehicleOptions = useMemo(() => (
+    state.vehicles.map((vehicle) => ({
+      value: vehicle.id,
+      label: `${vehicle.licensePlate}${vehicle.model ? ` — ${vehicle.model}` : ''}`,
+    }))
+  ), [state.vehicles])
+
+  const driverOptions = useMemo(() => (
+    state.drivers.map((driver) => ({ value: driver.id, label: driver.name }))
+  ), [state.drivers])
+
+  const filtersActive = Boolean(
+    filters.vehicleId || filters.driverId || filters.status || filters.from || filters.to,
+  )
+
+  function applyFilters() {
+    if (filterInputs.from && !isValidLocalDateTime(filterInputs.from)) {
+      setFilterError('Informe uma data/hora inicial válida.')
+      return
+    }
+    if (filterInputs.to && !isValidLocalDateTime(filterInputs.to)) {
+      setFilterError('Informe uma data/hora final válida.')
+      return
+    }
+    if (filterInputs.from && filterInputs.to && new Date(filterInputs.from) >= new Date(filterInputs.to)) {
+      setFilterError('O início do período deve anteceder o fim.')
+      return
+    }
+
+    setFilterError('')
+    setFilters({
+      ...(filterInputs.vehicleId ? { vehicleId: filterInputs.vehicleId } : {}),
+      ...(filterInputs.driverId ? { driverId: filterInputs.driverId } : {}),
+      ...(filterInputs.status ? { status: filterInputs.status as FineStatus } : {}),
+      ...(filterInputs.from ? { from: localDateTimeToIso(filterInputs.from) } : {}),
+      ...(filterInputs.to ? { to: localDateTimeToIso(filterInputs.to) } : {}),
+    })
+    state.reload()
   }
 
-  function startStatusChange(fine: Fine, target: FineStatus): void {
-    setStatusChange({ fine, target }); setStatusReason(''); setStatusEvidence(''); setOccurredAt(localInput()); setError('')
-  }
-  async function saveStatusChange(): Promise<void> {
-    if (!statusChange || saving) return
-    setSaving(true); setError('')
-    const { fine, target } = statusChange
-    try {
-      const metadata = { expectedRevision: fine.revision, reportedBy: session?.nome ?? 'Gestor de frota',
-        reason: statusReason.trim(), evidenceDescription: statusEvidence.trim() }
-      const input = target === 'PAID'
-        ? { ...metadata, status: target, paidAt: toInstant(occurredAt) }
-        : { ...metadata, status: target, occurredAt: toInstant(occurredAt) }
-      await changeFineStatus(api, fine.id, input)
-      setStatusChange(null); setNotice(`Situação alterada: ${FINE_STATUS_LABELS[target]}.`); reload()
-    } catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'Não foi possível alterar a situação.') }
-    finally { setSaving(false) }
+  function clearFilters() {
+    setFilterInputs({ vehicleId: '', driverId: '', status: '', from: '', to: '' })
+    setFilters({})
+    setFilterError('')
+    state.reload()
   }
 
-  const columns: readonly DataTableColumn<Fine>[] = [
-    { key: 'vehicle', header: 'Veículo', width: 145, render: (fine) => `${fine.vehicle.licensePlate}${fine.vehicle.model ? ` · ${fine.vehicle.model}` : ''}` },
-    { key: 'infraction', header: 'Infração', width: 220, render: (fine) => <><strong>{fine.infractionCode}</strong><br />{fine.description}</> },
-    { key: 'driver', header: 'Motorista', width: 170, render: (fine) => fine.driver?.name ?? 'Não identificado' },
-    { key: 'date', header: 'Data da infração', width: 170, render: (fine) => formatDate(fine.infractionAt) },
-    { key: 'amount', header: 'Valor', align: 'right', width: 120, render: (fine) => CURRENCY.format(Number(fine.amount)) },
-    { key: 'status', header: 'Situação', width: 160, render: (fine) => <StatusChip label={FINE_STATUS_LABELS[fine.status]} tone={STATUS_TONE[fine.status]} /> },
-  ]
+  function openCreateForm(trigger?: HTMLElement | null) {
+    if (trigger) triggerRef.current = trigger
+    setFormState({})
+  }
 
-  return <Box>
-    <PageHeader title="Multas e infrações" description="Registre infrações, identifique possíveis viagens e acompanhe correções, contestações e pagamentos." actions={allowed ? <Button variant="contained" startIcon={<AddIcon aria-hidden="true" />} onClick={openCreate} disabled={optionsLoading || vehicles.length === 0} sx={{ minHeight: 48 }}>Registrar multa</Button> : undefined} />
-    {!allowed && <StateFeedback kind="forbidden" title="Acesso restrito" description="Somente gestor de frota e administrador podem consultar e tratar multas." />}
-    {allowed && <>
-      {notice && <Alert severity="success" role="status" sx={{ mb: 2 }}>{notice}</Alert>}
-      {error && <Alert severity="error" role="alert" sx={{ mb: 2 }} action={<Button color="inherit" onClick={reload}>Tentar novamente</Button>}>{error}</Alert>}
-      <FilterBar label="Filtros de multas">
-        <Box sx={{ flex: '1 1 190px', minWidth: { xs: '100%', sm: 190 } }}><FormSelect label="Veículo" value={vehicleId} onChange={setVehicleId} options={vehicleOptions} emptyLabel="Todos os veículos" /></Box>
-        <Box sx={{ flex: '1 1 190px', minWidth: { xs: '100%', sm: 190 } }}><FormSelect label="Motorista" value={driverId} onChange={setDriverId} options={driverOptions} emptyLabel="Todos os motoristas" /></Box>
-        <Box sx={{ flex: '1 1 170px', minWidth: { xs: '100%', sm: 170 } }}><FormSelect label="Situação" value={status} onChange={(value) => setStatus(value as FineStatus | '')} options={FINE_STATUSES.map((value) => ({ value, label: FINE_STATUS_LABELS[value] }))} emptyLabel="Todas as situações" /></Box>
-        <Box sx={{ flex: '1 1 150px', minWidth: { xs: '100%', sm: 150 } }}><FormField label="De" type="date" value={from} onChange={setFrom} /></Box>
-        <Box sx={{ flex: '1 1 150px', minWidth: { xs: '100%', sm: 150 } }}><FormField label="Até" type="date" value={to} onChange={setTo} /></Box>
-        <Button onClick={() => { setVehicleId(''); setDriverId(''); setStatus(''); setFrom(''); setTo('') }} disabled={!vehicleId && !driverId && !status && !from && !to} sx={{ minHeight: 44 }}>Limpar</Button>
-      </FilterBar>
-      {smallScreen ? <Stack spacing={1.5}>{loading ? <StateFeedback kind="loading" title="Carregando multas..." /> : items?.length ? items.map((fine) => <Card key={fine.id} variant="outlined"><CardContent>
-        <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}><Box sx={{ minWidth: 0 }}><Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{fine.vehicle.licensePlate} · {CURRENCY.format(Number(fine.amount))}</Typography><Typography variant="body2">{fine.infractionCode} · {fine.description}</Typography></Box><StatusChip label={FINE_STATUS_LABELS[fine.status]} tone={STATUS_TONE[fine.status]} /></Stack>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{formatDate(fine.infractionAt)} · {fine.driver?.name ?? 'Motorista não identificado'} · revisão {fine.revision}</Typography>
-      </CardContent><CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-        <Button onClick={() => { void openDetails(fine) }} startIcon={<HistoryOutlined aria-hidden="true" />} sx={{ minHeight: 48 }}>Histórico</Button><Button onClick={() => openEdit(fine)} startIcon={<EditOutlined aria-hidden="true" />} disabled={fine.status === 'PAID' || fine.status === 'CANCELED'} sx={{ minHeight: 48 }}>Corrigir</Button>
-        {FINE_TRANSITIONS[fine.status].map((target) => <Button key={target} onClick={() => startStatusChange(fine, target)} sx={{ minHeight: 48 }}>{target === 'PAID' ? 'Registrar pagamento' : target === 'CONTESTED' ? 'Contestar' : target === 'CANCELED' ? 'Cancelar multa' : 'Reabrir'}</Button>)}
-      </CardActions></Card>) : <StateFeedback kind="empty" title="Nenhuma multa encontrada" description="Ajuste os filtros ou registre uma infração." />}</Stack> : <DataTable caption="Multas e infrações" columns={columns} rows={items ?? []} rowKey={(fine) => fine.id} busy={loading} minWidth={1120} loadingContent={<StateFeedback kind="loading" title="Carregando multas..." />} emptyContent={<StateFeedback kind="empty" title="Nenhuma multa encontrada" description="Ajuste os filtros ou registre uma infração." />}
-        renderActions={(fine) => <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}><Button onClick={() => { void openDetails(fine) }} sx={{ minHeight: 44 }}>Histórico</Button><Button onClick={() => openEdit(fine)} disabled={fine.status === 'PAID' || fine.status === 'CANCELED'} sx={{ minHeight: 44 }}>Corrigir</Button><FormSelect label="Alterar situação" value="" onChange={(value) => startStatusChange(fine, value as FineStatus)} options={FINE_TRANSITIONS[fine.status].map((value) => ({ value, label: value === 'PAID' ? 'Registrar pagamento' : value === 'CONTESTED' ? 'Contestar' : value === 'CANCELED' ? 'Cancelar' : 'Reabrir' }))} emptyLabel="Situação" emptyOptionDisabled sx={{ minWidth: 150 }} /></Stack>} />}
-    </>}
+  function openDetail(id: string, trigger?: HTMLElement | null) {
+    if (trigger) triggerRef.current = trigger
+    setSelectedId(id)
+    void state.select(id)
+  }
 
-    <Dialog open={Boolean(form)} onClose={() => !saving && setForm(null)} fullScreen={smallScreen} fullWidth maxWidth="md" aria-labelledby="fine-form-title">
-      <DialogTitle id="fine-form-title">{form?.kind === 'edit' ? 'Corrigir multa' : 'Registrar multa ou infração'}</DialogTitle><DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
-        <FormSelect label="Veículo" required value={draft.vehicleId} onChange={(value) => setDraft((current) => ({ ...current, vehicleId: value, driverId: '', tripId: '' }))} options={vehicleOptions} emptyLabel="Selecione um veículo" emptyOptionDisabled />
-        <FormField label="Data e hora da infração" type="datetime-local" required value={draft.infractionAt} onChange={(value) => setDraft((current) => ({ ...current, infractionAt: value }))} />
-        <FormSelect label="Motorista identificado" value={draft.driverId} onChange={(value) => setDraft((current) => ({ ...current, driverId: value, tripId: '' }))} options={driverOptions} emptyLabel="Não identificado" />
-        {suggestionError && <Alert severity="warning">{suggestionError}</Alert>}
-        {suggestionsLoading && <Typography variant="body2" color="text.secondary">Buscando viagens compatíveis...</Typography>}
-        {suggestions.length > 0 && <Box><Typography variant="subtitle2" sx={{ mb: 1 }}>Viagens compatíveis para conferência</Typography><Stack spacing={1}>{suggestions.map((suggestion) => <Card key={suggestion.tripId} variant="outlined"><CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}><Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' } }}><Typography variant="body2">{suggestion.driverName} · viagem #{suggestion.tripId} · {formatDate(suggestion.startedAt)}{suggestion.finishedAt ? ` a ${formatDate(suggestion.finishedAt)}` : ' · em andamento'}</Typography><Button sx={{ minHeight: 44 }} onClick={() => setDraft((current) => ({ ...current, driverId: suggestion.driverId, tripId: suggestion.tripId }))}>Usar sugestão</Button></Stack></CardContent></Card>)}</Stack></Box>}
-        <FormField label="Viagem vinculada (opcional)" value={draft.tripId} onChange={(value) => setDraft((current) => ({ ...current, tripId: value }))} helperText="A sugestão ajuda na conferência, mas não atribui responsabilidade automaticamente." inputMode="numeric" />
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-          <FormField label="Código da infração" required value={draft.infractionCode} onChange={(value) => setDraft((current) => ({ ...current, infractionCode: value }))} maxLength={100} />
-          <FormField label="Valor (R$)" required value={draft.amount} onChange={(value) => setDraft((current) => ({ ...current, amount: value }))} placeholder="0.00" inputMode="numeric" />
-          <FormField label="Vencimento" type="date" value={draft.dueAt} onChange={(value) => setDraft((current) => ({ ...current, dueAt: value }))} />
-          <FormField label="Local" value={draft.location} onChange={(value) => setDraft((current) => ({ ...current, location: value }))} maxLength={500} />
-        </Box>
-        <FormField label="Descrição" required value={draft.description} onChange={(value) => setDraft((current) => ({ ...current, description: value }))} multiline minRows={2} maxLength={1000} />
-        <FormField label="Observações" value={draft.notes} onChange={(value) => setDraft((current) => ({ ...current, notes: value }))} multiline minRows={2} maxLength={1000} />
-        <FormField label="Motivo do registro ou retificação" required value={draft.reason} onChange={(value) => setDraft((current) => ({ ...current, reason: value }))} multiline minRows={2} maxLength={500} />
-        <FormField label="Descrição da evidência" required value={draft.evidenceDescription} onChange={(value) => setDraft((current) => ({ ...current, evidenceDescription: value }))} maxLength={500} />
-        <FormField label="Link da evidência (opcional)" value={draft.attachmentUrl} onChange={(value) => setDraft((current) => ({ ...current, attachmentUrl: value }))} maxLength={2000} />
-      </Stack></DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setForm(null)} disabled={saving} sx={{ minHeight: 48 }}>Cancelar</Button><Button variant="contained" onClick={() => { void saveFine() }} disabled={saving || !draft.vehicleId || !draft.infractionAt || !draft.infractionCode.trim() || !draft.description.trim() || !draft.amount || !draft.reason.trim() || !draft.evidenceDescription.trim()} sx={{ minHeight: 48 }}>Salvar multa</Button></DialogActions>
-    </Dialog>
-    <Dialog open={Boolean(statusChange)} onClose={() => !saving && setStatusChange(null)} fullScreen={smallScreen} fullWidth maxWidth="sm" aria-labelledby="fine-status-title">
-      <DialogTitle id="fine-status-title">{statusChange ? FINE_STATUS_LABELS[statusChange.target] : 'Alterar situação'}</DialogTitle><DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
-        <Alert severity="info">A revisão atual é #{statusChange?.fine.revision}. A mudança e seus dados de autoria serão adicionados ao histórico.</Alert>
-        <FormField label={statusChange?.target === 'PAID' ? 'Data e hora do pagamento' : 'Data e hora da decisão'} type="datetime-local" required value={occurredAt} onChange={setOccurredAt} />
-        <FormField label="Motivo" required value={statusReason} onChange={setStatusReason} multiline minRows={2} />
-        <FormField label="Descrição da evidência" required value={statusEvidence} onChange={setStatusEvidence} />
-      </Stack></DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setStatusChange(null)} disabled={saving} sx={{ minHeight: 48 }}>Fechar</Button><Button variant="contained" onClick={() => { void saveStatusChange() }} disabled={saving || !statusReason.trim() || !statusEvidence.trim() || !occurredAt} sx={{ minHeight: 48 }}>Confirmar</Button></DialogActions>
-    </Dialog>
-    <Dialog open={Boolean(details)} onClose={() => setDetails(null)} fullScreen={smallScreen} fullWidth maxWidth="md" aria-labelledby="fine-history-title">
-      <DialogTitle id="fine-history-title">Histórico da multa</DialogTitle><DialogContent>
-        {details?.loading && <StateFeedback kind="loading" title="Carregando histórico..." />}{details?.error && <Alert severity="error">{details.error}</Alert>}
-        {details?.fine && <Stack spacing={1.5}>
-          <Typography variant="h6">{details.fine.vehicle.licensePlate} · {CURRENCY.format(Number(details.fine.amount))}</Typography>
-          <Typography variant="body2">{details.fine.infractionCode} · {details.fine.description} · {FINE_STATUS_LABELS[details.fine.status]}</Typography>
-          {details.fine.vehicleSnapshot && <Typography variant="body2" color="text.secondary">Veículo à época: {details.fine.vehicleSnapshot.licensePlate} ({details.fine.vehicleSnapshot.source})</Typography>}
-          {details.fine.driverSnapshot && <Typography variant="body2" color="text.secondary">Motorista à época: {details.fine.driverSnapshot.name} ({details.fine.driverSnapshot.source})</Typography>}
-          {details.fine.tripSnapshot && <Typography variant="body2" color="text.secondary">Viagem #{details.fine.tripSnapshot.id} · {details.fine.tripSnapshot.status}</Typography>}
-          {details.fine.events.map((event) => <Card key={event.id} variant="outlined"><CardContent>
-            <Typography sx={{ fontWeight: 700 }}>{EVENT_LABELS[event.eventType] ?? event.eventType} · {formatDate(event.occurredAt)}</Typography>
-            <Typography variant="body2" color="text.secondary">Registrado {formatDate(event.registeredAt)} por {event.actor.name} ({event.actor.role})</Typography>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>{event.reason} — {event.reportedBy}</Typography>
-            {event.evidenceDescription && <Typography variant="body2">Evidência: {event.evidenceDescription}</Typography>}
-            {event.attachmentUrl && <Link href={event.attachmentUrl} target="_blank" rel="noopener noreferrer">Abrir evidência em nova aba</Link>}
-          </CardContent></Card>)}
-        </Stack>}
-      </DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setDetails(null)} sx={{ minHeight: 48 }}>Fechar</Button></DialogActions>
-    </Dialog>
-  </Box>
+  function closeDetail() {
+    setSelectedId(null)
+    state.dismiss()
+    restoreFocus()
+  }
+
+  function handleFormSaved(savedFine: Fine) {
+    const wasEdit = Boolean(formState?.fine)
+    setFormState(null)
+    setSelectedId(savedFine.id)
+    state.saved(savedFine.id, true)
+    setFeedback(
+      wasEdit
+        ? `Multa #${savedFine.id} (${savedFine.infractionCode}) retificada com sucesso. Revisão ${savedFine.revision}.`
+        : `Multa #${savedFine.id} (${savedFine.infractionCode}) registrada com sucesso.`,
+    )
+  }
+
+  function handleStatusSaved(updatedFine: Fine) {
+    setStatusDialog(null)
+    setSelectedId(updatedFine.id)
+    state.saved(updatedFine.id, true)
+    setFeedback(
+      `Situação da multa #${updatedFine.id} (${updatedFine.infractionCode}) alterada para ${FINE_STATUS_LABELS[updatedFine.status]}.`,
+    )
+  }
+
+  return (
+    <Box className={styles.page} sx={accessibleControls}>
+      <PageHeader
+        title="Multas e Infrações"
+        breadcrumbs={['Início', 'Controle', 'Multas e Infrações']}
+        description="Registre infrações da frota, confirme vínculos com viagens e acompanhe recursos, pagamentos e trilha histórica."
+        actions={allowed ? (
+          <Button
+            type="button"
+            variant="contained"
+            onClick={(event) => openCreateForm(event.currentTarget)}
+            disabled={state.vehicles.length === 0 || Boolean(state.optionsError)}
+            sx={{ minHeight: 44 }}
+          >
+            Registrar multa
+          </Button>
+        ) : undefined}
+      />
+
+      {!allowed ? (
+        <StateFeedback
+          kind="forbidden"
+          title="Seu perfil não tem permissão para consultar multas e infrações."
+        />
+      ) : (
+        <>
+          {feedback && (
+            <Alert severity="success" role="status" sx={{ mb: 2 }}>
+              {feedback}
+            </Alert>
+          )}
+
+          {state.optionsError && (
+            <StateFeedback
+              kind="partial"
+              title="Não foi possível carregar todos os catálogos de veículos e motoristas."
+              description={state.optionsError}
+              actionLabel="Tentar novamente"
+              onAction={state.reloadOptions}
+            />
+          )}
+
+          {!state.optionsLoading && !state.optionsError && state.vehicles.length === 0 && (
+            <StateFeedback
+              kind="empty"
+              title="Nenhum veículo cadastrado"
+              description="Cadastre ao menos um veículo para registrar multas da frota."
+            />
+          )}
+
+          <FilterBar label="Filtros de multas e infrações">
+            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 190px' }, minWidth: 0 }}>
+              <FormSelect
+                label="Veículo"
+                value={filterInputs.vehicleId}
+                options={vehicleOptions}
+                emptyLabel="Todos os veículos"
+                displayEmpty
+                onChange={(vehicleId) => setFilterInputs((current) => ({ ...current, vehicleId }))}
+              />
+            </Box>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 190px' }, minWidth: 0 }}>
+              <FormSelect
+                label="Motorista"
+                value={filterInputs.driverId}
+                options={driverOptions}
+                emptyLabel="Todos os motoristas"
+                displayEmpty
+                onChange={(driverId) => setFilterInputs((current) => ({ ...current, driverId }))}
+              />
+            </Box>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 160px' }, minWidth: 0 }}>
+              <FormSelect
+                label="Situação"
+                value={filterInputs.status}
+                options={FINE_STATUSES.map((status) => ({ value: status, label: FINE_STATUS_LABELS[status] }))}
+                emptyLabel="Todas as situações"
+                displayEmpty
+                onChange={(status) => setFilterInputs((current) => ({ ...current, status }))}
+              />
+            </Box>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 210px' }, minWidth: 0 }}>
+              <FormField
+                label="Início do período"
+                type="datetime-local"
+                value={filterInputs.from}
+                onChange={(from) => setFilterInputs((current) => ({ ...current, from }))}
+                helperText="Horário local deste dispositivo."
+              />
+            </Box>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 210px' }, minWidth: 0 }}>
+              <FormField
+                label="Fim do período"
+                type="datetime-local"
+                value={filterInputs.to}
+                onChange={(to) => setFilterInputs((current) => ({ ...current, to }))}
+                helperText="Limite final não incluído."
+              />
+            </Box>
+            <Button type="button" variant="outlined" onClick={applyFilters} sx={{ minHeight: 44 }}>
+              Aplicar filtros
+            </Button>
+            <Button type="button" onClick={clearFilters} sx={{ minHeight: 44 }}>
+              Limpar filtros
+            </Button>
+            <Button type="button" onClick={state.reload} sx={{ minHeight: 44 }}>
+              Atualizar
+            </Button>
+          </FilterBar>
+
+          {filterError && (
+            <Alert severity="error" role="alert" sx={{ mb: 2 }}>
+              {filterError}
+            </Alert>
+          )}
+
+          {state.loading && state.items === null && (
+            <StateFeedback kind="loading" title="Carregando multas..." />
+          )}
+
+          {state.error && (
+            <StateFeedback
+              kind={state.items ? 'partial' : 'error'}
+              title={state.items ? 'Os dados exibidos podem estar desatualizados.' : state.error}
+              description={state.items ? state.error : undefined}
+              actionLabel="Tentar novamente"
+              onAction={state.reload}
+            />
+          )}
+
+          {state.items && (
+            <>
+              <Box className={styles.summaryGrid} aria-busy={state.loading ? 'true' : undefined}>
+                {summaryCards.map(([label, value]) => (
+                  <Paper key={label} variant="outlined" sx={{ p: 2, minWidth: 0 }}>
+                    <Typography variant="body2" color="text.secondary">{label}</Typography>
+                    <Typography variant="h5" component="p" sx={{ mt: 0.75, fontWeight: 700 }}>
+                      {value}
+                    </Typography>
+                  </Paper>
+                ))}
+              </Box>
+
+              {state.items.length === 0 ? (
+                <StateFeedback
+                  kind="empty"
+                  title={filtersActive ? 'Nenhuma multa encontrada com os filtros atuais.' : 'Nenhuma multa registrada.'}
+                  description={
+                    filtersActive
+                      ? 'Ajuste os filtros ou limpe a pesquisa para visualizar outros registros.'
+                      : 'Registre uma multa quando houver notificação de infração da frota.'
+                  }
+                  actionLabel={filtersActive ? 'Limpar filtros' : undefined}
+                  onAction={filtersActive ? clearFilters : undefined}
+                  centered
+                />
+              ) : smallScreen ? (
+                <Stack spacing={1.5}>
+                  {state.items.map((fine) => {
+                    const plate = fine.vehicleSnapshot?.licensePlate ?? fine.vehicle.licensePlate
+                    const driverName = fine.driverSnapshot?.name ?? fine.driver?.name
+                    return (
+                      <Card key={fine.id} variant="outlined">
+                        <CardContent>
+                          <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                                {plate} · {formatFineMoney(fine.amount)}
+                              </Typography>
+                              <Typography variant="body2">
+                                {fine.infractionCode} · {fine.description}
+                              </Typography>
+                            </Box>
+                            <StatusChip label={FINE_STATUS_LABELS[fine.status]} tone={FINE_STATUS_TONES[fine.status]} />
+                          </Stack>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            {formatDateTime(fine.infractionAt)} · {driverName ?? 'Sem motorista vinculado'} · revisão {fine.revision}
+                          </Typography>
+                        </CardContent>
+                        <CardActions sx={{ px: 2, pb: 2 }}>
+                          <Button
+                            type="button"
+                            variant="outlined"
+                            fullWidth
+                            onClick={(event) => openDetail(fine.id, event.currentTarget)}
+                            aria-label={`Ver detalhes da multa #${fine.id} código ${fine.infractionCode}`}
+                            sx={{ minHeight: 48 }}
+                          >
+                            Ver detalhes
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    )
+                  })}
+                </Stack>
+              ) : (
+                <DataTable
+                  caption="Multas e infrações registradas — ordenadas por data da infração"
+                  columns={COLUMNS}
+                  rows={state.items}
+                  rowKey={(fine) => fine.id}
+                  busy={state.loading}
+                  containerClassName={styles.tableContainer}
+                  renderActions={(fine) => (
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={(event) => openDetail(fine.id, event.currentTarget)}
+                      aria-label={`Ver detalhes da multa #${fine.id} código ${fine.infractionCode}`}
+                      sx={{ minHeight: 44 }}
+                    >
+                      Ver detalhes
+                    </Button>
+                  )}
+                />
+              )}
+            </>
+          )}
+
+          {formState && (
+            <FineFormDialog
+              key={formState.fine ? `${formState.fine.id}-${formState.fine.revision}` : 'create-fine'}
+              fine={formState.fine}
+              vehicles={state.vehicles}
+              drivers={state.drivers}
+              api={api}
+              onClose={() => {
+                const reopenDetail = Boolean(formState.fine)
+                setFormState(null)
+                if (!reopenDetail) restoreFocus()
+              }}
+              onSaved={handleFormSaved}
+              onConflict={() => {
+                const edited = formState.fine
+                setFormState(null)
+                if (edited) openDetail(edited.id)
+              }}
+            />
+          )}
+
+          {state.selection && !formState && !statusDialog && (
+            state.selection.fine ? (
+              <FineDetailDialog
+                fine={state.selection.fine}
+                loading={state.selection.loading}
+                error={state.selection.error}
+                onRetry={() => {
+                  if (selectedId) void state.select(selectedId)
+                }}
+                onClose={closeDetail}
+                onEdit={(detail) => setFormState({ fine: detail })}
+                onRequestStatusChange={(detail, nextStatus) => setStatusDialog({ fine: detail, nextStatus })}
+              />
+            ) : (
+              <Dialog open onClose={closeDetail} fullWidth aria-labelledby="fine-detail-fallback-title">
+                <DialogTitle id="fine-detail-fallback-title">Consultar multa</DialogTitle>
+                <DialogContent>
+                  <StateFeedback
+                    kind={state.selection.loading ? 'loading' : 'error'}
+                    title={state.selection.loading ? 'Carregando multa...' : state.selection.error}
+                    actionLabel={state.selection.loading ? undefined : 'Tentar novamente'}
+                    onAction={state.selection.loading ? undefined : () => {
+                      if (selectedId) void state.select(selectedId)
+                    }}
+                    sx={{ mb: 0 }}
+                  />
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                  <Button type="button" onClick={closeDetail} sx={{ minHeight: 44 }}>
+                    Fechar
+                  </Button>
+                </DialogActions>
+              </Dialog>
+            )
+          )}
+
+          {statusDialog && (
+            <FineStatusDialog
+              key={`${statusDialog.fine.id}-${statusDialog.fine.revision}-${statusDialog.nextStatus}`}
+              api={api}
+              fine={statusDialog.fine}
+              targetStatus={statusDialog.nextStatus}
+              onSaved={handleStatusSaved}
+              onCancel={() => setStatusDialog(null)}
+              onConflict={() => {
+                const fineId = statusDialog.fine.id
+                setStatusDialog(null)
+                openDetail(fineId)
+              }}
+            />
+          )}
+        </>
+      )}
+    </Box>
+  )
 }
+
+export default FinesPage

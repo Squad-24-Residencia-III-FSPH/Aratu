@@ -9,6 +9,8 @@ export interface AuthContextValue {
   logout: () => void
   api: ApiRequest
   notice: string
+  reauthenticate?: (credentials: LoginCredentials, options?: SignInOptions) => Promise<void>
+  revalidateSession?: () => Promise<void>
   renewalPrompt: boolean
   renewalPending: boolean
   renewalError: string

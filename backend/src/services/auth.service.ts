@@ -131,4 +131,15 @@ export class AuthService {
       actorSnapshot: { id: user.id, role: user.perfil },
     })
   }
+
+  /**
+   * Projeta somente a identidade e o perfil vigentes da sessão autenticada atual.
+   *
+   * @param user - Identificação revalidada pelo middleware de usuário ativo (`req.usuario`).
+   * @returns Identificador e perfil RBAC ativos, ou `null` quando não autenticado.
+   */
+  getCurrentUser(user?: AuthenticatedUser): AuthenticatedUser | null {
+    if (!user) return null
+    return { id: user.id, perfil: user.perfil }
+  }
 }

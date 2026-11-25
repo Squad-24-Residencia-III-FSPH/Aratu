@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   Alert,
@@ -10,7 +10,7 @@ import {
   DialogContent,
   DialogTitle,
   Paper,
-  TextField,
+  Stack,
   Typography,
 } from '@mui/material'
 import PersonAddAlt1 from '@mui/icons-material/PersonAddAlt1'
@@ -22,6 +22,7 @@ import type { Profile } from '../../auth/profiles'
 import { tokenUserId } from '../../auth/token'
 import { listProfiles } from '../../services/profileService'
 import type { ProfileOption } from '../../services/profileService'
+import { accessibleControls } from '../../components/ui/accessibleControls'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import DataTable from '../../components/ui/DataTable'
 import type { DataTableColumn } from '../../components/ui/DataTable'
@@ -34,9 +35,11 @@ import {
   activateUser,
   createUser,
   deactivateUser,
+  getUserById,
   listUsers,
   toProfile,
   updateUser,
+  UserRequestError,
 } from '../../services/usersService'
 import type { ManagedUser } from '../../users/userTypes'
 import {
@@ -45,6 +48,12 @@ import {
 } from '../../users/profileChangeConfirmation'
 import { validateUserForm } from '../../users/userFormValidation'
 import type { UserFormErrors, UserFormValues } from '../../users/userFormValidation'
+import {
+  describeSavedUserVisibility,
+  firstInvalidUserField,
+  mapUserApiError,
+} from './userManagementHelpers'
+import type { UserFormField } from './userManagementHelpers'
 import styles from './UserManagementPage.module.css'
 
 const pageSize = 10
@@ -59,11 +68,19 @@ const initialFormValues: UserFormValues = {
 
 const colors = {
   primary: '#FF6B00',
+  primaryDark: '#b94700',
   heading: '#111827',
   text: '#374151',
   secondary: '#4b5563',
   border: '#e2e8f0',
   tableHeader: '#f8fafc',
+}
+
+const pageControlSx = {
+  ...accessibleControls,
+  '& button, & a, & input, & [role="combobox"], & [tabindex]': {
+    scrollMarginTop: '80px',
+  },
 }
 
 const buttonSx = {
@@ -74,22 +91,10 @@ const buttonSx = {
 }
 
 const fieldSx = {
-  '& .MuiInputLabel-root': {
-    color: colors.secondary,
-  },
   '& .MuiOutlinedInput-root': {
     minHeight: 44,
     borderRadius: 1,
     backgroundColor: '#fff',
-    '& fieldset': {
-      borderColor: colors.border,
-    },
-    '&:hover fieldset': {
-      borderColor: '#cbd5e1',
-    },
-    '&.Mui-focused fieldset': {
-      borderColor: colors.primary,
-    },
   },
   '& .MuiFormHelperText-root': {
     marginLeft: 0,
@@ -111,25 +116,33 @@ const USER_COLUMNS: readonly DataTableColumn<ManagedUser>[] = [
   {
     key: 'name',
     header: 'Usuário',
-    width: 220,
-    render: (user) => <Typography sx={{ color: colors.heading, fontWeight: 600 }}>{user.name}</Typography>,
+    width: 160,
+    render: (user) => (
+      <Typography sx={{ color: colors.heading, fontWeight: 600, overflowWrap: 'anywhere' }}>
+        {user.name}
+      </Typography>
+    ),
   },
   {
     key: 'email',
     header: 'E-mail',
-    width: 260,
-    render: (user) => <Typography sx={{ color: colors.text }}>{user.email}</Typography>,
+    width: 190,
+    render: (user) => (
+      <Typography sx={{ color: colors.text, overflowWrap: 'anywhere' }}>
+        {user.email}
+      </Typography>
+    ),
   },
   {
     key: 'role',
     header: 'Perfil',
-    width: 180,
+    width: 130,
     render: (user) => <Typography sx={{ color: colors.text }}>{profileLabel(user.role)}</Typography>,
   },
   {
     key: 'status',
     header: 'Situação',
-    width: 110,
+    width: 90,
     render: (user) => (
       <StatusChip
         label={user.active ? 'Ativo' : 'Inativo'}
@@ -163,16 +176,41 @@ export default function UserManagementPage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [actionError, setActionError] = useState('')
   const [successNotice, setSuccessNotice] = useState('')
+  const [recentSavedUser, setRecentSavedUser] = useState<ManagedUser | null>(null)
+  const [locatingSavedUser, setLocatingSavedUser] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<FormMode>('create')
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null)
   const [formValues, setFormValues] = useState<UserFormValues>(initialFormValues)
   const [formErrors, setFormErrors] = useState<UserFormErrors>({})
   const [formError, setFormError] = useState('')
+  const [revisionConflict, setRevisionConflict] = useState(false)
+  const [reloadingConflictUser, setReloadingConflictUser] = useState(false)
   const [profileChangeConfirmationOpen, setProfileChangeConfirmationOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [pendingStatus, setPendingStatus] = useState<PendingStatus | null>(null)
   const [confirming, setConfirming] = useState(false)
+  const [focusRequest, setFocusRequest] = useState<{ field: UserFormField; seq: number } | null>(null)
+
+  const submittingRef = useRef(false)
+  const nameInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const emailInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const roleContainerRef = useRef<HTMLDivElement>(null)
+  const passwordInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const formErrorRef = useRef<HTMLDivElement>(null)
+  const previousTitleRef = useRef<string | null>(null)
+
+  useLayoutEffect(() => {
+    previousTitleRef.current = document.title
+  }, [])
+
+  useEffect(() => {
+    const previousTitle = previousTitleRef.current ?? document.title
+    document.title = 'Gerenciar usuários — Aratu'
+    return () => {
+      document.title = previousTitle
+    }
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -193,6 +231,22 @@ export default function UserManagementPage() {
     }
   }, [api])
 
+  useEffect(() => {
+    if (!focusRequest || !formOpen) return
+    const target: HTMLElement | null = focusRequest.field === 'roleId'
+      ? roleContainerRef.current?.querySelector<HTMLElement>('[role="combobox"], input, select') ?? null
+      : ({
+          name: nameInputRef.current,
+          email: emailInputRef.current,
+          password: passwordInputRef.current,
+        })[focusRequest.field]
+    if (!target) return
+    target.focus()
+    if (typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ block: 'nearest' })
+    }
+  }, [focusRequest, formOpen])
+
   const loadProfiles = useCallback(async () => {
     setProfilesLoading(true)
     setProfilesError('')
@@ -208,6 +262,10 @@ export default function UserManagementPage() {
   function beginListRequest() {
     setListLoading(true)
     setListError('')
+  }
+
+  function requestFieldFocus(field: UserFormField) {
+    setFocusRequest((current) => ({ field, seq: (current?.seq ?? 0) + 1 }))
   }
 
   useEffect(() => {
@@ -242,24 +300,28 @@ export default function UserManagementPage() {
   }, [api, roleFilter, search, statusFilter, page, reloadKey])
 
   function updateSearch(value: string) {
+    setRecentSavedUser(null)
     beginListRequest()
     setSearch(value)
     setPage(1)
   }
 
   function updateRoleFilter(value: string) {
+    setRecentSavedUser(null)
     beginListRequest()
     setRoleFilter(value)
     setPage(1)
   }
 
   function updateStatusFilter(value: string) {
+    setRecentSavedUser(null)
     beginListRequest()
     setStatusFilter(value)
     setPage(1)
   }
 
   function clearFilters() {
+    setRecentSavedUser(null)
     beginListRequest()
     setSearch('')
     setRoleFilter('')
@@ -274,7 +336,9 @@ export default function UserManagementPage() {
     setFormValues(initialFormValues)
     setFormErrors({})
     setFormError('')
+    setRevisionConflict(false)
     setSuccessNotice('')
+    setRecentSavedUser(null)
     setFormOpen(true)
   }
 
@@ -291,24 +355,28 @@ export default function UserManagementPage() {
     })
     setFormErrors({})
     setFormError('')
+    setRevisionConflict(false)
     setSuccessNotice('')
+    setRecentSavedUser(null)
     setFormOpen(true)
   }
 
   function closeForm() {
-    if (saving) return
+    if (saving || reloadingConflictUser) return
     setProfileChangeConfirmationOpen(false)
     setFormOpen(false)
     setEditingUser(null)
     setFormValues(initialFormValues)
     setFormErrors({})
     setFormError('')
+    setRevisionConflict(false)
   }
 
   function updateFormValue(field: keyof UserFormValues, value: string | boolean) {
     setFormValues((current) => ({ ...current, [field]: value }))
     setFormErrors((current) => ({ ...current, [field]: undefined }))
     setFormError('')
+    setRevisionConflict(false)
   }
 
   function refreshAfterMutation(nextPage = page) {
@@ -320,44 +388,115 @@ export default function UserManagementPage() {
     setPage(nextPage)
   }
 
+  async function reloadEditingUser() {
+    if (!editingUser || reloadingConflictUser) return
+    setReloadingConflictUser(true)
+    try {
+      const freshUser = await getUserById(api, editingUser.id)
+      setEditingUser(freshUser)
+      setFormValues({
+        name: freshUser.name,
+        email: freshUser.email,
+        password: '',
+        roleId: freshUser.roleId,
+        active: freshUser.active,
+      })
+      setFormErrors({})
+      setFormError('')
+      setRevisionConflict(false)
+      refreshAfterMutation(page)
+      requestFieldFocus('name')
+    } catch (error) {
+      setFormError(messageFrom(error, 'Não foi possível recarregar os dados atuais do usuário.'))
+    } finally {
+      setReloadingConflictUser(false)
+    }
+  }
+
+  async function handleLocateSavedUser(userId: string) {
+    if (locatingSavedUser) return
+    setLocatingSavedUser(true)
+    setActionError('')
+    try {
+      const freshUser = await getUserById(api, userId)
+      setRecentSavedUser(freshUser)
+      beginListRequest()
+      setRoleFilter('')
+      setStatusFilter('')
+      setSearch(freshUser.email)
+      if (page !== 1) {
+        setPage(1)
+      } else {
+        setReloadKey((current) => current + 1)
+      }
+    } catch (error) {
+      setActionError(messageFrom(error, 'Não foi possível consultar o registro salvo pelo identificador.'))
+    } finally {
+      setLocatingSavedUser(false)
+    }
+  }
+
   async function saveUserForm() {
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSaving(true)
     setFormError('')
+    setRevisionConflict(false)
     try {
+      let savedUser: ManagedUser | null = null
       if (formMode === 'create') {
-        await createUser(api, {
+        savedUser = await createUser(api, {
           name: formValues.name.trim(),
           email: formValues.email.trim(),
           roleId: formValues.roleId,
           password: formValues.password,
           active: formValues.active ?? true,
         })
-        setSuccessNotice('Usuário cadastrado com sucesso.')
+        setSuccessNotice(`Usuário cadastrado com sucesso (ID #${savedUser.id}).`)
       } else if (editingUser) {
-        await updateUser(api, editingUser.id, {
+        savedUser = await updateUser(api, editingUser.id, {
           name: formValues.name.trim(),
           email: formValues.email.trim(),
           roleId: formValues.roleId,
           revision: editingUser.revision,
         })
-        setSuccessNotice('Usuário atualizado com sucesso.')
+        setSuccessNotice(`Usuário atualizado com sucesso (ID #${savedUser.id}).`)
       }
+      setRecentSavedUser(savedUser)
       setFormOpen(false)
       setEditingUser(null)
       setFormValues(initialFormValues)
-      refreshAfterMutation(1)
+      refreshAfterMutation(formMode === 'create' ? 1 : page)
     } catch (error) {
-      setFormError(messageFrom(error, 'Não foi possível salvar o usuário.'))
+      const message = messageFrom(error, 'Não foi possível salvar o usuário.')
+      const mapped = mapUserApiError(message)
+      if (mapped.field) {
+        const targetField = mapped.field
+        setFormErrors((current) => ({ ...current, [targetField]: mapped.message }))
+        requestFieldFocus(targetField)
+      } else {
+        const isRevisionConflict = error instanceof UserRequestError && error.status === 409
+        setRevisionConflict(isRevisionConflict)
+        setFormError(mapped.message)
+        requestAnimationFrame(() => formErrorRef.current?.focus())
+      }
     } finally {
+      submittingRef.current = false
       setSaving(false)
     }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (submittingRef.current || saving) return
+
     const errors = validateUserForm(formValues, formMode)
     setFormErrors(errors)
-    if (Object.keys(errors).length > 0) return
+    const firstField = firstInvalidUserField(errors)
+    if (firstField) {
+      requestFieldFocus(firstField)
+      return
+    }
 
     if (shouldConfirmProfileChange(formMode, editingUser?.roleId ?? null, formValues.roleId)) {
       setProfileChangeConfirmationOpen(true)
@@ -378,17 +517,19 @@ export default function UserManagementPage() {
   }
 
   async function handleConfirmStatus() {
-    if (!pendingStatus) return
+    if (!pendingStatus || confirming) return
     setConfirming(true)
     setActionError('')
     try {
+      let updatedUser: ManagedUser
       if (pendingStatus.kind === 'deactivate') {
-        await deactivateUser(api, pendingStatus.user.id)
-        setSuccessNotice(`Usuário ${pendingStatus.user.name} inativado com sucesso.`)
+        updatedUser = await deactivateUser(api, pendingStatus.user.id)
+        setSuccessNotice(`Usuário ${updatedUser.name} inativado com sucesso (ID #${updatedUser.id}).`)
       } else {
-        await activateUser(api, pendingStatus.user.id)
-        setSuccessNotice(`Usuário ${pendingStatus.user.name} reativado com sucesso.`)
+        updatedUser = await activateUser(api, pendingStatus.user.id)
+        setSuccessNotice(`Usuário ${updatedUser.name} reativado com sucesso (ID #${updatedUser.id}).`)
       }
+      setRecentSavedUser(updatedUser)
       setPendingStatus(null)
       beginListRequest()
       setReloadKey((current) => current + 1)
@@ -402,6 +543,11 @@ export default function UserManagementPage() {
 
   const hasFilters = Boolean(search.trim() || roleFilter || statusFilter)
   const selectedProfile = profiles.find(({ id: profileId }) => profileId === formValues.roleId)
+  const savedUserVisibility = recentSavedUser && !listLoading && !listError
+    ? describeSavedUserVisibility(recentSavedUser, users, { search, roleFilter, statusFilter })
+    : null
+  const profilesUnavailable = !profilesLoading && (Boolean(profilesError) || profiles.length === 0)
+
   const emptyContent = (
     <StateFeedback
       kind="empty"
@@ -441,39 +587,84 @@ export default function UserManagementPage() {
       }}
       actionLabel={hasFilters ? 'Limpar filtros' : undefined}
       onAction={hasFilters ? clearFilters : undefined}
-      actionSx={{ ...buttonSx, mt: 2, color: colors.primary }}
+      actionSx={{ ...buttonSx, mt: 2, color: colors.primaryDark }}
     />
   )
 
   return (
-    <Box className={styles.page}>
+    <Box className={styles.page} sx={pageControlSx}>
       <PageHeader
         title="Gerenciar usuários"
-        titleSx={{ color: colors.heading }}
+        titleVariant="h4"
+        titleSx={{ color: colors.heading, fontSize: { xs: '1.5rem', sm: '2rem' } }}
+        breadcrumbs={['Início', 'Usuários']}
+        breadcrumbsSx={{ mb: 1.5, color: colors.secondary, fontSize: '0.85rem' }}
         eyebrow="Administração do sistema"
         description="Cadastre, edite e controle a situação das contas e seus perfis de acesso."
         descriptionSx={{ color: colors.secondary, mt: 0.5 }}
-        sx={{ mb: 3 }}
+        sx={{ mb: { xs: 2, sm: 3 } }}
         actions={(
           <Button
-              variant="contained"
-              startIcon={<PersonAddAlt1 />}
-              onClick={openCreateForm}
-              sx={{
-                ...buttonSx,
-                backgroundColor: colors.primary,
-                boxShadow: 'none',
-                '&:hover': { backgroundColor: '#e85d00', boxShadow: 'none' },
-              }}
-            >
-              Cadastrar usuário
+            variant="contained"
+            startIcon={<PersonAddAlt1 />}
+            onClick={openCreateForm}
+            sx={{
+              ...buttonSx,
+              backgroundColor: colors.primary,
+              boxShadow: 'none',
+              '&:hover': { backgroundColor: '#e85d00', boxShadow: 'none' },
+            }}
+          >
+            Cadastrar usuário
           </Button>
         )}
       />
 
       {successNotice && (
-        <Alert severity="success" role="status" sx={{ mb: 2 }} onClose={() => setSuccessNotice('')}>
-          {successNotice}
+        <Alert
+          severity="success"
+          role="status"
+          sx={{ mb: 2 }}
+          onClose={() => {
+            setSuccessNotice('')
+            setRecentSavedUser(null)
+          }}
+        >
+          <Stack spacing={1}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {successNotice}
+            </Typography>
+            {recentSavedUser && savedUserVisibility && savedUserVisibility !== 'visible' && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2">
+                  {savedUserVisibility === 'filtered-out'
+                    ? `O registro #${recentSavedUser.id} (${recentSavedUser.name} · ${recentSavedUser.email}) ficou fora dos filtros aplicados no momento.`
+                    : `O registro #${recentSavedUser.id} (${recentSavedUser.name} · ${recentSavedUser.email}) está em outra página da listagem.`}
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => void handleLocateSavedUser(recentSavedUser.id)}
+                  disabled={locatingSavedUser}
+                  aria-busy={locatingSavedUser ? 'true' : undefined}
+                  sx={buttonSx}
+                >
+                  {locatingSavedUser
+                    ? 'Consultando...'
+                    : `Localizar registro #${recentSavedUser.id}`}
+                </Button>
+                {savedUserVisibility === 'filtered-out' && (
+                  <Button
+                    size="small"
+                    onClick={clearFilters}
+                    sx={{ ...buttonSx, color: colors.text }}
+                  >
+                    Limpar filtros
+                  </Button>
+                )}
+              </Box>
+            )}
+          </Stack>
         </Alert>
       )}
 
@@ -495,7 +686,7 @@ export default function UserManagementPage() {
         <FilterBar
           label="Filtros de usuários"
           sx={{
-            p: 2.5,
+            p: { xs: 1.5, sm: 2.5 },
             mb: 0,
             border: 0,
             borderRadius: 0,
@@ -503,7 +694,7 @@ export default function UserManagementPage() {
             boxShadow: 'none',
           }}
         >
-          <Box sx={{ flex: '1 1 240px', minWidth: { xs: '100%', sm: 240 } }}>
+          <Box sx={{ flex: { xs: '0 0 auto', md: '1 1 240px' }, width: { xs: '100%', md: 'auto' }, minWidth: { md: 240 } }}>
             <FormField
               label="Buscar usuários por nome ou e-mail"
               hideLabel
@@ -518,7 +709,7 @@ export default function UserManagementPage() {
             />
           </Box>
 
-          <Box sx={{ width: { xs: '100%', sm: 190 } }}>
+          <Box sx={{ flex: { xs: '0 0 auto', md: '0 0 190px' }, width: { xs: '100%', md: 190 } }}>
             <FormSelect
               label="Filtrar por perfil"
               hideLabel
@@ -534,7 +725,7 @@ export default function UserManagementPage() {
             />
           </Box>
 
-          <Box sx={{ width: { xs: '100%', sm: 150 } }}>
+          <Box sx={{ flex: { xs: '0 0 auto', md: '0 0 150px' }, width: { xs: '100%', md: 150 } }}>
             <FormSelect
               label="Filtrar por situação"
               hideLabel
@@ -561,11 +752,11 @@ export default function UserManagementPage() {
           <Alert
             severity="warning"
             sx={{ m: 2, borderRadius: 1 }}
-            action={
-              <Button color="inherit" onClick={() => void loadProfiles()}>
+            action={(
+              <Button color="inherit" onClick={() => void loadProfiles()} disabled={profilesLoading} sx={{ minHeight: 44 }}>
                 Tentar novamente
               </Button>
-            }
+            )}
           >
             Não foi possível carregar os perfis: {profilesError}
           </Alert>
@@ -584,118 +775,124 @@ export default function UserManagementPage() {
           />
         )}
 
-        {!listError && <DataTable
-          caption="Usuários cadastrados"
-          columns={USER_COLUMNS}
-          rows={users}
-          rowKey={(user) => user.id}
-          busy={listLoading}
-          loadingContent={(
-            <StateFeedback
-              kind="loading"
-              title="Carregando usuários..."
-              progressSize={26}
-              sx={{ py: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}
-            />
-          )}
-          emptyContent={emptyContent}
-          stateCellSx={{ py: 0, borderBottom: 0 }}
-          containerClassName={styles.tableContainer}
-          minWidth={960}
-          tableLayout="fixed"
-          actionsWidth={190}
-          paperSx={{ borderRadius: 0, overflow: 'hidden', border: 0, boxShadow: 'none' }}
-          headerCellSx={{
-            backgroundColor: colors.tableHeader,
-            color: colors.secondary,
-            fontSize: '0.875rem',
-            borderBottom: `1px solid ${colors.border}`,
-            py: 1.75,
-          }}
-          renderActions={(user) => {
-            const ownAccount = user.id === currentUserId
-            return (
-              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                <Button
-                  size="small"
-                  onClick={() => openEditForm(user)}
-                  aria-label={`Editar ${user.name}`}
-                  sx={{ ...buttonSx, color: colors.primary }}
-                >
-                  Editar
-                </Button>
-                {user.active && !ownAccount && (
+        {!listError && (
+          <DataTable
+            caption="Usuários cadastrados"
+            columns={USER_COLUMNS}
+            rows={users}
+            rowKey={(user) => user.id}
+            busy={listLoading}
+            loadingContent={(
+              <StateFeedback
+                kind="loading"
+                title="Carregando usuários..."
+                progressSize={26}
+                sx={{ py: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}
+              />
+            )}
+            emptyContent={emptyContent}
+            stateCellSx={{ py: 0, borderBottom: 0 }}
+            containerClassName={styles.tableContainer}
+            minWidth={720}
+            tableLayout="fixed"
+            actionsWidth={150}
+            paperSx={{ borderRadius: 0, overflow: 'hidden', border: 0, boxShadow: 'none' }}
+            headerCellSx={{
+              backgroundColor: colors.tableHeader,
+              color: colors.secondary,
+              fontSize: '0.875rem',
+              borderBottom: `1px solid ${colors.border}`,
+              py: 1.75,
+              px: { xs: 1.5, sm: 2 },
+            }}
+            cellSx={{ px: { xs: 1.5, sm: 2 } }}
+            renderActions={(user) => {
+              const ownAccount = user.id === currentUserId
+              return (
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <Button
                     size="small"
-                    color="error"
-                    onClick={() => setPendingStatus({ kind: 'deactivate', user })}
-                    aria-label={`Inativar ${user.name}`}
-                    sx={buttonSx}
+                    onClick={() => openEditForm(user)}
+                    aria-label={`Editar ${user.name}`}
+                    sx={{ ...buttonSx, color: colors.primaryDark }}
                   >
-                    Inativar
+                    Editar
                   </Button>
-                )}
-                {!user.active && (
-                  <Button
-                    size="small"
-                    color="success"
-                    onClick={() => setPendingStatus({ kind: 'activate', user })}
-                    aria-label={`Reativar ${user.name}`}
-                    sx={buttonSx}
-                  >
-                    Reativar
-                  </Button>
-                )}
-              </Box>
-            )
-          }}
-        />}
+                  {user.active && !ownAccount && (
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => setPendingStatus({ kind: 'deactivate', user })}
+                      aria-label={`Inativar ${user.name}`}
+                      sx={buttonSx}
+                    >
+                      Inativar
+                    </Button>
+                  )}
+                  {!user.active && (
+                    <Button
+                      size="small"
+                      color="success"
+                      onClick={() => setPendingStatus({ kind: 'activate', user })}
+                      aria-label={`Reativar ${user.name}`}
+                      sx={buttonSx}
+                    >
+                      Reativar
+                    </Button>
+                  )}
+                </Box>
+              )
+            }}
+          />
+        )}
 
-        {!listError && <Box
-          sx={{
-            px: 2.5,
-            py: 1.75,
-            borderTop: `1px solid ${colors.border}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 1.5,
-            color: colors.secondary,
-            fontSize: '0.875rem',
-          }}
-        >
-          <Typography variant="body2" sx={{ color: colors.secondary, fontSize: '0.875rem' }}>
-            {total === 0 ? 'Nenhum registro' : `${total} usuário(s) encontrado(s)`}
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Button
-              size="small"
-              onClick={() => {
-                beginListRequest()
-                setPage((current) => Math.max(1, current - 1))
-              }}
-              disabled={page <= 1 || listLoading}
-              sx={{ ...buttonSx, color: colors.text }}
-            >
-              Anterior
-            </Button>
+        {!listError && (
+          <Box
+            sx={{
+              px: { xs: 1.5, sm: 2.5 },
+              py: 1.75,
+              borderTop: `1px solid ${colors.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1.5,
+              color: colors.secondary,
+              fontSize: '0.875rem',
+            }}
+          >
             <Typography variant="body2" sx={{ color: colors.secondary, fontSize: '0.875rem' }}>
-              Página {page} de {Math.max(1, totalPages)}
+              {total === 0 ? 'Nenhum registro' : `${total} usuário(s) encontrado(s)`}
             </Typography>
-            <Button
-              size="small"
-              onClick={() => {
-                beginListRequest()
-                setPage((current) => current + 1)
-              }}
-              disabled={page >= totalPages || listLoading}
-              sx={{ ...buttonSx, color: colors.text }}
-            >
-              Próxima
-            </Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Button
+                size="small"
+                onClick={() => {
+                  beginListRequest()
+                  setPage((current) => Math.max(1, current - 1))
+                }}
+                disabled={page <= 1 || listLoading}
+                sx={{ ...buttonSx, color: colors.text }}
+              >
+                Anterior
+              </Button>
+              <Typography variant="body2" sx={{ color: colors.secondary, fontSize: '0.875rem' }}>
+                Página {page} de {Math.max(1, totalPages)}
+              </Typography>
+              <Button
+                size="small"
+                onClick={() => {
+                  beginListRequest()
+                  setPage((current) => current + 1)
+                }}
+                disabled={page >= totalPages || listLoading}
+                sx={{ ...buttonSx, color: colors.text }}
+              >
+                Próxima
+              </Button>
+            </Box>
           </Box>
-        </Box>}
+        )}
       </Paper>
 
       <Dialog
@@ -704,9 +901,19 @@ export default function UserManagementPage() {
         fullWidth
         maxWidth="sm"
         aria-labelledby={`${id}-dialog-title`}
-        slotProps={{ paper: { sx: { borderRadius: 2 } } }}
+        slotProps={{
+          paper: {
+            'aria-busy': saving ? 'true' : undefined,
+            sx: { borderRadius: 2, ...pageControlSx },
+          },
+        }}
       >
-        <Box component="form" onSubmit={handleSubmit} noValidate>
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          noValidate
+          aria-busy={saving ? 'true' : undefined}
+        >
           <DialogTitle id={`${id}-dialog-title`} sx={{ color: colors.heading, fontWeight: 700, pb: 1 }}>
             {formMode === 'create' ? 'Cadastrar usuário' : 'Editar usuário'}
           </DialogTitle>
@@ -719,64 +926,97 @@ export default function UserManagementPage() {
             </Typography>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              {profilesLoading && (
+                <Box
+                  role="status"
+                  aria-live="polite"
+                  aria-busy="true"
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: colors.secondary }}
+                >
+                  <CircularProgress size={20} />
+                  <Typography variant="body2">Carregando perfis de acesso...</Typography>
+                </Box>
+              )}
+
+              {profilesUnavailable && (
+                <Alert
+                  severity="warning"
+                  role="alert"
+                  action={(
+                    <Button
+                      color="inherit"
+                      onClick={() => void loadProfiles()}
+                      disabled={profilesLoading}
+                      sx={{ minHeight: 44 }}
+                    >
+                      Tentar novamente
+                    </Button>
+                  )}
+                >
+                  {profilesError
+                    ? `Não foi possível carregar o catálogo de perfis (${profilesError}). Consulte novamente sem perder os demais campos preenchidos.`
+                    : 'Nenhum perfil de acesso está disponível no momento. Consulte novamente para habilitar a seleção sem perder os dados preenchidos.'}
+                </Alert>
+              )}
+
               <FormField
                 label="Nome completo"
                 required
                 value={formValues.name}
                 error={formErrors.name}
+                inputRef={nameInputRef}
                 onChange={(value) => updateFormValue('name', value)}
                 sx={fieldSx}
               />
 
-              <TextField
+              <FormField
                 label="E-mail institucional"
                 type="email"
                 autoComplete="email"
-                fullWidth
                 required
                 value={formValues.email}
-                error={Boolean(formErrors.email)}
-                helperText={formErrors.email}
-                onChange={(event) => updateFormValue('email', event.target.value)}
+                error={formErrors.email}
+                inputRef={emailInputRef}
+                onChange={(value) => updateFormValue('email', value)}
                 sx={fieldSx}
               />
 
-              <FormSelect
-                label="Perfil de acesso"
-                hideLabel
-                value={formValues.roleId}
-                onChange={(value) => updateFormValue('roleId', value)}
-                options={profiles.map((profile) => ({
-                  value: profile.id,
-                  label: profileLabel(profile.name),
-                }))}
-                emptyLabel="Selecione o perfil de acesso"
-                emptyOptionDisabled
-                displayEmpty
-                required
-                disabled={profilesLoading || Boolean(profilesError)}
-                error={formErrors.roleId}
-                sx={fieldSx}
-              />
+              <Box ref={roleContainerRef}>
+                <FormSelect
+                  label="Perfil de acesso"
+                  value={formValues.roleId}
+                  onChange={(value) => updateFormValue('roleId', value)}
+                  options={profiles.map((profile) => ({
+                    value: profile.id,
+                    label: profileLabel(profile.name),
+                  }))}
+                  emptyLabel="Selecione o perfil de acesso"
+                  emptyOptionDisabled
+                  displayEmpty
+                  required
+                  disabled={profilesLoading || profilesUnavailable}
+                  error={formErrors.roleId}
+                  sx={fieldSx}
+                />
+              </Box>
 
               {formMode === 'create' && (
                 <>
-                  <TextField
+                  <FormField
                     label="Senha inicial"
                     type="password"
                     autoComplete="new-password"
-                    fullWidth
                     required
                     value={formValues.password}
-                    error={Boolean(formErrors.password)}
-                    helperText={formErrors.password ?? 'Máximo de 72 bytes em UTF-8.'}
-                    onChange={(event) => updateFormValue('password', event.target.value)}
+                    error={formErrors.password}
+                    helperText="Máximo de 72 bytes em UTF-8."
+                    inputRef={passwordInputRef}
+                    onChange={(value) => updateFormValue('password', value)}
                     sx={fieldSx}
                   />
 
                   <FormSelect
                     label="Situação inicial"
-                    hideLabel
                     value={formValues.active ? 'active' : 'inactive'}
                     onChange={(value) => updateFormValue('active', value === 'active')}
                     options={[
@@ -788,14 +1028,37 @@ export default function UserManagementPage() {
                 </>
               )}
 
-              {profilesLoading && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: colors.secondary }}>
-                  <CircularProgress size={20} />
-                  <Typography variant="body2">Carregando perfis de acesso...</Typography>
-                </Box>
-              )}
+              <Box role="status" aria-live="polite">
+                {saving && (
+                  <Typography variant="body2" sx={{ color: colors.secondary }}>
+                    {formMode === 'create'
+                      ? 'Cadastrando usuário, aguarde...'
+                      : 'Salvando alterações do usuário, aguarde...'}
+                  </Typography>
+                )}
+              </Box>
 
-              {formError && <Alert severity="error">{formError}</Alert>}
+              {formError && (
+                <Alert
+                  ref={formErrorRef}
+                  tabIndex={-1}
+                  severity="error"
+                  action={revisionConflict && formMode === 'edit' && editingUser
+                    ? (
+                        <Button
+                          color="inherit"
+                          onClick={() => void reloadEditingUser()}
+                          disabled={reloadingConflictUser}
+                          sx={{ minHeight: 44 }}
+                        >
+                          {reloadingConflictUser ? 'Recarregando...' : 'Recarregar dados atuais'}
+                        </Button>
+                      )
+                    : undefined}
+                >
+                  {formError}
+                </Alert>
+              )}
             </Box>
           </DialogContent>
 
@@ -803,7 +1066,7 @@ export default function UserManagementPage() {
             <Button
               variant="outlined"
               onClick={closeForm}
-              disabled={saving}
+              disabled={saving || reloadingConflictUser}
               sx={{ ...buttonSx, borderColor: '#cbd5e1', color: colors.text }}
             >
               Cancelar
@@ -811,7 +1074,7 @@ export default function UserManagementPage() {
             <Button
               type="submit"
               variant="contained"
-              disabled={saving || profilesLoading || Boolean(profilesError)}
+              disabled={saving || profilesLoading || profilesUnavailable || reloadingConflictUser}
               startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <PersonAddAlt1 />}
               sx={{
                 ...buttonSx,
@@ -845,7 +1108,8 @@ export default function UserManagementPage() {
         onCancel={() => void handleCancelProfileChange()}
         onConfirm={() => void handleConfirmProfileChange()}
         autoFocusCancel
-        paperSx={{ borderRadius: 2 }}
+        sx={pageControlSx}
+        paperSx={{ borderRadius: 2, ...pageControlSx }}
         actionsSx={{ p: 2.5, pt: 1, gap: 1 }}
         cancelSx={{ ...buttonSx, color: colors.text }}
         confirmSx={{
@@ -873,7 +1137,8 @@ export default function UserManagementPage() {
         loading={confirming}
         danger={pendingStatus?.kind === 'deactivate'}
         confirmColor={pendingStatus?.kind === 'activate' ? 'success' : undefined}
-        paperSx={{ borderRadius: 2 }}
+        sx={pageControlSx}
+        paperSx={{ borderRadius: 2, ...pageControlSx }}
         actionsSx={{ p: 2.5, pt: 1, gap: 1 }}
         cancelSx={{ ...buttonSx, color: colors.text }}
         confirmSx={{ ...buttonSx, boxShadow: 'none' }}

@@ -2,6 +2,13 @@ import { resolveProfile } from './profiles.ts'
 
 export const SESSION_EXPIRED = 'Sua sessão expirou. Entre novamente.'
 
+/**
+ * Antecedência conservadora padrão para aviso acessível de expiração (5 minutos).
+ * Cobre a janela de 1 minuto observada em T01-C10 e T17-C09 enquanto aguarda
+ * confirmação definitiva de regra de negócio pela coordenação.
+ */
+export const SESSION_EXPIRY_WARNING_MS = 5 * 60_000
+
 function decodePart(part: string): Record<string, unknown> | null {
   try {
     const base64 = part.replace(/-/g, '+').replace(/_/g, '/')

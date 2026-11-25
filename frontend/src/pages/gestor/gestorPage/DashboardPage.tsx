@@ -1,42 +1,88 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import {
   Assignment,
+  AssignmentLate,
   Build,
   CheckCircle,
   Description,
   DirectionsCar,
+  EventAvailable,
   LocalGasStation,
   LocalShipping,
   MedicalServices,
   People,
+  Route,
   Speed,
+  WarningAmber,
 } from '@mui/icons-material'
-import { Alert, Box, Button, Grid, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
-import { useAuth } from '../../../auth/useAuth'
-import { FormField, FormSelect } from '../../../components/ui/FormField'
-import FilterBar from '../../../components/ui/FilterBar'
-import PageHeader from '../../../components/ui/PageHeader'
-import DataTable from '../../../components/ui/DataTable'
-import type { DataTableColumn } from '../../../components/ui/DataTable'
-import StateFeedback from '../../../components/ui/StateFeedback'
-import StatCard from '../../../components/ui/StatCard'
-import { getDashboardIndicators, getDashboardSummary, listScheduledTrips } from '../../../services/dashboardService'
-import type { DashboardVehicleIndicators, ScheduledTripSummary } from '../../../services/dashboardService'
-import { listMaintenance } from '../../../services/maintenanceService'
-import type { MaintenanceOrder } from '../../../maintenance/maintenanceTypes'
-import { listVehicles } from '../../../services/vehiclesService'
-import type { Vehicle } from '../../../vehicles/vehicleTypes'
+import {
+  Alert,
+  Box,
+  Button,
+  Grid,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material'
+import { resolveProfile } from '../../../auth/profiles.ts'
+import { useAuth } from '../../../auth/useAuth.ts'
+import { accessibleControls } from '../../../components/ui/accessibleControls.ts'
+import DataTable, { type DataTableColumn } from '../../../components/ui/DataTable.tsx'
+import FilterBar from '../../../components/ui/FilterBar.tsx'
+import { FormField, FormSelect } from '../../../components/ui/FormField.tsx'
+import PageHeader from '../../../components/ui/PageHeader.tsx'
+import StateFeedback from '../../../components/ui/StateFeedback.tsx'
+import StatCard from '../../../components/ui/StatCard.tsx'
+import StatusChip from '../../../components/ui/StatusChip.tsx'
+import { useDashboard } from '../../../hooks/useDashboard.ts'
+import type { MaintenanceOrder } from '../../../maintenance/maintenanceTypes.ts'
+import { listScheduledTrips } from '../../../services/dashboardService.ts'
+import { listMaintenance } from '../../../services/maintenanceService.ts'
+import {
+  DASHBOARD_MAX_PERIOD_DAYS,
+  PENDING_VALIDATION_INDICATORS,
+  canAccessDashboard,
+  type DashboardPeriodPreset,
+  type ScheduledTripSummary,
+  type VehicleIndicators,
+} from '../../../types/dashboard.ts'
+import {
+  FLEET_STATUS_SEGMENTS,
+  addCivilDays,
+  buildDocumentsAlertPath,
+  chartPeriods,
+  formatCurrency,
+  formatDocumentsAlertCopy,
+  formatInclusivePeriodLabel,
+  formatNullableMeasure,
+  formatNumber,
+  formatSafeCalendarDate,
+  formatSafeDateTimeInMaceio,
+} from './gestorDashboardData.ts'
 
-const DAY_IN_MS = 24 * 60 * 60 * 1000
-const QUICK_PERIODS = [
-  { id: 'today', label: 'Hoje', days: 1 },
-  { id: '7days', label: '7 dias', days: 7 },
-  { id: '30days', label: '30 dias', days: 30 },
-  { id: '90days', label: '90 dias', days: 90 },
-  { id: '6months', label: '6 meses', months: 6 },
-  { id: '12months', label: '12 meses', months: 12 },
-] as const
+const BarChart = lazy(() => import('@mui/x-charts/BarChart').then(({ BarChart: chart }) => ({ default: chart })))
+const PieChart = lazy(() => import('@mui/x-charts/PieChart').then(({ PieChart: chart }) => ({ default: chart })))
+
+const QUICK_PERIODS: readonly { id: Exclude<DashboardPeriodPreset, 'custom'>; label: string }[] = [
+  { id: 'today', label: 'Hoje' },
+  { id: '7days', label: '7 dias' },
+  { id: '30days', label: '30 dias' },
+  { id: '90days', label: '90 dias' },
+  { id: '6months', label: '6 meses' },
+  { id: '12months', label: '12 meses' },
+]
+
 const FUTURE_PERIODS = [7, 30, 90] as const
+
 const DASHBOARD_SECTIONS = [
   { id: 'dashboard-overview', label: 'Visão geral' },
   { id: 'dashboard-charts', label: 'Gráficos principais' },
@@ -46,14 +92,39 @@ const DASHBOARD_SECTIONS = [
   { id: 'dashboard-maintenance', label: 'Manutenção' },
   { id: 'dashboard-schedule', label: 'Agenda futura' },
 ] as const
-const BarChart = lazy(() => import('@mui/x-charts/BarChart').then(({ BarChart: chart }) => ({ default: chart })))
-const PieChart = lazy(() => import('@mui/x-charts/PieChart').then(({ PieChart: chart }) => ({ default: chart })))
 
-interface DashboardFilters {
-  from: string
-  to: string
-  vehicleId: string
-}
+const DASHBOARD_CONTROLS_SX = {
+  ...accessibleControls,
+  '& .MuiInputBase-root': { minHeight: 44 },
+  '& a:focus-visible, & button:focus-visible': {
+    outline: '3px solid',
+    outlineColor: 'primary.dark',
+    outlineOffset: 2,
+  },
+  '& .MuiToggleButton-root': {
+    minHeight: 44,
+    minWidth: 44,
+    px: 1.5,
+    textTransform: 'none',
+    color: '#334155',
+    borderColor: '#94a3b8',
+  },
+  '& .MuiToggleButton-root.Mui-selected': {
+    bgcolor: '#fff1e6',
+    color: '#9a3412',
+    borderColor: 'primary.dark',
+    fontWeight: 700,
+  },
+  '& .MuiToggleButton-root.Mui-selected:hover': {
+    bgcolor: '#ffe4cc',
+  },
+  '& .MuiToggleButton-root:focus-visible, & .MuiToggleButton-root.Mui-focusVisible': {
+    outline: '3px solid',
+    outlineColor: 'primary.dark',
+    outlineOffset: 2,
+    zIndex: 1,
+  },
+} as const
 
 interface UpcomingMaintenanceRow {
   id: string
@@ -61,56 +132,6 @@ interface UpcomingMaintenanceRow {
   type: string
   expectedDate: string
   status: string
-}
-
-function toLocalDate(date: Date): string {
-  const values = new Intl.DateTimeFormat('en', {
-    timeZone: 'America/Maceio', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(date)
-  const part = (type: string) => values.find((item) => item.type === type)?.value ?? ''
-  return `${part('year')}-${part('month')}-${part('day')}`
-}
-
-function shiftDate(value: string, days: number): string {
-  const [year, month, day] = value.split('-').map(Number)
-  const date = new Date(Date.UTC(year, month - 1, day + days, 12))
-  return toLocalDate(date)
-}
-
-function periodStart(end: string, period: typeof QUICK_PERIODS[number]): string {
-  const [year, month, day] = end.split('-').map(Number)
-  const date = new Date(Date.UTC(year, month - 1, day, 12))
-  if ('months' in period) {
-    date.setUTCDate(1)
-    date.setUTCMonth(date.getUTCMonth() - period.months)
-    const lastDayOfTargetMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate()
-    date.setUTCDate(Math.min(day, lastDayOfTargetMonth))
-  } else {
-    date.setUTCDate(date.getUTCDate() - period.days + 1)
-  }
-  return toLocalDate(date)
-}
-
-function inclusiveDays(from: string, to: string): number {
-  if (!from || !to || from > to) return 0
-  return Math.floor((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_IN_MS) + 1
-}
-
-function formatDate(value: string): string {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Maceio' }).format(new Date(Date.UTC(year, month - 1, day, 12)))
-}
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Maceio' }).format(new Date(value))
-}
-
-function formatNumber(value: number, maximumFractionDigits = 0): string {
-  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits }).format(value)
-}
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
 
 function sectionEntrance(delay = 0) {
@@ -136,70 +157,110 @@ function navigateToDashboardSection(id: string) {
 const dashboardCardMotion = {
   '& > .MuiCard-root': { transition: 'transform 180ms ease, box-shadow 180ms ease' },
   '& > .MuiCard-root:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 20px rgba(69, 35, 8, 0.12)' },
-  '@media (prefers-reduced-motion: reduce)': { '& > .MuiCard-root': { transition: 'none' }, '& > .MuiCard-root:hover': { transform: 'none' } },
+  '@media (prefers-reduced-motion: reduce)': {
+    '& > .MuiCard-root': { transition: 'none' },
+    '& > .MuiCard-root:hover': { transform: 'none' },
+  },
 }
 
-function chartPeriods(from: string, to: string, bucket: 'day' | 'month') {
-  const result: { key: string; label: string; days: number }[] = []
-  const [startYear, startMonth, startDay] = from.split('-').map(Number)
-  const [endYear, endMonth, endDay] = to.split('-').map(Number)
-  const cursor = bucket === 'day' ? new Date(Date.UTC(startYear, startMonth - 1, startDay, 12)) : new Date(Date.UTC(startYear, startMonth - 1, 1, 12))
-  const end = bucket === 'day' ? new Date(Date.UTC(endYear, endMonth - 1, endDay, 12)) : new Date(Date.UTC(endYear, endMonth - 1, 1, 12))
-  while (cursor <= end) {
-    const key = bucket === 'day'
-      ? `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}-${String(cursor.getUTCDate()).padStart(2, '0')}`
-      : `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}-01`
-    const label = bucket === 'day'
-      ? `${String(cursor.getUTCDate()).padStart(2, '0')}/${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`
-      : `${String(cursor.getUTCMonth() + 1).padStart(2, '0')}/${cursor.getUTCFullYear()}`
-    const next = new Date(cursor)
-    if (bucket === 'day') next.setUTCDate(next.getUTCDate() + 1)
-    else next.setUTCMonth(next.getUTCMonth() + 1)
-    result.push({ key, label, days: bucket === 'day' ? 1 : Math.round((next.getTime() - cursor.getTime()) / DAY_IN_MS) })
-    cursor.setTime(next.getTime())
-  }
-  return result
+function ChartDataTable({
+  title,
+  headers,
+  rows,
+}: {
+  title: string
+  headers: readonly string[]
+  rows: readonly (readonly (string | number)[])[]
+}) {
+  return (
+    <TableContainer
+      role="region"
+      aria-label={`${title}. Use a rolagem horizontal se necessário.`}
+      tabIndex={0}
+      sx={{
+        mt: 1.5,
+        maxHeight: 220,
+        overflowX: 'auto',
+        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.dark', outlineOffset: -2 },
+      }}
+    >
+      <Table size="small" aria-label={title}>
+        <TableHead>
+          <TableRow>
+            {headers.map((header) => (
+              <TableCell key={header} component="th" scope="col" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                {header}
+              </TableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((row, rowIndex) => (
+            <TableRow key={`${String(row[0])}-${rowIndex}`}>
+              {row.map((cell, cellIndex) => (
+                <TableCell key={`${rowIndex}-${cellIndex}`}>{cell}</TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  )
 }
 
-function ChartDataTable({ title, headers, rows }: { title: string; headers: readonly string[]; rows: readonly (readonly (string | number)[])[] }) {
-  return <TableContainer sx={{ mt: 1, maxHeight: 190 }}><Table size="small" aria-label={title}>
-    <TableHead><TableRow>{headers.map((header) => <TableCell key={header} component="th" scope="col">{header}</TableCell>)}</TableRow></TableHead>
-    <TableBody>{rows.map((row) => <TableRow key={String(row[0])}>{row.map((cell, index) => <TableCell key={`${row[0]}-${index}`}>{cell}</TableCell>)}</TableRow>)}</TableBody>
-  </Table></TableContainer>
-}
-
-function TrendChart({ title, data, series }: {
+function TrendChart({
+  title,
+  data,
+  series,
+}: {
   title: string
   data: { label: string }[]
   series: { label: string; color: string; values: number[] }[]
 }) {
   const rows = data.map((period, index) => [period.label, ...series.map((item) => item.values[index] ?? 0)])
-  return <Paper component="section" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
-    <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>{title}</Typography>
-    <Box role="img" aria-label={`Gráfico de ${title.toLocaleLowerCase('pt-BR')}; os valores também estão na tabela abaixo.`}>
-      <Suspense fallback={<StateFeedback kind="loading" title={`Carregando gráfico: ${title.toLocaleLowerCase('pt-BR')}...`} />}>
-        <BarChart height={250} xAxis={[{ data: data.map((item) => item.label), scaleType: 'band', label: 'Período' }]} yAxis={[{ label: 'Registros' }]} series={series.map((item) => ({ data: item.values, label: item.label, color: item.color }))} margin={{ left: 52, right: 18, top: 24, bottom: 48 }} />
-      </Suspense>
-    </Box>
-    <ChartDataTable title={`Dados do gráfico: ${title}`} headers={['Período', ...series.map((item) => item.label)]} rows={rows} />
-  </Paper>
+  return (
+    <Paper component="section" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
+      <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>{title}</Typography>
+      <Box role="img" aria-label={`Gráfico de ${title.toLocaleLowerCase('pt-BR')}; os valores também estão na tabela abaixo.`}>
+        <Suspense fallback={<StateFeedback kind="loading" title={`Carregando gráfico: ${title.toLocaleLowerCase('pt-BR')}...`} />}>
+          <BarChart
+            height={250}
+            xAxis={[{ data: data.map((item) => item.label), scaleType: 'band', label: 'Período' }]}
+            yAxis={[{ label: 'Registros' }]}
+            series={series.map((item) => ({ data: item.values, label: item.label, color: item.color }))}
+            margin={{ left: 52, right: 18, top: 24, bottom: 48 }}
+          />
+        </Suspense>
+      </Box>
+      <ChartDataTable
+        title={`Dados do gráfico: ${title}`}
+        headers={['Período', ...series.map((item) => item.label)]}
+        rows={rows}
+      />
+    </Paper>
+  )
 }
 
-const VEHICLE_COLUMNS: readonly DataTableColumn<DashboardVehicleIndicators>[] = [
-  { key: 'vehicle', header: 'Veículo', width: 160, render: (row) => row.licensePlate },
-  { key: 'trips', header: 'Viagens concluídas', align: 'right', render: (row) => formatNumber(row.tripsCount) },
-  { key: 'km', header: 'Km percorridos', align: 'right', render: (row) => `${formatNumber(row.kmDriven)} km` },
-  { key: 'consumption', header: 'Consumo médio', align: 'right', render: (row) => row.averageConsumptionKmPerLiter === null ? '—' : `${formatNumber(row.averageConsumptionKmPerLiter, 2)} km/L` },
-  { key: 'liters', header: 'Litros abastecidos', align: 'right', render: (row) => `${formatNumber(row.litersFueled, 1)} L` },
-  { key: 'fuel', header: 'Gasto com combustível', align: 'right', render: (row) => formatCurrency(row.fuelCost) },
-  { key: 'maintenance', header: 'Ordens de manutenção', align: 'right', render: (row) => formatNumber(row.maintenanceOrdersOpened) },
-  { key: 'preventive', header: 'Ordens preventivas', align: 'right', render: (row) => formatNumber(row.preventiveMaintenanceOrdersOpened) },
-  { key: 'corrective', header: 'Ordens corretivas', align: 'right', render: (row) => formatNumber(row.correctiveMaintenanceOrdersOpened) },
-  { key: 'maintenanceCost', header: 'Custo de manutenção', align: 'right', render: (row) => formatCurrency(row.maintenanceCost) },
+const VEHICLE_INDICATORS_COLUMNS: readonly DataTableColumn<VehicleIndicators>[] = [
+  { key: 'plate', header: 'Veículo', width: 140, render: (row) => row.licensePlate },
+  { key: 'trips', header: 'Viagens', align: 'right', render: (row) => formatNumber(row.tripsCount, 0) },
+  { key: 'km', header: 'Km percorrido', align: 'right', render: (row) => `${formatNumber(row.kmDriven, 1)} km` },
+  { key: 'liters', header: 'Litros', align: 'right', render: (row) => `${formatNumber(row.litersFueled, 3)} L` },
+  { key: 'fuelCost', header: 'Combustível', align: 'right', render: (row) => formatCurrency(row.fuelCost) },
+  {
+    key: 'consumption',
+    header: 'Consumo médio*',
+    align: 'right',
+    render: (row) => formatNullableMeasure(row.averageConsumptionKmPerLiter, 'km/L', '—'),
+  },
+  { key: 'maintenanceOrders', header: 'Ordens manut.', align: 'right', render: (row) => formatNumber(row.maintenanceOrdersOpened, 0) },
+  { key: 'preventive', header: 'Preventivas', align: 'right', render: (row) => formatNumber(row.preventiveMaintenanceOrdersOpened, 0) },
+  { key: 'corrective', header: 'Corretivas', align: 'right', render: (row) => formatNumber(row.correctiveMaintenanceOrdersOpened, 0) },
+  { key: 'maintenance', header: 'Manutenção', align: 'right', render: (row) => formatCurrency(row.maintenanceCost) },
 ]
 
 const SCHEDULED_TRIP_COLUMNS: readonly DataTableColumn<ScheduledTripSummary>[] = [
-  { key: 'start', header: 'Início previsto', width: 170, render: (row) => formatDateTime(row.scheduledStart) },
+  { key: 'start', header: 'Início previsto', width: 170, render: (row) => formatSafeDateTimeInMaceio(row.scheduledStart) },
   { key: 'vehicle', header: 'Veículo', width: 130, render: (row) => row.vehicleLicensePlate },
   { key: 'driver', header: 'Motorista', width: 200, render: (row) => row.driverName },
   { key: 'route', header: 'Origem → destino', render: (row) => `${row.origin} → ${row.destination}` },
@@ -208,135 +269,38 @@ const SCHEDULED_TRIP_COLUMNS: readonly DataTableColumn<ScheduledTripSummary>[] =
 const MAINTENANCE_COLUMNS: readonly DataTableColumn<UpcomingMaintenanceRow>[] = [
   { key: 'vehicle', header: 'Veículo', width: 140, render: (row) => row.vehicle },
   { key: 'type', header: 'Tipo', width: 140, render: (row) => row.type },
-  { key: 'expectedDate', header: 'Previsão', width: 150, render: (row) => formatDate(row.expectedDate) },
+  { key: 'expectedDate', header: 'Previsão', width: 150, render: (row) => formatSafeCalendarDate(row.expectedDate) },
   { key: 'status', header: 'Situação', width: 150, render: (row) => row.status },
 ]
 
-/** Painel gerencial com indicadores lidos das APIs da frota e viagens. */
+/** Dashboard analítico gerencial integrado às APIs de resumo e indicadores do PostgreSQL. */
 export default function DashboardPage() {
-  const { api } = useAuth()
-  const today = toLocalDate(new Date())
-  const initialFrom = shiftDate(today, -29)
-  const [period, setPeriod] = useState('30days')
-  const [from, setFrom] = useState(initialFrom)
-  const [to, setTo] = useState(today)
-  const [vehicleId, setVehicleId] = useState('')
-  const [appliedFilters, setAppliedFilters] = useState<DashboardFilters>({ from: initialFrom, to: today, vehicleId: '' })
+  const { api, session } = useAuth()
+  const profile = session ? resolveProfile(session.perfil) : null
+  const allowed = canAccessDashboard(profile)
+  const dashboard = useDashboard(api, allowed)
+  const [statusAnnouncement, setStatusAnnouncement] = useState('')
   const [futureDays, setFutureDays] = useState<number>(30)
-  const [summary, setSummary] = useState<Awaited<ReturnType<typeof getDashboardSummary>> | null>(null)
-  const [vehicles, setVehicles] = useState<Vehicle[]>([])
-  const [indicators, setIndicators] = useState<Awaited<ReturnType<typeof getDashboardIndicators>> | null>(null)
-  const [comparisonIndicators, setComparisonIndicators] = useState<Awaited<ReturnType<typeof getDashboardIndicators>> | null>(null)
+  const [extraRefresh, setExtraRefresh] = useState(0)
   const [scheduledTrips, setScheduledTrips] = useState<ScheduledTripSummary[]>([])
   const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([])
-  const [summaryLoading, setSummaryLoading] = useState(true)
-  const [vehiclesLoading, setVehiclesLoading] = useState(true)
-  const [indicatorsLoading, setIndicatorsLoading] = useState(true)
-  const [scheduledLoading, setScheduledLoading] = useState(true)
-  const [maintenanceLoading, setMaintenanceLoading] = useState(true)
-  const [summaryError, setSummaryError] = useState('')
-  const [vehiclesError, setVehiclesError] = useState('')
-  const [indicatorsError, setIndicatorsError] = useState('')
-  const [comparisonError, setComparisonError] = useState('')
+  const [scheduledLoading, setScheduledLoading] = useState(allowed)
+  const [maintenanceLoading, setMaintenanceLoading] = useState(allowed)
   const [scheduledError, setScheduledError] = useState('')
   const [maintenanceError, setMaintenanceError] = useState('')
-  const [refreshVersion, setRefreshVersion] = useState(0)
-  const validDraftPeriod = inclusiveDays(from, to) > 0 && inclusiveDays(from, to) <= 366
-  const validAppliedPeriod = inclusiveDays(appliedFilters.from, appliedFilters.to) > 0
+  const sevenDaysButtonRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
+    const previousTitle = document.title
     document.title = 'Dashboard da frota — Aratu'
+    return () => { document.title = previousTitle }
   }, [])
 
   useEffect(() => {
-    let current = true
+    if (!allowed) return
+    let active = true
     void Promise.resolve().then(async () => {
-      if (!current) return
-      setSummaryLoading(true)
-      setSummaryError('')
-      setSummary(null)
-      try {
-        const value = await getDashboardSummary(api, appliedFilters.vehicleId || undefined)
-        if (current) setSummary(value)
-      } catch (error: unknown) {
-        if (current) setSummaryError(error instanceof Error ? error.message : 'Não foi possível carregar o resumo da frota.')
-      } finally {
-        if (current) setSummaryLoading(false)
-      }
-    })
-    return () => { current = false }
-  }, [api, appliedFilters.vehicleId, refreshVersion])
-
-  useEffect(() => {
-    let current = true
-    void Promise.resolve().then(async () => {
-      if (!current) return
-      setVehiclesLoading(true)
-      setVehiclesError('')
-      try {
-        const value = await listVehicles(api)
-        if (current) setVehicles(value)
-      } catch (error: unknown) {
-        if (current) setVehiclesError(error instanceof Error ? error.message : 'Não foi possível carregar a lista de veículos.')
-      } finally {
-        if (current) setVehiclesLoading(false)
-      }
-    })
-    return () => { current = false }
-  }, [api, refreshVersion])
-
-  useEffect(() => {
-    let current = true
-    if (!validAppliedPeriod) {
-      void Promise.resolve().then(() => {
-        if (!current) return
-        setIndicatorsLoading(false)
-        setIndicatorsError('O período aplicado é inválido. Escolha no máximo 366 dias.')
-      })
-      return () => { current = false }
-    }
-    void Promise.resolve().then(async () => {
-      if (!current) return
-      setIndicatorsLoading(true)
-      setIndicatorsError('')
-      setComparisonError('')
-      setIndicators(null)
-      setComparisonIndicators(null)
-      const currentPeriod = getDashboardIndicators(api, {
-        from: appliedFilters.from,
-        toExclusive: shiftDate(appliedFilters.to, 1),
-        vehicleId: appliedFilters.vehicleId || undefined,
-      })
-      const periodDays = inclusiveDays(appliedFilters.from, appliedFilters.to)
-      const previousPeriod = getDashboardIndicators(api, {
-        from: shiftDate(appliedFilters.from, -periodDays),
-        toExclusive: appliedFilters.from,
-        vehicleId: appliedFilters.vehicleId || undefined,
-      })
-      try {
-        const [value, previous] = await Promise.allSettled([currentPeriod, previousPeriod])
-        if (!current) return
-        if (value.status === 'fulfilled') {
-          setIndicators(value.value)
-        } else {
-          setIndicatorsError(value.reason instanceof Error ? value.reason.message : 'Não foi possível carregar os indicadores do período.')
-        }
-        if (previous.status === 'fulfilled') {
-          setComparisonIndicators(previous.value)
-        } else {
-          setComparisonError(previous.reason instanceof Error ? previous.reason.message : 'Não foi possível carregar o período anterior.')
-        }
-      } finally {
-        if (current) setIndicatorsLoading(false)
-      }
-    })
-    return () => { current = false }
-  }, [api, appliedFilters, refreshVersion, validAppliedPeriod])
-
-  useEffect(() => {
-    let current = true
-    void Promise.resolve().then(async () => {
-      if (!current) return
+      if (!active) return
       setMaintenanceLoading(true)
       setMaintenanceError('')
       try {
@@ -344,435 +308,1184 @@ export default function DashboardPage() {
           listMaintenance(api, { status: 'OPEN' }),
           listMaintenance(api, { status: 'IN_PROGRESS' }),
         ])
-        if (current) setMaintenanceOrders([...opened.items, ...inProgress.items])
+        if (active) setMaintenanceOrders([...opened.items, ...inProgress.items])
       } catch (error: unknown) {
-        if (current) setMaintenanceError(error instanceof Error ? error.message : 'Não foi possível carregar as previsões de manutenção.')
+        if (active) setMaintenanceError(error instanceof Error ? error.message : 'Não foi possível carregar as previsões de manutenção.')
       } finally {
-        if (current) setMaintenanceLoading(false)
+        if (active) setMaintenanceLoading(false)
       }
     })
-    return () => { current = false }
-  }, [api, refreshVersion])
+    return () => { active = false }
+  }, [allowed, api, extraRefresh])
 
   useEffect(() => {
-    let current = true
+    if (!allowed) return
+    const controller = new AbortController()
+    let active = true
     void Promise.resolve().then(async () => {
-      if (!current) return
+      if (!active) return
       setScheduledLoading(true)
       setScheduledError('')
       try {
         const value = await listScheduledTrips(api, {
-          from: today,
-          to: shiftDate(today, futureDays - 1),
-        })
-        if (current) setScheduledTrips([...value].sort((left, right) => left.scheduledStart.localeCompare(right.scheduledStart)))
+          from: dashboard.today,
+          to: addCivilDays(dashboard.today, futureDays - 1),
+        }, controller.signal)
+        if (active && !controller.signal.aborted) {
+          setScheduledTrips([...value].sort((left, right) => left.scheduledStart.localeCompare(right.scheduledStart)))
+        }
       } catch (error: unknown) {
-        if (current) setScheduledError(error instanceof Error ? error.message : 'Não foi possível carregar as viagens agendadas.')
+        if (active && !controller.signal.aborted) {
+          setScheduledError(error instanceof Error ? error.message : 'Não foi possível carregar as viagens agendadas.')
+        }
       } finally {
-        if (current) setScheduledLoading(false)
+        if (active && !controller.signal.aborted) setScheduledLoading(false)
       }
     })
-    return () => { current = false }
-  }, [api, futureDays, refreshVersion, today])
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [allowed, api, dashboard.today, extraRefresh, futureDays])
 
-  const vehicleOptions = useMemo(() => [
-    { value: '', label: 'Todos os veículos' },
-    ...vehicles.map((vehicle) => ({ value: vehicle.id, label: vehicle.licensePlate })),
-  ], [vehicles])
+  const vehicleOptions = useMemo(() => {
+    const options = [...dashboard.vehicles]
+      .sort((first, second) => first.licensePlate.localeCompare(second.licensePlate, 'pt-BR'))
+      .map((vehicle) => ({
+        value: vehicle.id,
+        label: [vehicle.licensePlate, vehicle.model ?? vehicle.brand].filter(Boolean).join(' · '),
+      }))
+    if (dashboard.vehicleId && !options.some((option) => option.value === dashboard.vehicleId)) {
+      options.unshift({
+        value: dashboard.vehicleId,
+        label: `Veículo #${dashboard.vehicleId}`,
+      })
+    }
+    return options
+  }, [dashboard.vehicleId, dashboard.vehicles])
+
+  const selectedVehicleLabel = useMemo(() => {
+    if (!dashboard.vehicleId) return 'Todos os veículos'
+    const matched = vehicleOptions.find((option) => option.value === dashboard.vehicleId)
+    if (matched) return matched.label
+    const fromIndicators = dashboard.indicators?.vehicles.find((row) => row.vehicleId === dashboard.vehicleId)
+    return fromIndicators ? fromIndicators.licensePlate : `Veículo #${dashboard.vehicleId}`
+  }, [dashboard.indicators?.vehicles, dashboard.vehicleId, vehicleOptions])
+
+  const formattedPeriodLabel = useMemo(
+    () => formatInclusivePeriodLabel(dashboard.from, dashboard.to),
+    [dashboard.from, dashboard.to],
+  )
+
+  function handleRefreshAll() {
+    dashboard.refresh()
+    setExtraRefresh((value) => value + 1)
+  }
+
+  function handleResetToSevenDays() {
+    dashboard.selectPeriod('7days')
+    setStatusAnnouncement('Período redefinido para os últimos 7 dias.')
+    window.requestAnimationFrame(() => {
+      sevenDaysButtonRef.current?.focus()
+    })
+  }
+
+  function handlePeriodChange(_event: React.MouseEvent<HTMLElement>, value: string | null) {
+    if (!value) return
+    dashboard.selectPeriod(value as DashboardPeriodPreset)
+    setStatusAnnouncement('')
+  }
+
+  const summary = dashboard.summary
+  const indicators = dashboard.indicators
+  const comparisonIndicators = dashboard.comparisonIndicators
+  const pendingValidation = indicators?.pendingValidation ?? []
+  const consumptionPending = pendingValidation.includes(PENDING_VALIDATION_INDICATORS.averageConsumption)
+  const svoTimePending = pendingValidation.includes(PENDING_VALIDATION_INDICATORS.svoTimeToCollection)
+
+  const fleetDistribution = useMemo(() => {
+    const fleet = summary?.fleet
+    return FLEET_STATUS_SEGMENTS.map((segment) => ({
+      ...segment,
+      count: fleet ? fleet[segment.key] : 0,
+    }))
+  }, [summary?.fleet])
+
+  const hasPeriodActivity = useMemo(() => {
+    if (!indicators) return false
+    const { totals, svo } = indicators
+    return (
+      totals.tripsCount > 0
+      || totals.litersFueled > 0
+      || totals.fuelCost > 0
+      || totals.maintenanceOrdersOpened > 0
+      || totals.maintenanceCost > 0
+      || (svo ? svo.ordersOpened > 0 || svo.ordersCollected > 0 : false)
+    )
+  }, [indicators])
+
+  const hasTripActivity = useMemo(
+    () => Boolean(indicators && indicators.vehicles.some((row) => row.tripsCount > 0 || row.kmDriven > 0)),
+    [indicators],
+  )
+
+  const hasCostActivity = useMemo(
+    () => Boolean(indicators && indicators.vehicles.some((row) => row.fuelCost > 0 || row.maintenanceCost > 0)),
+    [indicators],
+  )
+
   const filteredScheduledTrips = useMemo(() => {
-    if (!appliedFilters.vehicleId) return scheduledTrips
-    const selectedPlate = vehicles.find((vehicle) => vehicle.id === appliedFilters.vehicleId)?.licensePlate
+    if (!dashboard.vehicleId) return scheduledTrips
+    const selectedPlate = dashboard.vehicles.find((vehicle) => vehicle.id === dashboard.vehicleId)?.licensePlate
     return selectedPlate ? scheduledTrips.filter((trip) => trip.vehicleLicensePlate === selectedPlate) : []
-  }, [appliedFilters.vehicleId, scheduledTrips, vehicles])
+  }, [dashboard.vehicleId, dashboard.vehicles, scheduledTrips])
+
   const upcomingMaintenance = useMemo(() => maintenanceOrders
-    .filter((order) => order.expectedCompletionDate && order.expectedCompletionDate >= today
-      && (!appliedFilters.vehicleId || order.vehicleId === appliedFilters.vehicleId))
+    .filter((order) => order.expectedCompletionDate && order.expectedCompletionDate >= dashboard.today
+      && (!dashboard.vehicleId || order.vehicleId === dashboard.vehicleId))
     .map((order): UpcomingMaintenanceRow => ({
       id: order.id,
-      vehicle: vehicles.find((vehicle) => vehicle.id === order.vehicleId)?.licensePlate ?? order.vehicleSnapshot?.licensePlate ?? 'Veículo indisponível',
+      vehicle: dashboard.vehicles.find((vehicle) => vehicle.id === order.vehicleId)?.licensePlate
+        ?? order.vehicleSnapshot?.licensePlate
+        ?? 'Veículo indisponível',
       type: order.type === 'PREVENTIVE' ? 'Preventiva' : 'Corretiva',
       expectedDate: order.expectedCompletionDate ?? '',
       status: order.status === 'OPEN' ? 'Em aberto' : 'Em andamento',
     }))
-    .sort((left, right) => left.expectedDate.localeCompare(right.expectedDate)), [appliedFilters.vehicleId, maintenanceOrders, today, vehicles])
-  const formattedAppliedPeriod = `${formatDate(appliedFilters.from)} a ${formatDate(appliedFilters.to)}`
-  const formattedFuturePeriod = `${formatDate(today)} a ${formatDate(shiftDate(today, futureDays - 1))}`
-  const activityMap = useMemo(() => new Map((indicators?.activitySeries ?? []).map((item) => [item.period, item])), [indicators?.activitySeries])
-  const graphPeriods = useMemo(() => indicators ? chartPeriods(appliedFilters.from, appliedFilters.to, indicators.activityBucket) : [], [appliedFilters.from, appliedFilters.to, indicators])
+    .sort((left, right) => left.expectedDate.localeCompare(right.expectedDate)), [dashboard.today, dashboard.vehicleId, dashboard.vehicles, maintenanceOrders])
+
+  const activityMap = useMemo(
+    () => new Map((indicators?.activitySeries ?? []).map((item) => [item.period, item])),
+    [indicators?.activitySeries],
+  )
+  const graphPeriods = useMemo(
+    () => (dashboard.validation.valid && indicators ? chartPeriods(dashboard.from, dashboard.to, indicators.activityBucket) : []),
+    [dashboard.from, dashboard.to, dashboard.validation.valid, indicators],
+  )
   const tripPeriodRows = graphPeriods.map((period) => ({ ...period, trips: activityMap.get(period.key)?.tripsCount ?? 0 }))
   const fuelPeriodRows = graphPeriods.map((period) => ({ ...period, cost: activityMap.get(period.key)?.fuelCost ?? 0 }))
   const historyRows = graphPeriods.map((period) => ({
     ...period,
     ...(activityMap.get(period.key) ?? {
-      maintenanceOpened: 0, maintenanceClosed: 0, requestsCreated: 0, requestsApproved: 0, requestsRejected: 0,
-      requestsScheduled: 0, requestsCanceled: 0, finesRegistered: 0, finesPaid: 0, finesContested: 0,
-      driversCreated: 0, driversStatusChanged: 0, documentsRegistered: 0, documentsRenewed: 0,
+      maintenanceOpened: 0,
+      maintenanceClosed: 0,
+      requestsCreated: 0,
+      requestsApproved: 0,
+      requestsRejected: 0,
+      requestsScheduled: 0,
+      requestsCanceled: 0,
+      finesRegistered: 0,
+      finesPaid: 0,
+      finesContested: 0,
+      driversCreated: 0,
+      driversStatusChanged: 0,
+      documentsRegistered: 0,
+      documentsRenewed: 0,
     }),
   }))
-  const tripVehicleRows = [...(indicators?.vehicles ?? [])].sort((a, b) => b.tripsCount - a.tripsCount).map((vehicle) => ({ label: vehicle.licensePlate, trips: vehicle.tripsCount }))
-  const fleetStatusRows = summary ? [
-    { key: 'available', label: 'Disponível', count: summary.fleet.available, color: '#2e7d32' },
-    { key: 'maintenance', label: 'Em manutenção', count: summary.fleet.inMaintenance, color: '#ed6c02' },
-    { key: 'inactive', label: 'Inativo', count: summary.fleet.inactive, color: '#757575' },
-  ] : []
+  const tripVehicleRows = [...(indicators?.vehicles ?? [])]
+    .sort((a, b) => b.tripsCount - a.tripsCount)
+    .map((vehicle) => ({ label: vehicle.licensePlate, trips: vehicle.tripsCount }))
 
-  function selectPeriod(value: string | null) {
-    if (!value) return
-    setPeriod(value)
-    const option = QUICK_PERIODS.find((item) => item.id === value)
-    if (!option) return
-    const proposedFrom = periodStart(today, option)
-    const nextFrom = inclusiveDays(proposedFrom, today) > 366 ? shiftDate(proposedFrom, 1) : proposedFrom
-    setFrom(nextFrom)
-    setTo(today)
-    setAppliedFilters({ from: nextFrom, to: today, vehicleId })
-  }
+  const documentsCopy = summary ? formatDocumentsAlertCopy(summary.documents) : null
 
-  function applyFilters() {
-    if (!validDraftPeriod) return
-    setAppliedFilters({ from, to, vehicleId })
-  }
+  const situationSections = [
+    {
+      title: 'Frota e pendências operacionais',
+      cards: [
+        {
+          id: 'available',
+          title: 'Veículos disponíveis',
+          value: summary?.fleet.available ?? 0,
+          description: `De ${summary?.fleet.total ?? 0} cadastrados`,
+          icon: <DirectionsCar />,
+        },
+        {
+          id: 'maintenance',
+          title: 'Em manutenção',
+          value: summary?.fleet.inMaintenance ?? 0,
+          description: 'Fora de operação no momento',
+          icon: <Build />,
+        },
+        {
+          id: 'inactive',
+          title: 'Veículos inativos',
+          value: summary?.fleet.inactive ?? 0,
+          description: 'Desativados do serviço ativo',
+          icon: <WarningAmber />,
+        },
+        {
+          id: 'pendingRequests',
+          title: 'Solicitações pendentes',
+          value: summary?.pendingRequests ?? 0,
+          description: 'Aguardando análise do gestor',
+          icon: <EventAvailable />,
+        },
+        {
+          id: 'trips-in-progress',
+          title: 'Viagens em andamento',
+          value: summary?.tripsInProgress ?? 0,
+          description: `${summary?.vehiclesInTrip ?? 0} veículos em execução`,
+          icon: <LocalShipping />,
+        },
+        {
+          id: 'tripsToConfirm',
+          title: 'Viagens a confirmar',
+          value: summary?.tripsToConfirm ?? 0,
+          description: 'Finalizadas aguardando conferência',
+          icon: <AssignmentLate />,
+        },
+        {
+          id: 'documents',
+          title: summary ? `Documentos (janela ${summary.documents.alertDays}d)` : 'Documentos a vencer',
+          value: summary ? `${summary.documents.expiring} / ${summary.documents.expired}` : '0 / 0',
+          description: documentsCopy ? `${documentsCopy.headlineCount} ${documentsCopy.title} (${documentsCopy.detail})` : 'A vencer / vencidos',
+          icon: <Description />,
+        },
+      ],
+    },
+    {
+      title: 'Motoristas e multas',
+      cards: [
+        {
+          id: 'drivers-total',
+          title: 'Motoristas cadastrados',
+          value: summary?.drivers.total ?? 0,
+          description: `${summary?.drivers.active ?? 0} ativos · ${summary?.drivers.away ?? 0} afastados`,
+          icon: <People />,
+        },
+        {
+          id: 'cnh-alert',
+          title: 'CNHs a vencer / vencidas',
+          value: summary ? `${summary.drivers.cnhExpiring} / ${summary.drivers.cnhExpired}` : '0 / 0',
+          description: 'Próximos 30 dias / vencidas · total da frota',
+          icon: <Description />,
+        },
+        {
+          id: 'fines-pending',
+          title: 'Multas pendentes',
+          value: summary?.fines.pending ?? 0,
+          description: `${summary?.fines.contested ?? 0} contestadas`,
+          icon: <Assignment />,
+        },
+        {
+          id: 'fines-paid',
+          title: 'Multas pagas',
+          value: summary?.fines.paid ?? 0,
+          description: 'Situação atual',
+          icon: <CheckCircle />,
+        },
+      ],
+    },
+  ]
 
-  function clearFilters() {
-    const nextFrom = shiftDate(today, -29)
-    setPeriod('30days')
-    setFrom(nextFrom)
-    setTo(today)
-    setVehicleId('')
-    setAppliedFilters({ from: nextFrom, to: today, vehicleId: '' })
-  }
+  const totals = indicators?.totals
+  const indicatorCards = [
+    {
+      id: 'trips',
+      title: 'Viagens concluídas',
+      value: totals ? formatNumber(totals.tripsCount, 0) : 0,
+      description: 'Finalizadas ou confirmadas pelo término',
+      icon: <LocalShipping />,
+      pending: false,
+    },
+    {
+      id: 'kilometers',
+      title: 'Km percorrido',
+      value: totals ? `${formatNumber(totals.kmDriven, 1)} km` : '0 km',
+      description: 'Soma das viagens concluídas no período',
+      icon: <Route />,
+      pending: false,
+    },
+    {
+      id: 'liters',
+      title: 'Litros abastecidos',
+      value: totals ? `${formatNumber(totals.litersFueled, 3)} L` : '0 L',
+      description: 'Abastecimentos vigentes no período',
+      icon: <LocalGasStation />,
+      pending: false,
+    },
+    {
+      id: 'fuelCost',
+      title: 'Gasto com combustível',
+      value: totals ? formatCurrency(totals.fuelCost) : formatCurrency(0),
+      description: 'Valor vigente no período',
+      icon: <LocalGasStation />,
+      pending: false,
+    },
+    {
+      id: 'consumption',
+      title: 'Consumo médio',
+      value: totals ? formatNullableMeasure(totals.averageConsumptionKmPerLiter, 'km/L') : 'Sem base no período',
+      description: consumptionPending ? 'Proposta em validação · km ÷ litros' : 'Km percorrido ÷ litros',
+      icon: <Speed />,
+      pending: consumptionPending,
+    },
+    {
+      id: 'maintenanceOrders',
+      title: 'Ordens de manutenção',
+      value: totals ? formatNumber(totals.maintenanceOrdersOpened, 0) : 0,
+      description: totals
+        ? `${formatNumber(totals.preventiveMaintenanceOrdersOpened, 0)} preventivas · ${formatNumber(totals.correctiveMaintenanceOrdersOpened, 0)} corretivas`
+        : 'Registradas no período',
+      icon: <Build />,
+      pending: false,
+    },
+    {
+      id: 'maintenanceCost',
+      title: 'Gasto com manutenção',
+      value: totals ? formatCurrency(totals.maintenanceCost) : formatCurrency(0),
+      description: 'Ordens concluídas fechadas no período',
+      icon: <Build />,
+      pending: false,
+    },
+  ]
 
-  const summarySections = summary ? [
-    { title: appliedFilters.vehicleId ? 'Veículo selecionado' : 'Frota', cards: [
-      { id: 'fleet-total', title: 'Veículos cadastrados', value: summary.fleet.total, description: 'Situação atual da frota', icon: <DirectionsCar /> },
-      { id: 'fleet-available', title: 'Veículos com status disponível', value: summary.fleet.available, description: 'Situação cadastrada', icon: <CheckCircle /> },
-      { id: 'fleet-maintenance', title: 'Veículos em manutenção', value: summary.fleet.inMaintenance, description: 'Situação atual', icon: <Build /> },
-      { id: 'fleet-inactive', title: 'Veículos inativos', value: summary.fleet.inactive, description: 'Situação atual', icon: <DirectionsCar /> },
-    ] },
-    { title: 'Motoristas · toda a frota', cards: [
-      { id: 'drivers-total', title: 'Motoristas cadastrados', value: summary.drivers.total, description: 'Situação atual · total da frota', icon: <People /> },
-      { id: 'drivers-active', title: 'Motoristas ativos', value: summary.drivers.active, description: 'Situação atual · total da frota', icon: <People /> },
-      { id: 'drivers-away', title: 'Motoristas afastados', value: summary.drivers.away, description: 'Situação atual · total da frota', icon: <People /> },
-      { id: 'drivers-inactive', title: 'Motoristas inativos', value: summary.drivers.inactive, description: 'Situação atual · total da frota', icon: <People /> },
-      { id: 'cnh-expiring', title: 'CNHs a vencer', value: summary.drivers.cnhExpiring, description: 'Próximos 30 dias · total da frota', icon: <Description /> },
-      { id: 'cnh-expired', title: 'CNHs vencidas', value: summary.drivers.cnhExpired, description: 'Validade anterior a hoje · total da frota', icon: <Description /> },
-    ] },
-    { title: 'Pendências operacionais', cards: [
-      { id: 'requests', title: 'Solicitações pendentes', value: summary.pendingRequests, description: 'Aguardando análise · total da operação', icon: <Assignment /> },
-      { id: 'trips-in-progress', title: 'Viagens em andamento', value: summary.tripsInProgress, description: 'Viagens em execução', icon: <LocalShipping /> },
-      { id: 'vehicles-in-trip', title: 'Veículos em viagem', value: summary.vehiclesInTrip, description: 'Veículos distintos em execução', icon: <DirectionsCar /> },
-      { id: 'to-confirm', title: 'Viagens a confirmar', value: summary.tripsToConfirm, description: 'Execuções finalizadas', icon: <LocalShipping /> },
-      { id: 'documents-expiring', title: 'Documentos a vencer', value: summary.documents.expiring, description: `Próximos ${summary.documents.alertDays} dias`, icon: <Description /> },
-      { id: 'documents-expired', title: 'Documentos vencidos', value: summary.documents.expired, description: 'Não anulados no cadastro', icon: <Description /> },
-    ] },
-    { title: 'Multas e infrações', cards: [
-      { id: 'fines-pending', title: 'Multas pendentes', value: summary.fines.pending, description: 'Situação atual', icon: <Assignment /> },
-      { id: 'fines-contested', title: 'Multas contestadas', value: summary.fines.contested, description: 'Situação atual', icon: <Assignment /> },
-      { id: 'fines-paid', title: 'Multas pagas', value: summary.fines.paid, description: 'Situação atual', icon: <CheckCircle /> },
-    ] },
-    ...(summary.svo ? [{ title: 'SVO', cards: [
-      { id: 'svo-open', title: 'Ordens em andamento', value: summary.svo.ordersInProgress, description: 'Situação atual', icon: <MedicalServices /> },
-      { id: 'svo-vehicles', title: 'Veículos ocupados', value: `${summary.svo.vehicles.busy} de ${summary.svo.vehicles.total}`, description: summary.svo.vehicles.occupancyRate === null ? 'Sem veículos SVO ativos' : `${formatNumber(summary.svo.vehicles.occupancyRate, 1)}% dos veículos SVO`, icon: <LocalShipping /> },
-    ] }] : []),
-  ] : []
+  const vehicleFooterValues = totals
+    ? [
+        'Total do período',
+        formatNumber(totals.tripsCount, 0),
+        `${formatNumber(totals.kmDriven, 1)} km`,
+        `${formatNumber(totals.litersFueled, 3)} L`,
+        formatCurrency(totals.fuelCost),
+        formatNullableMeasure(totals.averageConsumptionKmPerLiter, 'km/L', '—'),
+        formatNumber(totals.maintenanceOrdersOpened, 0),
+        formatNumber(totals.preventiveMaintenanceOrdersOpened, 0),
+        formatNumber(totals.correctiveMaintenanceOrdersOpened, 0),
+        formatCurrency(totals.maintenanceCost),
+      ]
+    : undefined
 
-  const periodSections = indicators ? [
-    { title: 'Viagens e abastecimentos', cards: [
-      { id: 'trips', title: 'Viagens concluídas', value: indicators.totals.tripsCount, description: 'No período selecionado', icon: <LocalShipping /> },
-      { id: 'distance', title: 'Quilometragem percorrida', value: `${formatNumber(indicators.totals.kmDriven)} km`, description: 'Viagens concluídas', icon: <Speed /> },
-      { id: 'liters', title: 'Combustível abastecido', value: `${formatNumber(indicators.totals.litersFueled, 1)} L`, description: 'Abastecimentos vigentes', icon: <LocalGasStation /> },
-      { id: 'fuel-cost', title: 'Gasto com combustível', value: formatCurrency(indicators.totals.fuelCost), description: 'Abastecimentos vigentes', icon: <LocalGasStation /> },
-      { id: 'consumption', title: 'Consumo médio', value: indicators.totals.averageConsumptionKmPerLiter === null ? '—' : `${formatNumber(indicators.totals.averageConsumptionKmPerLiter, 2)} km/L`, description: 'Fórmula pendente de validação', icon: <Speed /> },
-    ] },
-    { title: 'Manutenção', cards: [
-      { id: 'maintenance-orders', title: 'Ordens de manutenção', value: indicators.totals.maintenanceOrdersOpened, description: 'Registradas no período', icon: <Build /> },
-      { id: 'preventive', title: 'Manutenções preventivas', value: indicators.totals.preventiveMaintenanceOrdersOpened, description: 'Ordens registradas no período', icon: <Build /> },
-      { id: 'corrective', title: 'Manutenções corretivas', value: indicators.totals.correctiveMaintenanceOrdersOpened, description: 'Ordens registradas no período', icon: <Build /> },
-      { id: 'corrective-vehicles', title: 'Veículos com ordem corretiva', value: indicators.totals.vehiclesWithCorrectiveMaintenance, description: 'Veículos distintos no período', icon: <DirectionsCar /> },
-      { id: 'maintenance-cost', title: 'Custo de manutenção', value: formatCurrency(indicators.totals.maintenanceCost), description: 'Ordens encerradas no período', icon: <Build /> },
-    ] },
-    ...(indicators.svo ? [{ title: 'SVO', cards: [
-      { id: 'svo-opened', title: 'Ordens abertas', value: indicators.svo.ordersOpened, description: 'Abertas no período', icon: <MedicalServices /> },
-      { id: 'svo-collected', title: 'Coletas registradas', value: indicators.svo.ordersCollected, description: 'No período', icon: <MedicalServices /> },
-      { id: 'svo-time', title: 'Tempo médio até coleta', value: indicators.svo.averageMinutesToCollection === null ? '—' : `${formatNumber(indicators.svo.averageMinutesToCollection, 1)} min`, description: 'Indicador em validação', icon: <Speed /> },
-    ] }] : []),
-  ] : []
+  const formattedFuturePeriod = `${formatSafeCalendarDate(dashboard.today)} a ${formatSafeCalendarDate(addCivilDays(dashboard.today, futureDays - 1))}`
 
   return (
-    <Box sx={{ minWidth: 0 }}>
+    <Box sx={{ maxWidth: 1400, mx: 'auto', minWidth: 0, ...DASHBOARD_CONTROLS_SX }}>
       <PageHeader
         breadcrumbs={['Início', 'Dashboard']}
         title="Dashboard"
-        description="Visão consolidada da frota, viagens, manutenção, abastecimentos, documentos e SVO."
-        actions={<Button variant="outlined" onClick={() => setRefreshVersion((value) => value + 1)}>Atualizar dados</Button>}
+        titleVariant="h4"
+        description="Situação atual da frota e indicadores operacionais por período."
+        actions={(
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+            <ToggleButtonGroup
+              exclusive
+              value={dashboard.period}
+              onChange={handlePeriodChange}
+              aria-label="Período dos indicadores"
+              sx={{ flexWrap: 'wrap', gap: 0.5 }}
+            >
+              {QUICK_PERIODS.map((item) => (
+                <ToggleButton
+                  key={item.id}
+                  value={item.id}
+                  ref={item.id === '7days' ? sevenDaysButtonRef : undefined}
+                >
+                  {item.label}
+                </ToggleButton>
+              ))}
+              <ToggleButton value="custom">Personalizado</ToggleButton>
+            </ToggleButtonGroup>
+            <Button variant="outlined" onClick={handleRefreshAll} sx={{ minHeight: 44, minWidth: 44 }}>
+              Atualizar dados
+            </Button>
+          </Stack>
+        )}
       />
 
-      <Box component="section" aria-label="Períodos rápidos" sx={{ mb: 1.5 }}>
-        <ToggleButtonGroup
-          exclusive
-          value={period}
-          onChange={(_event, value: string | null) => selectPeriod(value)}
-          aria-label="Período dos indicadores realizados"
-          sx={{ flexWrap: 'wrap', gap: 0.75, '& .MuiToggleButton-root': { minHeight: 44, px: 1.5, textTransform: 'none', borderRadius: 1.5 } }}
-        >
-          {QUICK_PERIODS.map((item) => <ToggleButton key={item.id} value={item.id}>{item.label}</ToggleButton>)}
-          <ToggleButton value="custom" onClick={() => setPeriod('custom')}>Personalizado</ToggleButton>
-        </ToggleButtonGroup>
+      <Box role="status" aria-live="polite" sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)' }}>
+        {statusAnnouncement}
       </Box>
 
-      <FilterBar label="Filtros dos indicadores realizados">
-        <Box sx={{ flex: '1 1 190px', minWidth: { xs: '100%', sm: 190 } }}>
-          <FormField label="Data inicial" type="date" value={from} onChange={(value) => { setFrom(value); setPeriod('custom') }} />
-        </Box>
-        <Box sx={{ flex: '1 1 190px', minWidth: { xs: '100%', sm: 190 } }}>
-          <FormField label="Data final" type="date" value={to} onChange={(value) => { setTo(value); setPeriod('custom') }} />
-        </Box>
-        <Box sx={{ flex: '1 1 220px', minWidth: { xs: '100%', sm: 220 } }}>
-          <FormSelect label="Veículo" value={vehicleId} onChange={setVehicleId} options={vehicleOptions} disabled={vehiclesLoading || Boolean(vehiclesError)} />
-        </Box>
-        <Button variant="contained" onClick={applyFilters} disabled={!validDraftPeriod}>Aplicar filtros</Button>
-        <Button variant="outlined" onClick={clearFilters}>Limpar filtros</Button>
-      </FilterBar>
-      {appliedFilters.vehicleId && <Alert severity="info" sx={{ mb: 2 }}>
-        Os indicadores com vínculo ao veículo selecionado são filtrados. Solicitações ainda sem viagem atribuída e dados de motoristas continuam exibindo o total da operação.
-      </Alert>}
-
-      {!validDraftPeriod && <Alert severity="error" sx={{ mb: 2 }}>
-        Informe um período válido de até 366 dias para aplicar os filtros.
-      </Alert>}
-
-      {vehiclesError && <StateFeedback kind="partial" title={vehiclesError} actionLabel="Tentar novamente" onAction={() => setRefreshVersion((value) => value + 1)} />}
-      {indicatorsError && <StateFeedback kind="error" title={indicatorsError} actionLabel="Tentar novamente" onAction={() => setRefreshVersion((value) => value + 1)} />}
-      {indicators?.pendingValidation.length ? <Alert severity="warning" sx={{ mb: 2 }}>
-        Consumo médio e tempo médio até coleta são indicadores pendentes de validação da regra de cálculo.
-      </Alert> : null}
-
-      <Stack component="nav" aria-label="Acesso rápido às seções do dashboard" direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 1, mb: 3, ...sectionEntrance(40) }}>
-        {DASHBOARD_SECTIONS.map((section) => <Button
-          key={section.id}
-          size="small"
-          variant="outlined"
-          disabled={section.id === 'dashboard-comparison' && !indicators}
-          aria-controls={section.id}
-          onClick={() => navigateToDashboardSection(section.id)}
-          sx={{ minHeight: 44, px: 2, borderRadius: 6, bgcolor: 'background.paper', '&:hover': { bgcolor: '#fff1e6' } }}
-        >{section.label}</Button>)}
-      </Stack>
-
-      <Box component="section" id="dashboard-overview" aria-labelledby="current-status-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(0) }}>
-        <Typography id="current-status-title" component="h2" variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>Situação atual e pendências</Typography>
-        {summaryError && <StateFeedback kind="error" title={summaryError} actionLabel="Tentar novamente" onAction={() => setRefreshVersion((value) => value + 1)} />}
-        {summarySections.map((section) => <Box key={section.title} component="section" aria-label={`Indicadores de ${section.title}`} sx={{ mb: 2 }}>
-          <Typography component="h3" variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>{section.title}</Typography>
-          <Grid container spacing={2}>
-            {section.cards.map((card) => <Grid key={card.id} size={{ xs: 12, sm: 6, xl: 3 }} sx={dashboardCardMotion}><StatCard {...card} loading={summaryLoading} /></Grid>)}
-          </Grid>
-        </Box>)}
-        {summaryLoading && !summarySections.length && <Grid container spacing={2}>
-          {[1, 2, 3, 4].map((index) => <Grid key={index} size={{ xs: 12, sm: 6, xl: 3 }}><StatCard title="Carregando indicador" value="—" loading /></Grid>)}
-        </Grid>}
-        {summary && <Typography variant="caption" color="text.secondary">Atualizado em {formatDateTime(summary.generatedAt)}.</Typography>}
-      </Box>
-
-      <Box component="section" aria-labelledby="period-indicators-title" sx={{ mb: 3, ...sectionEntrance(70) }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 0.5, mb: 1.5 }}>
-          <Typography id="period-indicators-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>Indicadores realizados</Typography>
-          <Typography variant="body2" color="text.secondary">{formattedAppliedPeriod} · {vehicleOptions.find((option) => option.value === appliedFilters.vehicleId)?.label ?? 'Veículo selecionado'}</Typography>
-        </Stack>
-        {periodSections.map((section) => <Box key={section.title} component="section" aria-label={`Indicadores de ${section.title}`} sx={{ mb: 2 }}>
-          <Typography component="h3" variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>{section.title}</Typography>
-          <Grid container spacing={2}>
-            {section.cards.map((card) => <Grid key={card.id} size={{ xs: 12, sm: 6, xl: 3 }} sx={dashboardCardMotion}><StatCard {...card} loading={indicatorsLoading} /></Grid>)}
-          </Grid>
-        </Box>)}
-        {indicatorsLoading && !periodSections.length && <Grid container spacing={2}>
-          {[1, 2, 3, 4].map((index) => <Grid key={index} size={{ xs: 12, sm: 6, xl: 3 }}><StatCard title="Carregando indicador" value="—" loading /></Grid>)}
-        </Grid>}
-      </Box>
-
-      <Grid component="section" id="dashboard-charts" aria-label="Gráficos principais" tabIndex={-1} container spacing={2} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(100) }}>
-        <Grid size={{ xs: 12, lg: 7 }}>
-          <Paper component="section" aria-labelledby="trips-period-title" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
-            <Typography id="trips-period-title" component="h2" variant="subtitle1" sx={{ fontWeight: 700 }}>Viagens por período</Typography>
-            <Typography variant="body2" color="text.secondary">Viagens concluídas · {formattedAppliedPeriod}</Typography>
-            {indicatorsLoading ? <StateFeedback kind="loading" title="Carregando viagens por período..." /> : indicatorsError ? null : <>
-              <Box role="img" aria-label="Gráfico de viagens concluídas por período; os valores também estão na tabela abaixo.">
-                <Suspense fallback={<StateFeedback kind="loading" title="Carregando gráfico de viagens..." />}>
-                  <BarChart height={250} xAxis={[{ data: tripPeriodRows.map((row) => row.label), scaleType: 'band', label: indicators?.activityBucket === 'day' ? 'Dia' : 'Mês' }]} yAxis={[{ label: 'Viagens' }]} series={[{ data: tripPeriodRows.map((row) => row.trips), label: 'Viagens', color: '#FF6B00', valueFormatter: (value) => `${value ?? 0} viagens` }]} margin={{ left: 52, right: 18, top: 24, bottom: 48 }} />
-                </Suspense>
-              </Box>
-              <ChartDataTable title="Dados do gráfico de viagens por período" headers={['Período', 'Dias', 'Viagens']} rows={tripPeriodRows.map((row) => [row.label, row.days, row.trips])} />
-            </>}
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, lg: 5 }}>
-          <Paper component="section" aria-labelledby="fleet-distribution-title" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
-            <Typography id="fleet-distribution-title" component="h2" variant="subtitle1" sx={{ fontWeight: 700 }}>Situação da frota</Typography>
-            <Typography variant="body2" color="text.secondary">Distribuição atual dos veículos</Typography>
-            {summaryLoading ? <StateFeedback kind="loading" title="Carregando situação da frota..." /> : summaryError ? null : <>
-              <Box sx={{ position: 'relative', width: 240, maxWidth: '100%', mx: 'auto' }}>
-                <Box role="img" aria-label={`Gráfico de situação da frota: ${fleetStatusRows.map(({ label, count }) => `${count} ${label.toLowerCase()}`).join(', ')}.`}>
-                  <Suspense fallback={<StateFeedback kind="loading" title="Carregando gráfico de situação..." />}><PieChart height={230} series={[{ data: fleetStatusRows.map((row) => ({ id: row.key, value: row.count, label: row.label, color: row.color })), innerRadius: 58, outerRadius: 88, paddingAngle: 2, cornerRadius: 3, valueFormatter: (item) => `${item.value} veículos` }]} hideLegend /></Suspense>
-                </Box>
-                <Stack aria-hidden="true" sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', alignItems: 'center', justifyContent: 'center' }}><Typography variant="h5" sx={{ fontWeight: 700 }}>{summary?.fleet.total ?? 0}</Typography><Typography variant="caption" color="text.secondary">veículos</Typography></Stack>
-              </Box>
-              <Stack component="ul" spacing={1} sx={{ p: 0, m: 0, listStyle: 'none' }}>{fleetStatusRows.map((row) => <Box component="li" key={row.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Box aria-hidden="true" sx={{ width: 10, height: 10, flexShrink: 0, borderRadius: '50%', bgcolor: row.color }} /><Typography variant="body2" sx={{ flex: 1 }}>{row.label}</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{row.count}</Typography></Box>)}</Stack>
-            </>}
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12 }}>
-          <Paper component="section" aria-labelledby="trips-vehicle-title" variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-            <Typography id="trips-vehicle-title" component="h2" variant="subtitle1" sx={{ fontWeight: 700 }}>Viagens por veículo</Typography>
-            <Typography variant="body2" color="text.secondary">Comparação no período selecionado.</Typography>
-            {indicatorsLoading ? <StateFeedback kind="loading" title="Carregando indicadores por veículo..." /> : indicatorsError ? null : <>
-              <Box role="img" aria-label="Gráfico de viagens por veículo; os mesmos valores estão disponíveis na tabela logo abaixo."><Suspense fallback={<StateFeedback kind="loading" title="Carregando gráfico por veículo..." />}><BarChart layout="horizontal" height={Math.max(260, tripVehicleRows.length * 22)} xAxis={[{ label: 'Viagens' }]} yAxis={[{ data: tripVehicleRows.map((row) => row.label), scaleType: 'band', label: 'Veículo' }]} series={[{ data: tripVehicleRows.map((row) => row.trips), label: 'Viagens', color: '#b94700', valueFormatter: (value) => `${value ?? 0} viagens` }]} margin={{ left: 110, right: 22, top: 20, bottom: 38 }} /></Suspense></Box>
-              <ChartDataTable title="Dados do gráfico de viagens por veículo" headers={['Veículo', 'Viagens']} rows={tripVehicleRows.map((row) => [row.label, row.trips])} />
-            </>}
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <Paper component="section" aria-labelledby="fuel-chart-title" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
-            <Typography id="fuel-chart-title" component="h2" variant="subtitle1" sx={{ fontWeight: 700 }}>Combustível</Typography>
-            <Typography variant="body2" color="text.secondary">Gasto com abastecimentos vigentes · {formattedAppliedPeriod}</Typography>
-            {indicatorsLoading ? <StateFeedback kind="loading" title="Carregando histórico de combustível..." /> : indicatorsError ? null : <>
-              <Box role="img" aria-label="Gráfico do gasto com combustível por período; os valores estão na tabela abaixo."><Suspense fallback={<StateFeedback kind="loading" title="Carregando gráfico de combustível..." />}><BarChart height={210} xAxis={[{ data: fuelPeriodRows.map((row) => row.label), scaleType: 'band', label: indicators?.activityBucket === 'day' ? 'Dia' : 'Mês' }]} yAxis={[{ label: 'Reais' }]} series={[{ data: fuelPeriodRows.map((row) => row.cost), label: 'Gasto (R$)', color: '#ff9b54', valueFormatter: (value) => formatCurrency(value ?? 0) }]} margin={{ left: 58, right: 16, top: 20, bottom: 42 }} /></Suspense></Box>
-              <ChartDataTable title="Dados do gráfico de combustível por período" headers={['Período', 'Gasto']} rows={fuelPeriodRows.map((row) => [row.label, formatCurrency(row.cost)])} />
-            </>}
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <Paper component="section" aria-labelledby="maintenance-chart-title" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
-            <Typography id="maintenance-chart-title" component="h2" variant="subtitle1" sx={{ fontWeight: 700 }}>Manutenções</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Ordens registradas no período selecionado</Typography>
-            <Grid container spacing={1.5}>
-              <Grid size={{ xs: 6 }}><Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#f0fdf4', borderColor: '#dcfce7' }}><Typography variant="h6" sx={{ color: '#166534', fontWeight: 700 }}>{indicatorsLoading ? '—' : formatNumber(indicators?.totals.preventiveMaintenanceOrdersOpened ?? 0)}</Typography><Typography variant="body2" sx={{ color: '#166534' }}>Preventivas</Typography></Paper></Grid>
-              <Grid size={{ xs: 6 }}><Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#fffbeb', borderColor: '#fef3c7' }}><Typography variant="h6" sx={{ color: '#92400e', fontWeight: 700 }}>{indicatorsLoading ? '—' : formatNumber(indicators?.totals.correctiveMaintenanceOrdersOpened ?? 0)}</Typography><Typography variant="body2" sx={{ color: '#92400e' }}>Corretivas</Typography></Paper></Grid>
-            </Grid>
-            {indicatorsError && <Typography variant="body2" color="error" sx={{ mt: 1 }}>{indicatorsError}</Typography>}
-          </Paper>
-        </Grid>
-      </Grid>
-
-      <Box component="section" id="dashboard-history" aria-labelledby="history-indicators-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(140) }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 0.5, mb: 1.5 }}>
-          <Typography id="history-indicators-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>Histórico da operação</Typography>
-          <Typography variant="body2" color="text.secondary">Eventos registrados no período · {formattedAppliedPeriod}</Typography>
-        </Stack>
-        {indicatorsError && <StateFeedback kind="error" title={indicatorsError} actionLabel="Tentar novamente" onAction={() => setRefreshVersion((value) => value + 1)} />}
-        {indicatorsLoading ? <StateFeedback kind="loading" title="Carregando histórico da operação..." /> : indicators && <Grid container spacing={2}>
-          <Grid size={{ xs: 12, lg: 6 }}><TrendChart title="Manutenções abertas e concluídas" data={historyRows} series={[
-            { label: 'Abertas', color: '#FF6B00', values: historyRows.map((row) => row.maintenanceOpened) },
-            { label: 'Concluídas', color: '#2e7d32', values: historyRows.map((row) => row.maintenanceClosed) },
-          ]} /></Grid>
-          <Grid size={{ xs: 12, lg: 6 }}><TrendChart title="Solicitações de viagem" data={historyRows} series={[
-            { label: 'Criadas', color: '#FF6B00', values: historyRows.map((row) => row.requestsCreated) },
-            { label: 'Aprovadas', color: '#2e7d32', values: historyRows.map((row) => row.requestsApproved) },
-            { label: 'Rejeitadas', color: '#d32f2f', values: historyRows.map((row) => row.requestsRejected) },
-            { label: 'Agendadas', color: '#1976d2', values: historyRows.map((row) => row.requestsScheduled) },
-            { label: 'Canceladas', color: '#757575', values: historyRows.map((row) => row.requestsCanceled) },
-          ]} /></Grid>
-          <Grid size={{ xs: 12, lg: 6 }}><TrendChart title="Eventos de multas" data={historyRows} series={[
-            { label: 'Registradas', color: '#FF6B00', values: historyRows.map((row) => row.finesRegistered) },
-            { label: 'Pagas', color: '#2e7d32', values: historyRows.map((row) => row.finesPaid) },
-            { label: 'Contestadas', color: '#ed6c02', values: historyRows.map((row) => row.finesContested) },
-          ]} /></Grid>
-          <Grid size={{ xs: 12, lg: 6 }}><TrendChart title={appliedFilters.vehicleId ? 'Atividade de motoristas · toda a frota' : 'Atividade de motoristas'} data={historyRows} series={[
-            { label: 'Cadastros', color: '#FF6B00', values: historyRows.map((row) => row.driversCreated) },
-            { label: 'Mudanças de situação', color: '#1976d2', values: historyRows.map((row) => row.driversStatusChanged) },
-          ]} /></Grid>
-          <Grid size={{ xs: 12, lg: 6 }}><TrendChart title="Documentos de veículos" data={historyRows} series={[
-            { label: 'Registrados', color: '#FF6B00', values: historyRows.map((row) => row.documentsRegistered) },
-            { label: 'Renovados', color: '#2e7d32', values: historyRows.map((row) => row.documentsRenewed) },
-          ]} /></Grid>
-        </Grid>}
-      </Box>
-
-      {indicators && <Box component="section" id="dashboard-comparison" aria-labelledby="comparison-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(180) }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 0.5, mb: 1.5 }}>
-          <Typography id="comparison-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>Comparação com o período anterior</Typography>
-          {comparisonIndicators && <Typography variant="body2" color="text.secondary">Intervalo anterior com a mesma duração: {formatDate(comparisonIndicators.period.from)} a {formatDate(shiftDate(comparisonIndicators.period.to, -1))}</Typography>}
-        </Stack>
-        {comparisonError ? (
-          <StateFeedback
-            kind="error"
-            title="Não foi possível carregar a comparação"
-            description={comparisonError}
-            actionLabel="Tentar novamente"
-            onAction={() => setRefreshVersion((value) => value + 1)}
-          />
-        ) : comparisonIndicators ? (
-        <Grid container spacing={2}>
-          {[
-            { id: 'comparison-trips', title: 'Viagens concluídas', current: indicators.totals.tripsCount, previous: comparisonIndicators.totals.tripsCount },
-            { id: 'comparison-distance', title: 'Quilometragem percorrida', current: indicators.totals.kmDriven, previous: comparisonIndicators.totals.kmDriven, suffix: ' km' },
-            { id: 'comparison-fuel', title: 'Gasto com combustível', current: indicators.totals.fuelCost, previous: comparisonIndicators.totals.fuelCost, currency: true },
-            { id: 'comparison-maintenance', title: 'Ordens de manutenção', current: indicators.totals.maintenanceOrdersOpened, previous: comparisonIndicators.totals.maintenanceOrdersOpened },
-            { id: 'comparison-maintenance-cost', title: 'Custo de manutenção', current: indicators.totals.maintenanceCost, previous: comparisonIndicators.totals.maintenanceCost, currency: true },
-            { id: 'comparison-requests', title: 'Solicitações criadas', current: indicators.activitySeries.reduce((sum, row) => sum + row.requestsCreated, 0), previous: comparisonIndicators.activitySeries.reduce((sum, row) => sum + row.requestsCreated, 0) },
-            { id: 'comparison-fines', title: 'Multas registradas', current: indicators.activitySeries.reduce((sum, row) => sum + row.finesRegistered, 0), previous: comparisonIndicators.activitySeries.reduce((sum, row) => sum + row.finesRegistered, 0) },
-            { id: 'comparison-drivers', title: 'Mudanças de situação de motoristas', current: indicators.activitySeries.reduce((sum, row) => sum + row.driversStatusChanged, 0), previous: comparisonIndicators.activitySeries.reduce((sum, row) => sum + row.driversStatusChanged, 0) },
-            { id: 'comparison-documents', title: 'Documentos renovados', current: indicators.activitySeries.reduce((sum, row) => sum + row.documentsRenewed, 0), previous: comparisonIndicators.activitySeries.reduce((sum, row) => sum + row.documentsRenewed, 0) },
-          ].map((item) => {
-            const delta = item.current - item.previous
-            const description = item.currency ? `${delta > 0 ? '+' : ''}${formatCurrency(delta)} em relação ao período anterior` : `${delta > 0 ? '+' : ''}${formatNumber(delta)}${item.suffix ?? ''} em relação ao período anterior`
-            const value = item.currency ? formatCurrency(item.current) : `${formatNumber(item.current)}${item.suffix ?? ''}`
-            return <Grid key={item.id} size={{ xs: 12, sm: 6, xl: 3 }} sx={dashboardCardMotion}><StatCard title={item.title} value={value} description={description} /></Grid>
-          })}
-        </Grid>
-        ) : null}
-      </Box>}
-
-      <Box component="section" id="dashboard-vehicles" aria-labelledby="vehicle-indicators-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(220) }}>
-        <Typography id="vehicle-indicators-title" component="h2" variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>Detalhamento por veículo</Typography>
-        <DataTable
-          caption="Indicadores realizados por veículo no período selecionado"
-          columns={VEHICLE_COLUMNS}
-          rows={indicators?.vehicles ?? []}
-          rowKey={(row) => row.vehicleId}
-          minWidth={1500}
-          busy={indicatorsLoading}
-          loadingContent={<StateFeedback kind="loading" title="Carregando indicadores por veículo..." />}
-          emptyContent="Nenhum veículo com movimento no período selecionado."
+      {!allowed && (
+        <StateFeedback
+          kind="forbidden"
+          title="Acesso restrito"
+          description="Seu perfil não tem permissão para consultar este painel."
         />
-      </Box>
+      )}
 
-      <Box component="section" id="dashboard-maintenance" aria-labelledby="upcoming-maintenance-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(260) }}>
-        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-          <Typography id="upcoming-maintenance-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>Próximas manutenções</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Ordens abertas ou em andamento com previsão registrada.</Typography>
-          {maintenanceError && <StateFeedback kind="error" title={maintenanceError} actionLabel="Tentar novamente" onAction={() => setRefreshVersion((value) => value + 1)} />}
-          {!maintenanceError && <DataTable caption="Próximas manutenções previstas" columns={MAINTENANCE_COLUMNS} rows={upcomingMaintenance} rowKey={(row) => row.id} minWidth={520} busy={maintenanceLoading} loadingContent={<StateFeedback kind="loading" title="Carregando próximas manutenções..." />} emptyContent="Não há ordens abertas com previsão futura registrada." />}
-        </Paper>
-      </Box>
+      {allowed && (
+        <>
+          <FilterBar label="Filtros do painel" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+            <FormField
+              label="Data inicial (inclusiva)"
+              type="date"
+              value={dashboard.from}
+              onChange={dashboard.setFrom}
+              error={!dashboard.validation.valid ? dashboard.validation.fromError : undefined}
+              helperText="Fuso America/Maceio (AAAA-MM-DD)"
+              sx={{ flex: 1, minWidth: { xs: '100%', sm: 190 } }}
+            />
+            <FormField
+              label="Data final (inclusiva)"
+              type="date"
+              value={dashboard.to}
+              onChange={dashboard.setTo}
+              error={!dashboard.validation.valid ? dashboard.validation.toError : undefined}
+              helperText={`Máximo de ${DASHBOARD_MAX_PERIOD_DAYS} dias no intervalo`}
+              sx={{ flex: 1, minWidth: { xs: '100%', sm: 190 } }}
+            />
+            <FormSelect
+              label="Veículo"
+              value={dashboard.vehicleId}
+              onChange={dashboard.setVehicleId}
+              options={vehicleOptions}
+              emptyLabel="Todos os veículos"
+              displayEmpty
+              disabled={dashboard.vehiclesLoading}
+              helperText={dashboard.vehiclesLoading ? 'Carregando veículos cadastrados...' : undefined}
+              sx={{ flex: 1, minWidth: { xs: '100%', sm: 220 } }}
+            />
+          </FilterBar>
 
-      <Box component="section" id="dashboard-schedule" aria-labelledby="future-trips-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(300) }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1, mb: 1.5 }}>
-          <Box>
-            <Typography id="future-trips-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>Viagens agendadas</Typography>
-            <Typography variant="body2" color="text.secondary">Agenda registrada para {formattedFuturePeriod}; não é uma estimativa de viagens ou custos. O filtro de veículo acima também se aplica aqui.</Typography>
-          </Box>
-          <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-            <Typography variant="subtitle2" color="primary.dark" sx={{ fontWeight: 700 }} aria-live="polite">
-              {scheduledLoading ? 'Consultando agenda...' : `${filteredScheduledTrips.length} ${filteredScheduledTrips.length === 1 ? 'viagem agendada' : 'viagens agendadas'}`}
-            </Typography>
-            <ToggleButtonGroup exclusive value={futureDays} onChange={(_event, value: number | null) => { if (value) setFutureDays(value) }} aria-label="Período das viagens futuras">
-              {FUTURE_PERIODS.map((days) => <ToggleButton key={days} value={days} sx={{ minHeight: 44 }}>{days} dias</ToggleButton>)}
-            </ToggleButtonGroup>
+          {dashboard.vehicleId && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Os indicadores com vínculo ao veículo selecionado são filtrados. Solicitações ainda sem viagem atribuída e dados de motoristas continuam exibindo o total da operação.
+            </Alert>
+          )}
+
+          {dashboard.vehiclesError && (
+            <StateFeedback
+              kind="partial"
+              title="Lista de veículos indisponível para o seletor."
+              description={dashboard.vehiclesError}
+              actionLabel="Tentar novamente"
+              onAction={handleRefreshAll}
+            />
+          )}
+
+          {!dashboard.validation.valid && (
+            <StateFeedback
+              kind="error"
+              title={dashboard.validation.summaryTitle}
+              description={dashboard.validation.summaryDescription}
+              actionLabel="Usar últimos 7 dias"
+              onAction={handleResetToSevenDays}
+            />
+          )}
+
+          <Stack component="nav" aria-label="Acesso rápido às seções do dashboard" direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 1, mb: 3, ...sectionEntrance(40) }}>
+            {DASHBOARD_SECTIONS.map((section) => (
+              <Button
+                key={section.id}
+                size="small"
+                variant="outlined"
+                disabled={section.id === 'dashboard-comparison' && !indicators}
+                aria-controls={section.id}
+                onClick={() => navigateToDashboardSection(section.id)}
+                sx={{ minHeight: 44, px: 2, borderRadius: 6, bgcolor: 'background.paper', '&:hover': { bgcolor: '#fff1e6' } }}
+              >
+                {section.label}
+              </Button>
+            ))}
           </Stack>
-        </Stack>
-        {scheduledError && <StateFeedback kind="error" title={scheduledError} actionLabel="Tentar novamente" onAction={() => setRefreshVersion((value) => value + 1)} />}
-        {!scheduledError && <DataTable
-          caption="Viagens agendadas no período futuro"
-          columns={SCHEDULED_TRIP_COLUMNS}
-          rows={filteredScheduledTrips}
-          rowKey={(row) => row.id}
-          minWidth={820}
-          busy={scheduledLoading}
-          loadingContent={<StateFeedback kind="loading" title="Carregando viagens agendadas..." />}
-          emptyContent="Não há viagens agendadas nesse período e para esse veículo."
-        />}
-      </Box>
 
+          <Box component="section" id="dashboard-overview" aria-labelledby="fleet-availability-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(0) }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              sx={{ mb: 1.5, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}
+            >
+              <Box>
+                <Typography id="fleet-availability-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>
+                  Situação atual da frota e pendências
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Retrato do momento (não depende do filtro de período ou veículo)
+                </Typography>
+              </Box>
+              {summary && (
+                <Button
+                  component={RouterLink}
+                  to={buildDocumentsAlertPath(summary.documents)}
+                  variant="outlined"
+                  sx={{ minHeight: 44, minWidth: 44 }}
+                >
+                  Ver documentos ({summary.documents.expiring + summary.documents.expired})
+                </Button>
+              )}
+            </Stack>
+
+            {dashboard.summaryError ? (
+              <StateFeedback
+                kind="error"
+                title="Não foi possível carregar o retrato atual da frota."
+                description={dashboard.summaryError}
+                actionLabel="Tentar novamente"
+                onAction={handleRefreshAll}
+              />
+            ) : (
+              <>
+                {situationSections.map((section) => (
+                  <Box key={section.title} component="section" aria-label={`Indicadores de ${section.title}`} sx={{ mb: 2 }}>
+                    <Typography component="h3" variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>{section.title}</Typography>
+                    <Grid container spacing={2}>
+                      {section.cards.map((card) => (
+                        <Grid key={card.id} size={{ xs: 12, sm: 6, xl: 3 }} sx={dashboardCardMotion}>
+                          <StatCard
+                            title={card.title}
+                            value={card.value}
+                            description={card.description}
+                            icon={card.icon}
+                            loading={dashboard.summaryLoading}
+                          />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                ))}
+                {summary && (
+                  <Typography variant="caption" color="text.secondary">
+                    Atualizado em {formatSafeDateTimeInMaceio(summary.generatedAt)}.
+                  </Typography>
+                )}
+              </>
+            )}
+          </Box>
+
+          {dashboard.validation.valid && (
+            <Box component="section" aria-labelledby="fleet-indicators-title" sx={{ mb: 3, ...sectionEntrance(70) }}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+                sx={{ mb: 1.5, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}
+              >
+                <Box>
+                  <Typography id="fleet-indicators-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>
+                    Indicadores da frota no período
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {formattedPeriodLabel} ({dashboard.validation.inclusiveDays}{' '}
+                    {dashboard.validation.inclusiveDays === 1 ? 'dia civil' : 'dias civis'} · consulta [{formatSafeCalendarDate(dashboard.validation.apiPeriod.from)},{' '}
+                    {formatSafeCalendarDate(dashboard.validation.apiPeriod.to)}) em America/Maceio) · {selectedVehicleLabel}
+                  </Typography>
+                </Box>
+                {pendingValidation.length > 0 && (
+                  <StatusChip label="Contém fórmulas em validação" tone="warning" />
+                )}
+              </Stack>
+
+              {dashboard.indicatorsError ? (
+                <StateFeedback
+                  kind="error"
+                  title="Não foi possível carregar os indicadores do período."
+                  description={dashboard.indicatorsError}
+                  actionLabel={dashboard.indicatorsErrorStatus === 404 ? 'Mostrar todos os veículos' : 'Tentar novamente'}
+                  onAction={dashboard.indicatorsErrorStatus === 404 ? () => dashboard.setVehicleId('') : handleRefreshAll}
+                />
+              ) : (
+                <>
+                  {!dashboard.indicatorsLoading && indicators && !hasPeriodActivity && (
+                    <StateFeedback
+                      kind="empty"
+                      title="Nenhum movimento operacional no período selecionado"
+                      description="Não há viagens concluídas, abastecimentos vigentes, manutenções fechadas ou ordens SVO para este recorte."
+                      actionLabel="Usar últimos 7 dias"
+                      onAction={handleResetToSevenDays}
+                    />
+                  )}
+
+                  {!dashboard.indicatorsLoading && pendingValidation.length > 0 && (
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      Indicadores sinalizados com <strong>Proposta em validação</strong> ({pendingValidation.join(', ')}) usam fórmulas preliminares aguardando confirmação do cliente. Valores sem base de cálculo são exibidos como <em>Sem base no período</em>.
+                    </Alert>
+                  )}
+
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                    {indicatorCards.map((card) => (
+                      <Grid key={card.id} size={{ xs: 12, sm: 6, xl: 3 }} sx={dashboardCardMotion}>
+                        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                          <StatCard
+                            title={card.title}
+                            value={card.value}
+                            description={card.description}
+                            icon={card.icon}
+                            loading={dashboard.indicatorsLoading}
+                          />
+                          {card.pending && !dashboard.indicatorsLoading && (
+                            <Box sx={{ px: 0.5 }}>
+                              <StatusChip label="Proposta em validação" tone="warning" />
+                            </Box>
+                          )}
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+
+                  <Grid component="section" id="dashboard-charts" aria-label="Gráficos principais" tabIndex={-1} container spacing={2} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(100) }}>
+                    <Grid size={{ xs: 12, lg: 7 }}>
+                      <Paper component="section" aria-labelledby="trips-period-title" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
+                        <Typography id="trips-period-title" component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
+                          Viagens por período
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Viagens concluídas · {formattedPeriodLabel}
+                        </Typography>
+                        {dashboard.indicatorsLoading ? (
+                          <StateFeedback kind="loading" title="Carregando viagens por período..." />
+                        ) : (
+                          <>
+                            <Box role="img" aria-label="Gráfico de viagens concluídas por período; os valores também estão na tabela abaixo.">
+                              <Suspense fallback={<StateFeedback kind="loading" title="Carregando gráfico de viagens..." />}>
+                                <BarChart
+                                  height={250}
+                                  xAxis={[{ data: tripPeriodRows.map((row) => row.label), scaleType: 'band', label: indicators?.activityBucket === 'day' ? 'Dia' : 'Mês' }]}
+                                  yAxis={[{ label: 'Viagens' }]}
+                                  series={[{ data: tripPeriodRows.map((row) => row.trips), label: 'Viagens', color: '#FF6B00', valueFormatter: (value) => `${value ?? 0} viagens` }]}
+                                  margin={{ left: 52, right: 18, top: 24, bottom: 48 }}
+                                />
+                              </Suspense>
+                            </Box>
+                            <ChartDataTable
+                              title="Dados do gráfico de viagens por período"
+                              headers={['Período', 'Dias', 'Viagens']}
+                              rows={tripPeriodRows.map((row) => [row.label, row.days, row.trips])}
+                            />
+                          </>
+                        )}
+                      </Paper>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, lg: 5 }}>
+                      <Paper component="section" aria-labelledby="fleet-distribution-title" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
+                        <Typography id="fleet-distribution-title" component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
+                          Distribuição atual da frota
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                          Composição por situação cadastral
+                        </Typography>
+                        {dashboard.summaryLoading ? (
+                          <StateFeedback kind="loading" title="Carregando distribuição da frota..." />
+                        ) : dashboard.summaryError || !summary ? (
+                          <StateFeedback kind="empty" title="Resumo da frota indisponível" description="Tente atualizar o painel." centered />
+                        ) : summary.fleet.total === 0 ? (
+                          <StateFeedback kind="empty" title="Nenhum veículo cadastrado" centered />
+                        ) : (
+                          <>
+                            <Box sx={{ position: 'relative', width: 240, maxWidth: '100%', mx: 'auto' }}>
+                              <Box
+                                role="img"
+                                aria-label={`Gráfico de situação da frota: ${fleetDistribution.map(({ label, count }) => `${count} ${label.toLowerCase()}`).join(', ')}.`}
+                              >
+                                <Suspense fallback={<StateFeedback kind="loading" title="Carregando gráfico de situação..." />}>
+                                  <PieChart
+                                    height={220}
+                                    series={[{
+                                      data: fleetDistribution.map((row) => ({
+                                        id: row.key,
+                                        value: row.count,
+                                        label: row.label,
+                                        color: row.color,
+                                      })),
+                                      innerRadius: 56,
+                                      outerRadius: 84,
+                                      paddingAngle: 2,
+                                      cornerRadius: 3,
+                                      valueFormatter: (item) => `${item.value} veículos`,
+                                    }]}
+                                    hideLegend
+                                  />
+                                </Suspense>
+                              </Box>
+                              <Stack aria-hidden="true" sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', alignItems: 'center', justifyContent: 'center' }}>
+                                <Typography variant="h5" sx={{ fontWeight: 700 }}>{summary.fleet.total}</Typography>
+                                <Typography variant="caption" color="text.secondary">veículos</Typography>
+                              </Stack>
+                            </Box>
+                            <Stack component="ul" spacing={1} sx={{ p: 0, m: 0, listStyle: 'none' }}>
+                              {fleetDistribution.map((row) => (
+                                <Box component="li" key={row.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Box aria-hidden="true" sx={{ width: 10, height: 10, flexShrink: 0, borderRadius: '50%', bgcolor: row.color }} />
+                                  <Typography variant="body2" sx={{ flex: 1 }}>{row.label}</Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{row.count}</Typography>
+                                </Box>
+                              ))}
+                            </Stack>
+                          </>
+                        )}
+                      </Paper>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, lg: 6 }}>
+                      <Paper component="section" aria-labelledby="costs-vehicle-title" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
+                        <Typography id="costs-vehicle-title" component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
+                          Custos por veículo no período
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                          Combustível e manutenção fechada · {formattedPeriodLabel}
+                        </Typography>
+                        {dashboard.indicatorsLoading ? (
+                          <StateFeedback kind="loading" title="Carregando custos por veículo..." />
+                        ) : !indicators || indicators.vehicles.length === 0 ? (
+                          <StateFeedback
+                            kind="empty"
+                            title="Nenhum veículo retornado para este recorte"
+                            description="Veículos inativos só aparecem quando possuem movimentação no período."
+                            centered
+                          />
+                        ) : (
+                          <>
+                            {hasCostActivity ? (
+                              <Box
+                                role="img"
+                                aria-label="Gráfico comparativo de gastos com combustível e manutenção por veículo; os valores exatos constam na tabela abaixo."
+                                sx={{ width: '100%', minWidth: 0, overflowX: 'auto' }}
+                              >
+                                <Suspense fallback={<StateFeedback kind="loading" title="Carregando gráfico de custos..." />}>
+                                  <BarChart
+                                    height={240}
+                                    xAxis={[{ data: indicators.vehicles.map((v) => v.licensePlate), scaleType: 'band', label: 'Placa' }]}
+                                    yAxis={[{ label: 'Reais (R$)' }]}
+                                    series={[
+                                      {
+                                        data: indicators.vehicles.map((v) => v.fuelCost),
+                                        label: 'Combustível',
+                                        color: '#b94700',
+                                        valueFormatter: (value) => formatCurrency(value ?? 0),
+                                      },
+                                      {
+                                        data: indicators.vehicles.map((v) => v.maintenanceCost),
+                                        label: 'Manutenção',
+                                        color: '#1d4ed8',
+                                        valueFormatter: (value) => formatCurrency(value ?? 0),
+                                      },
+                                    ]}
+                                    margin={{ left: 60, right: 18, top: 24, bottom: 44 }}
+                                  />
+                                </Suspense>
+                              </Box>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                                Sem gastos de combustível ou manutenção registrados neste período.
+                              </Typography>
+                            )}
+                            <ChartDataTable
+                              title="Dados do gráfico de custos por veículo"
+                              headers={['Veículo', 'Combustível', 'Manutenção', 'Total']}
+                              rows={indicators.vehicles.map((v) => [
+                                v.licensePlate,
+                                formatCurrency(v.fuelCost),
+                                formatCurrency(v.maintenanceCost),
+                                formatCurrency(v.fuelCost + v.maintenanceCost),
+                              ])}
+                            />
+                          </>
+                        )}
+                      </Paper>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, lg: 6 }}>
+                      <Paper component="section" aria-labelledby="fuel-chart-title" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
+                        <Typography id="fuel-chart-title" component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
+                          Combustível por período
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Gasto com abastecimentos vigentes · {formattedPeriodLabel}
+                        </Typography>
+                        {dashboard.indicatorsLoading ? (
+                          <StateFeedback kind="loading" title="Carregando histórico de combustível..." />
+                        ) : (
+                          <>
+                            <Box role="img" aria-label="Gráfico do gasto com combustível por período; os valores estão na tabela abaixo.">
+                              <Suspense fallback={<StateFeedback kind="loading" title="Carregando gráfico de combustível..." />}>
+                                <BarChart
+                                  height={210}
+                                  xAxis={[{ data: fuelPeriodRows.map((row) => row.label), scaleType: 'band', label: indicators?.activityBucket === 'day' ? 'Dia' : 'Mês' }]}
+                                  yAxis={[{ label: 'Reais' }]}
+                                  series={[{ data: fuelPeriodRows.map((row) => row.cost), label: 'Gasto (R$)', color: '#ff9b54', valueFormatter: (value) => formatCurrency(value ?? 0) }]}
+                                  margin={{ left: 58, right: 16, top: 20, bottom: 42 }}
+                                />
+                              </Suspense>
+                            </Box>
+                            <ChartDataTable
+                              title="Dados do gráfico de combustível por período"
+                              headers={['Período', 'Gasto']}
+                              rows={fuelPeriodRows.map((row) => [row.label, formatCurrency(row.cost)])}
+                            />
+                          </>
+                        )}
+                      </Paper>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, lg: 7 }}>
+                      <Paper component="section" aria-labelledby="trips-vehicle-title" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
+                        <Typography id="trips-vehicle-title" component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
+                          Viagens por veículo
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                          Comparação no período selecionado.
+                        </Typography>
+                        {dashboard.indicatorsLoading ? (
+                          <StateFeedback kind="loading" title="Carregando indicadores por veículo..." />
+                        ) : !indicators || !hasTripActivity ? (
+                          <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                            Sem viagens concluídas no período selecionado.
+                          </Typography>
+                        ) : (
+                          <>
+                            <Box role="img" aria-label="Gráfico de viagens por veículo; os mesmos valores estão disponíveis na tabela abaixo.">
+                              <Suspense fallback={<StateFeedback kind="loading" title="Carregando gráfico por veículo..." />}>
+                                <BarChart
+                                  layout="horizontal"
+                                  height={Math.max(220, tripVehicleRows.length * 36)}
+                                  xAxis={[{ label: 'Viagens' }]}
+                                  yAxis={[{ data: tripVehicleRows.map((row) => row.label), scaleType: 'band', label: 'Veículo' }]}
+                                  series={[{ data: tripVehicleRows.map((row) => row.trips), label: 'Viagens', color: '#b94700', valueFormatter: (value) => `${value ?? 0} viagens` }]}
+                                  margin={{ left: 100, right: 22, top: 20, bottom: 38 }}
+                                />
+                              </Suspense>
+                            </Box>
+                            <ChartDataTable
+                              title="Dados do gráfico de viagens por veículo"
+                              headers={['Veículo', 'Viagens']}
+                              rows={tripVehicleRows.map((row) => [row.label, row.trips])}
+                            />
+                          </>
+                        )}
+                      </Paper>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, lg: 5 }}>
+                      <Paper component="section" aria-labelledby="maintenance-chart-title" variant="outlined" sx={{ height: '100%', p: 2.5, borderRadius: 2 }}>
+                        <Typography id="maintenance-chart-title" component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
+                          Manutenções no período
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          Ordens registradas no período selecionado
+                        </Typography>
+                        <Grid container spacing={1.5}>
+                          <Grid size={{ xs: 6 }}>
+                            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#f0fdf4', borderColor: '#dcfce7' }}>
+                              <Typography variant="h6" sx={{ color: '#166534', fontWeight: 700 }}>
+                                {dashboard.indicatorsLoading ? '—' : formatNumber(indicators?.totals.preventiveMaintenanceOrdersOpened ?? 0, 0)}
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: '#166534' }}>Preventivas</Typography>
+                            </Paper>
+                          </Grid>
+                          <Grid size={{ xs: 6 }}>
+                            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#fffbeb', borderColor: '#fef3c7' }}>
+                              <Typography variant="h6" sx={{ color: '#92400e', fontWeight: 700 }}>
+                                {dashboard.indicatorsLoading ? '—' : formatNumber(indicators?.totals.correctiveMaintenanceOrdersOpened ?? 0, 0)}
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: '#92400e' }}>Corretivas</Typography>
+                            </Paper>
+                          </Grid>
+                        </Grid>
+                        {indicators && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                            Veículos com ordem corretiva: {formatNumber(indicators.totals.vehiclesWithCorrectiveMaintenance, 0)}
+                          </Typography>
+                        )}
+                      </Paper>
+                    </Grid>
+                  </Grid>
+
+                  {historyRows.length > 0 && indicators && indicators.activitySeries.length > 0 && (
+                    <Box component="section" id="dashboard-history" aria-labelledby="history-indicators-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(140) }}>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 0.5, mb: 1.5 }}>
+                        <Typography id="history-indicators-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>
+                          Histórico da operação
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Eventos registrados no período · {formattedPeriodLabel}
+                        </Typography>
+                      </Stack>
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, lg: 6 }}>
+                          <TrendChart
+                            title="Manutenções abertas e concluídas"
+                            data={historyRows}
+                            series={[
+                              { label: 'Abertas', color: '#FF6B00', values: historyRows.map((row) => row.maintenanceOpened) },
+                              { label: 'Concluídas', color: '#2e7d32', values: historyRows.map((row) => row.maintenanceClosed) },
+                            ]}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, lg: 6 }}>
+                          <TrendChart
+                            title="Solicitações de viagem"
+                            data={historyRows}
+                            series={[
+                              { label: 'Criadas', color: '#FF6B00', values: historyRows.map((row) => row.requestsCreated) },
+                              { label: 'Aprovadas', color: '#2e7d32', values: historyRows.map((row) => row.requestsApproved) },
+                              { label: 'Rejeitadas', color: '#d32f2f', values: historyRows.map((row) => row.requestsRejected) },
+                              { label: 'Agendadas', color: '#1976d2', values: historyRows.map((row) => row.requestsScheduled) },
+                              { label: 'Canceladas', color: '#757575', values: historyRows.map((row) => row.requestsCanceled) },
+                            ]}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, lg: 6 }}>
+                          <TrendChart
+                            title="Eventos de multas"
+                            data={historyRows}
+                            series={[
+                              { label: 'Registradas', color: '#FF6B00', values: historyRows.map((row) => row.finesRegistered) },
+                              { label: 'Pagas', color: '#2e7d32', values: historyRows.map((row) => row.finesPaid) },
+                              { label: 'Contestadas', color: '#ed6c02', values: historyRows.map((row) => row.finesContested) },
+                            ]}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, lg: 6 }}>
+                          <TrendChart
+                            title={dashboard.vehicleId ? 'Atividade de motoristas · toda a frota' : 'Atividade de motoristas'}
+                            data={historyRows}
+                            series={[
+                              { label: 'Cadastros', color: '#FF6B00', values: historyRows.map((row) => row.driversCreated) },
+                              { label: 'Mudanças de situação', color: '#1976d2', values: historyRows.map((row) => row.driversStatusChanged) },
+                            ]}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, lg: 6 }}>
+                          <TrendChart
+                            title="Documentos de veículos"
+                            data={historyRows}
+                            series={[
+                              { label: 'Registrados', color: '#FF6B00', values: historyRows.map((row) => row.documentsRegistered) },
+                              { label: 'Renovados', color: '#2e7d32', values: historyRows.map((row) => row.documentsRenewed) },
+                            ]}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  )}
+
+                  {indicators && (
+                    <Box component="section" id="dashboard-comparison" aria-labelledby="comparison-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(180) }}>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 0.5, mb: 1.5 }}>
+                        <Typography id="comparison-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>
+                          Comparação com o período anterior
+                        </Typography>
+                        {comparisonIndicators && (
+                          <Typography variant="body2" color="text.secondary">
+                            Intervalo anterior com a mesma duração: {formatSafeCalendarDate(comparisonIndicators.period.from)} a{' '}
+                            {formatSafeCalendarDate(addCivilDays(comparisonIndicators.period.to, -1))}
+                          </Typography>
+                        )}
+                      </Stack>
+                      {dashboard.comparisonError ? (
+                        <StateFeedback
+                          kind="partial"
+                          title="Não foi possível carregar a comparação"
+                          description={dashboard.comparisonError}
+                          actionLabel="Tentar novamente"
+                          onAction={handleRefreshAll}
+                        />
+                      ) : comparisonIndicators ? (
+                        <Grid container spacing={2}>
+                          {[
+                            { id: 'comparison-trips', title: 'Viagens concluídas', current: indicators.totals.tripsCount, previous: comparisonIndicators.totals.tripsCount },
+                            { id: 'comparison-distance', title: 'Quilometragem percorrida', current: indicators.totals.kmDriven, previous: comparisonIndicators.totals.kmDriven, suffix: ' km' },
+                            { id: 'comparison-fuel', title: 'Gasto com combustível', current: indicators.totals.fuelCost, previous: comparisonIndicators.totals.fuelCost, currency: true },
+                            { id: 'comparison-maintenance', title: 'Ordens de manutenção', current: indicators.totals.maintenanceOrdersOpened, previous: comparisonIndicators.totals.maintenanceOrdersOpened },
+                            { id: 'comparison-maintenance-cost', title: 'Custo de manutenção', current: indicators.totals.maintenanceCost, previous: comparisonIndicators.totals.maintenanceCost, currency: true },
+                            { id: 'comparison-requests', title: 'Solicitações criadas', current: indicators.activitySeries.reduce((sum, row) => sum + row.requestsCreated, 0), previous: comparisonIndicators.activitySeries.reduce((sum, row) => sum + row.requestsCreated, 0) },
+                            { id: 'comparison-fines', title: 'Multas registradas', current: indicators.activitySeries.reduce((sum, row) => sum + row.finesRegistered, 0), previous: comparisonIndicators.activitySeries.reduce((sum, row) => sum + row.finesRegistered, 0) },
+                            { id: 'comparison-drivers', title: 'Mudanças de situação de motoristas', current: indicators.activitySeries.reduce((sum, row) => sum + row.driversStatusChanged, 0), previous: comparisonIndicators.activitySeries.reduce((sum, row) => sum + row.driversStatusChanged, 0) },
+                            { id: 'comparison-documents', title: 'Documentos renovados', current: indicators.activitySeries.reduce((sum, row) => sum + row.documentsRenewed, 0), previous: comparisonIndicators.activitySeries.reduce((sum, row) => sum + row.documentsRenewed, 0) },
+                          ].map((item) => {
+                            const delta = item.current - item.previous
+                            const description = item.currency
+                              ? `${delta > 0 ? '+' : ''}${formatCurrency(delta)} em relação ao período anterior`
+                              : `${delta > 0 ? '+' : ''}${formatNumber(delta)}${item.suffix ?? ''} em relação ao período anterior`
+                            const value = item.currency ? formatCurrency(item.current) : `${formatNumber(item.current)}${item.suffix ?? ''}`
+                            return (
+                              <Grid key={item.id} size={{ xs: 12, sm: 6, xl: 3 }} sx={dashboardCardMotion}>
+                                <StatCard title={item.title} value={value} description={description} />
+                              </Grid>
+                            )
+                          })}
+                        </Grid>
+                      ) : null}
+                    </Box>
+                  )}
+
+                  <Paper component="section" id="dashboard-vehicles" aria-labelledby="vehicle-indicators-table-title" tabIndex={-1} variant="outlined" sx={{ p: 2.5, borderRadius: 2, mb: 3, scrollMarginTop: 10, ...sectionEntrance(220) }}>
+                    <Typography id="vehicle-indicators-table-title" component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
+                      Uso, consumo e custo por veículo
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                      Detalhamento consolidado no período ({formattedPeriodLabel})
+                    </Typography>
+
+                    <DataTable
+                      caption="Indicadores operacionais por veículo no período selecionado"
+                      columns={VEHICLE_INDICATORS_COLUMNS}
+                      rows={indicators?.vehicles ?? []}
+                      rowKey={(row) => row.vehicleId}
+                      busy={dashboard.indicatorsLoading}
+                      minWidth={980}
+                      footerValues={vehicleFooterValues}
+                      loadingContent={<StateFeedback kind="loading" title="Carregando indicadores por veículo..." />}
+                      emptyContent={(
+                        <StateFeedback
+                          kind="empty"
+                          title="Nenhum veículo com registros no recorte"
+                          description="Ajuste o período ou selecione Todos os veículos."
+                          centered
+                        />
+                      )}
+                      paperSx={{ border: 0, boxShadow: 'none' }}
+                    />
+                    {consumptionPending && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                        * Consumo médio (km/L): fórmula proposta ainda em validação pelo cliente (`pendingValidation`).
+                      </Typography>
+                    )}
+                  </Paper>
+                </>
+              )}
+            </Box>
+          )}
+
+          {(summary?.svo || indicators?.svo) && (
+            <Box component="section" aria-labelledby="svo-summary-title" sx={{ mb: 3 }}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+                sx={{ mb: 1.5, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}
+              >
+                <Typography id="svo-summary-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>
+                  Indicadores do SVO
+                </Typography>
+                {svoTimePending && <StatusChip label="Tempo até coleta em validação" tone="warning" />}
+              </Stack>
+              <Grid container spacing={2}>
+                {summary?.svo && (
+                  <>
+                    <Grid size={{ xs: 12, sm: 6, lg: 4 }} sx={dashboardCardMotion}>
+                      <StatCard
+                        title="Ordens SVO em andamento"
+                        value={summary.svo.ordersInProgress}
+                        description="Retrato atual da operação SVO"
+                        icon={<MedicalServices />}
+                        loading={dashboard.summaryLoading}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 4 }} sx={dashboardCardMotion}>
+                      <StatCard
+                        title="Ocupação das viaturas SVO"
+                        value={summary.svo.vehicles.occupancyRate !== null
+                          ? `${formatNumber(summary.svo.vehicles.occupancyRate, 1)}%`
+                          : 'Sem viaturas ativas'}
+                        description={`${summary.svo.vehicles.busy} de ${summary.svo.vehicles.total} viaturas em atendimento`}
+                        icon={<DirectionsCar />}
+                        loading={dashboard.summaryLoading}
+                      />
+                    </Grid>
+                  </>
+                )}
+                {dashboard.validation.valid && indicators?.svo && (
+                  <>
+                    <Grid size={{ xs: 12, sm: 6, lg: 4 }} sx={dashboardCardMotion}>
+                      <StatCard
+                        title="Ordens SVO abertas"
+                        value={indicators.svo.ordersOpened}
+                        description={`No período (${formattedPeriodLabel})`}
+                        icon={<MedicalServices />}
+                        loading={dashboard.indicatorsLoading}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 6 }} sx={dashboardCardMotion}>
+                      <StatCard
+                        title="Ordens SVO coletadas"
+                        value={indicators.svo.ordersCollected}
+                        description="Com coleta registrada no período"
+                        icon={<LocalShipping />}
+                        loading={dashboard.indicatorsLoading}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 6 }} sx={dashboardCardMotion}>
+                      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                        <StatCard
+                          title="Tempo médio até a coleta"
+                          value={formatNullableMeasure(indicators.svo.averageMinutesToCollection, 'min', 'Sem coleta no período', 1)}
+                          description={svoTimePending ? 'Proposta em validação · chamado até coleta' : 'Do recebimento do chamado até a coleta'}
+                          icon={<Route />}
+                          loading={dashboard.indicatorsLoading}
+                        />
+                        {svoTimePending && !dashboard.indicatorsLoading && (
+                          <Box sx={{ px: 0.5 }}>
+                            <StatusChip label="Proposta em validação" tone="warning" />
+                          </Box>
+                        )}
+                      </Box>
+                    </Grid>
+                  </>
+                )}
+              </Grid>
+            </Box>
+          )}
+
+          <Box component="section" id="dashboard-maintenance" aria-labelledby="upcoming-maintenance-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(260) }}>
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+              <Typography id="upcoming-maintenance-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>
+                Próximas manutenções
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Ordens abertas ou em andamento com previsão registrada.
+              </Typography>
+              {maintenanceError && (
+                <StateFeedback kind="error" title={maintenanceError} actionLabel="Tentar novamente" onAction={handleRefreshAll} />
+              )}
+              {!maintenanceError && (
+                <DataTable
+                  caption="Próximas manutenções previstas"
+                  columns={MAINTENANCE_COLUMNS}
+                  rows={upcomingMaintenance}
+                  rowKey={(row) => row.id}
+                  minWidth={520}
+                  busy={maintenanceLoading}
+                  loadingContent={<StateFeedback kind="loading" title="Carregando próximas manutenções..." />}
+                  emptyContent="Não há ordens abertas com previsão futura registrada."
+                />
+              )}
+            </Paper>
+          </Box>
+
+          <Box component="section" id="dashboard-schedule" aria-labelledby="future-trips-title" tabIndex={-1} sx={{ mb: 3, scrollMarginTop: 10, ...sectionEntrance(300) }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1, mb: 1.5 }}>
+              <Box>
+                <Typography id="future-trips-title" component="h2" variant="h6" sx={{ fontWeight: 700 }}>
+                  Viagens agendadas
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Agenda registrada para {formattedFuturePeriod}; não é uma estimativa de viagens ou custos. O filtro de veículo acima também se aplica aqui.
+                </Typography>
+              </Box>
+              <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                <Typography variant="subtitle2" color="primary.dark" sx={{ fontWeight: 700 }} aria-live="polite">
+                  {scheduledLoading ? 'Consultando agenda...' : `${filteredScheduledTrips.length} ${filteredScheduledTrips.length === 1 ? 'viagem agendada' : 'viagens agendadas'}`}
+                </Typography>
+                <ToggleButtonGroup
+                  exclusive
+                  value={futureDays}
+                  onChange={(_event, value: number | null) => { if (value) setFutureDays(value) }}
+                  aria-label="Período das viagens futuras"
+                >
+                  {FUTURE_PERIODS.map((days) => (
+                    <ToggleButton key={days} value={days} sx={{ minHeight: 44 }}>{days} dias</ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Stack>
+            </Stack>
+            {scheduledError && (
+              <StateFeedback kind="error" title={scheduledError} actionLabel="Tentar novamente" onAction={handleRefreshAll} />
+            )}
+            {!scheduledError && (
+              <DataTable
+                caption="Viagens agendadas no período futuro"
+                columns={SCHEDULED_TRIP_COLUMNS}
+                rows={filteredScheduledTrips}
+                rowKey={(row) => row.id}
+                minWidth={820}
+                busy={scheduledLoading}
+                loadingContent={<StateFeedback kind="loading" title="Carregando viagens agendadas..." />}
+                emptyContent="Não há viagens agendadas nesse período e para esse veículo."
+              />
+            )}
+          </Box>
+        </>
+      )}
     </Box>
   )
 }

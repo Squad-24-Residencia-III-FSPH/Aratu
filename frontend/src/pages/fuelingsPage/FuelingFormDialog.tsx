@@ -1,19 +1,39 @@
 import { useId, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FocusEvent, FormEvent } from 'react'
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from '@mui/material'
 import type { ApiRequest } from '../../api/client'
+import { accessibleControls } from '../../components/ui/accessibleControls'
 import { FormField, FormSelect } from '../../components/ui/FormField'
 import type { FormSelectOption } from '../../components/ui/FormField'
-import { createFueling, FuelingWriteError, rectifyFueling } from '../../services/fuelingsService'
 import type { CreateFuelingInput, FuelingVersion, RectifyFuelingInput } from '../../fuelings/fuelingTypes'
-import { operationalDateTimeInput, operationalDateTimeToIso } from '../../time/operationalTime'
+import {
+  createFueling,
+  FuelingRequestError,
+  FuelingWriteError,
+  isUncertainFuelingOutcome,
+  listFuelings,
+  rectifyFueling,
+} from '../../services/fuelingsService'
+import { operationalDateTimeInput } from '../../time/operationalTime'
+import {
+  buildCanonicalFuelingSignature,
+  localDateTimeValue,
+  mapBackendFuelingError,
+  matchesFuelingRecord,
+  validateFuelingForm,
+} from './fuelingForm'
+import type { FuelingFieldErrors, FuelingFormField, FuelingFormValues } from './fuelingForm'
 
 interface FuelingFormDialogProps {
   api: ApiRequest
   reportedBy: string
   vehicles: readonly FormSelectOption[]
   drivers: readonly FormSelectOption[]
-  onSaved: () => void
+  driversLoading?: boolean
+  driversError?: string
+  onRetryDrivers?: () => void
+  onSaved: (saved: FuelingVersion, message?: string) => void
+  onReconcileList?: () => void
   onCancel: () => void
   fueling?: FuelingVersion
 }
@@ -28,131 +48,489 @@ const FUEL_OPTIONS: readonly FormSelectOption[] = [
   { value: 'OTHER', label: 'Outro' },
 ]
 
-type FuelingSubmission =
-  | {
-  kind: 'create'
-  key: string
-  input: CreateFuelingInput
-}
-  | { kind: 'rectify'; targetId: string; key: string; input: RectifyFuelingInput }
-
-export default function FuelingFormDialog({ api, reportedBy, vehicles, drivers, onSaved, onCancel, fueling }: FuelingFormDialogProps) {
+/** Formulário acessível de abastecimento com validação por campo, idempotência por intenção e reconciliação. */
+export default function FuelingFormDialog({
+  api,
+  reportedBy,
+  vehicles,
+  drivers,
+  driversLoading = false,
+  driversError = '',
+  onRetryDrivers,
+  onSaved,
+  onReconcileList,
+  onCancel,
+  fueling,
+}: FuelingFormDialogProps) {
   const titleId = useId()
-  const [values, setValues] = useState({
-    vehicleId: fueling?.vehicleId ?? '', driverId: fueling?.driverId ?? '', fueledAt: operationalDateTimeInput(fueling?.fueledAt ?? new Date().toISOString()), fuelType: fueling?.fuelType ?? '',
-    liters: fueling?.liters ?? '', totalValue: fueling?.totalValue ?? '', odometerKm: fueling ? String(fueling.odometerKm) : '', station: fueling?.station ?? '',
-    notes: '', reason: '', evidenceDescription: '',
-  })
-  const [error, setError] = useState('')
+  const [values, setValues] = useState<FuelingFormValues>(() => ({
+    vehicleId: fueling?.vehicleId ?? '',
+    driverId: fueling?.driverId ?? '',
+    fueledAt: fueling ? operationalDateTimeInput(fueling.fueledAt) : localDateTimeValue(new Date()),
+    fuelType: fueling?.fuelType ?? '',
+    liters: fueling?.liters ?? '',
+    totalValue: fueling?.totalValue ?? '',
+    odometerKm: fueling ? String(fueling.odometerKm) : '',
+    station: fueling?.station ?? '',
+    reason: '',
+    evidenceDescription: '',
+  }))
+  const [notes, setNotes] = useState(fueling?.notes ?? '')
+  const [fieldErrors, setFieldErrors] = useState<FuelingFieldErrors>({})
+  const [submitError, setSubmitError] = useState('')
+  const [statusMessage, setStatusMessage] = useState('')
+  const [uncertainInput, setUncertainInput] = useState<CreateFuelingInput | null>(null)
   const [saving, setSaving] = useState(false)
-  const [outcomeUncertain, setOutcomeUncertain] = useState(false)
-  const submission = useRef<FuelingSubmission | null>(null)
+  const [reconciling, setReconciling] = useState(false)
 
-  function update(field: keyof typeof values, value: string) {
-    if (outcomeUncertain) return
-    setValues((current) => ({ ...current, [field]: value }))
-    setError('')
+  const submittingRef = useRef(false)
+  const idempotencyAttemptRef = useRef<{ signature: string; key: string } | null>(null)
+  const errorAlertRef = useRef<HTMLDivElement>(null)
+
+  const vehicleBoxRef = useRef<HTMLDivElement>(null)
+  const driverBoxRef = useRef<HTMLDivElement>(null)
+  const fueledAtRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const fuelTypeBoxRef = useRef<HTMLDivElement>(null)
+  const litersRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const totalValueRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const odometerKmRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const stationRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const reasonRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const evidenceDescriptionRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+
+  function focusElement(element: HTMLElement | null | undefined) {
+    if (!element) return
+    element.focus()
+    if (typeof element.scrollIntoView === 'function') {
+      element.scrollIntoView({ block: 'nearest' })
+    }
   }
 
-  async function sendSubmission(current: FuelingSubmission) {
-    setSaving(true)
-    setError('')
+  function focusField(field: FuelingFormField) {
+    if (field === 'vehicleId') {
+      focusElement(vehicleBoxRef.current?.querySelector<HTMLElement>('[role="combobox"]'))
+      return
+    }
+    if (field === 'driverId') {
+      focusElement(driverBoxRef.current?.querySelector<HTMLElement>('[role="combobox"]'))
+      return
+    }
+    if (field === 'fuelType') {
+      focusElement(fuelTypeBoxRef.current?.querySelector<HTMLElement>('[role="combobox"]'))
+      return
+    }
+    const refs: Record<Exclude<FuelingFormField, 'vehicleId' | 'driverId' | 'fuelType'>, HTMLElement | null> = {
+      fueledAt: fueledAtRef.current,
+      liters: litersRef.current,
+      totalValue: totalValueRef.current,
+      odometerKm: odometerKmRef.current,
+      station: stationRef.current,
+      reason: reasonRef.current,
+      evidenceDescription: evidenceDescriptionRef.current,
+    }
+    focusElement(refs[field])
+  }
+
+  function handleContentFocusCapture(event: FocusEvent<HTMLDivElement>) {
+    const target = event.target
+    if (!(target instanceof HTMLElement)) return
+    const controlContainer = target.closest('.MuiFormControl-root') ?? target
+    if (controlContainer instanceof HTMLElement && typeof controlContainer.scrollIntoView === 'function') {
+      controlContainer.scrollIntoView({ block: 'nearest' })
+    }
+  }
+
+  function update(field: FuelingFormField, value: string) {
+    setValues((current) => ({ ...current, [field]: value }))
+    setFieldErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+    setSubmitError('')
+    setStatusMessage('')
+    if (uncertainInput) {
+      setUncertainInput(null)
+    }
+  }
+
+  function updateNotes(value: string) {
+    setNotes(value)
+    setSubmitError('')
+    setStatusMessage('')
+    if (uncertainInput) {
+      setUncertainInput(null)
+    }
+  }
+
+  async function handleReconcile() {
+    if (!uncertainInput || reconciling || saving) return
+    setReconciling(true)
+    setSubmitError('')
+    setStatusMessage('Consultando lançamentos registrados para conferência...')
     try {
-      if (current.kind === 'rectify') await rectifyFueling(api, current.targetId, current.input, current.key)
-      else await createFueling(api, current.input, current.key)
-      submission.current = null
-      onSaved()
-    } catch (requestError) {
-      const uncertain = requestError instanceof FuelingWriteError && requestError.outcomeUncertain
-      setOutcomeUncertain(uncertain)
-      if (!uncertain) submission.current = null
-      const message = requestError instanceof Error
-        ? requestError.message
-        : 'Não foi possível registrar o abastecimento.'
-      setError(uncertain
-        ? `${message} Os dados foram preservados. Tente novamente para confirmar o mesmo registro.`
-        : message)
+      const list = await listFuelings(api, {
+        vehicleId: uncertainInput.vehicleId,
+        page: 1,
+        pageSize: 20,
+      })
+      onReconcileList?.()
+      const match = list.items.find((item) => matchesFuelingRecord(item, uncertainInput))
+      if (match) {
+        idempotencyAttemptRef.current = null
+        setUncertainInput(null)
+        setStatusMessage('')
+        onSaved(match, `Abastecimento #${match.id} já estava registrado. Listagem sincronizada sem duplicidade.`)
+        return
+      }
+      setStatusMessage('')
+      setSubmitError('Nenhum lançamento correspondente foi encontrado até o momento. Você pode reenviar com segurança mantendo os mesmos dados.')
+      requestAnimationFrame(() => focusElement(errorAlertRef.current))
+    } catch (failure) {
+      const message = failure instanceof Error ? failure.message : 'Não foi possível consultar os lançamentos.'
+      setStatusMessage('')
+      setSubmitError(`${message} Você ainda pode tentar consultar novamente ou reenviar mantendo a mesma intenção.`)
+      requestAnimationFrame(() => focusElement(errorAlertRef.current))
     } finally {
-      setSaving(false)
+      setReconciling(false)
     }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (outcomeUncertain && submission.current) {
-      await sendSubmission(submission.current)
-      return
-    }
-    const odometerKm = Number(values.odometerKm)
-    if (!values.vehicleId || !values.fueledAt || !values.fuelType || !values.liters || !values.totalValue
-      || values.odometerKm === '' || !values.reason.trim() || !values.evidenceDescription.trim()
-      || !Number.isInteger(odometerKm) || odometerKm < 0) {
-      setError('Preencha os campos obrigatórios e informe uma quilometragem inteira não negativa.')
+    if (submittingRef.current || reconciling) return
+
+    const validation = validateFuelingForm(values, reportedBy)
+    if (!validation.ok) {
+      setFieldErrors(validation.fieldErrors)
+      setSubmitError(validation.summary)
+      setStatusMessage('')
+      requestAnimationFrame(() => focusField(validation.firstInvalid))
       return
     }
 
-    const input: CreateFuelingInput = {
-      vehicleId: values.vehicleId,
-      ...(values.driverId ? { driverId: values.driverId } : {}),
-      fueledAt: operationalDateTimeToIso(values.fueledAt),
-      fuelType: values.fuelType as CreateFuelingInput['fuelType'],
-      liters: values.liters,
-      totalValue: values.totalValue,
-      odometerKm,
-      ...(values.station.trim() ? { station: values.station.trim() } : {}),
-      reportedBy,
-      reason: values.reason.trim(),
-      evidenceDescription: values.evidenceDescription.trim(),
-      notes: values.notes.trim() || null,
+    const { input } = validation
+    if (fueling && !fueling.revision) {
+      setSubmitError('A revisão atual do abastecimento não está disponível. Atualize a consulta antes de corrigir.')
+      requestAnimationFrame(() => focusElement(errorAlertRef.current))
+      return
     }
 
-    if (fueling) {
-      if (!fueling.revision) { setError('A revisão atual do abastecimento não está disponível. Atualize a consulta antes de corrigir.'); return }
-      const rectifyInput: RectifyFuelingInput = {
-        expectedRevision: fueling.revision, ...(values.driverId ? { driverId: values.driverId } : { driverId: null }),
-        fueledAt: input.fueledAt, fuelType: input.fuelType, liters: input.liters, totalValue: input.totalValue,
-        odometerKm: input.odometerKm, station: input.station ?? null, notes: input.notes ?? null,
-        reportedBy: input.reportedBy, reason: input.reason, evidenceDescription: input.evidenceDescription,
+    const trimmedNotes = notes.trim()
+    const createPayload: CreateFuelingInput = trimmedNotes ? { ...input, notes: trimmedNotes } : input
+    const signature = fueling
+      ? JSON.stringify({
+          kind: 'rectify',
+          id: fueling.id,
+          revision: fueling.revision,
+          base: buildCanonicalFuelingSignature(input),
+          notes: trimmedNotes || null,
+        })
+      : `${buildCanonicalFuelingSignature(input)}${trimmedNotes ? `|notes:${trimmedNotes}` : ''}`
+
+    if (idempotencyAttemptRef.current?.signature !== signature) {
+      idempotencyAttemptRef.current = { signature, key: crypto.randomUUID() }
+    }
+
+    submittingRef.current = true
+    setSaving(true)
+    setFieldErrors({})
+    setSubmitError('')
+    setStatusMessage(fueling ? 'Salvando correção, aguarde...' : 'Registrando abastecimento, aguarde...')
+
+    try {
+      const saved = fueling && fueling.revision
+        ? await rectifyFueling(
+            api,
+            fueling.id,
+            {
+              expectedRevision: fueling.revision,
+              driverId: input.driverId ?? null,
+              fueledAt: input.fueledAt,
+              fuelType: input.fuelType,
+              liters: input.liters,
+              totalValue: input.totalValue,
+              odometerKm: input.odometerKm,
+              station: input.station ?? null,
+              notes: trimmedNotes || null,
+              reportedBy: input.reportedBy,
+              reason: input.reason,
+              evidenceDescription: input.evidenceDescription,
+            } satisfies RectifyFuelingInput,
+            idempotencyAttemptRef.current.key,
+          )
+        : await createFueling(api, createPayload, idempotencyAttemptRef.current.key)
+      idempotencyAttemptRef.current = null
+      setUncertainInput(null)
+      setStatusMessage('')
+      onSaved(saved)
+    } catch (requestError) {
+      const rawMessage = requestError instanceof Error
+        ? requestError.message
+        : 'Não foi possível registrar o abastecimento.'
+
+      const httpStatus = requestError instanceof FuelingRequestError || requestError instanceof FuelingWriteError
+        ? requestError.status
+        : undefined
+      if (httpStatus === 409) {
+        idempotencyAttemptRef.current = null
+        setUncertainInput(null)
+        setStatusMessage('')
+        setSubmitError(rawMessage)
+        requestAnimationFrame(() => focusElement(errorAlertRef.current))
+        return
       }
-      const current: FuelingSubmission = { kind: 'rectify', targetId: fueling.id, key: crypto.randomUUID(), input: rectifyInput }
-      submission.current = current
-      await sendSubmission(current)
-      return
+
+      if (isUncertainFuelingOutcome(requestError)) {
+        setUncertainInput(input)
+        setStatusMessage('')
+        setSubmitError(
+          fueling
+            ? `${rawMessage} Não foi possível confirmar se a correção foi gravada. Reenvie com segurança usando a mesma intenção.`
+            : `${rawMessage} Não foi possível confirmar se o abastecimento foi gravado. Consulte os lançamentos ou reenvie com segurança usando a mesma intenção.`,
+        )
+        requestAnimationFrame(() => focusElement(errorAlertRef.current))
+        return
+      }
+
+      setUncertainInput(null)
+      setStatusMessage('')
+      const mapped = mapBackendFuelingError(rawMessage)
+      if (mapped.field) {
+        const targetField = mapped.field
+        setFieldErrors({ [targetField]: mapped.message })
+        setSubmitError(mapped.message)
+        requestAnimationFrame(() => focusField(targetField))
+      } else {
+        setSubmitError(mapped.message)
+        requestAnimationFrame(() => focusElement(errorAlertRef.current))
+      }
+    } finally {
+      submittingRef.current = false
+      setSaving(false)
     }
-    const current: FuelingSubmission = { kind: 'create', key: crypto.randomUUID(), input }
-    submission.current = current
-    await sendSubmission(current)
   }
 
+  const busy = saving || reconciling
+
   return (
-    <Dialog open onClose={saving || outcomeUncertain ? undefined : onCancel} fullWidth maxWidth="sm" aria-labelledby={titleId}>
-      <Box component="form" onSubmit={handleSubmit} noValidate>
+    <Dialog
+      open
+      onClose={busy ? undefined : onCancel}
+      fullWidth
+      maxWidth="sm"
+      aria-labelledby={titleId}
+      sx={accessibleControls}
+      slotProps={{
+        paper: {
+          sx: {
+            m: { xs: 1.5, sm: 3 },
+            width: { xs: 'calc(100% - 24px)', sm: '100%' },
+            maxHeight: 'calc(100dvh - 24px)',
+          },
+        },
+      }}
+    >
+      <Box component="form" onSubmit={handleSubmit} aria-busy={busy ? 'true' : undefined} noValidate>
         <DialogTitle id={titleId}>{fueling ? `Corrigir abastecimento #${fueling.id}` : 'Registrar abastecimento'}</DialogTitle>
-        <DialogContent dividers>
+        <DialogContent
+          dividers
+          onFocusCapture={handleContentFocusCapture}
+          sx={{
+            scrollPaddingBlock: 3,
+            '& .MuiFormControl-root': { scrollMarginBlock: 24 },
+          }}
+        >
           <Stack spacing={2} sx={{ mt: 0.5 }}>
-            {error && <Alert severity="error" role="alert">{error}</Alert>}
-            {fueling && <Alert severity="info">A correção cria uma nova versão. O veículo não pode ser alterado e a versão anterior permanece no histórico.</Alert>}
-            <FormSelect label="Veículo" value={values.vehicleId} onChange={(value) => update('vehicleId', value)} options={vehicles} emptyLabel="Selecione um veículo" required disabled={outcomeUncertain || Boolean(fueling)} />
-            <FormSelect label="Motorista (opcional)" value={values.driverId} onChange={(value) => update('driverId', value)} options={drivers} emptyLabel="Não informado" disabled={outcomeUncertain} />
-            <FormField label="Data e hora (Maceió)" type="datetime-local" value={values.fueledAt} onChange={(value) => update('fueledAt', value)} required disabled={outcomeUncertain} />
-            <FormSelect label="Tipo de combustível" value={values.fuelType} onChange={(value) => update('fuelType', value)} options={FUEL_OPTIONS} emptyLabel="Selecione o combustível" required disabled={outcomeUncertain} />
+            {statusMessage && (
+              <Alert severity="info" role="status" aria-live="polite">
+                {statusMessage}
+              </Alert>
+            )}
+            {submitError && (
+              <Alert
+                ref={errorAlertRef}
+                tabIndex={-1}
+                severity={uncertainInput ? 'warning' : 'error'}
+                role="alert"
+                action={uncertainInput && !fueling ? (
+                  <Button
+                    type="button"
+                    size="small"
+                    variant="outlined"
+                    onClick={handleReconcile}
+                    disabled={busy}
+                  >
+                    {reconciling ? 'Consultando...' : 'Consultar lançamentos'}
+                  </Button>
+                ) : undefined}
+              >
+                {submitError}
+              </Alert>
+            )}
+            {fueling && (
+              <Alert severity="info">
+                A correção cria uma nova versão. O veículo não pode ser alterado e a versão anterior permanece no histórico.
+              </Alert>
+            )}
+            <Box ref={vehicleBoxRef}>
+              <FormSelect
+                label="Veículo"
+                value={values.vehicleId}
+                onChange={(value) => update('vehicleId', value)}
+                options={vehicles}
+                emptyLabel="Selecione um veículo"
+                error={fieldErrors.vehicleId}
+                disabled={busy || Boolean(fueling)}
+                required
+                autoFocus={!fueling}
+              />
+            </Box>
+            <Box ref={driverBoxRef}>
+              <FormSelect
+                label="Motorista (opcional)"
+                value={values.driverId}
+                onChange={(value) => update('driverId', value)}
+                options={drivers}
+                emptyLabel="Não informado"
+                error={fieldErrors.driverId}
+                helperText={driversError
+                  ? 'Catálogo de motoristas indisponível. Você pode registrar sem motorista ou consultar novamente.'
+                  : undefined}
+                disabled={busy}
+              />
+              {driversError && onRetryDrivers && (
+                <Box sx={{ mt: 0.5 }}>
+                  <Button
+                    type="button"
+                    size="small"
+                    variant="outlined"
+                    onClick={onRetryDrivers}
+                    disabled={busy || driversLoading}
+                  >
+                    {driversLoading ? 'Recarregando motoristas...' : 'Recarregar motoristas'}
+                  </Button>
+                </Box>
+              )}
+            </Box>
+            <FormField
+              label="Data e hora"
+              type="datetime-local"
+              value={values.fueledAt}
+              onChange={(value) => update('fueledAt', value)}
+              error={fieldErrors.fueledAt}
+              inputRef={fueledAtRef}
+              disabled={busy}
+              required
+            />
+            <Box ref={fuelTypeBoxRef}>
+              <FormSelect
+                label="Tipo de combustível"
+                value={values.fuelType}
+                onChange={(value) => update('fuelType', value)}
+                options={FUEL_OPTIONS}
+                emptyLabel="Selecione o combustível"
+                error={fieldErrors.fuelType}
+                disabled={busy}
+                required
+              />
+            </Box>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <FormField label="Litros" type="number" value={values.liters} onChange={(value) => update('liters', value)} required inputMode="numeric" disabled={outcomeUncertain} />
-              <FormField label="Valor total (R$)" type="number" value={values.totalValue} onChange={(value) => update('totalValue', value)} required inputMode="numeric" disabled={outcomeUncertain} />
+              <FormField
+                label="Litros"
+                value={values.liters}
+                onChange={(value) => update('liters', value)}
+                error={fieldErrors.liters}
+                inputRef={litersRef}
+                placeholder="Ex.: 26,375"
+                helperText="Até 3 casas decimais."
+                disabled={busy}
+                required
+              />
+              <FormField
+                label="Valor total (R$)"
+                value={values.totalValue}
+                onChange={(value) => update('totalValue', value)}
+                error={fieldErrors.totalValue}
+                inputRef={totalValueRef}
+                placeholder="Ex.: 153,40"
+                helperText="Até 2 casas decimais."
+                disabled={busy}
+                required
+              />
             </Stack>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <FormField label="Quilometragem (km)" type="number" value={values.odometerKm} onChange={(value) => update('odometerKm', value)} required inputMode="numeric" disabled={outcomeUncertain} />
-              <FormField label="Posto (opcional)" value={values.station} onChange={(value) => update('station', value)} disabled={outcomeUncertain} />
+              <FormField
+                label="Quilometragem (km)"
+                value={values.odometerKm}
+                onChange={(value) => update('odometerKm', value)}
+                error={fieldErrors.odometerKm}
+                inputRef={odometerKmRef}
+                inputMode="numeric"
+                helperText="Inteiro maior ou igual a zero."
+                disabled={busy}
+                required
+              />
+              <FormField
+                label="Posto (opcional)"
+                value={values.station}
+                onChange={(value) => update('station', value)}
+                error={fieldErrors.station}
+                inputRef={stationRef}
+                disabled={busy}
+              />
             </Stack>
-            <FormField label="Observações" value={values.notes} onChange={(value) => update('notes', value)} multiline minRows={2} disabled={outcomeUncertain} />
-            <FormField label="Justificativa do registro" value={values.reason} onChange={(value) => update('reason', value)} required multiline minRows={2} disabled={outcomeUncertain} />
-            <FormField label="Descrição da evidência" value={values.evidenceDescription} onChange={(value) => update('evidenceDescription', value)} helperText="Informe o comprovante ou canal em que foi registrado." required multiline minRows={2} disabled={outcomeUncertain} />
+            <FormField
+              label="Observações (opcional)"
+              value={notes}
+              onChange={updateNotes}
+              disabled={busy}
+              multiline
+              minRows={2}
+            />
+            <FormField
+              label="Justificativa do registro"
+              value={values.reason}
+              onChange={(value) => update('reason', value)}
+              error={fieldErrors.reason}
+              inputRef={reasonRef}
+              disabled={busy}
+              required
+              multiline
+              minRows={2}
+            />
+            <FormField
+              label="Descrição da evidência"
+              value={values.evidenceDescription}
+              onChange={(value) => update('evidenceDescription', value)}
+              error={fieldErrors.evidenceDescription}
+              inputRef={evidenceDescriptionRef}
+              helperText="Informe o comprovante ou canal em que foi registrado."
+              disabled={busy}
+              required
+              multiline
+              minRows={2}
+            />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2, flexWrap: 'wrap' }}>
-          <Button onClick={onCancel} disabled={saving || outcomeUncertain} sx={{ minHeight: 44 }}>Cancelar</Button>
-          <Button type="submit" variant="contained" disabled={saving} aria-busy={saving ? 'true' : undefined} sx={{ minHeight: 44 }}>
-            {saving ? 'Salvando...' : outcomeUncertain ? 'Tentar novamente' : fueling ? 'Salvar correção' : 'Registrar abastecimento'}
+        <DialogActions sx={{ p: 2, flexWrap: 'wrap', gap: 1 }}>
+          <Button type="button" onClick={onCancel} disabled={busy}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={busy}
+            aria-busy={saving ? 'true' : undefined}
+          >
+            {saving
+              ? fueling ? 'Salvando...' : 'Registrando...'
+              : uncertainInput
+                ? 'Reenviar com segurança'
+                : fueling
+                  ? 'Salvar correção'
+                  : 'Registrar abastecimento'}
           </Button>
         </DialogActions>
       </Box>
