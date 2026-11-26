@@ -7,6 +7,7 @@ import type {
   UpdateUserResult,
   UserFilters,
   PaginatedUsers,
+  CurrentUserAuthorizationContext,
 } from '../types/auth'
 
 /**
@@ -31,6 +32,8 @@ export interface UserRepository {
 export interface UsersRepositoryContract {
   withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
   findById(id: string, client?: PoolClient): Promise<User | null>
+  /** Carrega usuário, perfil ativo e grants atuais para autorização por requisição. */
+  findAuthorizationById?(id: string): Promise<CurrentUserAuthorizationContext | null>
   findByIdForUpdate(id: string, client: PoolClient): Promise<User | null>
   list(filters: UserFilters): Promise<PaginatedUsers>
   create(input: CreateUserInput, client?: PoolClient): Promise<User>
@@ -94,12 +97,50 @@ export class UsersRepository implements UserRepository, UsersRepositoryContract 
          u.password_hash,
          u.role_id::text AS "roleId",
          r.name AS role,
+         r.display_name AS "displayName",
+         r.active AS "profileActive",
          u.active AS is_active
        FROM auth.users u
        JOIN auth.roles r ON r.id = u.role_id
        WHERE lower(u.email) = $1
        LIMIT 1`,
       [email.trim().toLowerCase()],
+    )
+    return result.rows[0] ?? null
+  }
+
+  /**
+   * Recarrega as concessões vigentes da conta para impedir que um token antigo mantenha acesso.
+   *
+   * @param id - Identificador numérico autenticado.
+   * @returns Contexto atual do perfil e permissões, ou `null` se a conta não existir.
+   */
+  async findAuthorizationById(id: string): Promise<CurrentUserAuthorizationContext | null> {
+    const result = await this.pool.query<CurrentUserAuthorizationContext>(
+      `SELECT
+         u.id::text AS id,
+         u.name,
+         u.role_id::text AS "roleId",
+         r.name AS role,
+         r.display_name AS "displayName",
+         r.revision AS "roleRevision",
+         r.default_path AS "defaultPath",
+         r.active AS "profileActive",
+         u.active,
+         COALESCE(
+           array_agg(p.name ORDER BY p.name) FILTER (WHERE p.id IS NOT NULL),
+           ARRAY[]::text[]
+         ) AS permissions
+       FROM auth.users u
+       JOIN auth.roles r ON r.id = u.role_id
+       LEFT JOIN auth.role_permissions rp
+         ON rp.role_id = r.id AND rp.is_active = true
+       LEFT JOIN auth.permissions p ON p.id = rp.permission_id
+       WHERE u.id = $1
+       GROUP BY u.id, u.name, u.role_id, r.name, r.display_name,
+         r.revision, r.default_path, r.active, u.active
+       LIMIT 1`,
+      [id],
     )
     return result.rows[0] ?? null
   }
@@ -120,6 +161,7 @@ export class UsersRepository implements UserRepository, UsersRepositoryContract 
          u.email,
          u.role_id::text AS "roleId",
          r.name AS role,
+         r.display_name AS "roleDisplayName",
          u.active,
          u.revision,
          u.created_at AS "createdAt",
@@ -151,6 +193,7 @@ export class UsersRepository implements UserRepository, UsersRepositoryContract 
          u.email,
          u.role_id::text AS "roleId",
          r.name AS role,
+         r.display_name AS "roleDisplayName",
          u.active,
          u.revision,
          u.created_at AS "createdAt",
@@ -224,6 +267,7 @@ export class UsersRepository implements UserRepository, UsersRepositoryContract 
          u.email,
          u.role_id::text AS "roleId",
          r.name AS role,
+         r.display_name AS "roleDisplayName",
          u.active,
          u.revision,
          u.created_at AS "createdAt",
@@ -277,15 +321,15 @@ export class UsersRepository implements UserRepository, UsersRepositoryContract 
       throw new Error('A criação do usuário não retornou os dados esperados.')
     }
 
-    const roleResult = await executor.query<{ name: string }>(
-      `SELECT name FROM auth.roles WHERE id = $1 LIMIT 1`,
+    const roleResult = await executor.query<{ name: string; displayName: string }>(
+      `SELECT name, display_name AS "displayName" FROM auth.roles WHERE id = $1 LIMIT 1`,
       [input.roleId],
     )
     const role = roleResult.rows[0]
     if (!role) {
       throw new Error('O perfil informado não foi encontrado após a criação do usuário.')
     }
-    return { ...user, role: role.name as User['role'] }
+    return { ...user, role: role.name as User['role'], roleDisplayName: role.displayName }
   }
 
   /**
@@ -380,14 +424,14 @@ export class UsersRepository implements UserRepository, UsersRepositoryContract 
     const user = result.rows[0]
     if (!user) return { kind: 'not-found' }
 
-    const roleResult = await executor.query<{ name: string }>(
-      `SELECT name FROM auth.roles WHERE id = $1 LIMIT 1`,
+    const roleResult = await executor.query<{ name: string; displayName: string }>(
+      `SELECT name, display_name AS "displayName" FROM auth.roles WHERE id = $1 LIMIT 1`,
       [user.roleId],
     )
     const role = roleResult.rows[0]
     if (!role) {
       throw new Error('O perfil informado não foi encontrado após a atualização do usuário.')
     }
-    return { kind: 'updated', user: { ...user, role: role.name as User['role'] } }
+    return { kind: 'updated', user: { ...user, role: role.name as User['role'], roleDisplayName: role.displayName } }
   }
 }

@@ -194,7 +194,10 @@ test('UsersRepository consulta a tabela padronizada auth.users com projeção ex
             name: 'Servidor Fictício',
             email: 'servidor@example.test',
             password_hash: passwordHash,
+            roleId: '4',
             role: 'SOLICITANTE',
+            displayName: 'Solicitante',
+            profileActive: true,
             is_active: true,
           },
         ],
@@ -210,6 +213,8 @@ test('UsersRepository consulta a tabela padronizada auth.users com projeção ex
   assert.deepEqual(executedParams, ['servidor@example.test'])
   assert.equal(found?.id, '10')
   assert.equal(found?.role, 'SOLICITANTE')
+  assert.equal(found?.displayName, 'Solicitante')
+  assert.equal(found?.profileActive, true)
 })
 
 function buildSyntheticUser(overrides: Partial<UserForLogin> = {}): UserForLogin {
@@ -220,6 +225,8 @@ function buildSyntheticUser(overrides: Partial<UserForLogin> = {}): UserForLogin
     password_hash: passwordHash,
     roleId: '4',
     role: 'MOTORISTA',
+    profileActive: true,
+    displayName: 'Motorista',
     is_active: true,
     ...overrides,
   }
@@ -330,7 +337,7 @@ test('T04 e T05: Rotas /auth/login e /auth/logout gravam trilha completa em audi
     assert.equal(entries[4]?.recordId, '15')
     assert.deepEqual(entries[4]?.actorSnapshot, {
       id: '15',
-      role: 'MOTORISTA',
+      role: '',
     })
 
     const serializedAuditLog = JSON.stringify(entries)

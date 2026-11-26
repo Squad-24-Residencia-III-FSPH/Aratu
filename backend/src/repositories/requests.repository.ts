@@ -43,7 +43,7 @@ export interface RequestsRepositoryContract {
   withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
   findActorSnapshot(id: string, client: PoolClient): Promise<RequestActorSnapshot | null>
   findActiveServiceForUpdate(id: string, client: PoolClient): Promise<RequestServiceSnapshot | null>
-  create(input: CreateRequestInput, actor: RequestActorSnapshot, service: RequestServiceSnapshot, client: PoolClient): Promise<TripRequest>
+  create(input: CreateRequestInput, actor: RequestActorSnapshot, service: RequestServiceSnapshot | null, client: PoolClient): Promise<TripRequest>
   createEvent(input: CreateRequestEventInput, client: PoolClient): Promise<void>
   list(filters: RequestListQuery): Promise<PaginatedRequests>
   findById(id: string, requesterId?: string): Promise<RequestDetail | null>
@@ -53,7 +53,6 @@ export interface RequestsRepositoryContract {
     expectedRevision: number,
     input: CreateRequestInput,
     actor: RequestActorSnapshot,
-    service: RequestServiceSnapshot,
     client: PoolClient,
   ): Promise<TripRequest | null>
   createLifecycleEvent(input: CreateRequestLifecycleEventInput, client: PoolClient): Promise<void>
@@ -62,18 +61,19 @@ export interface RequestsRepositoryContract {
 
 const LIST_CONDITIONS = `
  WHERE ($1::text IS NULL OR r.status = $1)
-   AND ($2::date IS NULL OR r.requested_date >= $2::date)
-   AND ($3::date IS NULL OR r.requested_date <= $3::date)
-   AND ($4::bigint IS NULL OR r.requester_id = $4::bigint)
-   AND ($5::text IS NULL OR u.name ILIKE '%' || $5 || '%')
-   AND ($6::text IS NULL OR s.name ILIKE '%' || $6 || '%')`
+   AND ($2::text[] IS NULL OR r.status = ANY($2::text[]))
+   AND ($3::date IS NULL OR r.requested_date >= $3::date)
+   AND ($4::date IS NULL OR r.requested_date <= $4::date)
+   AND ($5::bigint IS NULL OR r.requester_id = $5::bigint)
+   AND ($6::text IS NULL OR u.name ILIKE '%' || $6 || '%')
+   AND ($7::text IS NULL OR COALESCE(r.service_snapshot->>'name', s.name) ILIKE '%' || $7 || '%')`
 
 const LIST_DATA_SQL = `
 SELECT r.id::text AS id,
        r.requester_id::text AS "requesterId",
        u.name AS "requesterName",
        r.service_id::text AS "serviceId",
-       s.name AS "serviceName",
+       COALESCE(r.service_snapshot->>'name', s.name) AS "serviceName",
        to_char(r.requested_date, 'YYYY-MM-DD') AS "requestedDate",
        to_char(r.requested_time, 'HH24:MI') AS "requestedTime",
        r.origin,
@@ -88,16 +88,16 @@ SELECT r.id::text AS id,
        r.updated_at AS "updatedAt"
   FROM trip.requests r
   JOIN auth.users u ON u.id = r.requester_id
-  JOIN fleet.services s ON s.id = r.service_id
+  LEFT JOIN fleet.services s ON s.id = r.service_id
 ${LIST_CONDITIONS}
  ORDER BY r.requested_date DESC, r.requested_time DESC, r.id DESC
- LIMIT $7 OFFSET $8`
+ LIMIT $8 OFFSET $9`
 
 const LIST_COUNT_SQL = `
 SELECT COUNT(*)::text AS total
   FROM trip.requests r
   JOIN auth.users u ON u.id = r.requester_id
-  JOIN fleet.services s ON s.id = r.service_id
+  LEFT JOIN fleet.services s ON s.id = r.service_id
 ${LIST_CONDITIONS}`
 
 const DETAIL_SQL = `
@@ -105,7 +105,7 @@ SELECT r.id::text AS id,
        r.requester_id::text AS "requesterId",
        u.name AS "requesterName",
        r.service_id::text AS "serviceId",
-       s.name AS "serviceName",
+       COALESCE(r.service_snapshot->>'name', s.name) AS "serviceName",
        to_char(r.requested_date, 'YYYY-MM-DD') AS "requestedDate",
        to_char(r.requested_time, 'HH24:MI') AS "requestedTime",
        r.origin,
@@ -134,7 +134,7 @@ SELECT r.id::text AS id,
        COALESCE(NULLIF(t.driver_snapshot ->> 'name', ''), d.name) AS "driverName"
   FROM trip.requests r
   JOIN auth.users u ON u.id = r.requester_id
-  JOIN fleet.services s ON s.id = r.service_id
+  LEFT JOIN fleet.services s ON s.id = r.service_id
   LEFT JOIN auth.users du ON du.id = r.decided_by
   LEFT JOIN trip.trips t ON t.request_id = r.id
   LEFT JOIN fleet.vehicles v ON v.id = t.vehicle_id
@@ -232,7 +232,7 @@ export class RequestsRepository implements RequestsRepositoryContract {
   async create(
     input: CreateRequestInput,
     actor: RequestActorSnapshot,
-    service: RequestServiceSnapshot,
+    service: RequestServiceSnapshot | null,
     client: PoolClient,
   ): Promise<TripRequest> {
     const result = await client.query<TripRequest>(
@@ -249,7 +249,7 @@ export class RequestsRepository implements RequestsRepositoryContract {
       [actor.id, input.serviceId, input.requestedDate, input.requestedTime,
         input.origin, input.destination, input.purpose, input.passengers,
         input.specialRequirements, input.notes, INITIAL_REQUEST_STATUS,
-        JSON.stringify(actor), JSON.stringify(service)],
+        JSON.stringify(actor), service ? JSON.stringify(service) : null],
     )
     const request = result.rows[0]
     if (!request) throw new Error('A solicitação não foi retornada após a gravação.')
@@ -290,37 +290,34 @@ export class RequestsRepository implements RequestsRepositoryContract {
     expectedRevision: number,
     input: CreateRequestInput,
     actor: RequestActorSnapshot,
-    service: RequestServiceSnapshot,
     client: PoolClient,
   ): Promise<TripRequest | null> {
     const result = await client.query<TripRequest>(
       `UPDATE trip.requests
-          SET service_id = $1,
-              requested_date = $2,
-              requested_time = $3,
-              origin = $4,
-              destination = $5,
-              purpose = $6,
-              passengers = $7,
-              special_requirements = $8,
-              notes = $9,
+          SET requested_date = $1,
+              requested_time = $2,
+              origin = $3,
+              destination = $4,
+              purpose = $5,
+              passengers = $6,
+              special_requirements = $7,
+              notes = $8,
               status = 'PENDING',
               decided_by = NULL,
               decided_at = NULL,
               decision_reason = NULL,
-              requester_snapshot = $10::jsonb,
-              service_snapshot = $11::jsonb,
+              requester_snapshot = $9::jsonb,
               revision = revision + 1,
               updated_at = clock_timestamp()
-        WHERE id = $12 AND requester_id = $13 AND status = 'RETURNED' AND revision = $14
+        WHERE id = $10 AND requester_id = $11 AND status = 'RETURNED' AND revision = $12
         RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
                   to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
                   to_char(requested_time, 'HH24:MI') AS "requestedTime",
                   origin, destination, purpose, passengers,
                   special_requirements AS "specialRequirements", notes, status,
                   revision, requester_snapshot AS "requesterSnapshot", service_snapshot AS "serviceSnapshot"`,
-      [input.serviceId, input.requestedDate, input.requestedTime, input.origin, input.destination, input.purpose,
-        input.passengers, input.specialRequirements, input.notes, JSON.stringify(actor), JSON.stringify(service),
+      [input.requestedDate, input.requestedTime, input.origin, input.destination, input.purpose,
+        input.passengers, input.specialRequirements, input.notes, JSON.stringify(actor),
         id, actor.id, expectedRevision],
     )
     return result.rows[0] ?? null
@@ -375,6 +372,7 @@ export class RequestsRepository implements RequestsRepositoryContract {
     const offset = (page - 1) * pageSize
     const filterValues = [
       filters.status ?? null,
+      filters.statuses?.length ? filters.statuses : null,
       filters.from ?? null,
       filters.to ?? null,
       filters.requesterId ?? null,

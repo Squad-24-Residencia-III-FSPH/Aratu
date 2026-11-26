@@ -242,10 +242,10 @@ export function finishTrip(api: ApiRequest, tripId: string, endKm: number): Prom
 }
 
 /** Agenda uma solicitação aprovada com veículo e motorista escolhidos pelo Gestor. */
-export async function scheduleTrip(api: ApiRequest, input: ScheduleTripInput): Promise<Trip> {
+export async function scheduleTrip(api: ApiRequest, input: ScheduleTripInput, idempotencyKey: string): Promise<Trip> {
   const response = await send(api, '/trips', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify(input),
   })
   if (!response.ok) throw await failureFrom(response)

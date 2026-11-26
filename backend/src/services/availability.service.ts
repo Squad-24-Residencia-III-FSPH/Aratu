@@ -15,7 +15,7 @@ import { currentFsphDate, fsphDateOf } from './drivers.service'
 
 const ISO_DATE_TIME_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/
 const ID_PATTERN = /^[1-9]\d*$/
-const APPROVED_REQUEST_STATUS = 'APPROVED'
+const SCHEDULABLE_REQUEST_STATUSES = ['PENDING', 'APPROVED'] as const
 
 function parseInstant(value: unknown, field: string): Date {
   if (typeof value !== 'string' || !ISO_DATE_TIME_WITH_OFFSET.test(value)) {
@@ -69,11 +69,7 @@ export class AvailabilityService {
   async listVehicles(query: AvailabilityQuery): Promise<VehicleAvailability[]> {
     const period = parsePeriod(query.start, query.end)
     const request = await this.findRequest(query.requestId)
-    const serviceId = request?.serviceId
-      ?? requireId(query.serviceId, 'serviceId é obrigatório e deve ser um identificador válido.')
-    if (request && query.serviceId !== undefined && query.serviceId !== request.serviceId) {
-      throw new AvailabilityError(400, 'serviceId não corresponde ao tipo de serviço da solicitação.')
-    }
+    const serviceId = requireId(query.serviceId, 'serviceId é obrigatório e deve ser um identificador válido.')
     if (!(await this.repository.serviceExists(serviceId))) {
       throw new AvailabilityError(404, 'Tipo de serviço não encontrado.')
     }
@@ -149,8 +145,8 @@ export class AvailabilityService {
     const requestId = requireId(value, 'requestId deve ser um identificador válido.')
     const request = await this.repository.findRequestForAvailability(requestId)
     if (!request) throw new AvailabilityError(404, 'Solicitação não encontrada.')
-    if (request.status !== APPROVED_REQUEST_STATUS) {
-      throw new AvailabilityError(409, 'Somente solicitações aprovadas podem consultar recursos para agendamento.')
+    if (!SCHEDULABLE_REQUEST_STATUSES.includes(request.status as typeof SCHEDULABLE_REQUEST_STATUSES[number])) {
+      throw new AvailabilityError(409, 'Somente solicitações pendentes ou aprovadas podem consultar recursos para agendamento.')
     }
     return request
   }

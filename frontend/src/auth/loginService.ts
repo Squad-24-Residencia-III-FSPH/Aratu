@@ -1,5 +1,4 @@
 import type { AuthSession, LoginCredentials } from './types.ts'
-import { resolveProfile } from './profiles.ts'
 import { SESSION_EXPIRED, tokenExpiresAt } from './token.ts'
 
 export const SERVICE_UNAVAILABLE = 'Serviço temporariamente indisponível'
@@ -16,6 +15,21 @@ export interface AuthenticatedIdentity {
   id: string
   nome: string
   perfil: string
+  profile?: AuthSession['profile']
+  permissions?: string[]
+  homePath?: string | null
+}
+
+function parseProfileContext(value: unknown): AuthSession['profile'] | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const profile = value as Record<string, unknown>
+  const id = typeof profile.id === 'string' ? profile.id : ''
+  const code = typeof profile.code === 'string' ? profile.code : ''
+  const displayName = typeof profile.displayName === 'string' ? profile.displayName : ''
+  const revision = profile.revision
+  if (!/^[1-9]\d*$/.test(id) || !code.trim() || !displayName.trim()
+    || typeof revision !== 'number' || !Number.isSafeInteger(revision) || revision < 1) return undefined
+  return { id, code, displayName: displayName.trim(), revision }
 }
 
 /** Erro de leitura de identidade com o status HTTP preservado para a sessão. */
@@ -51,11 +65,23 @@ export function parseLoginResponse(data: unknown): AuthSession {
     || typeof perfil !== 'string' || !perfil.trim()) {
     throw new Error(SERVICE_UNAVAILABLE)
   }
-  if (!resolveProfile(perfil)) throw new Error('Não foi possível identificar seu perfil de acesso.')
   const expiresAt = tokenExpiresAt(token, perfil)
   if (!expiresAt) throw new Error(SERVICE_UNAVAILABLE)
   if (expiresAt <= Date.now()) throw new Error(SESSION_EXPIRED)
-  return { token, nome, perfil }
+  const session: AuthSession = { token, nome, perfil }
+  if ('profileId' in data && 'profileName' in data
+    && typeof data.profileId === 'string' && /^[1-9]\d*$/.test(data.profileId)
+    && typeof data.profileName === 'string' && data.profileName.trim()) {
+    session.profile = { id: data.profileId, code: perfil, displayName: data.profileName.trim(), revision: 1 }
+  }
+  if ('permissions' in data && Array.isArray(data.permissions)
+    && data.permissions.every((permission) => typeof permission === 'string')) {
+    session.permissions = [...data.permissions]
+  }
+  if ('homePath' in data && (typeof data.homePath === 'string' || data.homePath === null)) {
+    session.homePath = data.homePath
+  }
+  return session
 }
 
 export async function login(
@@ -128,10 +154,20 @@ export async function getCurrentUser(
       ? id
       : typeof id === 'number' && Number.isSafeInteger(id) && id > 0 ? String(id) : null
     if (!normalizedId || typeof nome !== 'string' || !nome.trim()
-      || typeof perfil !== 'string' || !resolveProfile(perfil)) {
+      || typeof perfil !== 'string' || !perfil.trim()) {
       throw new AuthIdentityError(SERVICE_UNAVAILABLE)
     }
-    return { id: normalizedId, nome: nome.trim(), perfil }
+    const identity: AuthenticatedIdentity = { id: normalizedId, nome: nome.trim(), perfil }
+    const profile = parseProfileContext('profile' in data ? data.profile : undefined)
+    if (profile) identity.profile = profile
+    if ('permissions' in data && Array.isArray(data.permissions)
+      && data.permissions.every((permission) => typeof permission === 'string')) {
+      identity.permissions = [...data.permissions]
+    }
+    if ('homePath' in data && (typeof data.homePath === 'string' || data.homePath === null)) {
+      identity.homePath = data.homePath
+    }
+    return identity
   } finally {
     clearTimeout(timeout)
   }

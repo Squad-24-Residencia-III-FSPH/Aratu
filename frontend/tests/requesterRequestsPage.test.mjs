@@ -6,7 +6,7 @@ import path from 'node:path'
 import { createElement } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 import { MemoryRouter } from 'react-router-dom'
 import { sessionFor } from './fixtures.mjs'
@@ -29,7 +29,7 @@ globalThis.cancelAnimationFrame ??= dom.window.cancelAnimationFrame.bind(dom.win
 
 const { cleanup, render, screen, waitFor } = await import('@testing-library/react')
 const userEvent = (await import('@testing-library/user-event')).default
-const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir,
+const vite = await createTestViteServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir,
   plugins: [react()], server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: SolicitacaoPage }, { AuthContext }] = await Promise.all([
   vite.ssrLoadModule('/src/pages/SolicitacaoPage/SolicitacaoPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
@@ -38,15 +38,10 @@ const [{ default: SolicitacaoPage }, { AuthContext }] = await Promise.all([
 afterEach(() => cleanup())
 after(async () => { await vite.close(); dom.window.close() })
 
-test('Solicitante envia pedido real com serviço e passageiros ao backend', async () => {
+test('Solicitante envia pedido com finalidade e passageiros; serviço fica para o agendamento', async () => {
   let submitted = null
-  const service = {
-    id: '5', name: 'Transporte institucional', description: null, categories: ['PASSENGER'],
-    requiresTriage: false, requiresWeight: false, requiresIdentification: false, active: true, revision: 1,
-  }
   let listCalls = 0
   const api = async (url, options = {}) => {
-    if (url === '/services') return Response.json([service])
     if (url.startsWith('/requests?')) {
       listCalls += 1
       return Response.json({ requests: [], total: 0, page: 1, pageSize: 10, totalPages: 0 })
@@ -65,8 +60,6 @@ test('Solicitante envia pedido real com serviço e passageiros ao backend', asyn
   await user.click(await screen.findByRole('button', { name: 'Nova solicitação' }))
   await user.type(await screen.findByLabelText(/Data da viagem/), '2026-12-20')
   await user.type(await screen.findByLabelText(/Horário/), '09:15')
-  await user.click(screen.getByRole('combobox', { name: 'Tipo de serviço' }))
-  await user.click(await screen.findByRole('option', { name: 'Transporte institucional' }))
   const passengersInput = await screen.findByLabelText(/Passageiros/)
   await user.clear(passengersInput)
   await user.type(passengersInput, '3')
@@ -80,7 +73,7 @@ test('Solicitante envia pedido real com serviço e passageiros ao backend', asyn
   assert.ok(await screen.findByText('Solicitação #42 enviada para análise.'))
   assert.deepEqual(submitted, {
     requestedDate: '2026-12-20', requestedTime: '09:15', origin: 'Unidade de origem',
-    destination: 'Unidade de destino', purpose: 'Atividade institucional', serviceId: '5',
+    destination: 'Unidade de destino', purpose: 'Atividade institucional',
     passengers: 3, specialRequirements: 'Acesso sem escadas', notes: 'Avisar na recepção',
   })
   await waitFor(() => assert.ok(listCalls >= 2))

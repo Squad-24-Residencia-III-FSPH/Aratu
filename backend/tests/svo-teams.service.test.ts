@@ -49,10 +49,12 @@ function harness() {
 }
 
 const code = (expected: SvoTeamServiceError['code']) => (error: unknown): boolean => error instanceof SvoTeamServiceError && error.code === expected
+const CAN_MANAGE_TEAMS = ['svo:teams:manage'] as const
+const NO_PERMISSIONS = [] as const
 
 test('SVO teams: gestor cria equipe com evento e auditoria na mesma transação', async () => {
   const h = harness()
-  const result = await h.service.createTeam({ name: '  Plantão Norte  ' }, '1')
+  const result = await h.service.createTeam({ name: '  Plantão Norte  ' }, '1', CAN_MANAGE_TEAMS)
   assert.equal(result.name, 'Plantão Norte')
   assert.equal(h.events[0]?.eventType, 'CREATED')
   assert.equal(h.audits[0]?.operation, 'CREATE')
@@ -60,20 +62,20 @@ test('SVO teams: gestor cria equipe com evento e auditoria na mesma transação'
 
 test('SVO teams: administrador mantém e perfis de rotina não alteram composição', async () => {
   const admin = harness(); admin.setActor('ADMINISTRADOR')
-  assert.equal((await admin.service.createTeam({ name: 'Equipe de apoio' }, '1')).name, 'Equipe de apoio')
+  assert.equal((await admin.service.createTeam({ name: 'Equipe de apoio' }, '1', CAN_MANAGE_TEAMS)).name, 'Equipe de apoio')
   for (const role of ['ATENDENTE_SVO', 'EQUIPE_SVO', 'SOLICITANTE', 'MOTORISTA'] as const) {
     const h = harness(); h.setActor(role)
-    await assert.rejects(h.service.createTeam({ name: 'Equipe bloqueada' }, '1'), code('ACCESS_DENIED'))
+    await assert.rejects(h.service.createTeam({ name: 'Equipe bloqueada' }, '1', NO_PERMISSIONS), code('ACCESS_DENIED'))
     assert.equal(h.events.length, 0)
   }
 })
 
 test('SVO teams: integrante precisa ser conta ativa de Equipe SVO', async () => {
   const h = harness(); h.setEligible(false)
-  await assert.rejects(h.service.addMember('8', { userId: '2' }, '1'), code('INVALID_INPUT'))
+  await assert.rejects(h.service.addMember('8', { userId: '2' }, '1', CAN_MANAGE_TEAMS), code('INVALID_INPUT'))
   assert.equal(h.events.length, 0)
   h.setEligible(true)
-  const result = await h.service.addMember('8', { userId: '2' }, '1')
+  const result = await h.service.addMember('8', { userId: '2' }, '1', CAN_MANAGE_TEAMS)
   assert.equal(h.events[0]?.eventType, 'MEMBER_ADDED')
   assert.equal(result?.id, h.team.id)
 })
@@ -81,12 +83,12 @@ test('SVO teams: integrante precisa ser conta ativa de Equipe SVO', async () => 
 test('SVO teams: plantões rejeitam períodos inválidos e sobreposição', async () => {
   const h = harness()
   const body = { startsAt: '2026-11-24T12:00:00Z', endsAt: '2026-11-24T13:00:00Z' }
-  await assert.rejects(h.service.createShift('8', { ...body, endsAt: body.startsAt }, '1'), code('INVALID_INPUT'))
+  await assert.rejects(h.service.createShift('8', { ...body, endsAt: body.startsAt }, '1', CAN_MANAGE_TEAMS), code('INVALID_INPUT'))
   h.setOverlaps(true)
-  await assert.rejects(h.service.createShift('8', body, '1'), code('CONFLICT'))
+  await assert.rejects(h.service.createShift('8', body, '1', CAN_MANAGE_TEAMS), code('CONFLICT'))
   assert.equal(h.events.length, 0)
   h.setOverlaps(false)
-  const shift = await h.service.createShift('8', body, '1')
+  const shift = await h.service.createShift('8', body, '1', CAN_MANAGE_TEAMS)
   assert.equal(shift.id, '4')
   assert.equal(h.events[0]?.eventType, 'SHIFT_CREATED')
   assert.equal(h.audits[0]?.operation, 'CREATE')
@@ -94,6 +96,6 @@ test('SVO teams: plantões rejeitam períodos inválidos e sobreposição', asyn
 
 test('SVO teams: revisão antiga não sobrescreve o estado atual', async () => {
   const h = harness()
-  await assert.rejects(h.service.updateTeam('8', { expectedRevision: 2, name: 'Nova equipe', active: true, reason: 'Revisão fictícia.' }, '1'), code('CONFLICT'))
+  await assert.rejects(h.service.updateTeam('8', { expectedRevision: 2, name: 'Nova equipe', active: true, reason: 'Revisão fictícia.' }, '1', CAN_MANAGE_TEAMS), code('CONFLICT'))
   assert.equal(h.events.length, 0)
 })

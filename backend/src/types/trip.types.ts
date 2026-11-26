@@ -76,6 +76,8 @@ export const DEFAULT_EXECUTION_REASONS = {
 /** Corpo bruto de `POST /trips`. */
 export interface ScheduleTripInput {
   requestId?: unknown
+  expectedRevision?: unknown
+  serviceId?: unknown
   vehicleId?: unknown
   driverId?: unknown
   scheduledStart?: unknown
@@ -119,6 +121,7 @@ export interface FinishTripInput {
 export interface Trip {
   id: string
   requestId: string | null
+  serviceId?: string | null
   vehicleId: string
   driverId: string
   scheduledStart: Date
@@ -158,6 +161,7 @@ export interface CreateDirectTripData {
   scheduledEnd: Date
   vehicleSnapshot: VehicleAvailability
   driverSnapshot: DriverAvailability
+  serviceSnapshot: TripServiceSnapshot
   directContext: DirectTripContext
   creationKey: string
   creationPayload: Record<string, unknown>
@@ -196,7 +200,8 @@ export interface TripDriverAccount {
 export interface SchedulableRequest {
   id: string
   requesterId: string
-  serviceId: string
+  serviceId: string | null
+  serviceSnapshot?: TripServiceSnapshot | null
   status: string
   revision: number
   requestedDate: string
@@ -212,6 +217,8 @@ export interface SchedulableRequest {
 /** Dados validados para gravar a viagem. */
 export interface CreateTripData {
   requestId: string
+  serviceId: string
+  serviceSnapshot: TripServiceSnapshot
   vehicleId: string
   driverId: string
   scheduledStart: Date
@@ -219,8 +226,34 @@ export interface CreateTripData {
   vehicleSnapshot: VehicleAvailability
   driverSnapshot: DriverAvailability
   requestSnapshot: SchedulableRequest
+  creationKey: string
+  creationPayload: Record<string, unknown>
+  createdBy: string
   specialRequirementsAcknowledged: boolean
   evidenceDescription: string | null
+}
+
+/** Snapshot imutável do catálogo de serviço vigente quando a viagem foi aceita. */
+export interface TripServiceSnapshot {
+  id: string
+  name: string
+  categories: string[]
+  requiresTriage: boolean
+  requiresWeight: boolean
+  requiresIdentification: boolean
+  revision: number
+}
+
+/** Resultado anterior de uma chave idempotente de agendamento. */
+export interface ScheduledTripRegistration {
+  trip: Trip
+  creationPayload: Record<string, unknown>
+}
+
+/** Se a operação foi reapresentada com a mesma chave, a resposta mantém a viagem original. */
+export interface ScheduledTripResult {
+  trip: Trip
+  replayed: boolean
 }
 
 /** Snapshot público do usuário autenticado preservado no histórico. */

@@ -3,6 +3,7 @@ import { Alert, Box, Button, Checkbox, FormControlLabel, Paper, Stack, Typograph
 import EventAvailableIcon from '@mui/icons-material/EventAvailable'
 import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../../../auth/useAuth'
+import { hasPermission } from '../../../auth/access'
 import { FormField, FormSelect } from '../../../components/ui/FormField'
 import PageHeader from '../../../components/ui/PageHeader'
 import StateFeedback from '../../../components/ui/StateFeedback'
@@ -30,7 +31,8 @@ function operationalIso(value: string): string | null {
 
 /** Cria viagem operacional por iniciativa do Gestor, sem associar solicitação. */
 export default function DirectTripPage() {
-  const { api } = useAuth()
+  const { api, session } = useAuth()
+  const allowed = hasPermission(session, 'trips:create-direct')
   const [services, setServices] = useState<FleetService[] | null>(null)
   const [servicesError, setServicesError] = useState('')
   const [serviceRefresh, setServiceRefresh] = useState(0)
@@ -58,6 +60,7 @@ export default function DirectTripPage() {
   const [submitError, setSubmitError] = useState('')
 
   useEffect(() => {
+    if (!allowed) return
     let current = true
     void listFleetServices(api).then((loaded) => {
       if (!current) return
@@ -66,7 +69,7 @@ export default function DirectTripPage() {
       if (current) setServicesError(formatError(error))
     })
     return () => { current = false }
-  }, [api, serviceRefresh])
+  }, [allowed, api, serviceRefresh])
 
   const selectedService = useMemo(() => services?.find((service) => service.id === serviceId) ?? null,
     [services, serviceId])
@@ -76,7 +79,7 @@ export default function DirectTripPage() {
   const validPeriod = Boolean(scheduledStart && scheduledEnd && Date.parse(scheduledEnd) > Date.parse(scheduledStart))
 
   useEffect(() => {
-    if (!serviceId || !validPeriod || !scheduledStart || !scheduledEnd) return
+    if (!allowed || !serviceId || !validPeriod || !scheduledStart || !scheduledEnd) return
     let current = true
     void Promise.allSettled([
       listAvailableVehicles(api, scheduledStart, scheduledEnd, serviceId),
@@ -102,7 +105,7 @@ export default function DirectTripPage() {
       }
     })
     return () => { current = false }
-  }, [api, serviceId, scheduledStart, scheduledEnd, validPeriod, availabilityRefresh])
+  }, [allowed, api, serviceId, scheduledStart, scheduledEnd, validPeriod, availabilityRefresh])
 
   const availableVehicles = vehicleAvailability?.filter((vehicle) => vehicle.available && vehicle.seats >= passengerCount) ?? []
   const availableDrivers = driverAvailability?.filter((driver) => driver.available) ?? []
@@ -111,7 +114,7 @@ export default function DirectTripPage() {
   const validPassengers = Number.isSafeInteger(passengerCount) && passengerCount > 0
   const canSubmit = Boolean(selectedService && origin.trim() && destination.trim() && purpose.trim()
     && validPassengers && validPeriod && selectedVehicleIsAvailable && selectedDriverIsAvailable
-    && availabilityState === 'ready' && !submitting && !createdTripId
+    && availabilityState === 'ready' && allowed && !submitting && !createdTripId
     && (!specialRequirements.trim() || (specialRequirementsAcknowledged && evidenceDescription.trim())))
 
   function updateForm(change: () => void) {
@@ -172,6 +175,10 @@ export default function DirectTripPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (!allowed) {
+    return <StateFeedback kind="forbidden" title="Acesso restrito" description="Seu perfil não pode criar viagens diretas." />
   }
 
   return (

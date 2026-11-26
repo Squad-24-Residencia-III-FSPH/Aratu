@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — Fluxos, consultas e administração de acessos (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+
+    html { scroll-behavior: smooth; }
+    body { overflow-wrap: anywhere; }
+    th, td { overflow-wrap: anywhere; }
+    .tableRegion { overflow-x: auto; margin: 16px 0; }
+    .tableRegion table { margin: 0; }
+    .check input { margin-right: 8px; }
+    .tableRegion:focus-visible { outline: 3px solid var(--brand-strong); outline-offset: 2px; }
+    @media (max-width: 600px) { body { margin-top: 16px; padding-inline: 16px; } table { min-width: 640px; } h1 { font-size: 1.4rem; } }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media print { body { max-width: none; margin: 0; padding: 12mm; background: white; } h2, h3 { break-after: avoid; } tr { break-inside: avoid; } .tableRegion { overflow: visible; } table { min-width: 0; } }
+  </style>
+</head>
+<body>
+<main>
+
+<h1>SDD: Fluxos, consultas e administração de acessos</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> Demanda direta — Fluxos, consultas e administração de acessos</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/fluxo-solicitacoes-navegacao-acessibilidade</code> (criada a partir de <code>develop</code> → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulos:</strong> VIAGENS, FROTA, SVO e AUTENTICACAO_RBAC; consultas enxutas, auditoria central e perfis administráveis</p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>SOLICITANTE, GESTOR, ADMINISTRADOR, MOTORISTA, ATENDENTE_SVO, EQUIPE_SVO</code></p>
+  <p><strong>Data:</strong> 2026-11-26 (America/Fortaleza)</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+
+<p><strong>Objetivo:</strong> o Solicitante informa sua necessidade de transporte e acompanha o atendimento; o Gestor escolhe o serviço, os recursos e o período, confirmando aprovação e agendamento juntos. A navegação distingue a operação institucional do SVO e reduz textos e excesso de laranja.</p>
+<p><strong>Origem:</strong> demanda direta nesta conversa, sem chave Jira informada. Este documento é um SDD para implementação futura; não registra funcionalidades já implementadas.</p>
+<h3>1.1 Decisões confirmadas em 26/11/2026</h3>
+<ol>
+<li>A aprovação somente se confirma ao salvar a viagem. Fechar ou cancelar o formulário mantém a solicitação pendente.</li>
+<li>O serviço é vinculado ao veículo no cadastro. Um veículo pode atender vários serviços. No agendamento, a ordem é <strong>serviço → veículos disponíveis vinculados → motorista</strong>.</li>
+<li>O Solicitante deixa de escolher serviço e continua informando finalidade. O Gestor pode definir o serviço de pedidos ainda não agendados, inclusive os existentes.</li>
+<li>Viagens e eventos históricos existentes são preservados. O serviço anterior de um pedido em aberto não pode desaparecer de seu histórico quando o Gestor escolher outro.</li>
+</ol>
+<h3>1.2 Diagnóstico sustentado pelo código</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Achado</th><th scope="col">Evidência local</th><th scope="col">Consequência</th></tr></thead><tbody>
+<tr><td>A análise busca exclusivamente PENDING; aprovação e agendamento são chamadas separadas.</td><td><code>RequestAnalysisPage.tsx</code>, <code>request-decisions.service.ts</code>, <code>trips.service.ts</code>.</td><td>A solicitação aprovada sai da lista e o único atalho imediato fica em um aviso temporário.</td></tr>
+<tr><td>Existe fila APPROVED em ScheduleTripPage; consultar disponibilidade também exige APPROVED.</td><td><code>schedulingService.ts</code>, <code>availability.service.ts</code>.</td><td>Corrigir apenas o redirecionamento não atende à atomicidade solicitada.</td></tr>
+<tr><td>Relação N:N já existe e aceita vínculos ativos e revisão.</td><td><code>fleet.vehicle_services</code>; migrations <code>202610280003</code> e <code>202611090001</code>; <code>VehicleFormDialog.tsx</code>.</td><td>Reutilizar cadastro e relação, sem criar coluna de serviço único no veículo.</td></tr>
+<tr><td>Serviço é obrigatório na criação e há INNER JOIN nas consultas e no relatório de solicitações.</td><td><code>requests.service.ts</code>, <code>requests.repository.ts</code>, <code>reports/trips.queries.ts</code>.</td><td>Tornar o campo anulável exige corrigir leituras e contratos para novos pedidos não sumirem.</td></tr>
+<tr><td>Sidebar repete a ação de criar; entradas SVO ficam misturadas à operação do Gestor e à lista do Administrador.</td><td><code>sidebarNavigation.ts</code> e <code>SolicitacaoPage.tsx</code>.</td><td>Separar destinos de navegação das ações da página e criar grupo SVO.</td></tr>
+<tr><td>Ícones de StatCard têm um único fundo laranja; Sidebar contém cores fixas, inclusive texto branco em tooltip laranja.</td><td><code>StatCard.tsx</code>, <code>Sidebar.tsx</code>, <code>theme.ts</code>.</td><td>Centralizar papéis de cor, preservar a marca e corrigir contraste.</td></tr>
+</tbody></table></div>
+<h3>1.3 Escopo e sequência de entrega</h3>
+<ol>
+<li><strong>Contratos e dados:</strong> pedidos sem classificação de serviço, leituras compatíveis e migração sem reescrever história.</li>
+<li><strong>Fluxo transacional:</strong> aprovação com agendamento, concorrência, recuperação de resultado incerto e atendimento do legado APPROVED.</li>
+<li><strong>Interface operacional:</strong> pedido simplificado, serviço primeiro, continuidade visível e acompanhamento pelo Solicitante.</li>
+<li><strong>Navegação e nomenclatura:</strong> grupo SVO, títulos enxutos e paridade entre desktop e móvel.</li>
+<li><strong>Tema e acessibilidade:</strong> componentes compartilhados primeiro; depois revisão de todas as telas listadas na seção 6.</li>
+<li><strong>Homologação e documentação:</strong> testes por perfil, navegador real e atualização dos módulos afetados.</li>
+</ol>
+<p>Organizar commits por comportamento e por apresentação para manter revisão compreensível. Perfis personalizados e administração de permissões passam a integrar o escopo conforme ampliação confirmada. Não incluir redesign de despacho SVO, notificações externas, novos estados de viagem, políticas de cancelamento/reabertura, bibliotecas ou flags de funcionalidade.</p>
+
+
+
+<h3>1.4 Ampliação confirmada: consultas, arquivamento e administração</h3>
+<p><strong>Diretriz de produto:</strong> páginas limpas e acessíveis, com informação essencial na consulta e detalhes sob demanda; ações secundárias não devem ocupar toda a largura da tabela. Há autorização expressa para adequação geral ao Material Design, inclusive reorganização visual necessária, sem nova aprovação para ajustes rotineiros de interface.</p>
+<ol>
+<li><strong>Arquivamento reversível:</strong> retirar cadastros da consulta inicial e permitir restauração e consulta por filtro, conservando referências e auditoria. O usuário escolheu esta alternativa à exclusão física.</li>
+<li><strong>Perfis personalizados:</strong> permitir combinar permissões de módulos diferentes, mantendo isolamento por autoria/equipe e exigências operacionais. Não limitar novos perfis a cópias de um dos seis nomes existentes.</li>
+<li><strong>Auditoria separada:</strong> centralizar trilhas de alterações e eventos na área Auditoria; retirar botões de histórico repetidos das consultas, conservando o contexto atual necessário para operar.</li>
+</ol>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Diagnóstico adicional</th><th scope="col">Evidência</th><th scope="col">Trabalho necessário</th></tr></thead><tbody>
+<tr><td>Consulta de veículos traz dez colunas e três botões textuais por linha; motoristas têm quatro ações e largura mínima de 1040px.</td><td><code>VehiclesPage.tsx</code>: VEHICLE_COLUMNS e renderActions; <code>DriversPage.tsx</code>: DataTable.</td><td>Resumo com poucas colunas, detalhe acessível e menu de ações secundárias.</td></tr>
+<tr><td>Filtros iniciais de veículos/motoristas não excluem INACTIVE; serviços e usuários também podem iniciar mostrando inativos.</td><td>EMPTY_FILTERS, filtros de cada listagem e <code>vehicles.repository.ts</code>.</td><td>Visão diária em operação; consulta explícita de arquivados/todos, com totais coerentes.</td></tr>
+<tr><td>Auditoria não filtra recordId; interface omite identificador e justificativa por não ter projeção segura suficiente.</td><td><code>audit-log.types.ts</code>, <code>audit-logs.repository.ts</code> e <code>AuditLogsPage.tsx</code>.</td><td>Consulta por registro e detalhe seguro; conservar máscaras de SVO/CPF/CNH/segredos.</td></tr>
+<tr><td>“Editar permissões” só abre aviso; matriz contém “A definir”. Só há GET /profiles.</td><td><code>ProfilePermissionsPage.tsx</code>, <code>profile.routes.ts</code>, <code>roles.repository.ts</code>.</td><td>CRUD lógico de perfis, matriz persistida, catálogo real de ações e autorização efetiva.</td></tr>
+<tr><td>Login, roteamento, autorização e escopos de domínio reconhecem nomes fixos; permissões não são aplicadas.</td><td><code>auth.middleware.ts</code>, <code>auth.service.ts</code>, <code>rbac.middleware.ts</code>, <code>routeDecision.ts</code> e services de pedidos/SVO/motoristas.</td><td>Separar perfil administrável de identidade operacional; menus, APIs e dados autorizados pela mesma política.</td></tr>
+</tbody></table></div>
+<p><strong>Ordem complementar:</strong> construir a autorização real e migrar a matriz atual; enriquecer Auditoria antes de retirar trilhas locais; aplicar consulta diária/arquivamento; padronizar detalhes e menus; homologar todos os perfis iniciais e um perfil personalizado com permissões de Frota e SVO.</p>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+
+<h3>2.1 Fluxo institucional e estados</h3>
+<pre><code>Solicitante: informar necessidade → enviar → PENDING
+Gestor: analisar → abrir “Aprovar e agendar” (sem escrita no banco)
+        → escolher serviço, período, veículo e motorista
+        → confirmar → transação: PENDING → APPROVED → SCHEDULED
+Cancelar formulário ou falhar validação → PENDING, sem viagem
+Legado APPROVED → agendar → SCHEDULED, preservando aprovação anterior
+Motorista: SCHEDULED → IN_PROGRESS → FINISHED → CONFIRMED pelo Gestor</code></pre>
+<p>APPROVED continua reconhecido para histórico e registros anteriores. No fluxo novo, é uma etapa interna da mesma transação, sem intervalo persistido aguardando outro clique. Não criar outro estado nem nova fila paralela para pedidos novos.</p>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Caso</th><th scope="col">Dado / Quando / Então</th></tr></thead><tbody>
+<tr><td>RF01 — Solicitar</td><td>Dado um SOLICITANTE, quando enviar data, horário, origem, destino, finalidade, passageiros e opcionais atuais, então criar PENDING sem exigir catálogo ou serviceId. Autor e situação vêm da sessão e do domínio.</td></tr>
+<tr><td>RF02 — Analisar</td><td>Dado um pedido pendente, quando abrir “Aprovar e agendar”, então mostrar os dados já informados sem redigitação e sem aprovar antecipadamente.</td></tr>
+<tr><td>RF03 — Serviço e veículo</td><td>Dado um serviço ativo escolhido, quando consultar o período, então oferecer somente veículos com vínculo ativo a esse serviço e disponíveis, respeitando a capacidade de passageiros. Não basta compatibilidade de categoria.</td></tr>
+<tr><td>RF04 — Salvar</td><td>Dado pedido e recursos válidos, quando confirmar, então registrar classificação do serviço, aprovação, viagem, snapshots, eventos e auditoria em um único COMMIT; retornar código da viagem e situação SCHEDULED.</td></tr>
+<tr><td>RF05 — Cancelar ou faltar recurso</td><td>Dado formulário aberto, quando sair antes de confirmar ou nenhum veículo/motorista estiver disponível, então manter o estado original do pedido; orientar ajuste de período ou retorno posterior.</td></tr>
+<tr><td>RF06 — Corrida e versão</td><td>Dado dois gestores ou duas abas, quando concorrerem pelo mesmo pedido, veículo ou motorista, então apenas uma alocação incompatível pode confirmar; a outra recebe 409 ou 422 conforme a causa, sem aprovação parcial.</td></tr>
+<tr><td>RF07 — Cadastro alterado</td><td>Dado consulta já exibida, quando serviço for inativado ou vínculo removido antes do salvamento, então revalidar em transação e impedir agendamento inválido. Trocar serviço ou período limpa escolhas dependentes e invalida respostas antigas.</td></tr>
+<tr><td>RF08 — Legado</td><td>Dado pedido PENDING ou APPROVED anterior sem viagem, quando o Gestor escolher outro serviço e agendar, então preservar a classificação anterior nos eventos e gravar a nova no contexto vigente. APPROVED mantém autoria/data de aprovação originais.</td></tr>
+<tr><td>RF09 — Reenvio do Solicitante</td><td>Dado pedido RETURNED, quando corrigir e reenviar, então preservar versões e o serviço legado, caso exista, sem permitir que o Solicitante o redefina. A escolha atual pertence ao Gestor no agendamento.</td></tr>
+<tr><td>RF10 — Acompanhamento</td><td>Dado um pedido agendado, quando o Solicitante abrir seus detalhes, então ver viagem vinculada, serviço definido, datas, situação e recursos já permitidos pelo contrato atual. A saída da fila pendente não representa exclusão.</td></tr>
+<tr><td>RF11 — Resultado incerto</td><td>Dado queda de conexão após confirmar, quando retomar, então consultar o pedido e reapresentar a mesma operação idempotente; informar o resultado confirmado sem duplicar viagem/eventos.</td></tr>
+</tbody></table></div>
+<p>Manter validações atuais: período futuro e fim posterior ao início, datas operacionais via helpers existentes, capacidade, veículo ativo/disponível, CNH válida até o fim, motorista com conta elegível, conflitos e conferência explícita das necessidades especiais com evidência. Nenhuma dessas regras migra para validação exclusiva no frontend.</p>
+<p><strong>RNF:</strong> na matriz inicial, a aprovação com agendamento exige permissão específica; perfis personalizados exigem concessão explícita da permissão da ação e preservam regras operacionais; consultas e relatórios mantêm os escopos autorizados; sem DELETE físico; persistência parametrizada; cinco estados visuais; WCAG 2.2 AA; controles operacionais de 44×44px; nenhuma migração inventa serviço para pedido novo ou reconstitui snapshot histórico a partir do cadastro atual.</p>
+
+
+
+<h3>2.2 Regras de consulta e arquivamento</h3>
+<ul>
+<li>Nas consultas de cadastros, iniciar com <strong>Em operação</strong>. Veículos incluem AVAILABLE e IN_MAINTENANCE; motoristas incluem ACTIVE e AWAY. Não confundir disponibilidade para agendar com existência operacional do cadastro.</li>
+<li>Oferecer filtros explícitos <strong>Em operação / Arquivados / Todos</strong>; exibir o recorte aplicado. Limpar filtros retorna à visão diária, sem trazer arquivados silenciosamente. Preservar filtros detalhados de situação quando úteis.</li>
+<li>Arquivar/restaurar reutiliza estados de inatividade existentes (INACTIVE ou active=false), sem criar uma segunda flag de exclusão para a mesma finalidade. Inativos antigos passam a ser consultados no recorte Arquivados; não precisam de migração destrutiva.</li>
+<li>Aplicar aos cadastros de veículos, motoristas, tipos de serviço, usuários, equipes e perfis. Reutilizar validações atuais de cada domínio e confirmação com identificação do cadastro e consequência; restauração não ignora manutenção, CNH, conta ativa ou elegibilidade.</li>
+<li>O campo Situação continua distinguindo manutenção/afastamento dos arquivados. No seletor de arquivados, o usuário pode restaurar pelo fluxo já validado, sem retornar recursos à disponibilidade à força.</li>
+<li>Preservar os destinos atuais de restauração: veículo INACTIVE retorna a AVAILABLE apenas se as validações existentes permitirem; com manutenção impeditiva ativa, manter arquivado e orientar a regularização da OS antes de restaurar. Motorista INACTIVE retorna a ACTIVE somente com CNH e demais requisitos válidos; afastamento continua ação operacional própria. Esta entrega não acrescenta transições de FSM nem restaura automaticamente a situação anterior.</li>
+<li>Viagens, pedidos, ocorrências, ordens, documentos, multas e abastecimentos são fatos ou registros operacionais. Usar seus estados e mecanismos próprios de cancelamento/anulação/retificação quando existentes, nunca arquivar ou apagar um fato para limpar a tela. A consulta cotidiana pode filtrar situações finais, com acesso explícito a todas.</li>
+<li>Arquivamento não remove nomes, FKs, snapshots, resultados históricos nem operações dos totais de relatórios do período. Somente elegibilidade atual e consultas de cadastros consideram inatividade.</li>
+<li>Usuário só arquiva/restaura quando possui a permissão correspondente; manter proteção da própria conta e do último responsável por administrar acessos. Perfil com usuários ativos vinculados não é arquivado: exigir realocação prévia e retornar conflito orientador.</li>
+</ul>
+<h3>2.3 Auditoria e informação operacional</h3>
+<p>Retirar “Histórico” das linhas, cartões e cabeçalhos de cadastros. O detalhe comum não carrega trilha completa automaticamente. A área Auditoria concentra busca por entidade/registro, alterações, autoria, justificativa e eventos permitidos. Não substituir tudo por outro botão “Histórico” em um menu universal.</p>
+<p>Continuam visíveis na rotina: estado vigente, motivo de devolução/recusa, instrução de correção, recursos e período da viagem, indicação de dado retificado/anulado e avisos necessários à decisão. Esses elementos são contexto de trabalho; a remoção da auditoria redundante não pode impedir o Solicitante de corrigir seu pedido nem apresentar valor retificado como original.</p>
+<h3>2.4 Perfis e permissões funcionais</h3>
+<ul>
+<li>Um perfil por usuário, como no modelo atual; cada perfil reúne permissões de diferentes módulos. Não introduzir múltiplos perfis por conta nem negações/herança sem necessidade atual.</li>
+<li>Administrador cria perfil com nome legível, descrição, página inicial entre destinos autorizados e conjunto de permissões; edita, consulta e arquiva/restaura com revisão e auditoria. Novos perfis não recebem acesso implícito por nome, cópia ou semelhança com um perfil inicial.</li>
+<li>Catálogo de permissões é definido pela aplicação a partir de ações implementadas. A interface permite atribuir/revogar ações existentes, não inventar uma string de permissão que não possua comportamento.</li>
+<li>Permissão de consultar não concede editar, aprovar, executar ou auditar. Ações globais e escopos próprio/equipe/atribuído devem ser explícitos. Na ausência de concessão, negar.</li>
+<li>Motorista continua precisando do vínculo cadastral e da viagem atribuída; equipe continua precisando de associação vigente e ordem atribuída; acesso próprio de pedidos continua filtrado por requester_id. O nome de um perfil personalizado não define esses vínculos.</li>
+<li>Revogações e arquivamento de conta/perfil valem na próxima requisição ao servidor. Não confiar em permissões guardadas no token ou no navegador até expirar a sessão.</li>
+<li>É proibido deixar o sistema sem conta ativa apta a gerenciar usuários e perfis. Aplicar a mesma proteção a troca de perfil, remoção de permissões e arquivamento, inclusive concorrentes.</li>
+</ul>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+
+<p>Os nomes abaixo são relativos à raiz do repositório. Usar os componentes nos caminhos reais existentes, inclusive <code>components/ui/PageHeader.tsx</code> e <code>components/layout.tsx</code>; não criar diretório <code>layout/</code> apenas para alinhar exemplos de documentação.</p>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Área</th><th scope="col">Arquivos alterados ou criados</th><th scope="col">Responsabilidade</th></tr></thead><tbody>
+<tr><td>Migração nova</td><td><code>backend/src/database/migrations/202611260001_defer_request_service_to_scheduling.sql</code> e correspondente <code>.down.sql</code></td><td>service_id opcional no pedido e snapshot de serviço na viagem, com reversão protegida.</td></tr>
+<tr><td>Tipos e borda</td><td><code>backend/src/types/{request,trip,availability}.types.ts</code>; controllers de requests, trips e availability; <code>routes/request-decisions.routes.ts</code></td><td>Nulabilidade, serviceId no agendamento, revisão e idempotência; impedir aprovação isolada.</td></tr>
+<tr><td>Domínio</td><td><code>backend/src/services/{requests,request-decisions,trips,availability}.service.ts</code></td><td>Pedido sem serviço e orquestração atômica, reutilizando a decisão com o cliente transacional do agendamento.</td></tr>
+<tr><td>Persistência</td><td><code>backend/src/repositories/{requests,request-decisions,trips,availability,services}.repository.ts</code>; <code>repositories/reports/trips.queries.ts</code></td><td>LEFT JOIN, snapshots, locks, gravação de serviço, eventos e consultas idempotentes.</td></tr>
+<tr><td>Contratos cliente</td><td><code>frontend/src/requests/requestTypes.ts</code>; <code>trips/tripTypes.ts</code>; <code>services/{requestsService,schedulingService,tripsService}.ts</code></td><td>serviceId/serviceName nulos em pedidos novos, contexto de agendamento PENDING/APPROVED e resposta reexecutável.</td></tr>
+<tr><td>Fluxo React</td><td><code>pages/SolicitacaoPage/SolicitacaoPage.tsx</code>; <code>pages/requestAnalysisPage/RequestAnalysisPage.tsx</code>; <code>pages/gestor/schedulingPage/{ScheduleTripPage,DirectTripPage}.tsx</code>; <code>components/RequestDetailsPanel.tsx</code></td><td>Remover dependência de catálogo no pedido; abrir agendamento sem escrita; serviço primeiro; recuperar legado e manter viagem direta.</td></tr>
+<tr><td>Navegação e tema</td><td><code>components/{sidebarNavigation,Sidebar,MobileNavigation,layout,Topbar}.tsx/.ts</code>; <code>auth/profiles.ts</code>; <code>theme.ts</code>; <code>components/ui/{PageHeader,StatCard,StatusChip,FormField,DataTable,StateFeedback,ConfirmDialog,accessibleControls}.tsx/.ts</code></td><td>Editar os arquivos existentes aplicáveis; grupos, rótulos, tokens de cor, foco e contraste. Não criar um segundo design system.</td></tr>
+<tr><td>Telas e testes</td><td>Páginas inventariadas na seção 6, testes existentes de requests/trips/availability/services/reports/sidebar/routing e documentação da seção 11.</td><td>Ajustes pontuais conforme os achados, cobertura de comportamento e roteiro de validação visual.</td></tr>
+</tbody></table></div>
+<p>Extrair hook de agendamento ou componentes compartilhados apenas quando necessários para eliminar duplicação efetiva entre viagem direta e vinculada. Não renomear em massa páginas antigas nesta entrega. Identificadores novos em inglês, textos e TSDoc em português.</p>
+
+
+
+<h3>3.1 Arquivos adicionais para a ampliação</h3>
+<ul>
+<li><strong>Componentes novos:</strong> <code>frontend/src/components/ui/RowActionsMenu.tsx</code>, compartilhado por tabelas e cartões; <code>pages/gestor/vehiclesPage/VehicleDetailsDialog.tsx</code> para concentrar dados secundários que hoje estão na tabela.</li>
+<li><strong>Permissões:</strong> <code>backend/src/types/permission.types.ts</code>, <code>services/authorization.service.ts</code> e <code>middlewares/permission.middleware.ts</code>, pois catálogo e decisão de acesso não pertencem a controllers nem à tela. Reutilizar <code>ProfileService</code>, <code>RolesRepository</code>, controller e rotas de profiles para cadastro/matriz; <code>GET /permissions</code> ganha rota de catálogo e usa os mesmos contratos.</li>
+<li><strong>Modelo:</strong> migration nova <code>202611260002_manage_profiles_permissions.sql</code> e down protegido; alterar <code>types/auth.ts</code>, <code>repositories/roles.repository.ts</code>, <code>users.repository.ts</code>, <code>services/users.service.ts</code>, <code>auth.service.ts</code>, <code>middlewares/auth.middleware.ts</code>, <code>types/express.d.ts</code>, composição em <code>app.ts</code> e seeds.</li>
+<li><strong>Escopos reais:</strong> substituir verificações de nome em rotas, services e repositories dos domínios, sobretudo pedidos próprios, viagens atribuídas, vínculos de motorista e associação à equipe SVO; revisar SQL que compara nomes canônicos de perfil.</li>
+<li><strong>Frontend de acesso:</strong> evoluir <code>auth/types.ts</code>, provider/contexto de autenticação, parsers de login/usuário/perfil, <code>routing/routeDecision.ts</code>, <code>auth/profiles.ts</code>, todos os helpers de acesso dos módulos e <code>sidebarNavigation.ts</code>. Acrescentar predicado tipado central de permissões em <code>auth/permissions.ts</code>.</li>
+<li><strong>Perfis:</strong> substituir a matriz provisória em <code>ProfilePermissionsPage.tsx</code>; criar <code>ProfileFormDialog.tsx</code> no mesmo diretório e componentes de seleção por módulo apenas quando a tela precisar de extração; integrar <code>services/profileService.ts</code> ao CRUD/matriz e ao formulário de usuários.</li>
+<li><strong>Consultas:</strong> telas de veículos, motoristas, serviços, usuários e equipes; seus types/controllers/services/repositories para recortes e paginação. Clientes antigos continuam com seus envelopes quando aplicável.</li>
+<li><strong>Auditoria:</strong> <code>types/audit-log.types.ts</code>, controller/service/repository de audit-logs, <code>routes/audit-logs.routes.ts</code>, <code>AuditLogsPage.tsx</code>, cliente de auditoria e helpers de histórico existentes. <code>services/audit-history.service.ts</code> somente para a seleção segura dos leitores por entidade, sem um segundo armazenamento de eventos.</li>
+</ul>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+
+<h3>4.1 Modelo e nulabilidade</h3>
+<ul>
+<li><code>trip.requests</code> continua representando uma necessidade enviada. <code>service_id</code> passa a aceitar NULL quando o Gestor ainda não classificou um pedido novo; <code>service_snapshot</code> já é anulável. Pedidos antigos conservam os valores atuais até eventual decisão do Gestor.</li>
+<li><code>trip.trips.service_id</code> já existe para viagens diretas; preencher também nas novas viagens vinculadas. Acrescentar <code>service_snapshot JSONB</code> para congelar o serviço escolhido sem depender de renomeação/inativação posterior.</li>
+<li>O novo snapshot contém id, nome, categorias, exigências e revisão conhecidos na decisão; veículo, motorista, pedido, ator e necessidades especiais continuam com seus snapshots existentes.</li>
+<li>Nas viagens antigas, não fazer backfill a partir do cadastro atual. Leituras usam os snapshots que efetivamente existirem e identificam ausência de detalhe histórico, sem alegar que o valor atual era o vigente na época.</li>
+<li>Reutilizar <code>fleet.vehicle_services</code>, <code>is_active</code>, revisão e índices existentes. Reutilizar a unicidade de <code>trip.trips.request_id</code> e o índice <code>trip_trips_creation_key</code>; não adicionar outra tabela N:N ou índice redundante.</li>
+</ul>
+<h3>4.2 DDL proposto</h3>
+<pre><code>BEGIN;
+ALTER TABLE trip.requests ALTER COLUMN service_id DROP NOT NULL;
+ALTER TABLE trip.trips ADD COLUMN service_snapshot JSONB;
+ALTER TABLE trip.trips ADD CONSTRAINT trip_trips_service_snapshot_valid
+  CHECK (service_snapshot IS NULL OR (
+    service_id IS NOT NULL
+    AND jsonb_typeof(service_snapshot) = 'object'
+    AND service_snapshot ?&amp; ARRAY['id', 'name', 'categories', 'revision']
+  ));
+COMMIT;</code></pre>
+<p>O DDL é aditivo e preserva registros existentes. Não relaxar FKs nem a unicidade do pedido. <code>created_by</code>, <code>creation_key</code> e <code>creation_payload</code>, já existentes, serão preenchidos também no fluxo vinculado para idempotência. Em toda nova viagem vinculada exigir service_id e snapshot no service e verificar a persistência em integração; as colunas permanecem anuláveis para o legado.</p>
+<h3>4.3 Histórico e leituras</h3>
+<p>Na transação, capturar antes do pedido, classificar serviço e registrar APPROVED com autoria e antes/depois; registrar SCHEDULED e criação da viagem com o contexto aprovado. Se o pedido era APPROVED, preservar seus decided_by/decided_at e registrar a reclassificação por evento UPDATED, com razão operacional explícita e estados anterior/posterior, seguida de SCHEDULED. Jamais UPDATE em request_events ou trip_events. Alterar apenas a projeção vigente da entidade principal.</p>
+<p>Listagem, COUNT, detalhe e relatório de pedidos usam LEFT JOIN para serviço; serviceId e serviceName são anuláveis nos DTOs. Apresentar “A definir no agendamento” para ausência. Nome histórico usa snapshot antes de fallback cadastral. Filtros por serviço não podem excluir pedidos sem serviço quando nenhum filtro foi aplicado. Conferir também agenda, painel, exportações e fixtures consumidoras.</p>
+<h3>4.4 Concorrência</h3>
+<p>Manter ordem compatível com a manutenção do catálogo: pedido FOR UPDATE → serviço FOR SHARE → veículo FOR UPDATE → motorista FOR UPDATE. O cadastro de vínculos já bloqueia o serviço antes de validar veículos; a trava compartilhada no serviço durante o agendamento impede que inativação/edição de vínculos atravesse a revalidação. Todas as escritas de vínculos devem manter esse protocolo. Verificar vínculo ativo após adquirir as travas e antes do INSERT; não manter transação aberta enquanto o usuário preenche o formulário.</p>
+<h3>4.5 Rollback obrigatório</h3>
+<p>A migration down deve abortar se existir pedido com service_id NULL ou viagem com service_snapshot preenchido, pois a versão anterior perde semântica ou informação. Se não houver dados produzidos pela mudança, em BEGIN/COMMIT: remover a constraint e a nova coluna e restaurar NOT NULL no pedido. Depois da adoção, preferir correção progressiva. Um rollback operacional exige backup e versão de aplicação capaz de ler os dados novos; nunca preencher serviço fictício, apagar eventos ou truncar dados para fazer o down passar.</p>
+
+
+
+<h3>4.6 Arquivamento sem modelo paralelo</h3>
+<p>Não criar archived_at/is_deleted para entidades que já possuem INACTIVE/active. O momento, autor, antes/depois e justificativa vêm dos eventos e auditoria existentes. Perfil ainda não possui atividade nem revisão: incluí-las na evolução de auth.roles. A ação de restauração usa o domínio correspondente; não reativa vínculos que tenham sido removidos nem muda retroativamente decisões antigas.</p>
+<h3>4.7 Modelo de perfis administráveis</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Entidade</th><th scope="col">Evolução planejada</th></tr></thead><tbody>
+<tr><td>auth.roles</td><td>Preservar id e name como código estável; acrescentar display_name TEXT, active BOOLEAN NOT NULL DEFAULT true, revision INTEGER NOT NULL DEFAULT 1 CHECK(revision&gt;0), default_path TEXT e updated_at TIMESTAMPTZ. Para a criação idempotente, acrescentar created_by BIGINT FK RESTRICT, creation_key UUID e creation_payload JSONB, nulos no legado e obrigatórios em conjunto nas criações via API. Nome legível não é identificador de regra de negócio. Preencher rótulo e home dos seis perfis a partir do mapa atual.</td></tr>
+<tr><td>auth.permissions</td><td>Reutilizar id, name e description. Nomes estáveis de recurso/ação/escopo, com unicidade existente. Catálogo versionado em código e migration; sem CRUD de strings livres pela interface.</td></tr>
+<tr><td>auth.role_permissions</td><td>Acrescentar is_active BOOLEAN NOT NULL DEFAULT true; manter unicidade do par. Conceder/revogar por ativação lógica na mesma transação do perfil; incrementar revisão do perfil e registrar antes/depois. Trocar FKs ON DELETE CASCADE por ON DELETE RESTRICT.</td></tr>
+<tr><td>auth.role_events</td><td>Tabela nova de acontecimentos de perfil: id BIGINT GENERATED ALWAYS AS IDENTITY; role_id FK RESTRICT; event_type; occurred_at e registered_at; reported_by; registered_by FK; actor_snapshot JSONB; reason; evidence_description opcional; before_state/after_state JSONB. Trigger append-only; eventos CREATED, UPDATED, PERMISSIONS_CHANGED, DEACTIVATED e REACTIVATED.</td></tr>
+<tr><td>auth.users</td><td>Manter role_id e um perfil por conta. Não adicionar enum de função-base nem campo de perfil fictício para contornar o catálogo dinâmico. Vínculos operacionais continuam em fleet.drivers, svo.team_members e atribuições existentes.</td></tr>
+</tbody></table></div>
+<p>Executar DDL em BEGIN/COMMIT. Índices novos justificados: <code>auth_role_events_by_role ON auth.role_events(role_id, occurred_at DESC, id DESC)</code> para a trilha e índice único parcial <code>auth_roles_creation_key ON auth.roles(created_by, creation_key) WHERE creation_key IS NOT NULL</code> para a criação reexecutável. Constraint garante que os três campos de criação sejam todos nulos (legado) ou todos informados, com creation_payload objeto JSON. A PK, índices de role_id e unicidades existentes atendem à resolução de permissões; não duplicar índices. Adicionar índice de listagem ativo/nome somente se a consulta real e medição demonstrarem necessidade.</p>
+<p><strong>Inicialização:</strong> gerar catálogo granular e matriz a partir da política realmente aplicada por rotas, services e dados, e não das três permissões genéricas atuais. Registrar a matriz inicial em fixture declarativa versionada e testar preservação dos acessos existentes, inclusive ações exclusivas do Gestor e escopos de SVO. A migration de matriz é de execução única; seed posterior não pode repor uma permissão que o Administrador revogou.</p>
+<p><strong>Rollback:</strong> abortar down se houver perfil personalizado, edição de matriz, evento administrativo ou estado que o modelo anterior não represente. Reversão só sem uso novo, restaurando a matriz inicial em ambiente controlado e após backup. Jamais apagar eventos, converter todos os perfis em um perfil canônico ou executar CASCADE para permitir downgrade.</p>
+<h3>4.8 Proteção concorrente da administração</h3>
+<p>Usar um lock transacional comum de administração de acessos no repository (advisory lock com chave nomeada constante) antes de qualquer mutação capaz de retirar acesso administrativo. Depois, travar perfis/usuários em ordem estável, validar revisão e contar contas ativas com perfil ativo e permissões efetivas de administrar usuários e perfis. Bloquear operação que remova o último responsável. Não basta contar o nome ADMINISTRADOR; o que importa é a capacidade efetiva resultante.</p>
+<h3>4.9 Auditoria central sem duplicação</h3>
+<p>Não criar outra tabela para copiar históricos. Acrescentar filtro recordId à consulta e ao COUNT de audit.logs, aproveitando <code>audit_logs_by_table(table_name, record_id)</code>. A origem de histórico de domínio é selecionada por allowlist de tipos e readers existentes; nenhum nome de tabela recebido do cliente é interpolado em SQL. Eventos guardam origem/identificador próprios, sem fundir fatos distintos nem produzir auditoria duplicada por consulta.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+
+<h3>5.1 Contratos coordenados de ponta a ponta</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Endpoint</th><th scope="col">Contrato e resultado</th></tr></thead><tbody>
+<tr><td>POST /requests</td><td>Campos de transporte atuais, sem obrigatoriedade de serviceId. Cria 201/PENDING com serviceId e serviceSnapshot NULL. Uma propriedade serviceId enviada por cliente antigo não controla a classificação: ignorar no fluxo de criação e cobrir em teste.</td></tr>
+<tr><td>POST /requests/:id/resubmit</td><td>Manter rota real de reenvio, expectedRevision e campos operacionais; não alterar o serviço pelo payload do Solicitante. Preservar valor legado, caso exista, e eventos de versões.</td></tr>
+<tr><td>GET /requests; GET /requests/:id; histórico existente</td><td>Preservar envelopes, paginação, estados e RBAC. serviceId/serviceName admitem NULL; manter pedidos novos nas contagens. Expor a viagem vinculada após sucesso e eventos com classificação histórica.</td></tr>
+<tr><td>GET /services?active=true; GET /services/:id/vehicles; PUT /services/:id/vehicles</td><td>Reutilizar catálogo e manutenção de vínculos com revisão. A tela do Solicitante não precisa mais consultar o catálogo. Manter permissões existentes de leitura de outras telas, inclusive SVO; retirar um campo não implica revogar acesso global à API.</td></tr>
+<tr><td>GET /vehicles/available?start=&amp;end=&amp;serviceId=&amp;requestId=</td><td>Quando requestId for informado, aceitar PENDING ou APPROVED legado. Serviço escolhido no agendamento prevalece sobre classificação antiga do pedido; exigir serviço ativo explícito na nova UI. Preservar o envelope atual com available/reasons para demais clientes; o seletor oferece somente available=true e compatíveis.</td></tr>
+<tr><td>GET /drivers/available?start=&amp;end=&amp;requestId=</td><td>Aceitar os mesmos estados agendáveis do pedido e aplicar elegibilidade atual. Remover exigência de aprovação já persistida antes de consultar.</td></tr>
+<tr><td>POST /trips</td><td>Recebe requestId, expectedRevision, serviceId, vehicleId, driverId, scheduledStart, scheduledEnd, reason opcional e os campos existentes de necessidades especiais. Usa Idempotency-Key UUID. Primeiro sucesso: 201; repetição idêntica: 200 com a mesma viagem; chave reutilizada com payload diferente: 409.</td></tr>
+<tr><td>POST /requests/:id/approve</td><td>Deixar de permitir mutação isolada. Durante a atualização coordenada, manter resposta 409 orientadora: “Para aprovar esta solicitação, conclua o agendamento da viagem.” Não chamar a rota no frontend novo nem aprovar e depois tentar POST /trips em outra transação.</td></tr>
+<tr><td>POST /requests/:id/reject; POST /requests/:id/return</td><td>Preservar requisitos, justificativa, revisão, histórico e RBAC. A mudança da aprovação não remove essas alternativas.</td></tr>
+<tr><td>POST /trips/direct; execução, confirmação e agenda</td><td>Preservar viagem direta, idempotência existente e estados atuais. Compartilhar validação de serviço/vínculo; conservar a ordem serviço → veículo. Aplicar snapshot novo às criações diretas para consistência, sem recriar fluxo de solicitação.</td></tr>
+</tbody></table></div>
+<p><strong>Compatibilidade:</strong> alterações de nulabilidade e de aprovação são deliberadas e decorrentes das decisões confirmadas. Implantar frontend e backend compatíveis na mesma entrega, com migration antes da aplicação nova. Atualizar todos os parsers, testes, documentação e consumidores locais; não prometer compatibilidade com o comportamento antigo de aprovação separada. Nenhuma versão antiga deve ser reativada contra dados novos sem revisão do rollback.</p>
+<h3>5.2 Operação transacional de agendamento</h3>
+<ol>
+<li>Controller valida identificadores, formatos, cabeçalho de idempotência e usuário corrente; Service normaliza payload e período sem Express.</li>
+<li>Reutilizar registro idempotente de trips por ator/chave e payload normalizado. Fazer verificação novamente dentro da transação após travar o pedido; uma repetição válida deve retornar a viagem antes de rejeitar por revisão/estado já alterados, horário que deixou de ser futuro ou cadastro posteriormente modificado. Normalizar formatos antes da busca, mas aplicar regras de elegibilidade da nova operação somente depois de descartar repetição confirmada. Distinguir violação da chave e da unicidade de request_id.</li>
+<li>Travar pedido e verificar existência, PENDING/APPROVED legado, expectedRevision e ausência de viagem. Mesma chave com outro payload ou pedido já atendido por outra operação retorna 409.</li>
+<li>Travar serviço e recursos; validar atividade, vínculo, período, capacidade, CNH, conta elegível, conflitos e necessidades especiais com a mesma regra de AvailabilityService.</li>
+<li>Para PENDING, aplicar decisão com cliente transacional compartilhado, gravando serviço e aprovação; para APPROVED legado, registrar reclassificação quando necessário sem sobrescrever aprovação anterior. Não abrir transação aninhada nem chamar API interna.</li>
+<li>Criar viagem e seus snapshots/credenciais de idempotência, mudar pedido para SCHEDULED, gravar eventos e auditoria de decisão e agendamento no mesmo cliente pg; incrementar revisões das mutações.</li>
+<li>COMMIT e devolver a viagem vinculada. Em erro, ROLLBACK de tudo e release no finally. Falha ao recarregar a tela depois do COMMIT é feedback parcial, não falha do agendamento.</li>
+</ol>
+<p>Implementar reuso da decisão dentro de <code>RequestDecisionsService</code> e dos repositories existentes, com operação interna que recebe cliente da transação; manter a camada HTTP fora do domínio. Não duplicar regras de disponibilidade em RequestAnalysisPage.</p>
+<h3>5.3 Erros visíveis e segurança</h3>
+<p>400: formato inválido ou campo obrigatório ausente; 401: sessão inválida; 403: perfil sem ação; 404: entidade inexistente ou pedido de terceiro oculto; 409: revisão/estado/chave ou conflito de agenda; 422: serviço inativo, vínculo inválido, capacidade/CNH/necessidade especial não atendida. Manter a precedência de impedimentos cadastrais frente a conflito já estabelecida no domínio. Traduzir nomes de campos para mensagens úteis em português; não expor SQL, dados de terceiros ou mensagens internas.</p>
+
+
+
+<h3>5.4 Contratos de consultas limpas e auditoria</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Contrato</th><th scope="col">Comportamento e compatibilidade</th></tr></thead><tbody>
+<tr><td>GET /vehicles e /drivers</td><td>Acrescentar recorte <code>view=operational|archived|all</code>, busca, page/pageSize e ordenação estável. A nova tela usa visão diária explícita e paginação real no servidor. Sem parâmetros de paginação, preservar o array antigo para consumidores locais que ainda dependem dele; com page, devolver envelope com itens, total e páginas. Listagem e COUNT aplicam os mesmos critérios.</td></tr>
+<tr><td>GET /services, /users e /svo/teams</td><td>Reutilizar filtro active e paginação onde já existirem; acrescentar filtros e paginação reais no servidor onde faltarem para as novas consultas. A UI de consulta pede ativos, page/pageSize e busca, com envelope de itens/total/páginas. Preservar arrays sem paginação somente para seletores e consumidores legados que os exigem; coordenar parsers e não simular total global com os itens da página.</td></tr>
+<tr><td>Arquivar/restaurar cadastros</td><td>Reutilizar PATCH de status de veículos/motoristas, activate/deactivate de serviços/usuários e alteração de atividade da equipe pelo contrato existente. Exigir revisão e usar a autoria autenticada. Não criar DELETE nem um endpoint universal que ignore regras de domínio.</td></tr>
+<tr><td>GET /audit-logs?table=&amp;recordId=&amp;from=&amp;to=&amp;userId=&amp;operation=&amp;page=&amp;pageSize=</td><td>Adicionar filtro seguro por identificador e projeção legível do registro/justificativa. Preservar envelope, limite de período, paginação, no-store e máscaras. O detalhe só apresenta campos liberados pela projeção do servidor.</td></tr>
+<tr><td>GET /audit-logs/records/:entityType/:recordId/history</td><td>Nova fachada de consulta, sem gravação: delegar a leitores históricos existentes pela allowlist de entidades, preservando filtros e escopo. Requer acesso à Auditoria e autorização de leitura histórica do domínio. Devolver fonte, evento, instantes, autoria, razão/evidência e diferenças permitidas. Para entidades sem trilha própria, oferecer as operações de audit.logs identificadas como tais.</td></tr>
+</tbody></table></div>
+<p>Manter proteção dos endpoints históricos existentes; a retirada de botões é reorganização da interface, não autorização para expor os dados via outra rota. Nos dados sensíveis do SVO, preservar a supressão de before/after da auditoria e as projeções seguras do domínio; auditoria genérica não permite obter conteúdo bruto de ocorrência.</p>
+<h3>5.5 API de perfis e autorização real</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Endpoint</th><th scope="col">Entrada e resultado</th></tr></thead><tbody>
+<tr><td>GET /profiles</td><td>Lista perfis iniciais e personalizados; aceitar active/search e paginação opcional preservando o array legado sem paginação. Incluir id, code/name, displayName, description, active, revision, defaultPath e quantidade de usuários vinculados.</td></tr>
+<tr><td>GET /profiles/:id</td><td>Detalhe e permissões efetivas editáveis do perfil, versão e vínculos necessários à decisão administrativa; 200 ou 404.</td></tr>
+<tr><td>GET /permissions</td><td>Catálogo agrupado por módulo, com código, descrição legível, escopos permitidos e dependências implementadas. Lista somente ações existentes.</td></tr>
+<tr><td>POST /profiles</td><td>displayName, code, description, defaultPath, permissionIds, reason e Idempotency-Key. Criar perfil e matriz/evento/auditoria em transação; 201, repetição idêntica 200 e conflito de código/chave 409.</td></tr>
+<tr><td>PUT /profiles/:id</td><td>expectedRevision, displayName, description, defaultPath, permissionIds e reason. Alterar dados e matriz juntos; incrementar revisão; 200, ou 409 por revisão/proteção administrativa. Código estável não é renomeado para mudar significado histórico.</td></tr>
+<tr><td>PATCH /profiles/:id/deactivate e /activate</td><td>expectedRevision e reason; arquivar/restaurar com eventos e auditoria. Bloquear arquivamento com usuários ativos vinculados ou perda do último administrador. Conta/perfil sem atividade não autentica.</td></tr>
+<tr><td>GET /auth/session</td><td>Contexto autorizado atual: usuário, perfil {id, code, displayName, revision}, permissions e homePath. Não expor segredos. Frontend usa esse contexto para menus, botões e guards.</td></tr>
+<tr><td>POST /auth/login; renovação; /users</td><td>Coordenar contratos para nomes de perfil dinâmicos e roleId. Manter campos antigos necessários à transição, sem usar o enum dos seis perfis como autoridade para aceitar/rejeitar conta. /users aceita roleId ativo e válido e continua com revisão.</td></tr>
+</tbody></table></div>
+<p>Catálogo inicial de ações por área, a completar por inventário exaustivo dos endpoints antes da codificação, sem ampliar a matriz de ninguém automaticamente:</p>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Área</th><th scope="col">Ações e escopos que devem ser distintos</th></tr></thead><tbody>
+<tr><td>Solicitações</td><td>Criar; ler próprias/todas; corrigir própria devolvida; devolver; rejeitar; aprovar com agendamento (<code>requests:approve-and-schedule</code>).</td></tr>
+<tr><td>Viagens</td><td>Ler atribuídas/todas; criar direta; consultar disponibilidade; executar atribuída; conferir. Permissão de agenda não concede execução nem aprovação.</td></tr>
+<tr><td>Frota e motoristas</td><td>Ler; cadastrar/editar; alterar situação/arquivar/restaurar; gerir vínculos de serviço. Separar leitura de manutenção cadastral.</td></tr>
+<tr><td>Manutenção, abastecimentos, documentos e multas</td><td>Ler e registrar; corrigir/retificar/anular ou alterar estado conforme as ações existentes, sem inventar exclusão de fatos.</td></tr>
+<tr><td>SVO</td><td>Registrar/consultar/confirmar ocorrência; administrar equipe/plantões; reprocessar fila; consultar ordens atribuídas/todas; executar ordem atribuída e registrar resultado. Cada ação conserva os requisitos do domínio.</td></tr>
+<tr><td>Gestão</td><td>Painel; relatórios/exportações por domínio permitido; auditoria de operações; leitura histórica segura por domínio.</td></tr>
+<tr><td>Administração</td><td><code>users:manage</code>, <code>permissions:manage</code> e consulta de catálogo. Alterar perfil de uma conta também exige capacidade administrativa atual e guarda do último responsável.</td></tr>
+</tbody></table></div>
+<p><strong>Política única:</strong> AuthorizationService resolve permissões atuais no servidor e aplica negação por ausência. Middleware exige ação; services/repositories limitam registros e validam vínculos/estado. Helpers no frontend espelham a capacidade para exibição, sem conceder acesso. Substituir todos os checks de nome afetados, não apenas authorizeRoles.</p>
+<p>Escopos oferecidos na UI devem ser exclusivos por ação (sem acesso / próprios ou atribuídos / todos, quando o domínio permitir). Permissão “todos” de leitura não libera executar ordem de outra equipe nem iniciar viagem de outro motorista. Combinando módulos, mostrar a união dos destinos permitidos e validar homePath entre eles; se a home perder acesso, escolher o primeiro destino permitido por ordem de navegação estável. Sem destino, apresentar estado de acesso ainda não configurado, sem looping de login.</p>
+<p>O backend também valida a combinação de permissionIds, exclusividade de escopos da mesma ação, dependências do catálogo e homePath interno autorizado. POST/PUT com combinações inválidas retorna 422 sem alterações; não depender dos controles da tela nem conceder permissões adicionais silenciosamente. O catálogo expõe dependências para que a interface explique e o Administrador revise o conjunto necessário antes de salvar.</p>
+<p><strong>Sessões:</strong> verificar assinatura e identidade do JWT, reler conta, perfil ativo e concessões em cada requisição. Claims legadas de perfil servem somente à transição, sem autoridade para conceder acesso. Revalidar autorização nas transações críticas; atualizar contexto ao entrar/retomar foco e após resposta 403, limpando dados que perderam autorização. Não armazenar permissões como verdade imutável até a expiração do token.</p>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+
+<h3>6.1 Telas do fluxo</h3>
+<p><strong>Solicitante:</strong> conservar “Minhas solicitações” como título contextual; retirar catálogo, seleção e obrigatoriedade de serviço tanto da criação quanto da correção. Finalidade, passageiros e necessidades especiais continuam disponíveis. Manter a ação principal “Nova solicitação” na página; retirar somente a duplicata da sidebar. O atalho móvel existente continua útil e não foi objeto de remoção. Antes do agendamento, mostrar “A definir no agendamento”; depois, exibir a definição vigente sem apagar o histórico anterior.</p>
+<p><strong>Gestor:</strong> ação “Aprovar e agendar” abre a página existente de agendamento com requestId, sem chamar approve. Buscar detalhe pelo identificador e validar estado, evitando depender de percorrer todas as páginas de APPROVED. Resumo da necessidade → serviço → período → veículo disponível → motorista → conferência → “Aprovar e agendar”. Pré-preencher os dados já informados; o horário final continua decisão do Gestor. Nas aprovações antigas, o botão final diz “Agendar viagem”.</p>
+<p>Oferecer filtro visível para PENDING e APPROVED legado na área “Solicitações”, incluindo a descrição “Aguardando agendamento” para aprovações anteriores. Depois do sucesso, manter mensagem com pedido, viagem, período e ação “Ver na agenda”; detalhes do pedido continuam consultáveis por estado. Pedidos agendados não retornam à fila de pendentes.</p>
+<p>Ao trocar serviço/período, limpar veículo e motorista e ignorar respostas de consultas anteriores. Sem candidatos, explicar o impedimento e permitir ajuste. Em salvamento incerto, manter chave/payload e consultar o pedido para recuperar a viagem; não exibir sucesso sem confirmação. Retornar foco ao aviso de resultado ou ao erro relevante.</p>
+<h3>6.2 Grupos de navegação</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Grupo</th><th scope="col">Destinos</th></tr></thead><tbody>
+<tr><td>Operação</td><td>Solicitações; Agenda; Agendar viagem; Conferência. Mover agendamento de Frota para Operação. Respeitar permissões existentes de consulta e ação.</td></tr>
+<tr><td>SVO</td><td>Solicitações; Ordens; Equipes e plantões, para quem possui as permissões efetivas de cada destino. A matriz inicial mantém Solicitante/Motorista sem SVO; um perfil personalizado só recebe acesso por concessão explícita.</td></tr>
+<tr><td>Frota</td><td>Veículos; Documentos; Multas; Motoristas; Tipos de serviço; Manutenção; Abastecimentos.</td></tr>
+<tr><td>Gestão / Administração</td><td>Painel; Relatórios; Auditoria e, no perfil administrativo, Usuários; Perfis e permissões, conforme permissões vigentes.</td></tr>
+</tbody></table></div>
+<p>Usar <code>sidebarNavigation.ts</code> como fonte comum de desktop e móvel. Conservar URLs; evoluir guards e resolução de home para permissões efetivas; nome curto não exige rota nova. No menu recolhido, conservar nome acessível e tooltip legível. Grupo de navegação não concede permissão de API. O nome ADMINISTRADOR não concede automaticamente aprovação: a matriz inicial preserva suas permissões atuais; qualquer mudança posterior depende de concessão explícita.</p>
+<h3>6.3 Nomenclatura</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Nome atual</th><th scope="col">Menu proposto</th><th scope="col">Título de página</th></tr></thead><tbody>
+<tr><td>Analisar / Análise de solicitações</td><td>Solicitações</td><td>Solicitações</td></tr>
+<tr><td>Agenda de viagens</td><td>Agenda</td><td>Agenda de viagens</td></tr>
+<tr><td>Confirmar viagens</td><td>Conferência</td><td>Conferência de viagens</td></tr>
+<tr><td>Acompanhamento de ordens</td><td>Ordens, no grupo SVO</td><td>Ordens SVO</td></tr>
+<tr><td>Solicitações SVO</td><td>Solicitações, no grupo SVO</td><td>Solicitações SVO</td></tr>
+<tr><td>Equipes e plantões SVO</td><td>Equipes e plantões, no grupo SVO</td><td>Equipes e plantões</td></tr>
+<tr><td>Veículos da Frota / Manutenção da Frota</td><td>Veículos / Manutenção</td><td>Veículos / Manutenção</td></tr>
+<tr><td>Multas e infrações / Documentos de veículos</td><td>Multas / Documentos</td><td>Multas / Documentos de veículos</td></tr>
+<tr><td>Gerenciar usuários / Registros de auditoria</td><td>Usuários / Auditoria</td><td>Usuários / Auditoria</td></tr>
+<tr><td>Relatórios Operacionais / Dashboard</td><td>Relatórios / Painel</td><td>Relatórios / Painel</td></tr>
+<tr><td>Minhas solicitações / Minhas viagens / Ordens da equipe</td><td>Conservar contexto do perfil</td><td>Minhas solicitações / Minhas viagens / Ordens da equipe</td></tr>
+</tbody></table></div>
+<p>Manter “Tipos de serviço”, “Motoristas”, “Abastecimentos”, “Perfis e permissões”, “Agendar viagem” e “Criar viagem”. Rótulos de ações continuam com verbo e objeto; encurtar menus não significa tornar botões ambíguos. PageHeader centraliza h1 e título do documento; eliminar efeitos concorrentes de document.title nas páginas tocadas.</p>
+<h3>6.4 Cores e componentes</h3>
+<p>Preservar #FF6B00 como cor institucional. Ícones decorativos e navegação inativa usam tokens neutros; seleção usa contêiner e texto/ícone com contraste suficiente; indicadores usam info, success, warning e error conforme o significado. StatCard recebe papel semântico opcional com padrão neutro, reutilizando tokens do tema. Não colorir cada módulo aleatoriamente nem aplicar laranja a todos os ícones. Manter sinais textuais junto a estados.</p>
+<p>Centralizar contraste de botões, links, tooltips, rótulos focados e bordas em theme.ts. Revisar accessibleControls para não sobrescrever success/error indiscriminadamente e remover repetições locais substituídas pelo tema. Conservar PageHeader, FormField/FormSelect, DataTable, FilterBar, EntityCard, StatCard, StatusChip, StateFeedback e ConfirmDialog. A biblioteca instalada é Material UI 9; avaliar os princípios de Material Design por hierarquia, cor, tipografia, estados e interação, sem afirmar que o uso da biblioteca garante conformidade.</p>
+<h3>6.5 Inventário de verificação de todas as telas</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Telas / componentes</th><th scope="col">Inspeção e ajuste planejados</th></tr></thead><tbody>
+<tr><td>Login, Topbar, Sidebar, MobileNavigation, layout</td><td>Contraste, títulos, landmarks, ordem de foco, menu recolhido, retorno de foco, ajuda consistente, colagem de senha e espaço livre de barras fixas.</td></tr>
+<tr><td>SolicitacaoPage, RequestAnalysisPage, ScheduleTripPage, DirectTripPage, RequestDetailsPanel</td><td>Fluxo novo, seleção dependente, histórico, erros, confirmação, nulabilidade e acompanhamento.</td></tr>
+<tr><td>TripAgendaPage, TripConfirmationPage, MyTripsPage e TripExecutionDialog</td><td>Nomes, ações do perfil, estados, foco, tabelas/cartões e paridade de execução.</td></tr>
+<tr><td>GestorPage, DashboardPage</td><td>Cores de indicadores e gráficos, alternativas tabulares, nomes, cartões, contraste e atalhos válidos.</td></tr>
+<tr><td>VehiclesPage e diálogos, ServicesPage</td><td>Múltiplos serviços por veículo, vínculos ativos, revisão/conflito e clareza da compatibilidade; preservar o feedback parcial existente do cadastro.</td></tr>
+<tr><td>DriversPage e diálogos; ManutencaoPage e diálogos; FuelingsPage; FinesPage; VehicleDocumentsPage</td><td>Mesmo tema, títulos, formulários, ações por linha, tabelas/cards, histórico e estados sem apagar regras existentes.</td></tr>
+<tr><td>SvoOccurrencesPage e diálogos; SvoOrdersPage; SvoTeamOrdersPage; SvoTeamsPage</td><td>Grupo SVO, contexto dos títulos, ações permitidas por perfil, foco e leitura; preservar triagem, despacho e execução existentes.</td></tr>
+<tr><td>UserManagementPage, ProfilePermissionsPage, AuditLogsPage</td><td>Vocabulário, tabelas, controles de permissão, confirmações, contraste e supervisão sem ações operacionais extras.</td></tr>
+<tr><td>ReportsPage, ReportPrintView, ReportColumnsSelector e PlaceholderPage</td><td>Pedidos sem serviço em relatórios; impressão, exportação, seleção por teclado e feedback contextual das rotas existentes.</td></tr>
+</tbody></table></div>
+<p>Esta lista é o roteiro de auditoria; não é certificação antecipada. O usuário autorizou adequar globalmente as telas aos padrões Material Design, acessibilidade e clareza do trabalho. Reorganizar layout, densidade, colunas, ações, filtros e textos quando necessário para esses objetivos, preservando as regras de negócio confirmadas. Registrar evidências por rota, perfil e viewport.</p>
+<h3>6.6 Cinco estados visuais</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Estado</th><th scope="col">Comportamento</th></tr></thead><tbody>
+<tr><td>Ideal</td><td>Resumo legível, escolhas compatíveis, ação contextual e confirmação com viagem vinculada.</td></tr>
+<tr><td>Carregando</td><td>StateFeedback/Skeleton com aria-busy; impedir confirmação durante consulta/salvamento sem perder dados preenchidos.</td></tr>
+<tr><td>Vazio</td><td>Explicar ausência de pedidos, serviços, veículos ou motoristas e oferecer próximo passo válido para o perfil.</td></tr>
+<tr><td>Erro</td><td>Mensagem junto ao campo ou ação, foco coerente e recuperação; 409 solicita atualização sem descartar silenciosamente o preenchimento.</td></tr>
+<tr><td>Parcial / incerto</td><td>Distinguir falha de uma consulta de falha do salvamento. Se COMMIT ocorreu e atualização falhou, manter sucesso e oferecer recarga; se resultado for desconhecido, consultar antes de permitir nova operação.</td></tr>
+</tbody></table></div>
+
+
+
+<h3>6.7 Consultas enxutas e ações sob demanda</h3>
+<p><strong>Veículos:</strong> tabela inicial com Placa/Veículo (placa acionável e marca/modelo como complemento), Operação, Capacidade contextual, Situação e uma coluna estreita de ações. Ano, tipo detalhado, categorias, propriedade, limites e serviços vinculados ficam no detalhe. Para categorias com capacidades diferentes, rotular passageiros/corpos sem exibir colunas vazias a todos.</p>
+<p>O identificador abre detalhes por link/botão semântico e teclado. Clique opcional na linha é apenas conveniência; não é o único meio de acesso. Editar, alterar situação e arquivar/restaurar ficam em <code>RowActionsMenu</code>, com MUI IconButton/Menu/MenuItem. Ações sem permissão não aparecem. Não repetir a ação de detalhes no menu se já existir no identificador.</p>
+<p>Evitar duplicar a inativação: “Alterar situação” oferece somente estados operacionais válidos; “Arquivar” concentra a transição para INACTIVE/active=false. No recorte Arquivados, apresentar “Restaurar” em vez das duas opções equivalentes. Reutilizar o mesmo comando de domínio com a intenção explícita, sem duplicar regra no frontend.</p>
+<p>Aplicar o mesmo princípio a motoristas, serviços, usuários, equipes e consultas de registros operacionais: um acesso principal claro, ações secundárias em menu e dados complementares no detalhe. Ações centrais de trabalho, como iniciar/finalizar viagem ou decidir solicitação, permanecem explícitas no contexto em que são a tarefa principal; não esconder toda a operação atrás de três pontos.</p>
+<p>Menus não contêm botões interativos aninhados, não abrem submenu em cascata para tarefas simples e não substituem filtros. Nome acessível do acionador identifica o registro (ex.: “Ações do veículo ABC1D23”). Abrir com teclado, navegar com setas, ativar e fechar com Esc; devolver foco ao acionador ou ao resultado se a linha sair da lista. Manter 44×44px em vez de comprimir ícones para caber.</p>
+<p><strong>Busca e filtros:</strong> pesquisa principal por nome/placa, recorte de atividade e filtros adicionais em expansão “Mais filtros”, com resumo dos aplicados e limpeza previsível. Não exigir um painel permanente de controles para consultar poucos campos. Paginação e busca devem refletir o conjunto no servidor, sem baixar todos os registros para filtrar uma página local.</p>
+<p><strong>Responsividade:</strong> na largura móvel, cartões com identificador, dados essenciais, situação e o mesmo menu. Em 1024×768 e 1280×800 a coluna de ações não causa overflow por fileira de botões. Rolagem local continua possível quando a informação bidimensional realmente exigir; nunca cortar conteúdo com overflow hidden para mascarar o problema. Não instalar outra biblioteca de tabelas só para corrigir densidade.</p>
+<h3>6.8 Área Auditoria e detalhe atual</h3>
+<p>Reutilizar a página Auditoria com duas visões: <strong>Operações</strong> (logs de alterações, filtrados) e <strong>Histórico do registro</strong> (eventos da entidade selecionada). Pesquisa por módulo/entidade e registro, período e responsável; campos avançados recolhidos quando não necessários. O detalhe mostra texto legível e diferenças sob demanda, com origem do evento e campos liberados pela API; JSON técnico só como complemento para quem precisa.</p>
+<p>Não apresentar uma matriz gigante de todos os eventos nem repetir o histórico em cada cadastro. A visualização de eventos ocorre após selecionar registro. Remover importações/estado/cargas de EntityHistoryDialog das telas operacionais depois de comprovar a cobertura central. Preservar os leitores de domínio e utilizá-los na área própria, sem descartar informação ou modificar registros.</p>
+<p>Os perfis iniciais com acesso à Auditoria continuam Gestor e Administrador; novos perfis só ganham acesso por concessão específica. Acesso genérico à Auditoria não derruba máscaras nem autoriza ler o conteúdo sigiloso do SVO. Solicitante e Equipe continuam vendo o contexto vigente necessário ao seu fluxo, sem precisar entrar na Auditoria administrativa.</p>
+<h3>6.9 Administração completa de perfis</h3>
+<p>Substituir cards repetidos e matriz provisória por lista compacta de perfis (nome, resumo, usuários vinculados e atividade), busca e recorte de arquivados. Ação principal “Novo perfil”; nome abre detalhe e edição autorizada. Usar o mesmo menu de ações secundárias.</p>
+<p>No editor, campos de nome/descrição e página inicial, seguidos por permissões <strong>agrupadas por módulo</strong>, com expansão progressiva e rótulos de ação claros. Resumo mostra o que foi concedido e o que mudou. Não renderizar por padrão a matriz inteira “todos os perfis × todas as permissões”. Busca de permissão e seleção por módulo só incluem ações visíveis/explicadas; checkbox de grupo indica seleção parcial e não marca silenciosamente novos itens não revisados.</p>
+<p>Ao salvar, enviar dados e matriz numa operação com revisão. Erro preserva escolhas, conflito exige recarga/revisão, e sucesso anuncia o perfil alterado. Antes de revogar acesso amplo, o resumo informa usuários afetados e diferença de permissões para uma decisão consciente. Evitar confirmações repetitivas em ações de leitura.</p>
+<p>A tela de usuários lista perfis personalizados ativos pelo ID, permite atribuição e mostra o nome legível. Renomear a exibição do perfil não altera autoria histórica. O perfil selecionado não precisa coincidir com um ícone hardcoded; usar um ícone padrão neutro quando não houver associação específica.</p>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+
+<p><strong>Diagnóstico estático:</strong> o tema já fornece tamanhos mínimos e foco; FormField usa useId, PageHeader fornece h1 e título e os fluxos reutilizam componentes MUI. Isso é base favorável, mas não comprova WCAG em todas as telas.</p>
+<ul>
+<li>Contraste calculado: #FF6B00 contra branco = aproximadamente 2,86:1; #b94700 contra branco = 5,30:1. Tooltip branco sobre laranja e texto laranja em branco precisam de ajuste. Borda #d1d5db em branco tem aproximadamente 1,47:1; avaliar os sinais necessários para identificar controles e seus estados, e não apenas a borda isolada.</li>
+<li>Texto normal ≥4,5:1; texto grande e elementos visuais necessários ≥3:1. Ícones meramente decorativos não são controles nem precisam receber status semântico artificial.</li>
+<li>Rótulos programáticos, ajuda e erros associados; indicar obrigatoriedade em texto e anunciar falhas. Mover foco para o erro pertinente após envio inválido e para o resultado depois de confirmar.</li>
+<li>Teclado completo, ordem lógica, foco visível e não encoberto. Dialog/Drawer devem conservar fechamento e retorno de foco; durante escrita em andamento evitar dupla submissão sem deixar resultado desconhecido sem recuperação.</li>
+<li>Adicionar ou validar salto para conteúdo principal, landmark de navegação, aria-current, um h1 por página e nomes de botões com ícone que identifiquem a ação e o registro.</li>
+<li>Aplicar 44×44px como requisito operacional do Aratu; distinguir essa regra interna do mínimo AA de 24×24px e suas exceções em WCAG 2.5.8.</li>
+<li>Validar 320px, zoom de texto de 200% e reflow equivalente a 400% em viewport de 1280px. Tabelas podem usar rolagem local acessível quando a estrutura bidimensional exigir; a página inteira não pode cortar conteúdo.</li>
+<li>Não depender apenas de cor para status, séries ou seleção; gráficos com alternativa tabular. Conferir acessibilidade das impressões/exportações afetadas.</li>
+<li>Preservar aviso/renovação de sessão e preenchimento conforme mecanismos existentes; login permite colar senha. Não introduzir barreiras cognitivas ou CAPTCHA.</li>
+</ul>
+<p><strong>Fontes primárias consultadas para o planejamento:</strong> <a href="https://m3.material.io/styles/color/the-color-system/">Material Design — papéis de cor</a>; <a href="https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html">W3C — contraste mínimo</a>; <a href="https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html">W3C — contraste não textual</a>; <a href="https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum">W3C — tamanho de alvo</a>. A proposta de tema aplica esses princípios ao design existente; não exige migração integral para outro kit visual.</p>
+
+<ul class="check">
+  <li><label><input type="checkbox"> <strong>Rótulos e Erros (1.3.1, 3.3.1, 3.3.2):</strong> Todos os campos usam <code>useId()</code> conectando <code>&lt;label htmlFor&gt;</code> ao <code>&lt;input id&gt;</code>, <code>aria-invalid</code> e mensagem de erro com <code>role="alert"</code>.</label></li>
+  <li><label><input type="checkbox"> <strong>Teclado e Foco Visível (2.1.1, 2.4.7, 2.4.11):</strong> Operável integralmente via <code>Tab</code>, <code>Shift+Tab</code>, <code>Enter</code>, <code>Espaço</code> e <code>Esc</code>, com <code>:focus-visible</code> nítido.</label></li>
+  <li><label><input type="checkbox"> <strong>Tamanho do Alvo (2.5.8):</strong> Botões e controles interativos possuem área mínima de <strong>44×44px</strong> em telas operacionais.</label></li>
+  <li><label><input type="checkbox"> <strong>Contraste e Uso de Cor (1.4.1, 1.4.3, 1.4.11):</strong> Contraste de texto &gt;= 4.5:1 e status acompanhado de rótulo textual além da cor.</label></li>
+  <li><label><input type="checkbox"> <strong>Mensagens de Status (4.1.3):</strong> Feedbacks dinâmicos anunciados via <code>role="status"</code> ou <code>aria-live="polite"</code>.</label></li>
+</ul>
+
+
+<h3>7.1 Acessibilidade das consultas e da matriz</h3>
+<ul>
+<li>Menu de ações: aria-haspopup, aria-expanded e associação ao menu, nome acessível individualizado, foco no item adequado e retorno após fechar. Uma ação por MenuItem.</li>
+<li>Detalhe acessível por teclado, sem depender de onRowClick; foco e leitura do diálogo com título programático e fechamento previsível. Sem linha inteira “clicável” com controles conflitantes.</li>
+<li>Permissões: fieldset/legenda ou agrupamento semântico por módulo, nome e descrição associados, seleção parcial anunciada e nenhum checkbox sem rótulo. Não depender só de cor ou de posição em matriz extensa.</li>
+<li>Filtros recolhíveis: indicar expansão, filtros aplicados e resultado; restaurar contexto ao limpar. Paginação anuncia intervalo/total; estado vazio distingue “sem registros em operação” de “sem resultado da busca”.</li>
+<li>Reduzir densidade visual por hierarquia e divulgação progressiva, mantendo tipografia, espaçamento e alvos legíveis. Não cumprir o pedido de limpeza diminuindo controles ou removendo nomes acessíveis.</li>
+</ul>
+<p>Referências primárias adicionais: <a href="https://m3.material.io/components/menus/guidelines">Material Design 3 — menus</a>; <a href="https://mui.com/material-ui/react-menu/">MUI — Menu e foco</a>; <a href="https://mui.com/material-ui/react-table/">MUI — Table e paginação</a>. O site Material 3 exige JavaScript no leitor web; a revisão deve conferir exemplos renderizados quando necessário. O uso de menu é uma aplicação das diretrizes ao Aratu, não prova automática de conformidade.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<h3>8.1 Matriz inicial preservada</h3>
+<p>Os perfis abaixo continuam existindo como conjuntos iniciais de permissões; os nomes deixam de ser a fonte de autorização. Nenhuma migração amplia seu acesso. A gestão posterior da matriz pelo Administrador é explícita e auditada.</p>
+
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">Perfil real</th><th scope="col">Escopo da entrega</th></tr></thead><tbody>
+<tr><td>SOLICITANTE</td><td>Cria, consulta e corrige somente pedidos próprios; não define serviço e não aprova/agenda; acompanha viagem vinculada conforme campos já autorizados.</td></tr>
+<tr><td>GESTOR</td><td>Analisa, devolve/recusa, escolhe serviço e recursos e aprova com agendamento; atende aprovações anteriores. Mantém vínculos e operação SVO conforme autorização existente.</td></tr>
+<tr><td>ADMINISTRADOR</td><td>Supervisão e cadastros já autorizados; grupo SVO filtrado por permissões atuais; na matriz inicial, não recebe aprovar/agendar/conferir como poder implícito do nome do perfil.</td></tr>
+<tr><td>MOTORISTA</td><td>Recebe e executa viagens atribuídas; ajustes visuais e de acessibilidade, sem acesso a análise ou SVO.</td></tr>
+<tr><td>ATENDENTE_SVO</td><td>Navegação SVO e leitura/triagem existentes; não ganha manutenção de equipes ou agendamento institucional.</td></tr>
+<tr><td>EQUIPE_SVO</td><td>Ordens próprias e execução existentes; mantém isolamento de dados; não ganha acesso geral a solicitações.</td></tr>
+</tbody></table></div>
+<p>Perfis personalizados são parte explícita do escopo. Sem variável de ambiente ou feature flag nova. Autenticação e usuário corrente permanecem; autorização evolui para permissões reais e escopos de dados. Ocultação de menu não substitui autorização. Rótulos e cores mudam globalmente quando compartilhados; ações dependem de capacidade, atribuição e estado.</p>
+
+
+
+<h3>8.2 Impacto de perfis combinados</h3>
+<p>Um perfil novo pode conceder, por exemplo, consulta de veículos e execução de ordens atribuídas do SVO. Isso produz navegação com os dois módulos, mas não concede edição de veículo, consulta geral de ocorrências nem ordens de outras equipes. O usuário também precisa de vínculo vigente com a equipe para executar a ordem. O mesmo vale para vincular uma conta a motorista: elegibilidade é validada pela permissão de execução e pelo vínculo cadastral, não pelo texto MOTORISTA.</p>
+<p>Guards de rota, homes, botões, relatórios e seleção de usuários elegíveis devem consumir permissões atuais. Remover dependência de Record&lt;Profile,...&gt; como catálogo completo; manter o mapa dos seis perfis apenas para migração e compatibilidade inicial. Dados carregados sob um perfil não permanecem visíveis depois de perda de acesso.</p>
+<p>Auditoria de operações continua com projeção mascarada e concessão específica. A leitura de eventos de domínio pela fachada central também verifica autorização e escopo desse domínio; permissão de Auditoria isolada não é passe universal para dados sigilosos.</p>
+<h3>8.3 Política de segurança verificável</h3>
+<p>Aplicar autorização por requisição, negação na ausência de concessão e teste de limites por registro, conforme <a href="https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html">OWASP — Authorization Cheat Sheet</a>. A arquitetura proposta reutiliza RBAC existente com escopos e vínculos, sem motor de políticas externo. Mutações de perfis, concessões e contas são transacionais e auditadas; proteger o último administrador também sob duas alterações simultâneas.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<h3>9.1 Evidência já obtida nesta análise</h3>
+<p>Executados antes de alterações funcionais: <code>node --test --test-concurrency=1 tests/sidebarNavigation.test.mjs tests/requestAnalysisPage.test.mjs tests/requesterRequestsPage.test.mjs tests/schedulingService.test.mjs</code> em frontend: quatro arquivos passaram, zero falhas. Essa execução valida a base atual, não implementa nem comprova os requisitos novos.</p>
+<p>A aplicação não respondeu em localhost:5173 no momento da inspeção. Portanto não há validação visual/teclado de todas as telas nem certificação de conformidade nesta etapa de planejamento.</p>
+<h3>9.2 Testes de domínio e integração para a implementação</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">ID</th><th scope="col">Cenário e resultado exigido</th></tr></thead><tbody>
+<tr><td>T01</td><td>Criar sem serviceId: 201/PENDING; service_id/snapshot nulos; evento e auditoria com autoria; permanece nas listas, COUNT e relatório. Catálogo fora do ar não bloqueia envio.</td></tr>
+<tr><td>T02</td><td>Cliente antigo envia serviceId ou usuário forja autoria/status: o dado não controla classificação nem decisão. Reenvio de RETURNED não muda serviço legado pelo Solicitante.</td></tr>
+<tr><td>T03</td><td>Agendar PENDING: 201, pedido SCHEDULED, decisão e viagem consistentes, serviço escolhido e snapshots corretos, eventos APPROVED/SCHEDULED e auditoria no mesmo COMMIT.</td></tr>
+<tr><td>T04</td><td>Falha injetada após decisão, criação da viagem ou evento: ROLLBACK restaura pedido/serviço/revisão originais, sem viagem, eventos ou auditorias parciais.</td></tr>
+<tr><td>T05</td><td>Cancelar formulário, serviço inexistente/inativo, vínculo removido, veículo sem capacidade, motorista sem conta/CNH e necessidades especiais sem evidência: impedir confirmação e manter estado original.</td></tr>
+<tr><td>T06</td><td>Disponibilidade com PENDING e serviço explícito funciona; serviço diferente do legado é aceito pelo Gestor; novos pedidos não dependem de service_id previamente gravado.</td></tr>
+<tr><td>T07</td><td>Mesmo veículo com dois serviços ativos aparece para ambos, conforme disponibilidade; veículo de categoria compatível sem vínculo não pode ser agendado. Inativar vínculo não apaga o histórico.</td></tr>
+<tr><td>T08</td><td>Dois gestores com chaves diferentes para o mesmo pedido: uma viagem e uma decisão. Pedidos distintos com mesmo veículo ou motorista em períodos sobrepostos: uma única confirmação válida; intervalos adjacentes seguem regra existente.</td></tr>
+<tr><td>T09</td><td>Mesma chave/payload reenviados, inclusive após timeout, horário de início ultrapassado e alteração de revisão causada pelo próprio sucesso: 200 com mesma viagem, sem eventos extras; chave com outro payload: 409.</td></tr>
+<tr><td>T10</td><td>Editar serviço/vínculos durante o agendamento: locks respeitam protocolo e a decisão reflete compatibilidade válida; ausência de deadlock no cenário coberto.</td></tr>
+<tr><td>T11</td><td>Pedido APPROVED antigo agenda com serviço redefinido: conserva aprovação anterior e evento original; reclassificação auditável; viagem antiga permanece imutável e sem backfill inventado.</td></tr>
+<tr><td>T12</td><td>expectedRevision desatualizado: 409 sem efeitos. Estados RETURNED/REJECTED/CANCELED/SCHEDULED não podem ser agendados pelo fluxo.</td></tr>
+<tr><td>T13</td><td>RBAC em cada rota: a matriz inicial mantém os acessos atuais, inclusive exclusividade operacional do Gestor; perfis personalizados só operam mediante concessão explícita; pedido de terceiro oculto sem escopo amplo; sem ampliação automática para SVO/Equipe/Motorista.</td></tr>
+<tr><td>T14</td><td>Regressão de viagem direta, execução, confirmação, necessidades especiais, relatório de pedidos sem serviço, snapshots, paginação e totais.</td></tr>
+<tr><td>T15</td><td>Migration up em base com dados antigos; down permitido apenas sem dados novos incompatíveis, e bloqueado sem perda de dados quando eles existirem.</td></tr>
+</tbody></table></div>
+<p>Ampliar testes existentes em backend: <code>requests.service/integration</code>, <code>request-decisions.service</code>, <code>requests-analysis.integration</code>, <code>trips.service</code>, <code>trips-scheduling.integration</code>, <code>availability.service/integration</code>, <code>fleet-services.service</code> e <code>reports.integration</code>. Integração usa banco de teste isolado; nunca produção. Fixtures 100% fictícias; não executar operações destrutivas em banco operacional.</p>
+<h3>9.3 Interface e navegador real</h3>
+<ul>
+<li>Atualizar testes existentes requesterRequestsPage, requestAnalysisPage, requestsService, schedulingService, tripsService, sidebarNavigation, routing e reportsService para nulabilidade e novo fluxo.</li>
+<li>Cobrir: botão “Aprovar e agendar” não envia decisão; cancelar não escreve; sucesso mantém contexto; mudança de serviço/período limpa seleção; resultado antigo não substitui consulta atual; erro/timeout preserva o formulário e resolve idempotência.</li>
+<li>Validar menu de cada perfil, SVO agrupado, ausência de duplicata na sidebar do Solicitante, nome acessível no menu recolhido e atalho móvel preservado.</li>
+<li>Percorrer todas as telas da seção 6 nos cinco estados aplicáveis, inclusive diálogos, com teclado e leitor de tela. Medir contraste computado e alvos reais; ferramenta automatizada complementa a inspeção manual.</li>
+<li>Viewports: 320×568, 360×800, 390×844, 768×1024, 1024×768 (4:3), 1280×800 (16:10), 1280×1024, 1366×768 e 1920×1080; testar também orientação paisagem e zoom/reflow da seção 7.</li>
+<li>Registrar por tela: perfil, viewport, estado, critério, resultado e evidência. Estado sem operação composta pode ter “parcial não aplicável” justificado, sem inventar ação de negócio para preencher matriz.</li>
+</ul>
+<p><strong>Gate:</strong> unitários e integração apropriados, TypeScript backend, lint/build/testes frontend e <code>node docs/scripts/aratu-check.mjs</code>. Separar falhas pré-existentes e limitações de ambiente de regressões da entrega. Não adicionar testes que apenas copiem CSS ou implementação; priorizar comportamento observável e invariantes transacionais.</p>
+
+
+
+<h3>9.4 Aceite adicional: consultas, arquivamento e acesso</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Tabela do plano técnico"><table><thead><tr><th scope="col">ID</th><th scope="col">Comportamento verificável</th></tr></thead><tbody>
+<tr><td>T16</td><td>Veículos com poucas colunas essenciais e um menu por linha; motoristas/serviços/usuários/equipes seguem padrão. A coluna de ações não cria rolagem em 1024×768 ou 1280×800. No móvel, informação e ações continuam acessíveis.</td></tr>
+<tr><td>T17</td><td>Placa/nome abre detalhe por teclado; menu abre/navega/fecha e devolve foco. Não há ações interativas aninhadas, perda de foco quando a linha some nem alvo menor que o padrão operacional.</td></tr>
+<tr><td>T18</td><td>Visão diária exclui inativos, mantém manutenção/afastamento e informa filtro. Arquivados/Todos recuperam cadastros antigos; limpar retorna à visão diária. Paginação, busca e total usam os mesmos critérios.</td></tr>
+<tr><td>T19</td><td>Arquivar/restaurar grava evento/auditoria e conserva FKs, snapshots e relatórios históricos; restaurar não força disponibilidade. Usuário sem permissão não consegue alterar atividade chamando a API diretamente.</td></tr>
+<tr><td>T20</td><td>Auditoria filtra entidade+recordId com COUNT/paginação corretos, mostra projeção segura e preserva máscara SVO/CPF/CNH/segredos. A fachada de histórico rejeita entidade não permitida e aplica isolamento próprio/equipe.</td></tr>
+<tr><td>T21</td><td>Abrir detalhe comum não carrega trilha inteira; botões Histórico repetidos foram removidos. Motivo de devolução/recusa, indicação de retificação e contexto da viagem continuam visíveis para os respectivos operadores.</td></tr>
+<tr><td>T22</td><td>Criar perfil personalizado combinando leitura de Frota e execução SVO atribuída; atribuir a uma conta, entrar, ver menu correto e executar apenas ações concedidas. Cadastro sem vínculo de equipe não executa ordem.</td></tr>
+<tr><td>T23</td><td>Permissão de ler não permite escrever; retirar concessão bloqueia a próxima requisição mesmo com JWT antigo; arquivar conta/perfil impede acesso. UI atualiza contexto e limpa dados sem autorização.</td></tr>
+<tr><td>T24</td><td>Novo nome de perfil não quebra parser, login, renovação, home, menu, guards, seleção de usuários, motorista ou equipe. Nome legível alterado não reescreve autoria de eventos anteriores.</td></tr>
+<tr><td>T25</td><td>Editar matriz com revisão desatualizada retorna 409, sem alterar parte dos vínculos. Repetir criação com mesma chave não duplica perfil nem evento. Código duplicado e permissionId desconhecido são rejeitados.</td></tr>
+<tr><td>T26</td><td>Não é possível remover o último administrador efetivo por revogação, troca de perfil ou arquivamento; duas remoções simultâneas também preservam pelo menos um. Perfil em uso por contas ativas não pode ser arquivado.</td></tr>
+<tr><td>T27</td><td>Matriz inicial reproduz acessos de todos os endpoints e escopos existentes. Reexecutar seed não restaura concessões revogadas nem sobrescreve perfis personalizados. Down com uso novo aborta preservando dados.</td></tr>
+<tr><td>T28</td><td>Perfil que só lê pedidos próprios não consulta pedido de terceiro por ID; permissão de leitura geral não autoriza executar viagem ou ordem sem atribuição. Combinação de módulos não enfraquece essas restrições.</td></tr>
+<tr><td>T29</td><td>Home selecionada deve ser autorizada; perda da permissão leva a destino permitido ou estado claro sem acesso configurado. Sem loop de login nem página privilegiada por fallback.</td></tr>
+<tr><td>T30</td><td>API rejeita diretamente conjuntos conflitantes de escopos, dependências ausentes, home externa ou destino não autorizado, mesmo contornando a UI. Dois POST de perfil com mesma chave não duplicam matriz/eventos; chave com payload diferente retorna 409.</td></tr>
+</tbody></table></div>
+<p>Adicionar testes de comportamento de RowActionsMenu, detalhe resumido, filtros de arquivados e editor de matriz. Ampliar suites de profiles/users/auth/roteamento e testes de acesso por endpoint; usar bases isoladas e dados fictícios. Snapshot de CSS ou teste que apenas compara a lista de permissões com o mesmo array da implementação não substitui testes de acesso permitido/negado e isolamento de registros.</p>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><label><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></label></li>
+  <li><label><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta</code>)</label></li>
+  <li><label><input type="checkbox"> Commits focados, separando mudanças de comportamento das de apresentação; dividir a revisão em etapas compreensíveis</label></li>
+  <li><label><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</label></li>
+  <li><label><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></label></li>
+  <li><label><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</label></li>
+  <li><label><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</label></li>
+  <li><label><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></label></li>
+  <li><label><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</label></li>
+  <li><label><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</label></li>
+</ul>
+
+
+<ul class="check">
+<li><label><input type="checkbox"> Consultas resumidas, filtros de atividade, menus acessíveis e contexto operacional homologados.</label></li>
+<li><label><input type="checkbox"> Auditoria central cobre as trilhas retiradas da rotina e mantém projeções seguras.</label></li>
+<li><label><input type="checkbox"> Perfis personalizados funcionam de ponta a ponta; todas as rotas e escopos usam a matriz efetiva.</label></li>
+<li><label><input type="checkbox"> Último administrador, revogação em sessão ativa e seeds sem reposição indevida de concessões verificados.</label></li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+
+
+<p>A implementação impacta a documentação funcional e técnica:</p>
+<ul>
+<li><code>docs/modulos/VIAGENS.html</code>: solicitação sem serviço, aprovação atômica, agendamento, legado, snapshots, idempotência, contratos e roteiro RBAC.</li>
+<li><code>docs/modulos/FROTA.html</code>: relação N:N existente, cadastro do veículo e validação dos vínculos na seleção de serviço.</li>
+<li><code>docs/modulos/SVO.html</code>: grupo de navegação e nomes; registrar que a organização visual preserva operações e permissões.</li>
+<li><code>docs/modulos/AUTENTICACAO_RBAC.html</code> e <code>docs/manuais/modulos.md</code>: nomenclatura/navegação e diferenças entre consulta administrativa e decisão do Gestor.</li>
+<li>Manuais de frontend e componentes compartilhados: tokens semânticos, contraste, títulos e procedimento de auditoria de telas quando houver mudança efetiva na implementação.</li>
+</ul>
+<p>Atualizar exemplos de payload e screenshots com dados fictícios. O SDD registra o alvo; documentação dos módulos só deve afirmar o novo comportamento depois de implementado e validado.</p>
+
+
+
+<p><strong>Complemento da ampliação:</strong> AUTENTICACAO_RBAC deve descrever catálogo granular, escopos, gestão de perfis, revogação e proteção da administração; FROTA/MOTORISTAS/SVO devem explicar arquivamento lógico e seleção de contas elegíveis por permissão/vínculo. Registrar no manual de frontend o padrão de consulta resumida, detalhe progressivo e RowActionsMenu. O manual de auditoria deve indicar filtros por registro e diferenciação entre log de alteração e evento operacional, mantendo as restrições LGPD. Atualizar as instruções do seed para a matriz não ser restabelecida a cada execução.</p>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado, permissões e vínculos; preservar a matriz inicial dos seis perfis e admitir perfis personalizados sem inferir acesso pelo nome.</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> evolução coordenada dos contratos JSON, compatibilidade explicitada e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</main>
+</body>
+</html>

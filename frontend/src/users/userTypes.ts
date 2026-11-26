@@ -1,12 +1,11 @@
-import type { Profile } from '../auth/profiles'
-
 /** Conta de usuário retornada pela API administrativa, sem credenciais. */
 export interface ManagedUser {
   id: string
   name: string
   email: string
   roleId: string
-  role: Profile
+  role: string
+  roleDisplayName?: string
   active: boolean
   revision: number
   createdAt: string
@@ -25,7 +24,7 @@ export interface UsersPage {
 /** Filtros aceitos pela listagem administrativa. */
 export interface UserListQuery {
   name?: string
-  role?: Profile
+  role?: string
   active?: boolean
   page?: number
   pageSize?: number

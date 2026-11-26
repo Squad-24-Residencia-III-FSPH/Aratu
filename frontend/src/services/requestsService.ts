@@ -25,8 +25,8 @@ function isSummary(value: unknown): value is RequestSummary {
     && typeof value.id === 'string'
     && typeof value.requesterId === 'string'
     && typeof value.requesterName === 'string'
-    && typeof value.serviceId === 'string'
-    && typeof value.serviceName === 'string'
+    && isNullableText(value.serviceId)
+    && isNullableText(value.serviceName)
     && typeof value.requestedDate === 'string'
     && typeof value.requestedTime === 'string'
     && typeof value.origin === 'string'
@@ -78,6 +78,7 @@ export async function listRequests(api: ApiRequest, filters: RequestListFilters)
     const value = filters[key]
     if (value !== undefined && value !== '') query.set(key, String(value))
   }
+  if (filters.statuses?.length) query.set('statuses', filters.statuses.join(','))
   const response = await api(`/requests?${query}`)
   const body = await parseResponse(response, 'Não foi possível carregar as solicitações. Tente novamente.')
   if (!isRecord(body) || !Array.isArray(body.requests) || !body.requests.every(isSummary)

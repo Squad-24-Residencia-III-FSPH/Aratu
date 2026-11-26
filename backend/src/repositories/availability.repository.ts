@@ -40,7 +40,7 @@ export class AvailabilityRepository implements AvailabilityRepositoryContract {
 
   async serviceExists(serviceId: string, client?: PoolClient): Promise<boolean> {
     const executor = client ?? this.pool
-    const result = await executor.query('SELECT 1 FROM fleet.services WHERE id = $1', [serviceId])
+    const result = await executor.query('SELECT 1 FROM fleet.services WHERE id = $1 AND active = true', [serviceId])
     return (result.rowCount ?? 0) > 0
   }
 
@@ -82,8 +82,12 @@ export class AvailabilityRepository implements AvailabilityRepositoryContract {
               to_char(d.cnh_expires_at, 'YYYY-MM-DD') AS "cnhExpiresAt", d.status,
               EXISTS (
                 SELECT 1 FROM auth.users u
-                JOIN auth.roles r ON r.id = u.role_id
-                 WHERE u.id = d.user_id AND u.active = true AND r.name = 'MOTORISTA'
+                JOIN auth.roles r ON r.id = u.role_id AND r.active = true
+                 WHERE u.id = d.user_id AND u.active = true
+                   AND EXISTS (SELECT 1 FROM auth.role_permissions rp
+                     JOIN auth.permissions p ON p.id = rp.permission_id
+                    WHERE rp.role_id = r.id AND rp.is_active = true
+                      AND p.name = 'trips:execute:assigned')
               ) AS "accountEligible",
               EXISTS (
                 SELECT 1 FROM trip.trips t

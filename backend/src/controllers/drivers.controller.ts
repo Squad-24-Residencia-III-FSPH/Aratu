@@ -13,6 +13,10 @@ function bodyRecord(body: unknown): Record<string, unknown> {
   return body as Record<string, unknown>
 }
 
+function queryInteger(value: unknown): number {
+  return typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : Number.NaN
+}
+
 async function respondWithDomainErrors<T>(
   response: Response,
   next: NextFunction,
@@ -39,6 +43,13 @@ export function createDriversController(service: DriversService) {
         ...(typeof req.query.status === 'string'
           ? { status: req.query.status as NonNullable<DriverFilters['status']> }
           : {}),
+        ...(typeof req.query.cnhCategory === 'string'
+          ? { cnhCategory: req.query.cnhCategory as NonNullable<DriverFilters['cnhCategory']> }
+          : {}),
+        ...(typeof req.query.search === 'string' ? { search: req.query.search } : {}),
+        ...(typeof req.query.view === 'string' ? { view: req.query.view as NonNullable<DriverFilters['view']> } : {}),
+        ...(req.query.page !== undefined ? { page: queryInteger(req.query.page) } : {}),
+        ...(req.query.pageSize !== undefined ? { pageSize: queryInteger(req.query.pageSize) } : {}),
       }
       return respondWithDomainErrors(res, next, () => service.listDrivers(filters))
     },
@@ -82,7 +93,7 @@ export function createDriversController(service: DriversService) {
       return respondWithDomainErrors(
         res,
         next,
-        () => service.changeDriverStatus(String(req.params.id), input, req.usuario?.id ?? ''),
+        () => service.changeDriverStatus(String(req.params.id), input, req.usuario?.id ?? '', req.usuario?.permissions ?? []),
       )
     },
   }

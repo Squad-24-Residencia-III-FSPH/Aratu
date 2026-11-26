@@ -5,7 +5,7 @@ import {
 import CheckIcon from '@mui/icons-material/Check'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import { useAuth } from '../../auth/useAuth'
-import { resolveProfile } from '../../auth/profiles'
+import { hasAnyPermission, hasPermission } from '../../auth/access'
 import { useTripConfirmations } from '../../hooks/useTripConfirmations'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import DataTable from '../../components/ui/DataTable'
@@ -51,9 +51,8 @@ const COLUMNS: readonly DataTableColumn<TripConfirmationItem>[] = [
 /** Permite ao Gestor conferir os dados disponíveis e confirmar viagens finalizadas pela API FROTA-106. */
 export default function TripConfirmationPage() {
   const { api, session } = useAuth()
-  const profile = session ? resolveProfile(session.perfil) : null
-  const allowed = profile === 'GESTOR' || profile === 'ADMINISTRADOR'
-  const canOperate = profile === 'GESTOR'
+  const allowed = hasAnyPermission(session, ['trips:read:all', 'trips:confirm'])
+  const canOperate = hasPermission(session, 'trips:confirm')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [vehicle, setVehicle] = useState('')
@@ -92,7 +91,7 @@ export default function TripConfirmationPage() {
   return (
     <Box>
       <PageHeader
-        title="Confirmar viagens"
+        title="Conferência"
         description="Confira os registros das viagens finalizadas antes de confirmar a conclusão."
       />
 

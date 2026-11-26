@@ -110,7 +110,7 @@ test('IT-AVAILABILITY-01: veículos com motivos; encostar e viagem cancelada nã
 
 test('IT-AVAILABILITY-02: motoristas afastado, com CNH vencendo antes da viagem e ocupado', async () => {
   await scenario()
-  const { status, body } = await get<DriverAvailability[]>(`/drivers/available?${PERIOD}`, 'ADMINISTRADOR')
+  const { status, body } = await get<DriverAvailability[]>(`/drivers/available?${PERIOD}`, 'GESTOR')
   assert.equal(status, 200)
   assert.deepEqual(body.map((item) => [item.name, item.available, item.reasons]), [
     ['A Motorista Livre', true, []],

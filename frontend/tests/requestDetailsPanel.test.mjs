@@ -6,7 +6,7 @@ import path from 'node:path'
 import { createElement } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 
 // O cache precisa ficar fora de `node_modules`, que pode ser somente leitura
@@ -25,7 +25,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 dom.window.matchMedia ??= () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return false } })
 
 const { cleanup, fireEvent, render, screen, waitFor } = await import('@testing-library/react')
-const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir, plugins: [react()],
+const vite = await createTestViteServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir, plugins: [react()],
   server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const { default: RequestDetailsPanel } = await vite.ssrLoadModule('/src/components/RequestDetailsPanel.tsx')
 

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { after, before, beforeEach, test } from 'node:test'
@@ -10,7 +11,7 @@ import type { AuditLogPage } from '../src/types/audit-log.types'
 import { closeTestPool, getTestPool, setupTestDatabase, truncateTestDatabase } from './helpers/db-test'
 import { RBAC_FIXTURE_PASSWORD, RBAC_JWT_CONFIG, RBAC_JWT_SECRET, seedRbacTestUsers } from './fixtures/rbac-users.fixture'
 import type { RbacTestUser } from './fixtures/rbac-users.fixture'
-import { insertRequest, insertService } from './fixtures/scheduling.fixture'
+import { insertRequest, insertService, linkVehicleToService } from './fixtures/scheduling.fixture'
 
 let pool: Pool
 let server: Server
@@ -49,8 +50,8 @@ async function civilDate(offsetDays: number): Promise<string> {
   return String(result.rows[0]?.day)
 }
 
-/** Gera operações reais pela API (login, criação, mudança de status, aprovação) e registros sensíveis. */
-async function operations(): Promise<{ vehicleId: string; requestId: string }> {
+/** Gera operações reais pela API (login, criação, mudança de status, agendamento) e registros sensíveis. */
+async function operations(): Promise<{ vehicleId: string; requestId: string; tripId: string }> {
   const login = await call('POST', '/auth/login', null, { email: getUser('GESTOR').email, senha: RBAC_FIXTURE_PASSWORD })
   assert.equal(login.status, 200)
 
@@ -62,13 +63,39 @@ async function operations(): Promise<{ vehicleId: string; requestId: string }> {
   assert.equal((await call('PATCH', `/vehicles/${vehicleId}/status`, 'GESTOR', { status: 'IN_MAINTENANCE', expectedRevision: 1, ...meta })).status, 200)
 
   const serviceId = await insertService(pool, 'Transporte Fictício QA')
+  const schedulingVehicle = await call('POST', '/vehicles', 'GESTOR', {
+    licensePlate: 'AUD1A01', categories: ['PASSENGER'], seats: 4, bodyLimit: 0, weightLimit: null, operationType: 'ADMINISTRATIVE', ...meta,
+  })
+  assert.equal(schedulingVehicle.status, 201)
+  const schedulingVehicleId = String(((await schedulingVehicle.json()) as { id: string }).id)
+  await linkVehicleToService(pool, schedulingVehicleId, serviceId)
   const requestId = await insertRequest(pool, getUser('SOLICITANTE').id, serviceId, 'PENDING')
-  assert.equal((await call('POST', `/requests/${requestId}/approve`, 'GESTOR')).status, 200)
 
   const driver = await call('POST', '/drivers', 'ADMINISTRADOR', {
-    name: 'Motorista Fictício QA', cpf: FICTITIOUS_CPF, cnhNumber: '00000000001', cnhCategory: 'D', cnhExpiresAt: '2099-12-31', ...meta,
+    name: 'Motorista Fictício QA', cpf: FICTITIOUS_CPF, cnhNumber: '00000000001', cnhCategory: 'D', cnhExpiresAt: '2099-12-31', userId: getUser('MOTORISTA').id, ...meta,
   })
   assert.equal(driver.status, 201)
+  const driverId = String(((await driver.json()) as { id: string }).id)
+  const scheduled = await fetch(`${baseUrl}/trips`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getUser('GESTOR').token}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': randomUUID(),
+    },
+    body: JSON.stringify({
+      requestId,
+      expectedRevision: 1,
+      serviceId,
+      vehicleId: schedulingVehicleId,
+      driverId,
+      scheduledStart: '2099-12-01T08:00:00-03:00',
+      scheduledEnd: '2099-12-01T12:00:00-03:00',
+    }),
+  })
+  const tripResult = await scheduled.json() as { id?: string; erro?: string }
+  assert.equal(scheduled.status, 201, tripResult.erro ?? '')
+  const tripId = String(tripResult.id)
 
   await pool.query(
     `INSERT INTO audit.logs (user_id, table_name, record_id, operation, after, actor_snapshot, reason)
@@ -80,7 +107,7 @@ async function operations(): Promise<{ vehicleId: string; requestId: string }> {
      VALUES ($1, 'auth.users', $4, 'UPDATE', $2::jsonb, $3::jsonb, 'Registro legado', '2020-01-15T12:00:00Z')`,
     [getUser('ADMINISTRADOR').id, JSON.stringify({ password_hash: 'hash-ficticio', session: { token: 'token-ficticio' } }), JSON.stringify({ id: getUser('ADMINISTRADOR').id }), getUser('ADMINISTRADOR').id],
   )
-  return { vehicleId, requestId }
+  return { vehicleId, requestId, tripId }
 }
 
 before(async () => {
@@ -107,14 +134,14 @@ after(async () => {
   await closeTestPool()
 })
 
-test('IT-AUDIT-01: login, criação, aprovação e mudança de status aparecem com usuário, ação, entidade e data', async () => {
-  const { vehicleId, requestId } = await operations()
+test('IT-AUDIT-01: login, criação, agendamento e mudança de status aparecem com usuário, ação, entidade e data', async () => {
+  const { vehicleId, tripId } = await operations()
   const page = await logs(`?userId=${getUser('GESTOR').id}&pageSize=100`)
   const entries = page.logs.map((entry) => [entry.operation, entry.table, entry.recordId])
   assert.ok(entries.some(([operation, table]) => operation === 'LOGIN_SUCCESS' && table === 'auth.users'), 'login')
   assert.ok(entries.some(([operation, table, record]) => operation === 'CREATE' && table === 'fleet.vehicles' && record === vehicleId), 'criação')
   assert.ok(entries.some(([operation, table, record]) => operation === 'STATUS_CHANGE' && table === 'fleet.vehicles' && record === vehicleId), 'mudança de status')
-  assert.ok(entries.some(([operation, table, record]) => operation === 'STATUS_CHANGE' && table === 'trip.requests' && record === requestId), 'aprovação')
+  assert.ok(entries.some(([operation, table, record]) => operation === 'CREATE' && table === 'trip.trips' && record === tripId), 'agendamento')
   for (const entry of page.logs) {
     assert.equal(entry.userId, getUser('GESTOR').id)
     assert.ok(entry.registeredAt && Number.isFinite(Date.parse(String(entry.registeredAt))))
@@ -140,7 +167,7 @@ test('IT-AUDIT-02: filtros por período, usuário e operação', async () => {
   assert.equal(logins.logs[0]?.userId, getUser('GESTOR').id)
 
   const vehicles = await logs('?table=fleet.vehicles')
-  assert.deepEqual(vehicles.logs.map((entry) => entry.operation).sort(), ['CREATE', 'STATUS_CHANGE'])
+  assert.deepEqual(vehicles.logs.map((entry) => entry.operation).sort(), ['CREATE', 'CREATE', 'STATUS_CHANGE'])
 
   for (const query of ['?from=2026-13-01', '?from=2026-12-01&to=2026-11-01', '?userId=abc', '?operation=drop', '?pageSize=500']) {
     const response = await call('GET', `/audit-logs${query}`)

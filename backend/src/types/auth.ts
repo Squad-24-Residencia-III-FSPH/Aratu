@@ -13,7 +13,8 @@ export const USER_ROLES = [
 /**
  * Papel ou perfil de acesso de um usuário no sistema (`auth.roles.name`).
  */
-export type UserRole = typeof USER_ROLES[number]
+/** Código estável do perfil, incluindo perfis personalizados criados pela Administração. */
+export type UserRole = string & {}
 
 /**
  * Payload JSON recebido na requisição de autenticação (`POST /auth/login`).
@@ -41,6 +42,10 @@ export interface UserForLogin {
   roleId: string
   /** Nome do perfil RBAC obtido via JOIN com `auth.roles`. */
   role: UserRole
+  /** Perfil ainda pode autenticar somente quando este valor for verdadeiro. */
+  profileActive: boolean
+  /** Rótulo para apresentação sem usar o código estável como texto de interface. */
+  displayName: string
   /** Indica se a conta está ativa e autorizada a autenticar (`auth.users.active`). */
   is_active: boolean
 }
@@ -53,6 +58,30 @@ export interface AuthenticatedUser {
   id: string
   /** Perfil RBAC ativo durante a sessão. */
   perfil: UserRole
+  /** Identificador do perfil revalidado no banco, ausente apenas em adaptadores legados. */
+  roleId?: string
+  /** Nome legível do perfil revalidado no banco. */
+  displayName?: string
+  /** Revisão vigente usada para atualizar o contexto do cliente. */
+  roleRevision?: number
+  /** Destino inicial escolhido dentro das rotas permitidas ao perfil. */
+  defaultPath?: string | null
+  /** Concessões ativas relidas do banco em cada requisição. */
+  permissions?: readonly string[]
+}
+
+/** Contexto de autorização relido no banco antes de cada rota protegida. */
+export interface CurrentUserAuthorizationContext {
+  id: string
+  name: string
+  roleId: string
+  role: UserRole
+  displayName: string
+  roleRevision: number
+  defaultPath: string | null
+  profileActive: boolean
+  active: boolean
+  permissions: string[]
 }
 
 /**
@@ -75,6 +104,10 @@ export interface LoginSuccess {
   nome: string
   /** Perfil RBAC do usuário para roteamento e autorização no frontend. */
   perfil: UserRole
+  /** Identificador do perfil, usado para obter seu contexto atual após o login. */
+  profileId?: string
+  /** Rótulo do perfil usado na interface. */
+  profileName?: string
 }
 
 /**
@@ -85,8 +118,18 @@ export interface Role {
   id: string
   /** Nome canônico do perfil (ex: ADMINISTRADOR, GESTOR). */
   name: UserRole
+  /** Nome legível e editável apresentado na administração. */
+  displayName: string
   /** Descrição das atribuições operacionais do perfil. */
   description: string | null
+  /** Perfil disponível para associação e autenticação. */
+  active: boolean
+  /** Versão para impedir gravações concorrentes sobre dados obsoletos. */
+  revision: number
+  /** Rota inicial escolhida entre destinos autorizados. */
+  defaultPath: string | null
+  /** Quantidade de contas ativas vinculadas ao perfil. */
+  activeUserCount: number
   /** Data/hora de criação do perfil. */
   createdAt: Date
 }
@@ -120,6 +163,8 @@ export interface User {
   roleId: string
   /** Nome do perfil obtido via JOIN com auth.roles. */
   role: UserRole
+  /** Rótulo do perfil exibido na interface administrativa. */
+  roleDisplayName?: string
   /** Conta ativa ou desativada. */
   active: boolean
   /** Controle de concorrência otimista. */

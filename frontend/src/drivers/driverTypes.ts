@@ -59,6 +59,19 @@ export interface ChangeDriverStatusInput {
 export interface DriverFilters {
   name?: string
   status?: DriverStatus
+  cnhCategory?: CnhCategory
+  view?: 'operational' | 'archived' | 'all'
+  search?: string
+  page?: number
+  pageSize?: number
+}
+
+export interface DriverPage {
+  items: Driver[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 /** Erro HTTP de domínio devolvido pela API de motoristas. */

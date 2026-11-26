@@ -15,7 +15,7 @@ const TOKEN_ROLES: readonly UserRole[] = [
   'ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO',
 ]
 const FORBIDDEN_BODY = {
-  erro: 'Acesso negado: perfil de usuário não autorizado para esta operação.',
+  erro: 'Acesso negado: seu perfil não possui a permissão necessária para esta ação.',
 }
 
 const vehicle = {

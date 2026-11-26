@@ -15,10 +15,16 @@ function bodyRecord(body: unknown): Record<string, unknown> {
 }
 
 function parseFilters(query: Request['query']): FleetServiceFilters {
-  if (query.active === undefined) return {}
-  if (query.active === 'true') return { active: true }
-  if (query.active === 'false') return { active: false }
-  throw new FleetServiceError(400, 'O filtro active deve ser true ou false.')
+  const filters: FleetServiceFilters = {}
+  if (query.active !== undefined) {
+    if (query.active === 'true') filters.active = true
+    else if (query.active === 'false') filters.active = false
+    else throw new FleetServiceError(400, 'O filtro active deve ser true ou false.')
+  }
+  if (typeof query.search === 'string') filters.search = query.search
+  if (query.page !== undefined) filters.page = typeof query.page === 'string' && /^\d+$/.test(query.page) ? Number(query.page) : Number.NaN
+  if (query.pageSize !== undefined) filters.pageSize = typeof query.pageSize === 'string' && /^\d+$/.test(query.pageSize) ? Number(query.pageSize) : Number.NaN
+  return filters
 }
 
 async function respondWithDomainErrors<T>(
@@ -42,11 +48,11 @@ async function respondWithDomainErrors<T>(
 export function createServicesController(service: FleetServicesService) {
   return {
     list(req: Request, res: Response, next: NextFunction): Promise<void> {
-      return respondWithDomainErrors(res, next, async () => service.listServices(parseFilters(req.query), req.usuario?.perfil))
+      return respondWithDomainErrors(res, next, async () => service.listServices(parseFilters(req.query), req.usuario?.permissions ?? []))
     },
 
     getById(req: Request, res: Response, next: NextFunction): Promise<void> {
-      return respondWithDomainErrors(res, next, () => service.getService(String(req.params.id), req.usuario?.perfil))
+      return respondWithDomainErrors(res, next, () => service.getService(String(req.params.id), req.usuario?.permissions ?? []))
     },
 
     create(req: Request, res: Response, next: NextFunction): Promise<void> {

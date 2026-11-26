@@ -1,12 +1,20 @@
 import type { Pool, PoolClient } from 'pg'
 import type { SvoActorSnapshot } from '../types/svo-occurrence.types'
-import type { SvoEligibleMember, SvoTeam, SvoTeamEventInput, SvoTeamMember, SvoTeamShift } from '../types/svo-team.types'
+import type { SvoEligibleMember, SvoTeam, SvoTeamEventInput, SvoTeamListFilters, SvoTeamMember, SvoTeamPageFilters, SvoTeamShift } from '../types/svo-team.types'
+import type { PaginatedResult } from '../types/pagination.types'
+
+const SVO_TEAM_MEMBER_PERMISSIONS = [
+  'svo:orders:read:assigned',
+  'svo:orders:update:assigned',
+  'svo:orders:result:assigned',
+] as const
 
 export interface SvoTeamsRepositoryContract {
   withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
   findActor(id: string, client: PoolClient): Promise<SvoActorSnapshot | null>
   currentTime(client: PoolClient): Promise<Date>
-  list(): Promise<SvoTeam[]>
+  list(filters?: SvoTeamListFilters): Promise<SvoTeam[]>
+  listPaged?(filters: SvoTeamPageFilters): Promise<PaginatedResult<SvoTeam>>
   listEligibleMembers(): Promise<SvoEligibleMember[]>
   findTeamForUpdate(id: string, client: PoolClient): Promise<Pick<SvoTeam, 'id' | 'name' | 'active' | 'revision'> | null>
   createTeam(name: string, client: PoolClient): Promise<SvoTeam>
@@ -57,7 +65,68 @@ export class SvoTeamsRepository implements SvoTeamsRepositoryContract {
     return result.rows[0]!.time
   }
 
-  async list(): Promise<SvoTeam[]> { return this.listWith(this.pool) }
+  async list(filters: SvoTeamListFilters = {}): Promise<SvoTeam[]> {
+    const values = [filters.view ?? 'all', searchPattern(filters.search)]
+    const result = await this.pool.query<SvoTeam>(
+      `SELECT t.id::text AS id, t.name, t.active, t.revision,
+        COALESCE((SELECT jsonb_agg(jsonb_build_object(
+          'id', m.id::text, 'userId', m.user_id::text, 'name', u.name, 'active', m.active,
+          'joinedAt', m.joined_at, 'leftAt', m.left_at
+        ) ORDER BY m.active DESC, u.name, m.id)
+          FROM svo.team_members m JOIN auth.users u ON u.id = m.user_id WHERE m.team_id = t.id), '[]'::jsonb) AS members,
+        COALESCE((SELECT jsonb_agg(jsonb_build_object(
+          'id', s.id::text, 'startsAt', s.starts_at, 'endsAt', s.ends_at, 'canceledAt', s.canceled_at,
+          'cancellationReason', s.cancellation_reason, 'revision', s.revision
+        ) ORDER BY s.starts_at DESC, s.id DESC)
+          FROM svo.team_shifts s WHERE s.team_id = t.id), '[]'::jsonb) AS shifts
+       FROM svo.teams t
+      WHERE ($1::text = 'all' OR ($1::text = 'operational' AND t.active = true)
+             OR ($1::text = 'archived' AND t.active = false))
+        AND ($2::text IS NULL OR lower(t.name) LIKE lower($2) ESCAPE '\\')
+      ORDER BY lower(btrim(t.name)), t.id`, values,
+    )
+    return result.rows
+  }
+
+  /** Conta e pagina equipes no PostgreSQL com o mesmo recorte de atividade e busca. */
+  async listPaged(filters: SvoTeamPageFilters): Promise<PaginatedResult<SvoTeam>> {
+    const values = [filters.view ?? 'operational', searchPattern(filters.search)]
+    const where = `WHERE ($1::text = 'all' OR ($1::text = 'operational' AND t.active = true)
+             OR ($1::text = 'archived' AND t.active = false))
+        AND ($2::text IS NULL OR lower(t.name) LIKE lower($2) ESCAPE '\\')`
+    const [countResult, pageResult] = await Promise.all([
+      this.pool.query<{ total: string }>(`SELECT count(*)::text AS total FROM svo.teams t ${where}`, values),
+      this.pool.query<SvoTeam>(
+        `WITH selected AS (
+          SELECT t.id FROM svo.teams t ${where}
+          ORDER BY lower(btrim(t.name)), t.id
+          LIMIT $3 OFFSET $4
+        )
+        SELECT t.id::text AS id, t.name, t.active, t.revision,
+          COALESCE((SELECT jsonb_agg(jsonb_build_object(
+            'id', m.id::text, 'userId', m.user_id::text, 'name', u.name, 'active', m.active,
+            'joinedAt', m.joined_at, 'leftAt', m.left_at
+          ) ORDER BY m.active DESC, u.name, m.id)
+            FROM svo.team_members m JOIN auth.users u ON u.id = m.user_id WHERE m.team_id = t.id), '[]'::jsonb) AS members,
+          COALESCE((SELECT jsonb_agg(jsonb_build_object(
+            'id', s.id::text, 'startsAt', s.starts_at, 'endsAt', s.ends_at, 'canceledAt', s.canceled_at,
+            'cancellationReason', s.cancellation_reason, 'revision', s.revision
+          ) ORDER BY s.starts_at DESC, s.id DESC)
+            FROM svo.team_shifts s WHERE s.team_id = t.id), '[]'::jsonb) AS shifts
+        FROM selected p JOIN svo.teams t ON t.id = p.id
+        ORDER BY lower(btrim(t.name)), t.id`,
+        [...values, filters.pageSize, (filters.page - 1) * filters.pageSize],
+      ),
+    ])
+    const total = Number(countResult.rows[0]?.total ?? 0)
+    return {
+      items: pageResult.rows,
+      total,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      totalPages: Math.ceil(total / filters.pageSize),
+    }
+  }
 
   async findById(id: string): Promise<SvoTeam | null> {
     return (await this.listWith(this.pool, id))[0] ?? null
@@ -86,7 +155,11 @@ export class SvoTeamsRepository implements SvoTeamsRepositoryContract {
     const result = await this.pool.query<SvoEligibleMember>(
       `SELECT u.id::text AS id, u.name, u.email FROM auth.users u
         JOIN auth.roles r ON r.id = u.role_id
-       WHERE u.active = true AND r.name = 'EQUIPE_SVO' ORDER BY u.name, u.id`,
+       WHERE u.active = true AND r.active = true
+         AND (SELECT count(DISTINCT p.name)
+                FROM auth.role_permissions rp JOIN auth.permissions p ON p.id = rp.permission_id
+               WHERE rp.role_id = r.id AND rp.is_active = true AND p.name = ANY($1::text[])) = cardinality($1::text[])
+       ORDER BY u.name, u.id`, [SVO_TEAM_MEMBER_PERMISSIONS],
     )
     return result.rows
   }
@@ -128,7 +201,11 @@ export class SvoTeamsRepository implements SvoTeamsRepositoryContract {
   async isEligibleMember(userId: string, client: PoolClient): Promise<boolean> {
     const result = await client.query<{ id: string }>(
       `SELECT u.id::text AS id FROM auth.users u JOIN auth.roles r ON r.id = u.role_id
-        WHERE u.id = $1 AND u.active = true AND r.name = 'EQUIPE_SVO' FOR SHARE OF u, r`, [userId],
+        WHERE u.id = $1 AND u.active = true AND r.active = true
+          AND (SELECT count(DISTINCT p.name)
+                 FROM auth.role_permissions rp JOIN auth.permissions p ON p.id = rp.permission_id
+                WHERE rp.role_id = r.id AND rp.is_active = true AND p.name = ANY($2::text[])) = cardinality($2::text[])
+        FOR SHARE OF u, r`, [userId, SVO_TEAM_MEMBER_PERMISSIONS],
     )
     return result.rows.length > 0
   }
@@ -214,4 +291,9 @@ export class SvoTeamsRepository implements SvoTeamsRepositoryContract {
   private async readWithClient(id: string, client: PoolClient): Promise<SvoTeam | null> {
     return (await this.listWith(client, id))[0] ?? null
   }
+}
+
+function searchPattern(value: string | undefined): string | null {
+  if (!value) return null
+  return `%${value.replace(/[\\%_]/g, (character) => `\\${character}`)}%`
 }

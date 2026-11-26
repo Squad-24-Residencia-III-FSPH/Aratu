@@ -9,6 +9,9 @@ export interface AuthContextValue {
   logout: () => void
   api: ApiRequest
   notice: string
+  authorizationLoading: boolean
+  authorizationError: string
+  refreshAuthorization: () => void
   renewalPrompt: boolean
   renewalPending: boolean
   renewalError: string

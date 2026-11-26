@@ -6,7 +6,7 @@ import path from 'node:path'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { fileURLToPath } from 'node:url'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 import { getOdometerError } from '../src/maintenance/maintenanceForm.ts'
 
@@ -14,7 +14,7 @@ import { getOdometerError } from '../src/maintenance/maintenanceForm.ts'
 // quando as dependências foram instaladas por outro usuário (ex: container).
 const viteCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aratu-vite-test-'))
 
-const vite = await createServer({
+const vite = await createTestViteServer({
   configFile: false,
   root: fileURLToPath(new URL('..', import.meta.url)),
   cacheDir: viteCacheDir,

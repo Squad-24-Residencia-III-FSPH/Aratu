@@ -86,7 +86,7 @@ test('IT02: aplica as migrações RBAC e cria tabelas e colunas esperadas', asyn
   assert.equal(columns.rows[0]?.count, '2')
 })
 
-test('IT03: seed RBAC é idempotente e aplica as permissões iniciais', async () => {
+test('IT03: seed RBAC é idempotente e não restaura grants administrativos', async () => {
   const pool = getTestPool()
 
   await seedRolesAndPermissions(pool)
@@ -106,7 +106,7 @@ test('IT03: seed RBAC é idempotente e aplica as permissões iniciais', async ()
   assert.deepEqual(counts.rows[0], {
     roles: '6',
     permissions: '3',
-    mappings: '8',
+    mappings: '0',
     users: '1',
   })
 
@@ -117,13 +117,7 @@ test('IT03: seed RBAC é idempotente e aplica as permissões iniciais', async ()
     JOIN auth.permissions p ON p.id = rp.permission_id
     ORDER BY r.name, p.name
   `)
-  const mappingSet = new Set(permissions.rows.map(({ role, permission }) => `${role}:${permission}`))
-  assert.ok(mappingSet.has('ADMINISTRADOR:users:manage'))
-  assert.ok(mappingSet.has('ADMINISTRADOR:permissions:manage'))
-  assert.equal(
-    permissions.rows.filter(({ permission }) => permission === 'screens:access').length,
-    6,
-  )
+  assert.deepEqual(permissions.rows, [])
 
   const auditLogs = await pool.query<{ operation: string; reason: string; table: string }>(`
     SELECT operation, reason, table_name AS "table"
@@ -135,7 +129,7 @@ test('IT03: seed RBAC é idempotente e aplica as permissões iniciais', async ()
   assert.equal(auditLogs.rows[0]?.table, 'auth.users')
 })
 
-test('IT04: RolesRepository lista perfis e recupera permissões por perfil', async () => {
+test('IT04: RolesRepository lista perfis sem reativar permissões revogadas', async () => {
   const pool = getTestPool()
   const repository = new RolesRepository(pool)
   const roles = await repository.findAll()
@@ -146,11 +140,7 @@ test('IT04: RolesRepository lista perfis e recupera permissões por perfil', asy
   if (!administrator) return
 
   const permissions = await repository.findPermissionsByRoleId(administrator.id)
-  assert.deepEqual(permissions.map((permission) => permission.name), [
-    'permissions:manage',
-    'screens:access',
-    'users:manage',
-  ])
+  assert.deepEqual(permissions, [])
 })
 
 test('IT05: UsersRepository encontra usuário por e-mail sem perder o perfil', async () => {
@@ -284,16 +274,23 @@ test('IT10: transação revertida não persiste usuário', async () => {
 
 test('IT11: rollback restaura as invariantes da coluna role legada', async () => {
   const pool = getTestPool()
-  const rollbackPath = path.resolve(
+  const profileRollbackPath = path.resolve(
+    __dirname,
+    '../src/database/migrations/202611260002_manage_profiles_permissions.down.sql',
+  )
+  const roleRollbackPath = path.resolve(
     __dirname,
     '../src/database/migrations/202610180001_create_roles_permissions_and_update_users.down.sql',
   )
-  const rollbackSql = await fs.readFile(rollbackPath, 'utf8')
-
-  await pool.query(rollbackSql)
-  await pool.query(`DELETE FROM schema_migrations WHERE version = '202610180001'`)
+  const profileRollbackSql = await fs.readFile(profileRollbackPath, 'utf8')
+  const roleRollbackSql = await fs.readFile(roleRollbackPath, 'utf8')
 
   try {
+    await pool.query(profileRollbackSql)
+    await pool.query(`DELETE FROM schema_migrations WHERE version = '202611260002'`)
+    await pool.query(roleRollbackSql)
+    await pool.query(`DELETE FROM schema_migrations WHERE version = '202610180001'`)
+
     const column = await pool.query<{ isNullable: string }>(`
       SELECT is_nullable AS "isNullable"
       FROM information_schema.columns
@@ -509,6 +506,7 @@ test('IT15: seed inicial da frota (seedInitialFleet) é idempotente', async () =
 test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restauram o estado e permitem reaplicar', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611260001_defer_request_service_to_scheduling.down.sql',
     '202611240003_allow_direct_trips.down.sql',
     '202611240002_svo_automatic_dispatch.down.sql',
     '202611240001_extend_trip_requests_for_corrections.down.sql',
@@ -570,6 +568,18 @@ test('IT16: rollbacks (.down.sql) das 3 novas migrations do schema fleet restaur
       AND table_name IN ('vehicles', 'vehicle_events', 'drivers', 'driver_events', 'services', 'vehicle_services')
   `)
   assert.equal(restoredTables.rows[0]?.count, '6')
+  const requestService = await pool.query<{ isNullable: string }>(`
+    SELECT is_nullable AS "isNullable"
+    FROM information_schema.columns
+    WHERE table_schema = 'trip' AND table_name = 'requests' AND column_name = 'service_id'
+  `)
+  const serviceSnapshot = await pool.query<{ count: string }>(`
+    SELECT count(*)::text AS count
+    FROM information_schema.columns
+    WHERE table_schema = 'trip' AND table_name = 'trips' AND column_name = 'service_snapshot'
+  `)
+  assert.equal(requestService.rows[0]?.isNullable, 'YES')
+  assert.equal(serviceSnapshot.rows[0]?.count, '1')
 })
 
 test('IT17: criação de trip.requests, exigência de justificativa na rejeição e imutabilidade de trip.request_events (FROTA-77)', async () => {
@@ -1032,6 +1042,7 @@ test('IT20: consulta de conflito de agenda por período usando os índices de tr
 test('IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e reaplicação limpa', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611260001_defer_request_service_to_scheduling.down.sql',
     '202611240003_allow_direct_trips.down.sql',
     '202611240002_svo_automatic_dispatch.down.sql',
     '202611240001_extend_trip_requests_for_corrections.down.sql',
@@ -1089,6 +1100,23 @@ test('IT21: rollbacks (.down.sql) das migrations 202610280005 e 202610280004 e r
       AND table_name IN ('requests', 'request_events', 'trips', 'trip_stops', 'odometer_readings', 'trip_events')
   `)
   assert.equal(restoredTripTables.rows[0]?.count, '6')
+
+  const requestServiceColumn = await pool.query<{ isNullable: string }>(`
+    SELECT is_nullable AS "isNullable"
+    FROM information_schema.columns
+    WHERE table_schema = 'trip'
+      AND table_name = 'requests'
+      AND column_name = 'service_id'
+  `)
+  const tripServiceSnapshot = await pool.query<{ count: string }>(`
+    SELECT count(*)::text AS count
+    FROM information_schema.columns
+    WHERE table_schema = 'trip'
+      AND table_name = 'trips'
+      AND column_name = 'service_snapshot'
+  `)
+  assert.equal(requestServiceColumn.rows[0]?.isNullable, 'YES')
+  assert.equal(tripServiceSnapshot.rows[0]?.count, '1')
 })
 
 test('IT22: criação de svo.occurrences, exigência de motivo no cancelamento, consistência de triagem e imutabilidade de svo.occurrence_events (FROTA-110)', async () => {
@@ -1494,6 +1522,7 @@ test('IT25: preservação histórica no SVO: snapshots da época, retificação 
 test('IT26: rollbacks (.down.sql) das migrations 202610280008, 202610280007 e 202610280006 e reaplicação limpa', async () => {
   const pool = getTestPool()
   const downFiles = [
+    '202611260001_defer_request_service_to_scheduling.down.sql',
     '202611240003_allow_direct_trips.down.sql',
     '202611240002_svo_automatic_dispatch.down.sql',
     '202611240001_extend_trip_requests_for_corrections.down.sql',

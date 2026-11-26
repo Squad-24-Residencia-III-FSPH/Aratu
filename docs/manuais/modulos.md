@@ -56,10 +56,10 @@ Para adicionar um novo módulo ao Sistema Aratu (ex: `ABASTECIMENTO`, `MULTAS`, 
 
 👉 **[`docs/manuais/escalabilidade-extensibilidade.md`](escalabilidade-extensibilidade.md)**
 
-## Atualização funcional — implementação de 24/11/2026
+## Atualização funcional — implementação de 26/11/2026
 
-O contrato vigente usa somente os perfis `SOLICITANTE`, `GESTOR`, `MOTORISTA`, `ATENDENTE_SVO`, `EQUIPE_SVO` e `ADMINISTRADOR`. O administrador mantém contas e tem acesso amplo para manutenção/supervisão, sem ser etapa operacional. O gestor administra frota e SVO, inclusive equipes, plantões e fila de despacho. O atendente recebe e tria chamados; a equipe executa ordens atribuídas.
+Os seis perfis operacionais continuam disponíveis como perfis iniciais; o administrador pode criar perfis adicionais com permissões explícitas de diferentes módulos. O nome do perfil não concede acesso e os serviços preservam limites de autoria, vínculo de equipe e viagem atribuída.
 
-Solicitações institucionais agora distinguem devolução para correção de recusa definitiva, preservam versões/observações e aceitam reenvios. O gestor pode consultar a agenda de viagens em todos os estados. O despacho SVO automatiza equipe/viatura segundo os critérios acordados e deixa casos sem recurso na fila do gestor. O frontend também integra telas de documentos, multas e históricos de veículos/motoristas aos contratos da API.
+O solicitante registra finalidade sem escolher tipo de serviço. O gestor seleciona serviço e depois um veículo vinculado e disponível; aprovação, classificação e agendamento são persistidos na mesma operação. O sistema aceita pedidos legados classificados e pedidos APPROVED ainda sem viagem. Novos pedidos podem ter <code>service_id</code> nulo até o agendamento; snapshots e eventos históricos são preservados.
 
-As migrações `202611240001_extend_trip_requests_for_corrections.sql` e `202611240002_svo_automatic_dispatch.sql` fazem parte da entrega; a aplicação em banco e a homologação ponta a ponta ainda precisam ser executadas no ambiente Compose.
+Consultas diárias de cadastros oferecem recortes de atividade e arquivamento/restauração lógica, preservando vínculos e auditoria. A sidebar agrupa rotas SVO em seção própria. Ações secundárias e consulta de histórico ficam compactas, com trilha por registro concentrada em <code>/auditoria</code>. A aplicação das migrations e homologação ponta a ponta no banco Compose continuam pendentes nesta atualização.

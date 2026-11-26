@@ -113,11 +113,12 @@ function setup(options: { serviceAvailable?: boolean; failAudit?: boolean; reque
       return detail
     },
     async findByIdForUpdate(id): Promise<TripRequest | null> { return versionState?.id === id ? versionState : null },
-    async resubmit(id, expectedRevision, input, requester, service): Promise<TripRequest | null> {
-      if (!versionState || versionState.id !== id || versionState.status !== 'RETURNED'
-        || versionState.revision !== expectedRevision || versionState.requesterId !== requester.id) return null
-      versionState = { ...versionState, ...input, status: 'PENDING', revision: versionState.revision + 1,
-        requesterSnapshot: requester, serviceSnapshot: service }
+    async resubmit(id, expectedRevision, input, requester): Promise<TripRequest | null> {
+      const currentState = versionState
+      if (!currentState || currentState.id !== id || currentState.status !== 'RETURNED'
+        || currentState.revision !== expectedRevision || currentState.requesterId !== requester.id) return null
+      versionState = { ...currentState, ...input, status: 'PENDING', revision: currentState.revision + 1,
+        requesterSnapshot: requester }
       detail = { ...createDetail(), id, requesterId: requester.id, ...input, status: 'PENDING', revision: versionState.revision }
       return versionState
     },
@@ -156,14 +157,14 @@ function isServiceError(statusCode: number) {
   return (error: unknown): boolean => error instanceof RequestServiceError && error.statusCode === statusCode
 }
 
-test('cria solicitação PENDING com autoria do usuário autenticado e evento CREATED', async () => {
+test('cria solicitação PENDING sem classificar serviço e registra autoria no evento CREATED', async () => {
   const context = setup()
   const forgedBody = { ...futureRequest, status: 'APPROVED', requesterId: '999' }
   const result = await context.service.createRequest(forgedBody, actor.id)
 
   assert.deepEqual(result, { id: '41', status: 'PENDING' })
   assert.equal(context.saved.actor?.id, actor.id)
-  assert.equal(context.saved.input?.serviceId, '5')
+  assert.equal(context.saved.input?.serviceId, null)
   assert.equal(context.saved.input?.passengers, 1)
   assert.equal(context.saved.event?.reportedBy, actor.name)
   assert.equal(context.saved.event?.afterState.status, 'PENDING')
@@ -205,13 +206,15 @@ test('reenvio exige revisão, estado devolvido e titularidade', async () => {
   await assert.rejects(pending.service.resubmitRequest('10', { ...futureRequest, expectedRevision: 2 }, actor.id), isServiceError(409))
 })
 
-test('rejeita campos inválidos, serviço indisponível e data passada', async () => {
+test('rejeita campos inválidos e data passada; serviço fica para a etapa de agendamento', async () => {
   const context = setup()
   await assert.rejects(context.service.createRequest({ ...futureRequest, origin: '  ' }, actor.id), isServiceError(400))
   await assert.rejects(context.service.createRequest({ ...futureRequest, requestedDate: '2025-02-30' }, actor.id), isServiceError(400))
   await assert.rejects(context.service.createRequest({ ...futureRequest, requestedTime: '24:00' }, actor.id), isServiceError(400))
   await assert.rejects(context.service.createRequest({ ...futureRequest, requestedDate: '2000-01-01' }, actor.id), isServiceError(422))
-  await assert.rejects(setup({ serviceAvailable: false }).service.createRequest(futureRequest, actor.id), isServiceError(400))
+  const unclassified = setup({ serviceAvailable: false })
+  await unclassified.service.createRequest(futureRequest, actor.id)
+  assert.equal(unclassified.saved.input?.serviceId, null)
   assert.equal(context.saved.input, undefined)
 })
 

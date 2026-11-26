@@ -1,5 +1,4 @@
 import jwt = require('jsonwebtoken')
-import { USER_ROLES } from '../types/auth'
 import type { AuthenticatedUser, JwtConfig, LoginSuccess } from '../types/auth'
 import type { AuditLogger } from '../types/audit.types'
 import type { UserRepository } from '../repositories/users.repository'
@@ -79,7 +78,7 @@ export class AuthService {
       return { kind: 'invalid-credentials' }
     }
 
-    if (!user.is_active) {
+    if (!user.is_active || !user.profileActive) {
       await this.auditLogger?.recordAudit({
         userId: user.id,
         table: 'auth.users',
@@ -91,12 +90,9 @@ export class AuthService {
       return { kind: 'inactive' }
     }
 
-    if (!USER_ROLES.includes(user.role)) {
-      throw new Error('O usuário armazenado possui um perfil inválido.')
-    }
     const profile = user.role
     const token = jwt.sign(
-      { id: user.id, perfil: profile },
+      { id: user.id },
       this.jwtConfig.secret,
       { algorithm: 'HS256', expiresIn: this.jwtConfig.expiresInSeconds },
     )
@@ -111,7 +107,13 @@ export class AuthService {
 
     return {
       kind: 'authenticated',
-      user: { token, nome: user.name, perfil: profile },
+      user: {
+        token,
+        nome: user.name,
+        perfil: profile,
+        profileId: user.roleId,
+        profileName: user.displayName,
+      },
     }
   }
 

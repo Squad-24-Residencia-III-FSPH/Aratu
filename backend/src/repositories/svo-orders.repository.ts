@@ -179,7 +179,11 @@ export class SvoOrdersRepository implements SvoOrdersRepositoryContract {
           AND EXISTS (SELECT 1 FROM svo.team_members m JOIN auth.users u ON u.id = m.user_id
             JOIN auth.roles r ON r.id = u.role_id WHERE m.team_id = t.id AND m.active = true
               AND m.joined_at <= $1 AND (m.left_at IS NULL OR m.left_at > $1)
-              AND u.active = true AND r.name = 'EQUIPE_SVO')
+              AND u.active = true AND r.active = true
+              AND (SELECT count(DISTINCT p.name) FROM auth.role_permissions rp
+                JOIN auth.permissions p ON p.id = rp.permission_id
+               WHERE rp.role_id = r.id AND rp.is_active = true
+                 AND p.name = ANY(ARRAY['svo:orders:read:assigned', 'svo:orders:update:assigned', 'svo:orders:result:assigned'])) = 3)
         ORDER BY t.id FOR UPDATE OF t`, [time],
     )
   }
@@ -200,7 +204,11 @@ export class SvoOrdersRepository implements SvoOrdersRepositoryContract {
         WHERE t.active = true AND EXISTS (SELECT 1 FROM svo.team_members m JOIN auth.users u ON u.id = m.user_id
           JOIN auth.roles r ON r.id = u.role_id WHERE m.team_id = t.id AND m.active = true
             AND m.joined_at <= $1 AND (m.left_at IS NULL OR m.left_at > $1)
-            AND u.active = true AND r.name = 'EQUIPE_SVO')
+            AND u.active = true AND r.active = true
+            AND (SELECT count(DISTINCT p.name) FROM auth.role_permissions rp
+              JOIN auth.permissions p ON p.id = rp.permission_id
+             WHERE rp.role_id = r.id AND rp.is_active = true
+               AND p.name = ANY(ARRAY['svo:orders:read:assigned', 'svo:orders:update:assigned', 'svo:orders:result:assigned'])) = 3)
         ORDER BY "activeOrderCount" ASC, "lastDispatchAt" ASC NULLS FIRST, t.id ASC`,
       [time, SVO_ORDER_OCCUPYING_STATUSES],
     )

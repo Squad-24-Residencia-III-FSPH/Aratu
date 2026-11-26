@@ -2,22 +2,21 @@ import { Box, Button, Typography, useTheme } from '@mui/material'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import type { Profile } from '../auth/profiles'
 import { getSidebarNavigation } from './sidebarNavigation'
-import type { SidebarMenuItem } from './sidebarNavigation'
 import { NAVIGATION_ICONS } from './navigationIcons'
 
 const MenuIcon = NAVIGATION_ICONS.menu
 
 interface MobileNavigationProps {
   profile: Profile | null
+  permissions?: readonly string[]
   onMenuClick: () => void
-  onAction: (item: SidebarMenuItem) => void
 }
 
 /** Navegação móvel fixa no alcance do polegar e protegida pela safe area do aparelho. */
-export default function MobileNavigation({ profile, onMenuClick, onAction }: MobileNavigationProps) {
+export default function MobileNavigation({ profile, permissions, onMenuClick }: MobileNavigationProps) {
   const theme = useTheme()
   const location = useLocation()
-  const navigation = getSidebarNavigation(profile)
+  const navigation = getSidebarNavigation(profile, permissions)
 
   return (
     <Box
@@ -61,9 +60,14 @@ export default function MobileNavigation({ profile, onMenuClick, onAction }: Mob
               py: 0.5,
               minWidth: 0,
               minHeight: 48,
-              color: selected ? 'primary.dark' : 'text.secondary',
-              bgcolor: selected ? 'rgba(255, 107, 0, 0.08)' : 'transparent',
-              '& .MuiButton-startIcon': { m: 0, '& svg': { fontSize: 20 } },
+              color: selected ? 'text.primary' : 'text.secondary',
+              bgcolor: selected ? '#f1f5f9' : 'transparent',
+              borderRadius: 2,
+              '& .MuiButton-startIcon': {
+                m: 0,
+                color: selected ? 'text.primary' : 'text.secondary',
+                '& svg': { fontSize: 20 },
+              },
             }}
           >
             <Typography component="span" variant="caption" noWrap sx={{ maxWidth: '100%', fontSize: '0.68rem', lineHeight: 1.1 }}>
@@ -92,34 +96,6 @@ export default function MobileNavigation({ profile, onMenuClick, onAction }: Mob
           Menu
         </Typography>
       </Button>
-      {navigation.primaryAction && (() => {
-        const action = navigation.primaryAction
-        const Icon = NAVIGATION_ICONS[action.icon]
-        return (
-          <Button
-            key={action.label}
-            type="button"
-            variant="contained"
-            onClick={() => onAction(action)}
-            startIcon={<Icon aria-hidden="true" />}
-            sx={{
-              flex: '1.4 1 0',
-              flexDirection: 'column',
-              gap: 0.125,
-              px: 0.5,
-              py: 0.5,
-              minWidth: 0,
-              minHeight: 48,
-              color: 'primary.contrastText',
-              '& .MuiButton-startIcon': { m: 0, '& svg': { fontSize: 20 } },
-            }}
-          >
-            <Typography component="span" variant="caption" noWrap sx={{ maxWidth: '100%', fontSize: '0.68rem', lineHeight: 1.1 }}>
-              Nova solicitação
-            </Typography>
-          </Button>
-        )
-      })()}
     </Box>
   )
 }

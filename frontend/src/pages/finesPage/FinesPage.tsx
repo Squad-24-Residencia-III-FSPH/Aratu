@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Card, CardActions, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Link, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
+import { Alert, Box, Button, Card, CardActions, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import HistoryOutlined from '@mui/icons-material/HistoryOutlined'
-import EditOutlined from '@mui/icons-material/EditOutlined'
 import { useAuth } from '../../auth/useAuth'
-import { resolveProfile } from '../../auth/profiles'
+import { hasPermission } from '../../auth/access'
 import DataTable from '../../components/ui/DataTable'
 import type { DataTableColumn } from '../../components/ui/DataTable'
+import RowActionsMenu from '../../components/ui/RowActionsMenu'
+import type { RowActionItem } from '../../components/ui/RowActionsMenu'
 import FilterBar from '../../components/ui/FilterBar'
 import { FormField, FormSelect } from '../../components/ui/FormField'
 import PageHeader from '../../components/ui/PageHeader'
@@ -15,20 +15,15 @@ import StatusChip from '../../components/ui/StatusChip'
 import type { StatusTone } from '../../components/ui/StatusChip'
 import { listDrivers } from '../../services/driversService'
 import { listVehicles } from '../../services/vehiclesService'
-import { changeFineStatus, createFine, getFine, listFines, suggestFineDrivers, updateFine } from '../../services/finesService'
+import { changeFineStatus, createFine, listFines, suggestFineDrivers, updateFine } from '../../services/finesService'
 import type { Driver } from '../../drivers/driverTypes'
 import type { Vehicle } from '../../vehicles/vehicleTypes'
-import type { CreateFineInput, Fine, FineDetail, FineDriverSuggestion, FineFilters, FineStatus } from '../../fines/fineTypes'
-import { canManageFines, FINE_STATUS_LABELS, FINE_STATUSES, FINE_TRANSITIONS } from '../../fines/fineTypes'
+import type { CreateFineInput, Fine, FineDriverSuggestion, FineFilters, FineStatus } from '../../fines/fineTypes'
+import { FINE_STATUS_LABELS, FINE_STATUSES, FINE_TRANSITIONS } from '../../fines/fineTypes'
 import { formatOperationalDateTime, operationalDateTimeInput, operationalDateTimeToIso, operationalDayEndExclusive, operationalDayStart } from '../../time/operationalTime'
 
 type FormMode = { kind: 'create' } | { kind: 'edit'; fine: Fine }
 const STATUS_TONE: Record<FineStatus, StatusTone> = { PENDING: 'warning', PAID: 'success', CONTESTED: 'info', CANCELED: 'neutral' }
-const EVENT_LABELS: Record<string, string> = {
-  REGISTERED: 'Multa registrada', DRIVER_IDENTIFIED: 'Motorista identificado', DRIVER_CHANGED: 'Motorista alterado',
-  RECTIFIED: 'Dados retificados', PAID: 'Pagamento registrado', CONTESTED: 'Contestação registrada',
-  CANCELED: 'Multa cancelada', REOPENED: 'Multa reaberta',
-}
 const CURRENCY = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 function localInput(value?: string): string {
   return operationalDateTimeInput(value ?? new Date().toISOString())
@@ -45,8 +40,10 @@ function freshDraft(fine?: Fine) {
 /** Gestão de multas e infrações integrada ao histórico e aos contratos REST existentes. */
 export default function FinesPage() {
   const { api, session } = useAuth()
-  const profile = session ? resolveProfile(session.perfil) : null
-  const allowed = canManageFines(profile)
+  const allowed = hasPermission(session, 'fines:read')
+  const canCreate = hasPermission(session, 'fines:create')
+  const canUpdate = hasPermission(session, 'fines:update')
+  const canChangeStatus = hasPermission(session, 'fines:status:change')
   const theme = useTheme(); const smallScreen = useMediaQuery(theme.breakpoints.down('sm'))
   const [items, setItems] = useState<Fine[] | null>(null)
   const [vehicles, setVehicles] = useState<Vehicle[]>([]); const [drivers, setDrivers] = useState<Driver[]>([])
@@ -57,7 +54,6 @@ export default function FinesPage() {
   const [form, setForm] = useState<FormMode | null>(null); const [draft, setDraft] = useState(freshDraft())
   const [saving, setSaving] = useState(false); const [suggestions, setSuggestions] = useState<FineDriverSuggestion[]>([])
   const [suggestionError, setSuggestionError] = useState(''); const [suggestionsLoading, setSuggestionsLoading] = useState(false)
-  const [details, setDetails] = useState<{ fine: FineDetail | null; error: string; loading: boolean } | null>(null)
   const [statusChange, setStatusChange] = useState<{ fine: Fine; target: FineStatus } | null>(null)
   const [statusReason, setStatusReason] = useState(''); const [statusEvidence, setStatusEvidence] = useState(''); const [occurredAt, setOccurredAt] = useState(localInput())
 
@@ -102,12 +98,6 @@ export default function FinesPage() {
 
   function openCreate(): void { setDraft(freshDraft()); setForm({ kind: 'create' }); setNotice(''); setError('') }
   function openEdit(fine: Fine): void { setDraft(freshDraft(fine)); setForm({ kind: 'edit', fine }); setNotice(''); setError('') }
-  async function openDetails(fine: Fine): Promise<void> {
-    setDetails({ fine: null, error: '', loading: true })
-    try { setDetails({ fine: await getFine(api, fine.id), error: '', loading: false }) }
-    catch (requestError) { setDetails({ fine: null, error: requestError instanceof Error ? requestError.message : 'Não foi possível carregar o histórico.', loading: false }) }
-  }
-
   async function saveFine(): Promise<void> {
     if (!form || saving) return
     setSaving(true); setError('')
@@ -136,6 +126,21 @@ export default function FinesPage() {
   function startStatusChange(fine: Fine, target: FineStatus): void {
     setStatusChange({ fine, target }); setStatusReason(''); setStatusEvidence(''); setOccurredAt(localInput()); setError('')
   }
+  function actionsFor(fine: Fine): RowActionItem[] {
+    const actions: RowActionItem[] = []
+    if (canUpdate) actions.push({
+      key: 'correct', label: 'Corrigir',
+      onSelect: () => openEdit(fine),
+      disabled: fine.status === 'PAID' || fine.status === 'CANCELED',
+    })
+    if (canChangeStatus) actions.push(...FINE_TRANSITIONS[fine.status].map((target) => ({
+      key: `status-${target}`,
+      label: target === 'PAID' ? 'Registrar pagamento' : target === 'CONTESTED' ? 'Contestar' : target === 'CANCELED' ? 'Cancelar multa' : 'Reabrir',
+      onSelect: () => startStatusChange(fine, target),
+      danger: target === 'CANCELED',
+    })))
+    return actions
+  }
   async function saveStatusChange(): Promise<void> {
     if (!statusChange || saving) return
     setSaving(true); setError('')
@@ -162,7 +167,7 @@ export default function FinesPage() {
   ]
 
   return <Box>
-    <PageHeader title="Multas e infrações" description="Registre infrações, identifique possíveis viagens e acompanhe correções, contestações e pagamentos." actions={allowed ? <Button variant="contained" startIcon={<AddIcon aria-hidden="true" />} onClick={openCreate} disabled={optionsLoading || vehicles.length === 0} sx={{ minHeight: 48 }}>Registrar multa</Button> : undefined} />
+    <PageHeader title="Multas" description="Consulte infrações e acompanhe seu tratamento." actions={canCreate ? <Button variant="contained" startIcon={<AddIcon aria-hidden="true" />} onClick={openCreate} disabled={optionsLoading || vehicles.length === 0} sx={{ minHeight: 48 }}>Registrar multa</Button> : undefined} />
     {!allowed && <StateFeedback kind="forbidden" title="Acesso restrito" description="Somente gestor de frota e administrador podem consultar e tratar multas." />}
     {allowed && <>
       {notice && <Alert severity="success" role="status" sx={{ mb: 2 }}>{notice}</Alert>}
@@ -175,14 +180,40 @@ export default function FinesPage() {
         <Box sx={{ flex: '1 1 150px', minWidth: { xs: '100%', sm: 150 } }}><FormField label="Até" type="date" value={to} onChange={setTo} /></Box>
         <Button onClick={() => { setVehicleId(''); setDriverId(''); setStatus(''); setFrom(''); setTo('') }} disabled={!vehicleId && !driverId && !status && !from && !to} sx={{ minHeight: 44 }}>Limpar</Button>
       </FilterBar>
-      {smallScreen ? <Stack spacing={1.5}>{loading ? <StateFeedback kind="loading" title="Carregando multas..." /> : items?.length ? items.map((fine) => <Card key={fine.id} variant="outlined"><CardContent>
-        <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}><Box sx={{ minWidth: 0 }}><Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{fine.vehicle.licensePlate} · {CURRENCY.format(Number(fine.amount))}</Typography><Typography variant="body2">{fine.infractionCode} · {fine.description}</Typography></Box><StatusChip label={FINE_STATUS_LABELS[fine.status]} tone={STATUS_TONE[fine.status]} /></Stack>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{formatDate(fine.infractionAt)} · {fine.driver?.name ?? 'Motorista não identificado'} · revisão {fine.revision}</Typography>
-      </CardContent><CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-        <Button onClick={() => { void openDetails(fine) }} startIcon={<HistoryOutlined aria-hidden="true" />} sx={{ minHeight: 48 }}>Histórico</Button><Button onClick={() => openEdit(fine)} startIcon={<EditOutlined aria-hidden="true" />} disabled={fine.status === 'PAID' || fine.status === 'CANCELED'} sx={{ minHeight: 48 }}>Corrigir</Button>
-        {FINE_TRANSITIONS[fine.status].map((target) => <Button key={target} onClick={() => startStatusChange(fine, target)} sx={{ minHeight: 48 }}>{target === 'PAID' ? 'Registrar pagamento' : target === 'CONTESTED' ? 'Contestar' : target === 'CANCELED' ? 'Cancelar multa' : 'Reabrir'}</Button>)}
-      </CardActions></Card>) : <StateFeedback kind="empty" title="Nenhuma multa encontrada" description="Ajuste os filtros ou registre uma infração." />}</Stack> : <DataTable caption="Multas e infrações" columns={columns} rows={items ?? []} rowKey={(fine) => fine.id} busy={loading} minWidth={1120} loadingContent={<StateFeedback kind="loading" title="Carregando multas..." />} emptyContent={<StateFeedback kind="empty" title="Nenhuma multa encontrada" description="Ajuste os filtros ou registre uma infração." />}
-        renderActions={(fine) => <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}><Button onClick={() => { void openDetails(fine) }} sx={{ minHeight: 44 }}>Histórico</Button><Button onClick={() => openEdit(fine)} disabled={fine.status === 'PAID' || fine.status === 'CANCELED'} sx={{ minHeight: 44 }}>Corrigir</Button><FormSelect label="Alterar situação" value="" onChange={(value) => startStatusChange(fine, value as FineStatus)} options={FINE_TRANSITIONS[fine.status].map((value) => ({ value, label: value === 'PAID' ? 'Registrar pagamento' : value === 'CONTESTED' ? 'Contestar' : value === 'CANCELED' ? 'Cancelar' : 'Reabrir' }))} emptyLabel="Situação" emptyOptionDisabled sx={{ minWidth: 150 }} /></Stack>} />}
+      {smallScreen ? (
+        <Stack spacing={1.5}>
+          {loading ? <StateFeedback kind="loading" title="Carregando multas..." /> : items?.length ? items.map((fine) => {
+            const actions = actionsFor(fine)
+            return <Card key={fine.id} variant="outlined">
+              <CardContent>
+                <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{fine.vehicle.licensePlate} · {CURRENCY.format(Number(fine.amount))}</Typography>
+                    <Typography variant="body2">{fine.infractionCode} · {fine.description}</Typography>
+                  </Box>
+                  <StatusChip label={FINE_STATUS_LABELS[fine.status]} tone={STATUS_TONE[fine.status]} />
+                </Stack>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{formatDate(fine.infractionAt)} · {fine.driver?.name ?? 'Motorista não identificado'}</Typography>
+              </CardContent>
+              {actions.length > 0 && <CardActions sx={{ px: 1, pb: 1, justifyContent: 'flex-end' }}>
+                <RowActionsMenu label={`Ações da multa ${fine.id}`} actions={actions} />
+              </CardActions>}
+            </Card>
+          }) : <StateFeedback kind="empty" title="Nenhuma multa encontrada" description="Ajuste os filtros ou registre uma infração." />}
+        </Stack>
+      ) : (
+        <DataTable
+          caption="Multas e infrações"
+          columns={columns}
+          rows={items ?? []}
+          rowKey={(fine) => fine.id}
+          busy={loading}
+          minWidth={1060}
+          loadingContent={<StateFeedback kind="loading" title="Carregando multas..." />}
+          emptyContent={<StateFeedback kind="empty" title="Nenhuma multa encontrada" description="Ajuste os filtros ou registre uma infração." />}
+          renderActions={canUpdate || canChangeStatus ? (fine) => <RowActionsMenu label={`Ações da multa ${fine.id}`} actions={actionsFor(fine)} /> : undefined}
+        />
+      )}
     </>}
 
     <Dialog open={Boolean(form)} onClose={() => !saving && setForm(null)} fullScreen={smallScreen} fullWidth maxWidth="md" aria-labelledby="fine-form-title">
@@ -214,25 +245,6 @@ export default function FinesPage() {
         <FormField label="Motivo" required value={statusReason} onChange={setStatusReason} multiline minRows={2} />
         <FormField label="Descrição da evidência" required value={statusEvidence} onChange={setStatusEvidence} />
       </Stack></DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setStatusChange(null)} disabled={saving} sx={{ minHeight: 48 }}>Fechar</Button><Button variant="contained" onClick={() => { void saveStatusChange() }} disabled={saving || !statusReason.trim() || !statusEvidence.trim() || !occurredAt} sx={{ minHeight: 48 }}>Confirmar</Button></DialogActions>
-    </Dialog>
-    <Dialog open={Boolean(details)} onClose={() => setDetails(null)} fullScreen={smallScreen} fullWidth maxWidth="md" aria-labelledby="fine-history-title">
-      <DialogTitle id="fine-history-title">Histórico da multa</DialogTitle><DialogContent>
-        {details?.loading && <StateFeedback kind="loading" title="Carregando histórico..." />}{details?.error && <Alert severity="error">{details.error}</Alert>}
-        {details?.fine && <Stack spacing={1.5}>
-          <Typography variant="h6">{details.fine.vehicle.licensePlate} · {CURRENCY.format(Number(details.fine.amount))}</Typography>
-          <Typography variant="body2">{details.fine.infractionCode} · {details.fine.description} · {FINE_STATUS_LABELS[details.fine.status]}</Typography>
-          {details.fine.vehicleSnapshot && <Typography variant="body2" color="text.secondary">Veículo à época: {details.fine.vehicleSnapshot.licensePlate} ({details.fine.vehicleSnapshot.source})</Typography>}
-          {details.fine.driverSnapshot && <Typography variant="body2" color="text.secondary">Motorista à época: {details.fine.driverSnapshot.name} ({details.fine.driverSnapshot.source})</Typography>}
-          {details.fine.tripSnapshot && <Typography variant="body2" color="text.secondary">Viagem #{details.fine.tripSnapshot.id} · {details.fine.tripSnapshot.status}</Typography>}
-          {details.fine.events.map((event) => <Card key={event.id} variant="outlined"><CardContent>
-            <Typography sx={{ fontWeight: 700 }}>{EVENT_LABELS[event.eventType] ?? event.eventType} · {formatDate(event.occurredAt)}</Typography>
-            <Typography variant="body2" color="text.secondary">Registrado {formatDate(event.registeredAt)} por {event.actor.name} ({event.actor.role})</Typography>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>{event.reason} — {event.reportedBy}</Typography>
-            {event.evidenceDescription && <Typography variant="body2">Evidência: {event.evidenceDescription}</Typography>}
-            {event.attachmentUrl && <Link href={event.attachmentUrl} target="_blank" rel="noopener noreferrer">Abrir evidência em nova aba</Link>}
-          </CardContent></Card>)}
-        </Stack>}
-      </DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setDetails(null)} sx={{ minHeight: 48 }}>Fechar</Button></DialogActions>
     </Dialog>
   </Box>
 }

@@ -4,22 +4,22 @@ import type { SvoOrdersService } from '../services/svo-orders.service'
 export function createSvoOrdersController(service: SvoOrdersService) {
   return {
     async list(req: Request, res: Response): Promise<void> {
-      res.json(await service.listOrders(req.query, req.usuario!.id))
+      res.json(await service.listOrders(req.query, req.usuario!.id, req.usuario?.permissions ?? []))
     },
     async detail(req: Request, res: Response): Promise<void> {
-      res.json(await service.getOrder(req.params.id, req.usuario!.id))
+      res.json(await service.getOrder(req.params.id, req.usuario!.id, req.usuario?.permissions ?? []))
     },
     async updateStatus(req: Request, res: Response): Promise<void> {
-      res.json(await service.updateStatus(req.params.id, req.body, req.usuario!.id))
+      res.json(await service.updateStatus(req.params.id, req.body, req.usuario!.id, req.usuario?.permissions ?? []))
     },
     async recordResult(req: Request, res: Response): Promise<void> {
-      res.json(await service.recordResult(req.params.id, req.body, req.usuario!.id))
+      res.json(await service.recordResult(req.params.id, req.body, req.usuario!.id, req.usuario?.permissions ?? []))
     },
     async create(req: Request, res: Response): Promise<void> {
-      res.status(201).json(await service.createOrder(req.body, req.usuario!.id))
+      res.status(201).json(await service.createOrder(req.body, req.usuario!.id, req.usuario?.permissions ?? []))
     },
     async retryDispatch(req: Request, res: Response): Promise<void> {
-      res.json(await service.retryDispatch(req.params.occurrenceId, req.body, req.usuario!.id))
+      res.json(await service.retryDispatch(req.params.occurrenceId, req.body, req.usuario!.id, req.usuario?.permissions ?? []))
     },
   }
 }

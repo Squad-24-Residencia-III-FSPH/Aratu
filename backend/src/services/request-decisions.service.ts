@@ -1,6 +1,5 @@
 import type { AuditLogger } from '../types/audit.types'
 import {
-  DEFAULT_APPROVAL_REASON,
   REQUEST_DECISION_STATUSES,
   RequestDecisionError,
 } from '../types/request-decision.types'
@@ -55,10 +54,8 @@ export class RequestDecisionsService {
    *
    * @throws {RequestDecisionError} 400 id inválido, 404 inexistente e 409 quando já foi analisada.
    */
-  async approve(id: string, input: RequestDecisionInput, deciderId: string): Promise<RequestDecisionResult> {
-    const reason = optionalReason(input.reason)
-    const expectedRevision = optionalExpectedRevision(input.expectedRevision)
-    return this.decide(id, REQUEST_DECISION_STATUSES.approved, reason, reason ?? DEFAULT_APPROVAL_REASON, deciderId, expectedRevision)
+  async approve(_id: string, _input: RequestDecisionInput, _deciderId: string): Promise<RequestDecisionResult> {
+    throw new RequestDecisionError(409, 'Para aprovar esta solicitação, conclua o agendamento da viagem.')
   }
 
   /**

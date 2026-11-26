@@ -14,7 +14,7 @@ export function createReportsController(service: ReportsService): Record<'catalo
     }
   }
   return {
-    catalog: handle((req, res) => { res.json(service.getCatalogForRole(req.usuario!.perfil)) }),
+    catalog: handle((req, res) => { res.json(service.getCatalogForUser(req.usuario!)) }),
     preview: handle(async (req, res) => { res.json(await service.previewReport(String(req.params.reportKey), req.query, req.usuario!)) }),
     export: handle(async (req, res) => {
       const result = await service.exportReport(String(req.params.reportKey), req.query, req.usuario!)

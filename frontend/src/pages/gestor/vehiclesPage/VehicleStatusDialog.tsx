@@ -18,6 +18,7 @@ interface VehicleStatusDialogProps {
   onSaved: (vehicle: Vehicle) => void
   onCancel: () => void
   onConflict: (message: string) => void
+  mode?: 'change' | 'archive' | 'restore'
 }
 
 /** Confirma a transição de situação permitida pela máquina de estados. */
@@ -28,15 +29,25 @@ export default function VehicleStatusDialog({
   onSaved,
   onCancel,
   onConflict,
+  mode = 'change',
 }: VehicleStatusDialogProps) {
   const allowedTargets = VEHICLE_STATUS_TRANSITIONS[vehicle.status]
-  const [target, setTarget] = useState<VehicleStatus | ''>(allowedTargets[0] ?? '')
+  const operationalTargets = allowedTargets.filter((status) => status !== 'INACTIVE')
+  const targetStatus: VehicleStatus | undefined = mode === 'archive'
+    ? 'INACTIVE'
+    : mode === 'restore'
+      ? 'AVAILABLE'
+      : undefined
+  const availableTargets: VehicleStatus[] = targetStatus
+    ? allowedTargets.includes(targetStatus) ? [targetStatus] : []
+    : operationalTargets
+  const [target, setTarget] = useState<VehicleStatus | ''>(targetStatus ?? availableTargets[0] ?? '')
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState<string>()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const targetOptions = allowedTargets.map((status) => ({
+  const targetOptions = availableTargets.map((status) => ({
     value: status,
     label: VEHICLE_STATUS_LABELS[status],
   }))
@@ -76,33 +87,39 @@ export default function VehicleStatusDialog({
     }
   }
 
-  const confirmLabel = target ? statusActionLabel(target) : 'Confirmar'
+  const confirmLabel = mode === 'archive' ? 'Arquivar veículo'
+    : mode === 'restore' ? 'Restaurar veículo'
+      : target ? statusActionLabel(target) : 'Confirmar'
 
   return (
     <ConfirmDialog
       open
-      title="Alterar situação do veículo"
-      description={`Situação atual: ${VEHICLE_STATUS_LABELS[vehicle.status]}. Placa ${vehicle.licensePlate}.`}
+      title={mode === 'archive' ? 'Arquivar veículo' : mode === 'restore' ? 'Restaurar veículo' : 'Alterar situação do veículo'}
+      description={mode === 'archive'
+        ? `O veículo ${vehicle.licensePlate} será retirado da consulta operacional. Viagens e vínculos históricos serão preservados.`
+        : mode === 'restore'
+          ? `O veículo ${vehicle.licensePlate} retornará à situação disponível se não houver manutenção impeditiva.`
+          : `Situação atual: ${VEHICLE_STATUS_LABELS[vehicle.status]}. Placa ${vehicle.licensePlate}.`}
       confirmLabel={confirmLabel}
       onConfirm={handleConfirm}
       onCancel={onCancel}
       loading={submitting}
-      confirmDisabled={!target}
+      confirmDisabled={!target || availableTargets.length === 0}
     >
-      {allowedTargets.length === 0 ? (
+      {availableTargets.length === 0 ? (
         <Alert severity="info" sx={{ mt: 2 }}>
           Nenhuma mudança de situação está disponível para este veículo.
         </Alert>
       ) : (
         <>
           {submitError && <Alert severity="error" sx={{ mt: 2 }}>{submitError}</Alert>}
-          <FormSelect
-            label="Nova situação"
-            value={target}
-            onChange={(value) => setTarget(value as VehicleStatus | '')}
-            options={targetOptions}
-            required
-          />
+          {mode === 'change' && <FormSelect
+              label="Nova situação"
+              value={target}
+              onChange={(value) => setTarget(value as VehicleStatus | '')}
+              options={targetOptions}
+              required
+            />}
           <FormField
             label="Justificativa"
             value={reason}

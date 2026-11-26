@@ -137,7 +137,7 @@ export function createApp({
   })
   app.use('/auth', createAuthRouter(userRepository, jwtConfig, auditService, currentUsersRepository))
   if (rolesRepository) {
-    app.use('/profiles', createProfileRouter(new ProfileService(rolesRepository), jwtConfig.secret, currentUsersRepository))
+    app.use('/profiles', createProfileRouter(new ProfileService(rolesRepository, auditService), jwtConfig.secret, currentUsersRepository))
   }
   if (pool && auditService && currentUsersRepository) {
     const availabilityService = new AvailabilityService(new AvailabilityRepository(pool))
@@ -181,7 +181,7 @@ export function createApp({
     )
     const svoService = new SvoOccurrencesService(
       new SvoOccurrencesRepository(pool), auditService,
-      (occurrenceId, userId) => svoOrdersService.dispatchAfterTriage(occurrenceId, userId),
+      (occurrenceId, userId, permissions) => svoOrdersService.dispatchAfterTriage(occurrenceId, userId, permissions),
     )
     app.use('/svo/occurrences', createSvoOccurrencesRouter(svoService, jwtConfig, currentUsersRepository))
     app.use('/svo/orders', createSvoOrdersRouter(svoOrdersService, jwtConfig, currentUsersRepository))

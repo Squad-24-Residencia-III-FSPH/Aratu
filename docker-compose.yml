@@ -26,6 +26,9 @@ services:
       db:
         condition: service_healthy
     restart: "no"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
 
   backend:
     build:

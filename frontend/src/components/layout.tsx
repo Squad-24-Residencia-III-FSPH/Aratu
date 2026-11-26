@@ -1,19 +1,17 @@
 import type { ReactNode } from 'react';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
-import { PROFILE_HOMES, resolveProfile } from '../auth/profiles';
+import { resolveProfile } from '../auth/profiles';
 import { tokenUserId } from '../auth/token';
 import Topbar from './Topbar';
 import Sidebar from './Sidebar'; 
 import MobileNavigation from './MobileNavigation';
-import type { SidebarMenuItem } from './sidebarNavigation';
 
 /** Protege também as entradas legadas e descarta dados visuais ao trocar a sessão. */
 export default function Layout({ children }: { children: ReactNode }): ReactNode {
   const { session } = useAuth();
-  const navigate = useNavigate();
   const theme = useTheme();
   const isCompactViewport = useMediaQuery(theme.breakpoints.down('sm'));
   const isWideDesktop = useMediaQuery(theme.breakpoints.up('lg'));
@@ -22,12 +20,6 @@ export default function Layout({ children }: { children: ReactNode }): ReactNode
   const effectiveSidebarExpanded = sidebarExpanded ?? isWideDesktop;
   const profile = session ? resolveProfile(session.perfil) : null;
   const sessionIdentity = session ? `${tokenUserId(session.token) ?? 'unknown'}:${profile ?? 'unknown'}` : 'anonymous';
-  const handleNavigationAction = (item: SidebarMenuItem) => {
-    if (item.action === 'open-request') {
-      navigate(PROFILE_HOMES.SOLICITANTE.path, { state: { openNewRequest: true } });
-    }
-    setMobileNavigationOpen(false);
-  };
   if (!session) return <Navigate to="/login" replace />;
   return (
     <Box key={sessionIdentity} sx={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', backgroundColor: 'background.default' }}>
@@ -49,7 +41,6 @@ export default function Layout({ children }: { children: ReactNode }): ReactNode
           expanded={effectiveSidebarExpanded}
           mobileOpen={mobileNavigationOpen}
           onMobileClose={() => setMobileNavigationOpen(false)}
-          onAction={handleNavigationAction}
         />
 
         {/* Área Dinâmica onde as páginas (ex: GestorPage) aparecem */}
@@ -71,8 +62,8 @@ export default function Layout({ children }: { children: ReactNode }): ReactNode
       </Box>
       <MobileNavigation
         profile={profile}
+        permissions={session?.permissions}
         onMenuClick={() => setMobileNavigationOpen(true)}
-        onAction={handleNavigationAction}
       />
     </Box>
   );

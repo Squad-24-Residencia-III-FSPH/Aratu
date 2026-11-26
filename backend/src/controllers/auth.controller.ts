@@ -61,8 +61,8 @@ export function createAuthController(authService: AuthService) {
       await authService.logout(req.usuario)
       res.status(200).json({ mensagem: 'Logout realizado. Apague o token armazenado no cliente.' })
     },
-    /** Retorna somente a identidade e o perfil revalidados no cadastro atual. */
-    me: (
+    /** Retorna a identidade e o contexto de permissões revalidados no cadastro atual. */
+    session: (
       req: Request<ParamsDictionary, unknown, unknown>,
       res: Response<unknown>,
     ): void => {
@@ -71,7 +71,24 @@ export function createAuthController(authService: AuthService) {
         return
       }
       const nome = typeof res.locals.authenticatedUserName === 'string' ? res.locals.authenticatedUserName : ''
-      res.status(200).json({ id: req.usuario.id, nome, perfil: req.usuario.perfil })
+      const profileName = typeof res.locals.authenticatedProfileName === 'string'
+        ? res.locals.authenticatedProfileName : req.usuario.displayName ?? req.usuario.perfil
+      const roleId = typeof res.locals.authenticatedProfileId === 'string'
+        ? res.locals.authenticatedProfileId : req.usuario.roleId ?? ''
+      const roleRevision = typeof res.locals.authenticatedProfileRevision === 'number'
+        ? res.locals.authenticatedProfileRevision : req.usuario.roleRevision ?? 1
+      const homePath = typeof res.locals.authenticatedHomePath === 'string'
+        ? res.locals.authenticatedHomePath : req.usuario.defaultPath ?? null
+      const permissions = Array.isArray(res.locals.authenticatedPermissions)
+        ? res.locals.authenticatedPermissions : req.usuario.permissions ?? []
+      res.status(200).json({
+        id: req.usuario.id,
+        nome,
+        perfil: req.usuario.perfil,
+        profile: { id: roleId, code: req.usuario.perfil, displayName: profileName, revision: roleRevision },
+        permissions,
+        homePath,
+      })
     },
   }
 }

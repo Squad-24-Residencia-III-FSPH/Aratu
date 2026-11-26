@@ -4,6 +4,7 @@ import type {
   CreateDirectTripData,
   DriverTrip,
   DirectTripRegistration,
+  ScheduledTripRegistration,
   SchedulableRequest,
   SchedulingEventMetadata,
   Trip,
@@ -14,19 +15,24 @@ import type {
   TripListFilters,
   TripOdometerReading,
   TripSummary,
+  TripServiceSnapshot,
 } from '../types/trip.types'
 
 /** Contrato de persistência do agendamento e da execução, usado pelo service e por testes isolados. */
 export interface TripsRepositoryContract {
   withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
   findRequestForUpdate(requestId: string, client: PoolClient): Promise<SchedulableRequest | null>
+  findScheduleTripRegistration(actorId: string, creationKey: string, client?: PoolClient): Promise<ScheduledTripRegistration | null>
+  findActiveServiceForScheduling(serviceId: string, client: PoolClient): Promise<TripServiceSnapshot | null>
+  approveAndClassifyRequest(requestId: string, expectedRevision: number, service: TripServiceSnapshot, deciderId: string, reason: string, client: PoolClient): Promise<SchedulableRequest | null>
+  reclassifyApprovedRequest(requestId: string, expectedRevision: number, service: TripServiceSnapshot, client: PoolClient): Promise<SchedulableRequest | null>
   createTrip(data: CreateTripData, client: PoolClient): Promise<Trip>
-  findActiveServiceForDirect?(serviceId: string, client: PoolClient): Promise<{ id: string; name: string } | null>
+  findActiveServiceForDirect?(serviceId: string, client: PoolClient): Promise<TripServiceSnapshot | null>
   findDirectTripRegistration?(actorId: string, creationKey: string, client?: PoolClient): Promise<DirectTripRegistration | null>
   createDirectTrip?(data: CreateDirectTripData, client: PoolClient): Promise<Trip>
   markRequestScheduled(requestId: string, client: PoolClient): Promise<SchedulableRequest | null>
   createTripEvent(eventType: TripEventType, before: Trip | null, after: Trip, metadata: SchedulingEventMetadata, client: PoolClient): Promise<void>
-  createRequestEvent(before: SchedulableRequest, after: SchedulableRequest, metadata: SchedulingEventMetadata, client: PoolClient): Promise<void>
+  createRequestEvent(before: SchedulableRequest, after: SchedulableRequest, metadata: SchedulingEventMetadata, client: PoolClient, eventType?: 'APPROVED' | 'UPDATED' | 'SCHEDULED'): Promise<void>
   findActorSnapshot(id: string, client: PoolClient): Promise<TripActor | null>
   findTripForUpdate(tripId: string, client: PoolClient): Promise<Trip | null>
   findDriverByUserId(userId: string, client?: PoolClient): Promise<TripDriverAccount | null>
@@ -63,7 +69,7 @@ export class TripsRepository implements TripsRepositoryContract {
   async findRequestForUpdate(requestId: string, client: PoolClient): Promise<SchedulableRequest | null> {
     const result = await client.query<SchedulableRequest>(
       `SELECT id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
-              status, revision, to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
+              service_snapshot AS "serviceSnapshot", status, revision, to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
               to_char(requested_time, 'HH24:MI') AS "requestedTime", origin, destination, purpose,
               passengers, special_requirements AS "specialRequirements", notes
          FROM trip.requests
@@ -74,15 +80,97 @@ export class TripsRepository implements TripsRepositoryContract {
     return result.rows[0] ?? null
   }
 
+  /** Recupera a viagem vinculada à chave antes de revalidar o estado já consumido do pedido. */
+  async findScheduleTripRegistration(
+    actorId: string,
+    creationKey: string,
+    client?: PoolClient,
+  ): Promise<ScheduledTripRegistration | null> {
+    const result = await (client ?? this.pool).query<Trip & { creationPayload: Record<string, unknown> | null }>(
+      `SELECT t.id::text AS id, t.request_id::text AS "requestId", t.service_id::text AS "serviceId",
+              t.vehicle_id::text AS "vehicleId", t.driver_id::text AS "driverId",
+              t.scheduled_start AS "scheduledStart", t.scheduled_end AS "scheduledEnd", t.status,
+              t.start_km AS "startKm", t.end_km AS "endKm", t.started_at AS "startedAt",
+              t.finished_at AS "finishedAt", t.revision, t.created_at AS "createdAt",
+              t.creation_payload AS "creationPayload"
+         FROM trip.trips t
+        WHERE t.created_by = $1 AND t.creation_key = $2`, [actorId, creationKey],
+    )
+    const row = result.rows[0]
+    return row?.creationPayload ? { trip: row, creationPayload: row.creationPayload } : null
+  }
+
+  /** Mantém o catálogo estável enquanto o serviço escolhido é validado e alocado. */
+  async findActiveServiceForScheduling(serviceId: string, client: PoolClient): Promise<TripServiceSnapshot | null> {
+    const result = await client.query<TripServiceSnapshot>(
+      `SELECT id::text AS id, name, categories,
+              requires_triage AS "requiresTriage", requires_weight AS "requiresWeight",
+              requires_identification AS "requiresIdentification", revision
+         FROM fleet.services
+        WHERE id = $1 AND active = true
+        FOR SHARE`, [serviceId],
+    )
+    return result.rows[0] ?? null
+  }
+
+  /** Registra aprovação e classificação no mesmo estado versionado que será agendado. */
+  async approveAndClassifyRequest(
+    requestId: string,
+    expectedRevision: number,
+    service: TripServiceSnapshot,
+    deciderId: string,
+    reason: string,
+    client: PoolClient,
+  ): Promise<SchedulableRequest | null> {
+    const result = await client.query<SchedulableRequest>(
+      `UPDATE trip.requests
+          SET status = 'APPROVED', service_id = $1, service_snapshot = $2::jsonb,
+              decided_by = $3, decided_at = clock_timestamp(), decision_reason = $4,
+              revision = revision + 1, updated_at = clock_timestamp()
+        WHERE id = $5 AND status = 'PENDING' AND revision = $6
+        RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
+                  service_snapshot AS "serviceSnapshot", status, revision,
+                  to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
+                  to_char(requested_time, 'HH24:MI') AS "requestedTime", origin, destination, purpose,
+                  passengers, special_requirements AS "specialRequirements", notes`,
+      [service.id, JSON.stringify(service), deciderId, reason, requestId, expectedRevision],
+    )
+    return result.rows[0] ?? null
+  }
+
+  /** Atualiza a classificação de um pedido legado sem substituir sua decisão original. */
+  async reclassifyApprovedRequest(
+    requestId: string,
+    expectedRevision: number,
+    service: TripServiceSnapshot,
+    client: PoolClient,
+  ): Promise<SchedulableRequest | null> {
+    const result = await client.query<SchedulableRequest>(
+      `UPDATE trip.requests
+          SET service_id = $1, service_snapshot = $2::jsonb,
+              revision = revision + 1, updated_at = clock_timestamp()
+        WHERE id = $3 AND status = 'APPROVED' AND revision = $4
+        RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
+                  service_snapshot AS "serviceSnapshot", status, revision,
+                  to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
+                  to_char(requested_time, 'HH24:MI') AS "requestedTime", origin, destination, purpose,
+                  passengers, special_requirements AS "specialRequirements", notes`,
+      [service.id, JSON.stringify(service), requestId, expectedRevision],
+    )
+    return result.rows[0] ?? null
+  }
+
   /** Grava a viagem agendada com o contexto de veículo e motorista vigente no momento da decisão. */
   async createTrip(data: CreateTripData, client: PoolClient): Promise<Trip> {
     const result = await client.query<Trip>(
       `INSERT INTO trip.trips (
-         request_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status,
-         vehicle_snapshot, driver_snapshot, request_snapshot,
+         request_id, service_id, service_snapshot, vehicle_id, driver_id, scheduled_start, scheduled_end, status,
+         vehicle_snapshot, driver_snapshot, request_snapshot, created_by, creation_key, creation_payload,
          special_requirements_acknowledged, evidence_description
-       ) VALUES ($1, $2, $3, $4, $5, 'SCHEDULED', $6::jsonb, $7::jsonb, $8::jsonb, $9, $10)
-       RETURNING id::text AS id, request_id::text AS "requestId", vehicle_id::text AS "vehicleId",
+       ) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, 'SCHEDULED', $8::jsonb, $9::jsonb,
+                 $10::jsonb, $11, $12, $13::jsonb, $14, $15)
+       RETURNING id::text AS id, request_id::text AS "requestId", service_id::text AS "serviceId",
+                 service_snapshot AS "serviceSnapshot", vehicle_id::text AS "vehicleId",
                  driver_id::text AS "driverId", scheduled_start AS "scheduledStart",
                  scheduled_end AS "scheduledEnd", status, start_km AS "startKm", end_km AS "endKm",
                  started_at AS "startedAt", finished_at AS "finishedAt", revision, created_at AS "createdAt",
@@ -91,6 +179,8 @@ export class TripsRepository implements TripsRepositoryContract {
                  evidence_description AS "evidenceDescription"`,
       [
         data.requestId,
+        data.serviceId,
+        JSON.stringify(data.serviceSnapshot),
         data.vehicleId,
         data.driverId,
         data.scheduledStart,
@@ -98,6 +188,9 @@ export class TripsRepository implements TripsRepositoryContract {
         JSON.stringify(data.vehicleSnapshot),
         JSON.stringify(data.driverSnapshot),
         JSON.stringify(data.requestSnapshot),
+        data.createdBy,
+        data.creationKey,
+        JSON.stringify(data.creationPayload),
         data.specialRequirementsAcknowledged,
         data.evidenceDescription,
       ],
@@ -108,9 +201,11 @@ export class TripsRepository implements TripsRepositoryContract {
   }
 
   /** Confirma que o catálogo continua ativo enquanto o Gestor cria a viagem direta. */
-  async findActiveServiceForDirect(serviceId: string, client: PoolClient): Promise<{ id: string; name: string } | null> {
-    const result = await client.query<{ id: string; name: string }>(
-      `SELECT id::text AS id, name
+  async findActiveServiceForDirect(serviceId: string, client: PoolClient): Promise<TripServiceSnapshot | null> {
+    const result = await client.query<TripServiceSnapshot>(
+      `SELECT id::text AS id, name, categories,
+              requires_triage AS "requiresTriage", requires_weight AS "requiresWeight",
+              requires_identification AS "requiresIdentification", revision
          FROM fleet.services
         WHERE id = $1 AND active = true
         FOR SHARE`, [serviceId],
@@ -145,22 +240,24 @@ export class TripsRepository implements TripsRepositoryContract {
   async createDirectTrip(data: CreateDirectTripData, client: PoolClient): Promise<Trip> {
     const result = await client.query<Trip>(
       `INSERT INTO trip.trips (
-         request_id, service_id, vehicle_id, driver_id, scheduled_start, scheduled_end, status,
+         request_id, service_id, service_snapshot, vehicle_id, driver_id, scheduled_start, scheduled_end, status,
          vehicle_snapshot, driver_snapshot, context_snapshot, creation_key, creation_payload,
          created_by, special_requirements_acknowledged, evidence_description
-       ) VALUES (NULL, $1, $2, $3, $4, $5, 'SCHEDULED', $6::jsonb, $7::jsonb, $8::jsonb,
-                 $9, $10::jsonb, $11, $12, $13)
-       RETURNING id::text AS id, request_id::text AS "requestId", vehicle_id::text AS "vehicleId",
+       ) VALUES (NULL, $1, $2::jsonb, $3, $4, $5, $6, 'SCHEDULED', $7::jsonb, $8::jsonb, $9::jsonb,
+                 $10, $11::jsonb, $12, $13, $14)
+       RETURNING id::text AS id, request_id::text AS "requestId", service_id::text AS "serviceId",
+                 service_snapshot AS "serviceSnapshot", vehicle_id::text AS "vehicleId",
                  driver_id::text AS "driverId", scheduled_start AS "scheduledStart",
                  scheduled_end AS "scheduledEnd", status, start_km AS "startKm", end_km AS "endKm",
                  started_at AS "startedAt", finished_at AS "finishedAt", revision, created_at AS "createdAt",
                  context_snapshot AS "directContext", creation_payload AS "creationPayload",
                  special_requirements_acknowledged AS "specialRequirementsAcknowledged",
                  evidence_description AS "evidenceDescription"`,
-      [data.serviceId, data.vehicleId, data.driverId, data.scheduledStart, data.scheduledEnd,
-        JSON.stringify(data.vehicleSnapshot), JSON.stringify(data.driverSnapshot),
-        JSON.stringify(data.directContext), data.creationKey, JSON.stringify(data.creationPayload),
-        data.createdBy, data.specialRequirementsAcknowledged, data.evidenceDescription],
+      [data.serviceId, JSON.stringify(data.serviceSnapshot), data.vehicleId, data.driverId,
+        data.scheduledStart, data.scheduledEnd, JSON.stringify(data.vehicleSnapshot),
+        JSON.stringify(data.driverSnapshot), JSON.stringify(data.directContext), data.creationKey,
+        JSON.stringify(data.creationPayload), data.createdBy, data.specialRequirementsAcknowledged,
+        data.evidenceDescription],
     )
     const trip = result.rows[0]
     if (!trip) throw new Error('A criação direta da viagem não retornou os dados esperados.')
@@ -176,7 +273,7 @@ export class TripsRepository implements TripsRepositoryContract {
               updated_at = clock_timestamp()
         WHERE id = $1 AND status = 'APPROVED'
         RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
-                  status, revision, to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
+                  service_snapshot AS "serviceSnapshot", status, revision, to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
                   to_char(requested_time, 'HH24:MI') AS "requestedTime", origin, destination, purpose,
                   passengers, special_requirements AS "specialRequirements", notes`,
       [requestId],
@@ -215,13 +312,15 @@ export class TripsRepository implements TripsRepositoryContract {
     after: SchedulableRequest,
     metadata: SchedulingEventMetadata,
     client: PoolClient,
+    eventType: 'APPROVED' | 'UPDATED' | 'SCHEDULED' = 'SCHEDULED',
   ): Promise<void> {
     await client.query(
       `INSERT INTO trip.request_events (
          request_id, event_type, occurred_at, reported_by, registered_by, actor_snapshot, reason, before_state, after_state
-       ) VALUES ($1, 'SCHEDULED', clock_timestamp(), $2, $3, $4::jsonb, $5, $6::jsonb, $7::jsonb)`,
+       ) VALUES ($1, $2, clock_timestamp(), $3, $4, $5::jsonb, $6, $7::jsonb, $8::jsonb)`,
       [
         after.id,
+        eventType,
         metadata.reportedBy,
         metadata.registeredBy,
         JSON.stringify(metadata.actorSnapshot),

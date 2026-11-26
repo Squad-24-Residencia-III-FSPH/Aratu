@@ -29,6 +29,10 @@ function setup(initial: Trip | null = trip()) {
   const listed: TripListFilters[] = []
   const repository: TripsRepositoryContract = {
     async withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> { return work(fakeClient) },
+    async findScheduleTripRegistration() { return null },
+    async findActiveServiceForScheduling() { return null },
+    async approveAndClassifyRequest() { return null },
+    async reclassifyApprovedRequest() { return null },
     async findRequestForUpdate() { return null },
     async createTrip(): Promise<Trip> { throw new Error('não usado') },
     async markRequestScheduled() { return null },

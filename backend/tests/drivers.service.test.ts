@@ -215,9 +215,9 @@ test('edição de motorista ativo com CNH vencida retorna 422', async () => {
 
 test('vínculo exige conta ativa de perfil MOTORISTA (422) e não pode repetir conta (409)', async () => {
   const accounts: DriverUserAccount[] = [
-    { id: '50', role: 'MOTORISTA', active: true },
-    { id: '51', role: 'SOLICITANTE', active: true },
-    { id: '52', role: 'MOTORISTA', active: false },
+    { id: '50', active: true, canExecuteTrips: true },
+    { id: '51', active: true, canExecuteTrips: false },
+    { id: '52', active: false, canExecuteTrips: true },
   ]
   const context = setup(createDriver({ userId: '50' }), accounts)
   await assert.rejects(context.service.createDriver({ ...newDriver, userId: '51' }, actor.id), domainError(422))

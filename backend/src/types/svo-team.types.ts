@@ -1,4 +1,5 @@
 import type { SvoActorSnapshot } from './svo-occurrence.types'
+import type { ActivityView, PaginatedResult } from './pagination.types'
 
 export interface SvoTeamMember {
   id: string
@@ -28,6 +29,21 @@ export interface SvoTeam {
 }
 
 export interface SvoEligibleMember { id: string; name: string; email: string }
+
+/** Filtros de consulta da composição SVO; a paginação é aplicada no PostgreSQL. */
+export interface SvoTeamListFilters {
+  view?: ActivityView
+  search?: string
+}
+
+/** Parâmetros validados para uma página da consulta de equipes. */
+export interface SvoTeamPageFilters extends SvoTeamListFilters {
+  page: number
+  pageSize: number
+}
+
+/** Página do cadastro de equipes SVO. */
+export type SvoTeamPage = PaginatedResult<SvoTeam>
 
 export interface SvoTeamEventInput {
   teamId: string

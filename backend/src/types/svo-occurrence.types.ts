@@ -60,6 +60,11 @@ export type SvoCreationResult = Pick<SvoOccurrenceSummary, 'id' | 'status' | 're
 export type SvoDispatchResult =
   | { status: 'DISPATCHED'; orderId: string; teamId: string; vehicleId: string; revision: number }
   | { status: 'WAITING'; reason: 'NO_TEAM' | 'NO_VEHICLE'; revision: number }
+export type SvoDispatchAfterTriage = (
+  occurrenceId: string,
+  userId: string,
+  permissions: readonly string[],
+) => Promise<SvoDispatchResult>
 export type SvoConfirmationResult = Pick<SvoOccurrenceDetail, 'id' | 'status' | 'triagedAt' | 'triagedBy' | 'revision'> & { dispatch?: SvoDispatchResult }
 export interface SvoListFilters {
   status: SvoStatus | null

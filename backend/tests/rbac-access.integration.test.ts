@@ -6,8 +6,9 @@ import type { Pool } from 'pg'
 import jwt = require('jsonwebtoken')
 import { createApp } from '../src/app'
 import { seedRolesAndPermissions } from '../src/database/scripts/seed'
-import { createAuthMiddleware } from '../src/middlewares/auth.middleware'
+import { createAuthMiddleware, createCurrentUserMiddleware } from '../src/middlewares/auth.middleware'
 import { authorizeRoles } from '../src/middlewares/rbac.middleware'
+import { UsersRepository } from '../src/repositories/users.repository'
 import { USER_ROLES } from '../src/types/auth'
 import type { UserRole } from '../src/types/auth'
 import {
@@ -33,8 +34,11 @@ let testUsers: Map<UserRole, RbacTestUser>
 /**
  * Mensagem padronizada esperada em rejeições de autorização RBAC (HTTP 403).
  */
-const EXPECTED_FORBIDDEN_BODY = {
+const EXPECTED_ROLE_FORBIDDEN_BODY = {
   erro: 'Acesso negado: perfil de usuário não autorizado para esta operação.',
+}
+const EXPECTED_PERMISSION_FORBIDDEN_BODY = {
+  erro: 'Acesso negado: seu perfil não possui a permissão necessária para esta ação.',
 }
 
 before(async () => {
@@ -43,25 +47,26 @@ before(async () => {
 
   const app = createApp({ pool, jwtConfig: RBAC_JWT_CONFIG })
   const authenticate = createAuthMiddleware(RBAC_JWT_CONFIG.secret)
+  const currentUser = createCurrentUserMiddleware(new UsersRepository(pool))
 
   // Endpoints dedicados para auditoria da autorização de cada perfil (Seção 5.1 do SDD)
-  app.get('/test-access/gestor', authenticate, authorizeRoles(['GESTOR']), (_req, res) => {
+  app.get('/test-access/gestor', authenticate, currentUser, authorizeRoles(['GESTOR']), (_req, res) => {
     res.status(200).json({ mensagem: 'Acesso autorizado para GESTOR.' })
   })
 
-  app.get('/test-access/solicitante', authenticate, authorizeRoles(['SOLICITANTE']), (_req, res) => {
+  app.get('/test-access/solicitante', authenticate, currentUser, authorizeRoles(['SOLICITANTE']), (_req, res) => {
     res.status(200).json({ mensagem: 'Acesso autorizado para SOLICITANTE.' })
   })
 
-  app.get('/test-access/motorista', authenticate, authorizeRoles(['MOTORISTA']), (_req, res) => {
+  app.get('/test-access/motorista', authenticate, currentUser, authorizeRoles(['MOTORISTA']), (_req, res) => {
     res.status(200).json({ mensagem: 'Acesso autorizado para MOTORISTA.' })
   })
 
-  app.get('/test-access/atendente-svo', authenticate, authorizeRoles(['ATENDENTE_SVO']), (_req, res) => {
+  app.get('/test-access/atendente-svo', authenticate, currentUser, authorizeRoles(['ATENDENTE_SVO']), (_req, res) => {
     res.status(200).json({ mensagem: 'Acesso autorizado para ATENDENTE_SVO.' })
   })
 
-  app.get('/test-access/equipe-svo', authenticate, authorizeRoles(['EQUIPE_SVO']), (_req, res) => {
+  app.get('/test-access/equipe-svo', authenticate, currentUser, authorizeRoles(['EQUIPE_SVO']), (_req, res) => {
     res.status(200).json({ mensagem: 'Acesso autorizado para EQUIPE_SVO.' })
   })
 
@@ -118,7 +123,7 @@ test('IT-RBAC-02: ADMINISTRADOR recebe 403 Forbidden ao acessar endpoint exclusi
   })
 
   assert.equal(response.status, 403)
-  assert.deepEqual(await response.json(), EXPECTED_FORBIDDEN_BODY)
+  assert.deepEqual(await response.json(), EXPECTED_ROLE_FORBIDDEN_BODY)
 })
 
 test('IT-RBAC-03: GESTOR obtém sucesso ao acessar rota autorizada para seu perfil', async () => {
@@ -138,7 +143,7 @@ test('IT-RBAC-04: GESTOR recebe 403 Forbidden ao tentar acessar rota exclusiva d
   })
 
   assert.equal(response.status, 403)
-  assert.deepEqual(await response.json(), EXPECTED_FORBIDDEN_BODY)
+  assert.deepEqual(await response.json(), EXPECTED_PERMISSION_FORBIDDEN_BODY)
 })
 
 test('IT-RBAC-05: SOLICITANTE obtém sucesso ao acessar rota autorizada para seu perfil', async () => {
@@ -158,7 +163,7 @@ test('IT-RBAC-06: SOLICITANTE recebe 403 Forbidden ao tentar acessar rota exclus
   })
 
   assert.equal(response.status, 403)
-  assert.deepEqual(await response.json(), EXPECTED_FORBIDDEN_BODY)
+  assert.deepEqual(await response.json(), EXPECTED_PERMISSION_FORBIDDEN_BODY)
 })
 
 test('IT-RBAC-07: MOTORISTA obtém sucesso ao acessar rota autorizada para seu perfil', async () => {
@@ -178,7 +183,7 @@ test('IT-RBAC-08: MOTORISTA recebe 403 Forbidden ao tentar acessar rota exclusiv
   })
 
   assert.equal(response.status, 403)
-  assert.deepEqual(await response.json(), EXPECTED_FORBIDDEN_BODY)
+  assert.deepEqual(await response.json(), EXPECTED_PERMISSION_FORBIDDEN_BODY)
 })
 
 test('IT-RBAC-09: ATENDENTE_SVO obtém sucesso ao acessar rota autorizada para seu perfil', async () => {
@@ -198,7 +203,7 @@ test('IT-RBAC-10: ATENDENTE_SVO recebe 403 Forbidden ao tentar acessar rota excl
   })
 
   assert.equal(response.status, 403)
-  assert.deepEqual(await response.json(), EXPECTED_FORBIDDEN_BODY)
+  assert.deepEqual(await response.json(), EXPECTED_PERMISSION_FORBIDDEN_BODY)
 })
 
 test('IT-RBAC-11: EQUIPE_SVO obtém sucesso ao acessar rota autorizada para seu perfil', async () => {
@@ -218,7 +223,7 @@ test('IT-RBAC-12: EQUIPE_SVO recebe 403 Forbidden ao tentar acessar rota exclusi
   })
 
   assert.equal(response.status, 403)
-  assert.deepEqual(await response.json(), EXPECTED_FORBIDDEN_BODY)
+  assert.deepEqual(await response.json(), EXPECTED_PERMISSION_FORBIDDEN_BODY)
 })
 
 test('IT-RBAC-13: Todos os 6 perfis RBAC realizam logout com sucesso em POST /auth/logout', async () => {
@@ -261,7 +266,7 @@ test('IT-RBAC-15: Requisição com token JWT expirado é rejeitada com 401 Unaut
   assert.deepEqual(await response.json(), { erro: 'Token inválido ou expirado.' })
 })
 
-test('IT-RBAC-16: Requisição com token adulterado, forjado ou com perfil desconhecido é rejeitada com 401', async () => {
+test('IT-RBAC-16: assinatura falsa é rejeitada e claims de perfil não substituem o cadastro vigente', async () => {
   const admin = getUser('ADMINISTRADOR')
 
   // Assinatura com segredo divergente
@@ -284,8 +289,9 @@ test('IT-RBAC-16: Requisição com token adulterado, forjado ou com perfil desco
   const respInvalidRole = await fetch(`${baseUrl}/profiles`, {
     headers: { Authorization: `Bearer ${invalidRoleToken}` },
   })
-  assert.equal(respInvalidRole.status, 401)
-  assert.deepEqual(await respInvalidRole.json(), { erro: 'Token inválido.' })
+  assert.equal(respInvalidRole.status, 200)
+  const profiles = await respInvalidRole.json() as Array<{ name: string }>
+  assert.ok(profiles.some((profile) => profile.name === 'ADMINISTRADOR'))
 
   // Formato malformado sem Bearer
   const respMalformed = await fetch(`${baseUrl}/profiles`, {

@@ -1,13 +1,13 @@
 import type { PoolClient } from 'pg'
 import type { AuditLogger } from '../types/audit.types'
 import type { SvoOccurrencesRepositoryContract } from '../repositories/svo-occurrences.repository'
+import { LEGACY_ROLE_PERMISSIONS } from '../types/permission.types'
 import {
-  SVO_REQUESTER_TYPES, SVO_STATUSES, SVO_TRANSITIONS, SVO_WRITE_ROLES, SvoOccurrenceServiceError,
+  SVO_REQUESTER_TYPES, SVO_STATUSES, SVO_TRANSITIONS, SvoOccurrenceServiceError,
 } from '../types/svo-occurrence.types'
 import type {
   CreateSvoOccurrenceInput, SvoActorSnapshot, SvoOccurrenceDetail, SvoOccurrenceSummary,
-  SvoCreationResult, SvoConfirmationResult,
-  SvoDispatchResult,
+  SvoCreationResult, SvoConfirmationResult, SvoDispatchAfterTriage,
 } from '../types/svo-occurrence.types'
 
 const CREATE_FIELDS = ['requesterName', 'requesterPhone', 'requesterType', 'location', 'description', 'notes', 'receivedAt', 'evidenceDescription']
@@ -125,17 +125,17 @@ export class SvoOccurrencesService {
   constructor(
     private readonly repository: SvoOccurrencesRepositoryContract,
     private readonly audit: AuditLogger,
-    private readonly dispatch?: (occurrenceId: string, userId: string) => Promise<SvoDispatchResult>,
+    private readonly dispatch?: SvoDispatchAfterTriage,
   ) {}
 
   /**
    * Registra recebimento, autoria e auditoria de forma atômica, inclusive fora do expediente.
    * @throws {SvoOccurrenceServiceError} Entrada inválida, recebimento futuro ou conta sem permissão atual.
    */
-  async createOccurrence(body: unknown, userId: string): Promise<SvoCreationResult> {
+  async createOccurrence(body: unknown, userId: string, permissions?: readonly string[]): Promise<SvoCreationResult> {
     const input = createInput(body)
     return this.repository.withTransaction(async (client) => {
-      const actor = await this.requireActor(userId, client)
+      const actor = await this.requireActor(userId, permissions, 'svo:occurrences:create', client)
       const now = await this.repository.currentTime(client)
       const receivedAt = input.receivedAt ? new Date(input.receivedAt) : now
       if (receivedAt > now) invalid('A data de recebimento não pode estar no futuro.')
@@ -180,7 +180,12 @@ export class SvoOccurrencesService {
    * Confirma apenas PENDING após travar conta e ocorrência, preservando o recebimento original.
    * @throws {SvoOccurrenceServiceError} Entrada inválida, acesso negado, registro inexistente ou transição já concluída.
    */
-  async confirmOccurrence(id: unknown, body: unknown, userId: string): Promise<SvoConfirmationResult> {
+  async confirmOccurrence(
+    id: unknown,
+    body: unknown,
+    userId: string,
+    permissions?: readonly string[],
+  ): Promise<SvoConfirmationResult> {
     const validId = occurrenceId(id)
     const input = inputRecord(body === undefined ? {} : body, ['expectedRevision'])
     if (input.expectedRevision !== undefined
@@ -189,7 +194,7 @@ export class SvoOccurrencesService {
     }
     const expectedRevision = input.expectedRevision === undefined ? null : Number(input.expectedRevision)
     const confirmed = await this.repository.withTransaction(async (client) => {
-      const actor = await this.requireActor(userId, client)
+      const actor = await this.requireActor(userId, permissions, 'svo:occurrences:confirm', client)
       const before = await this.repository.findByIdForUpdate(validId, client)
       if (!before) throw new SvoOccurrenceServiceError('NOT_FOUND', 'Solicitação SVO não encontrada.')
       if (expectedRevision !== null && before.revision !== expectedRevision) {
@@ -217,14 +222,20 @@ export class SvoOccurrencesService {
       const { status, triagedAt, triagedBy, revision } = after
       return { id: validId, status, triagedAt, triagedBy, revision }
     })
-    const dispatch = this.dispatch ? await this.dispatch(validId, userId) : undefined
+    const dispatch = this.dispatch ? await this.dispatch(validId, userId, permissions ?? []) : undefined
     return dispatch ? { ...confirmed, revision: dispatch.revision, dispatch } : confirmed
   }
 
-  private async requireActor(id: string, client: PoolClient): Promise<SvoActorSnapshot> {
+  private async requireActor(
+    id: string,
+    permissions: readonly string[] | undefined,
+    permission: string,
+    client: PoolClient,
+  ): Promise<SvoActorSnapshot> {
     const actor = await this.repository.findActorSnapshot(id, client)
     if (!actor) throw new SvoOccurrenceServiceError('ACCOUNT_UNAVAILABLE', 'Sua conta não está ativa. Entre novamente ou procure a administração.')
-    if (!SVO_WRITE_ROLES.some((role) => role === actor.role)) {
+    const grants = permissions ?? LEGACY_ROLE_PERMISSIONS[actor.role] ?? []
+    if (!grants.includes(permission)) {
       throw new SvoOccurrenceServiceError('ACCESS_DENIED', 'Seu perfil atual não permite registrar ou confirmar solicitações SVO.')
     }
     return actor

@@ -756,14 +756,14 @@ test('IT-DOC-10: conta desativada e perfil revogado perdem acesso nas 6 rotas co
     try {
       await pool.query('UPDATE auth.users SET active = false WHERE id = $1', [actor.id])
       for (const [method, path, payload] of endpoints) {
-        await expectError(await api(path, method, { role, body: payload }), 401, /conta não está ativa/i)
+        await expectError(await api(path, method, { role, body: payload }), 401, /conta ou perfil não está ativo/i)
         assert.deepEqual(await ledger(), savedLedger)
       }
       await pool.query('UPDATE auth.users SET active = true, role_id = $2 WHERE id = $1', [
         actor.id, users.get('SOLICITANTE')!.roleId,
       ])
       for (const [method, path, payload] of endpoints) {
-        await expectError(await api(path, method, { role, body: payload }), 403, /perfil.*não autorizado/i)
+        await expectError(await api(path, method, { role, body: payload }), 403, /perfil não possui a permissão necessária/i)
         assert.deepEqual(await ledger(), savedLedger)
       }
     } finally {

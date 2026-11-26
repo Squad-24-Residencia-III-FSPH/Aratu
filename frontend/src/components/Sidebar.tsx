@@ -27,18 +27,17 @@ interface SidebarProps {
   expanded: boolean
   mobileOpen: boolean
   onMobileClose: () => void
-  onAction: (item: SidebarMenuItem) => void
 }
 
-export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onMobileClose, onAction }: SidebarProps) {
+export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onMobileClose }: SidebarProps) {
   const theme = useTheme();
   const isCompactViewport = useMediaQuery(theme.breakpoints.down('sm'));
   const location = useLocation();
   const { session } = useAuth();
 
   const profile = session ? resolveProfile(session.perfil) : null;
-  const navigation = getSidebarNavigation(profile);
-  const roleLabel = session ? profileLabel(session.perfil) : 'Usuário';
+  const navigation = getSidebarNavigation(profile, session?.permissions);
+  const roleLabel = session ? profileLabel(session.perfil, session.profile?.displayName) : 'Usuário';
   const expanded = isCompactViewport ? mobileOpen : desktopExpanded;
 
   const currentWidth = expanded ? drawerWidthExpanded : drawerWidthCollapsed;
@@ -53,6 +52,7 @@ export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onMobil
     px: expanded ? 2 : 1.5,
     '& .MuiListItemIcon-root': { color: '#FF6B00' },
     '&:hover': { backgroundColor: 'rgba(255, 107, 0, 0.12)' },
+    '&.Mui-focusVisible': { outline: '2px solid #111827', outlineOffset: 2 },
   };
 
   const defaultStyle = {
@@ -61,6 +61,7 @@ export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onMobil
     justifyContent: expanded ? 'initial' : 'center',
     px: expanded ? 2 : 1.5,
     '&:hover': { backgroundColor: '#df68061e' },
+    '&.Mui-focusVisible': { outline: '2px solid #111827', outlineOffset: 2 },
   };
 
   const renderItemText = (text: string) => {
@@ -104,10 +105,9 @@ export default function Sidebar({ expanded: desktopExpanded, mobileOpen, onMobil
 
     const content = (
       <ListItemButton
-        {...(item.behavior === 'link' && item.path ? { component: RouterLink, to: item.path, 'aria-current': isSelected ? 'page' as const : undefined } : {})}
+        {...(item.path ? { component: RouterLink, to: item.path, 'aria-current': isSelected ? 'page' as const : undefined } : {})}
         selected={isSelected}
         onClick={() => {
-          if (item.behavior === 'action') onAction(item)
           if (isCompactViewport) onMobileClose()
         }}
         sx={itemStyle}

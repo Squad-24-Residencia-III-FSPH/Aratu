@@ -2,11 +2,11 @@ import { Router } from 'express'
 import type { Request, Response, NextFunction } from 'express'
 import { createSvoOccurrencesController } from '../controllers/svo-occurrences.controller'
 import { createAuthMiddleware, createCurrentUserMiddleware } from '../middlewares/auth.middleware'
-import { authorizeRoles } from '../middlewares/rbac.middleware'
+import { authorizePermissions } from '../middlewares/rbac.middleware'
 import type { UsersRepositoryContract } from '../repositories/users.repository'
 import type { SvoOccurrencesService } from '../services/svo-occurrences.service'
 import type { JwtConfig } from '../types/auth'
-import { SVO_READ_ROLES, SVO_WRITE_ROLES, SvoOccurrenceServiceError } from '../types/svo-occurrence.types'
+import { SvoOccurrenceServiceError } from '../types/svo-occurrence.types'
 import type { SvoErrorCode } from '../types/svo-occurrence.types'
 
 const ERROR_STATUS: Record<SvoErrorCode, number> = {
@@ -18,10 +18,10 @@ export function createSvoOccurrencesRouter(service: SvoOccurrencesService, jwt: 
   const router = Router()
   const controller = createSvoOccurrencesController(service)
   router.use(createAuthMiddleware(jwt.secret), createCurrentUserMiddleware(users))
-  router.get('/', authorizeRoles(SVO_READ_ROLES), controller.list)
-  router.get('/:id', authorizeRoles(SVO_READ_ROLES), controller.detail)
-  router.post('/', authorizeRoles(SVO_WRITE_ROLES), controller.create)
-  router.post('/:id/confirm', authorizeRoles(SVO_WRITE_ROLES), controller.confirm)
+  router.get('/', authorizePermissions('svo:occurrences:read'), controller.list)
+  router.get('/:id', authorizePermissions('svo:occurrences:read'), controller.detail)
+  router.post('/', authorizePermissions('svo:occurrences:create'), controller.create)
+  router.post('/:id/confirm', authorizePermissions('svo:occurrences:confirm'), controller.confirm)
   return router
 }
 

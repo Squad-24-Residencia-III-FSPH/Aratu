@@ -11,13 +11,13 @@ import type { UserRole } from '../../types/auth'
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') })
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') })
 
-const ROLE_SEEDS: ReadonlyArray<{ name: UserRole; description: string }> = [
-  { name: 'ADMINISTRADOR', description: 'Acesso global de parametrização e administração do sistema' },
-  { name: 'GESTOR', description: 'Gestão operacional de frotas, condutores e aprovação de viagens FSPH' },
-  { name: 'SOLICITANTE', description: 'Abertura e acompanhamento de requisições de transporte institucional' },
-  { name: 'MOTORISTA', description: 'Acesso a viagens atribuídas e registro de hodômetro/execução' },
-  { name: 'ATENDENTE_SVO', description: 'Recepção, triagem de chamados e solicitação de remoção cadavérica' },
-  { name: 'EQUIPE_SVO', description: 'Atendimento operacional sigiloso, coleta e entrega cadavérica no SVO' },
+const ROLE_SEEDS: ReadonlyArray<{ name: UserRole; displayName: string; description: string; defaultPath: string }> = [
+  { name: 'ADMINISTRADOR', displayName: 'Administrador do Sistema', description: 'Acesso global de parametrização e administração do sistema', defaultPath: '/administracao/usuarios' },
+  { name: 'GESTOR', displayName: 'Gestor de Frota', description: 'Gestão operacional de frotas, condutores e aprovação de viagens FSPH', defaultPath: '/frota/dashboard' },
+  { name: 'SOLICITANTE', displayName: 'Solicitante Interno', description: 'Abertura e acompanhamento de requisições de transporte institucional', defaultPath: '/solicitacoes/minhas' },
+  { name: 'MOTORISTA', displayName: 'Motorista', description: 'Acesso a viagens atribuídas e registro de hodômetro/execução', defaultPath: '/viagens/minhas' },
+  { name: 'ATENDENTE_SVO', displayName: 'Atendente SVO', description: 'Recepção, triagem de chamados e solicitação de remoção cadavérica', defaultPath: '/svo/solicitacoes' },
+  { name: 'EQUIPE_SVO', displayName: 'Equipe SVO', description: 'Atendimento operacional sigiloso, coleta e entrega cadavérica no SVO', defaultPath: '/svo/ordens' },
 ]
 
 const PERMISSION_SEEDS = [
@@ -25,8 +25,6 @@ const PERMISSION_SEEDS = [
   { name: 'permissions:manage', description: 'Gerenciar perfis e permissões de acesso do sistema' },
   { name: 'screens:access', description: 'Acessar as telas disponíveis para o perfil' },
 ] as const
-
-const ADMIN_ONLY_PERMISSIONS = ['users:manage', 'permissions:manage'] as const
 
 const INITIAL_SVO_VEHICLES = [
   { licensePlate: 'SVO1A01', brand: 'Chevrolet', model: 'S10', year: 2024, vehicleType: 'PICKUP_SVO' },
@@ -70,9 +68,9 @@ export interface InitialAdminConfig {
 /**
  * Provisiona a matriz RBAC inicial de forma idempotente.
  *
- * Todos os perfis recebem acesso às telas, enquanto apenas o Administrador pode
- * gerenciar usuários, perfis e permissões. A tabela associativa mantém a matriz
- * editável para futuras telas e ações sem alterar o código de autorização.
+ * Provisiona somente o catálogo-base e os perfis canônicos que estiverem ausentes.
+ * A matriz granular é aplicada uma única vez pela migration, para que execuções
+ * posteriores não restaurem permissões que a Administração tenha revogado.
  *
  * @param pool - Pool PostgreSQL conectado ao banco que receberá os dados iniciais.
  */
@@ -84,10 +82,10 @@ export async function seedRolesAndPermissions(pool: Pool): Promise<void> {
 
     for (const role of ROLE_SEEDS) {
       await client.query(
-        `INSERT INTO auth.roles (name, description)
-         VALUES ($1, $2)
+        `INSERT INTO auth.roles (name, description, display_name, default_path)
+         VALUES ($1, $2, $3, $4)
          ON CONFLICT DO NOTHING`,
-        [role.name, role.description],
+        [role.name, role.description, role.displayName, role.defaultPath],
       )
     }
 
@@ -97,53 +95,6 @@ export async function seedRolesAndPermissions(pool: Pool): Promise<void> {
          VALUES ($1, $2)
          ON CONFLICT DO NOTHING`,
         [permission.name, permission.description],
-      )
-    }
-
-    const roleResult = await client.query<{ id: string; name: UserRole }>(
-      `SELECT id::text AS id, name
-       FROM auth.roles
-       WHERE name = ANY($1::text[])`,
-      [ROLE_SEEDS.map((role) => role.name)],
-    )
-    const permissionResult = await client.query<{ id: string; name: string }>(
-      `SELECT id::text AS id, name
-       FROM auth.permissions
-       WHERE name = ANY($1::text[])`,
-      [PERMISSION_SEEDS.map((permission) => permission.name)],
-    )
-    const roleIds = new Map(roleResult.rows.map((role) => [role.name, role.id]))
-    const permissionIds = new Map(permissionResult.rows.map((permission) => [permission.name, permission.id]))
-    const screensAccessId = permissionIds.get('screens:access')
-    const administratorId = roleIds.get('ADMINISTRADOR')
-
-    if (!screensAccessId || !administratorId) {
-      throw new Error('Não foi possível localizar os perfis ou permissões provisionados.')
-    }
-
-    for (const role of ROLE_SEEDS) {
-      const roleId = roleIds.get(role.name)
-      if (!roleId) {
-        throw new Error(`O perfil ${role.name} não foi provisionado corretamente.`)
-      }
-      await client.query(
-        `INSERT INTO auth.role_permissions (role_id, permission_id)
-         VALUES ($1, $2)
-         ON CONFLICT DO NOTHING`,
-        [roleId, screensAccessId],
-      )
-    }
-
-    for (const permissionName of ADMIN_ONLY_PERMISSIONS) {
-      const permissionId = permissionIds.get(permissionName)
-      if (!permissionId) {
-        throw new Error(`A permissão ${permissionName} não foi provisionada corretamente.`)
-      }
-      await client.query(
-        `INSERT INTO auth.role_permissions (role_id, permission_id)
-         VALUES ($1, $2)
-         ON CONFLICT DO NOTHING`,
-        [administratorId, permissionId],
       )
     }
 

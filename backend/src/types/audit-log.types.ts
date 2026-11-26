@@ -10,6 +10,7 @@ export interface AuditLogsQuery {
   userId?: unknown
   operation?: unknown
   table?: unknown
+  recordId?: unknown
   page?: unknown
   pageSize?: unknown
 }
@@ -21,6 +22,7 @@ export interface AuditLogFilters {
   userId: string | null
   operation: string | null
   table: string | null
+  recordId: string | null
   limit: number
   offset: number
 }
@@ -53,6 +55,63 @@ export interface AuditLogPage {
   pageSize: number
   totalPages: number
 }
+
+/** Evento histórico seguro de um registro consultado na área central de Auditoria. */
+export interface AuditHistoryEntry {
+  id: string
+  source: 'DOMAIN_EVENT' | 'AUDIT_LOG'
+  eventType: string
+  occurredAt: Date
+  registeredAt: Date
+  reportedBy: string | null
+  actor: { id: string | null; name: string | null; role: string | null }
+  reason: string | null
+  before: unknown
+  after: unknown
+  sensitiveDataHidden: boolean
+}
+
+/** Paginação de eventos de um registro individual. */
+export interface AuditHistoryPage {
+  entityType: AuditEntityType
+  recordId: string
+  items: AuditHistoryEntry[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+/** Parâmetros não confiáveis da consulta central de histórico. */
+export interface AuditHistoryQuery {
+  entityType: unknown
+  recordId: unknown
+  eventType?: unknown
+  from?: unknown
+  to?: unknown
+  page?: unknown
+  pageSize?: unknown
+}
+
+/** Recorte de leitura repassado a um reader de histórico com escopo de domínio. */
+export interface AuditHistoryScope {
+  kind: 'all' | 'own' | 'assigned'
+  actorId: string
+}
+
+/** Contexto de autorização atual usado para preservar o escopo próprio/atribuído. */
+export interface AuditHistoryActor {
+  id: string
+  permissions: readonly string[]
+}
+
+/** Tipos de registro para os quais a área central possui leitor aprovado. */
+export type AuditEntityType =
+  | 'vehicle' | 'driver' | 'service'
+  | 'trip-request' | 'trip'
+  | 'maintenance-order' | 'fueling' | 'fine' | 'vehicle-document'
+  | 'svo-occurrence' | 'svo-order' | 'svo-team'
+  | 'user' | 'profile'
 
 /** Erro de domínio convertido pela camada HTTP em resposta REST apropriada. */
 export class AuditLogsError extends Error {
