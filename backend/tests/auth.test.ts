@@ -8,7 +8,9 @@ import { createAuthMiddleware, createCurrentUserMiddleware } from '../src/middle
 import { authorizeRoles } from '../src/middlewares/rbac.middleware'
 import type { User } from '../src/types/auth'
 import type { RoleRepositoryContract } from '../src/repositories/roles.repository'
-import type { Role, UserForLogin } from '../src/types/auth'
+import type { CurrentUserAuthorizationContext, Role, UserForLogin } from '../src/types/auth'
+import type { UsersRepositoryContract } from '../src/repositories/users.repository'
+import { LEGACY_ROLE_PERMISSIONS } from '../src/types/permission.types'
 import { AuthService } from '../src/services/auth.service'
 import { comparePassword, hashPassword } from '../src/services/password.service'
 import { loadJwtConfig } from '../src/services/jwt-config.service'
@@ -54,7 +56,9 @@ test('conta atual: ausência, inativação, id inválido, perfil vigente e falha
       assert.equal(calls, scenario.queried === false ? 0 : 1)
       assert.equal(handlerCalls, scenario.status === 200 ? 1 : 0)
       const body: unknown = await response.json()
-      if (scenario.status === 200) assert.deepEqual(body, { id: '1', perfil: 'GESTOR' })
+      if (scenario.status === 200) assert.deepEqual(body, {
+        id: '1', perfil: 'GESTOR', roleId: '2', permissions: LEGACY_ROLE_PERMISSIONS.GESTOR,
+      })
       else assert.doesNotMatch(JSON.stringify(body), /Falha fictícia|stack|example\.test/)
     } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())) }
   }
@@ -98,12 +102,14 @@ function user(overrides: Partial<UserForLogin> = {}): UserForLogin {
     password_hash: passwordHash,
     roleId: '4',
     role: 'MOTORISTA',
+    profileActive: true,
+    displayName: 'Motorista',
     is_active: true,
     ...overrides,
   }
 }
 
-test('login normaliza e-mail, valida bcrypt e emite JWT com id e perfil', async () => {
+test('login normaliza e-mail, valida bcrypt e emite JWT com somente o id', async () => {
   let queriedEmail = ''
   const service = new AuthService({
     findByEmail: async (email) => {
@@ -123,7 +129,7 @@ test('login normaliza e-mail, valida bcrypt e emite JWT com id e perfil', async 
   assert.equal(typeof payload, 'object')
   if (typeof payload === 'string') return
   assert.equal(payload.id, '1')
-  assert.equal(payload.perfil, 'MOTORISTA')
+  assert.equal('perfil' in payload, false)
   assert.equal('role' in payload, false)
   assert.equal('nome' in payload, false)
   assert.equal('email' in payload, false)
@@ -148,8 +154,9 @@ async function withServer(
   run: (baseUrl: string) => Promise<void>,
   configure?: (app: ReturnType<typeof createApp>) => void,
   roles?: RoleRepositoryContract,
+  currentUsers?: Pick<UsersRepositoryContract, 'findById' | 'findAuthorizationById'>,
 ): Promise<void> {
-  const dependencies = roles ? { users, roles, jwtConfig } : { users, jwtConfig }
+  const dependencies = { users, jwtConfig, ...(roles ? { roles } : {}), ...(currentUsers ? { currentUsers } : {}) }
   const app = createApp(dependencies)
   configure?.(app)
   const server = app.listen(0)
@@ -222,30 +229,69 @@ test('GET /profiles exige JWT de ADMINISTRADOR e retorna os perfis permitidos', 
   const profiles: Role[] = [{
     id: '1',
     name: 'ADMINISTRADOR',
+    displayName: 'Administrador',
     description: 'Acesso global de administração do sistema.',
+    active: true,
+    revision: 1,
+    defaultPath: '/administracao/perfis',
+    activeUserCount: 0,
     createdAt: new Date('2026-10-18T00:00:00.000Z'),
   }]
   const roles: RoleRepositoryContract = {
     findAll: async () => profiles,
     findById: async () => null,
     findByName: async () => null,
-    findPermissionsByRoleId: async () => [],
+    findPermissionsByRoleId: async (roleId) => roleId === '1' ? [{
+      id: '11', name: 'profiles:read', description: 'Consultar perfis de acesso.',
+      createdAt: new Date('2026-10-18T00:00:00.000Z'),
+    }] : [],
+  }
+  const currentUsers: Pick<UsersRepositoryContract, 'findById' | 'findAuthorizationById'> = {
+    async findById(id) {
+      const isAdmin = id === '1'
+      return {
+        id,
+        name: isAdmin ? 'Administradora Fictícia' : 'Motorista Fictício',
+        email: isAdmin ? 'admin@example.test' : 'motorista@example.test',
+        roleId: isAdmin ? '1' : '2',
+        role: isAdmin ? 'ADMINISTRADOR' : 'MOTORISTA',
+        active: true,
+        revision: 1,
+        createdAt: new Date('2026-10-18T00:00:00.000Z'),
+        updatedAt: new Date('2026-10-18T00:00:00.000Z'),
+      }
+    },
+    async findAuthorizationById(id): Promise<CurrentUserAuthorizationContext> {
+      const isAdmin = id === '1'
+      return {
+        id,
+        name: isAdmin ? 'Administradora Fictícia' : 'Motorista Fictício',
+        roleId: isAdmin ? '1' : '2',
+        role: isAdmin ? 'ADMINISTRADOR' : 'MOTORISTA',
+        displayName: isAdmin ? 'Administrador' : 'Motorista',
+        roleRevision: 1,
+        defaultPath: null,
+        profileActive: true,
+        active: true,
+        permissions: isAdmin ? ['profiles:read'] : [],
+      }
+    },
   }
 
   await withServer({ findByEmail: async () => user() }, async (baseUrl) => {
     const withoutToken = await fetch(`${baseUrl}/profiles`)
     assert.equal(withoutToken.status, 401)
 
-    const driverToken = jwt.sign({ id: '1', perfil: 'MOTORISTA' }, jwtConfig.secret)
+    const driverToken = jwt.sign({ id: '2' }, jwtConfig.secret)
     const forbidden = await fetch(`${baseUrl}/profiles`, {
       headers: { Authorization: `Bearer ${driverToken}` },
     })
     assert.equal(forbidden.status, 403)
     assert.deepEqual(await forbidden.json(), {
-      erro: 'Acesso negado: perfil de usuário não autorizado para esta operação.',
+      erro: 'Acesso negado: seu perfil não possui a permissão necessária para esta ação.',
     })
 
-    const adminToken = jwt.sign({ id: '1', perfil: 'ADMINISTRADOR' }, jwtConfig.secret)
+    const adminToken = jwt.sign({ id: '1' }, jwtConfig.secret)
     const success = await fetch(`${baseUrl}/profiles`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     })
@@ -253,13 +299,18 @@ test('GET /profiles exige JWT de ADMINISTRADOR e retorna os perfis permitidos', 
     assert.deepEqual(await success.json(), [{
       id: '1',
       name: 'ADMINISTRADOR',
+      displayName: 'Administrador',
       description: 'Acesso global de administração do sistema.',
+      active: true,
+      revision: 1,
+      defaultPath: '/administracao/perfis',
+      activeUserCount: 0,
       createdAt: '2026-10-18T00:00:00.000Z',
     }])
-  }, undefined, roles)
+  }, undefined, roles, currentUsers)
 })
 
-test('logout protegido rejeita token ausente/inválido e aceita token válido', async () => {
+test('logout protegido rejeita token ausente, inválido ou expirado e ignora claims legadas de perfil', async () => {
   await withServer({ findByEmail: async () => user() }, async (baseUrl) => {
     const withoutToken = await fetch(`${baseUrl}/auth/logout`, { method: 'POST' })
     assert.equal(withoutToken.status, 401)
@@ -275,14 +326,14 @@ test('logout protegido rejeita token ausente/inválido e aceita token válido', 
       method: 'POST',
       headers: { Authorization: `Bearer ${invalidRoleToken}` },
     })
-    assert.equal(invalidRole.status, 401)
+    assert.equal(invalidRole.status, 200)
 
     const legacyRoleToken = jwt.sign({ id: user().id, role: 'MOTORISTA' }, jwtConfig.secret)
     const legacyRole = await fetch(`${baseUrl}/auth/logout`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${legacyRoleToken}` },
     })
-    assert.equal(legacyRole.status, 401)
+    assert.equal(legacyRole.status, 200)
 
     const expiredToken = jwt.sign(
       { id: user().id, perfil: 'MOTORISTA', exp: Math.floor(Date.now() / 1000) - 1 },
@@ -306,7 +357,7 @@ test('logout protegido rejeita token ausente/inválido e aceita token válido', 
     assert.equal(privateRoute.status, 200)
     assert.deepEqual(await privateRoute.json(), {
       id: '1',
-      perfil: 'MOTORISTA',
+      perfil: '',
     })
 
     const logout = await fetch(`${baseUrl}/auth/logout`, {

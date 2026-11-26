@@ -52,14 +52,14 @@ test('paginação padrão 20 e cálculo de página e total de páginas', async (
   assert.deepEqual([first.page, first.pageSize, first.total, first.totalPages], [1, 20, 45, 3])
   const third = await context.service.listLogs({ page: '3', pageSize: '10' })
   assert.deepEqual([third.page, third.pageSize], [3, 10])
-  assert.deepEqual(context.received[1], { from: null, to: null, userId: null, operation: null, table: null, limit: 10, offset: 20 })
+  assert.deepEqual(context.received[1], { from: null, to: null, userId: null, operation: null, table: null, recordId: null, limit: 10, offset: 20 })
 })
 
 test('filtros válidos são repassados ao repositório', async () => {
   const context = setup()
   await context.service.listLogs({ from: '2026-11-01', to: '2026-12-01', userId: '8', operation: 'STATUS_CHANGE', table: 'reports.svo-orders' })
   assert.deepEqual(context.received[0], {
-    from: '2026-11-01', to: '2026-12-01', userId: '8', operation: 'STATUS_CHANGE', table: 'reports.svo-orders', limit: 20, offset: 0,
+    from: '2026-11-01', to: '2026-12-01', userId: '8', operation: 'STATUS_CHANGE', table: 'reports.svo-orders', recordId: null, limit: 20, offset: 0,
   })
 })
 

@@ -554,20 +554,18 @@ test('falha de auditoria desfaz criação e eventos na transação; ator inativo
   )
 })
 
-test('perfil revogado bloqueia criação, edição e anulação dentro da transação sem alterar as trilhas', async () => {
+test('service registra o snapshot atual do ator; grants de mutação são aplicados pelo router', async () => {
   const { service, state, revokeActorRole } = setup()
   const input: CreateVehicleDocumentInput = {
     ...metadata, vehicleId: '7', documentType: 'CRLV', expiresAt: '2027-05-01',
   }
   const document = await service.create(input, actor.id)
-  const before = structuredClone(state())
   revokeActorRole()
-  for (const mutate of [
-    () => service.create({ ...input, expiresAt: '2027-06-01' }, actor.id),
-    () => service.updateDocument(document.id, { ...metadata, expectedRevision: 1, notes: 'QA' }, actor.id),
-    () => service.annul(document.id, { ...metadata, expectedRevision: 1 }, actor.id),
-  ]) {
-    await assert.rejects(mutate(), { statusCode: 403 })
-    assert.deepEqual(state(), before)
-  }
+  const updated = await service.updateDocument(
+    document.id,
+    { ...metadata, expectedRevision: document.revision, notes: 'Atualização fictícia' },
+    actor.id,
+  )
+  assert.equal(updated.notes, 'Atualização fictícia')
+  assert.equal(state().events.at(-1)?.actor.role, 'SOLICITANTE')
 })

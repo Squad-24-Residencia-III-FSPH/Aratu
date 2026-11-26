@@ -73,26 +73,22 @@ function domainError(statusCode: number) {
   return (error: unknown) => error instanceof RequestDecisionError && error.statusCode === statusCode
 }
 
-test('aprovação sem motivo registra o Gestor, a data e o motivo padrão no histórico', async () => {
+test('aprovação isolada retorna 409 e preserva a solicitação pendente', async () => {
   const context = setup()
-  const result = await context.service.approve('41', {}, manager.id)
-
-  assert.deepEqual(result, {
-    id: '41', status: 'APPROVED', decidedBy: '8', decidedAt: DECIDED_AT, decisionReason: null, revision: 2,
-  })
-  assert.equal(context.events.length, 1)
-  assert.equal(context.events[0]?.eventType, 'APPROVED')
-  assert.equal(context.events[0]?.reason, 'Solicitação aprovada')
-  assert.equal(context.events[0]?.beforeState.status, 'PENDING')
-  assert.equal(context.audits[0]?.table, 'trip.requests')
-  assert.equal(context.audits[0]?.operation, 'STATUS_CHANGE')
+  await assert.rejects(context.service.approve('41', {}, manager.id), (error: unknown) =>
+    error instanceof RequestDecisionError
+      && error.statusCode === 409
+      && error.message === 'Para aprovar esta solicitação, conclua o agendamento da viagem.',
+  )
+  assert.equal(context.events.length, 0)
+  assert.equal(context.audits.length, 0)
 })
 
-test('aprovação com motivo grava o motivo informado', async () => {
+test('aprovação isolada continua bloqueada mesmo com motivo', async () => {
   const context = setup()
-  const result = await context.service.approve('41', { reason: '  Prioridade da diretoria ' }, manager.id)
-  assert.equal(result.decisionReason, 'Prioridade da diretoria')
-  assert.equal(context.events[0]?.reason, 'Prioridade da diretoria')
+  await assert.rejects(context.service.approve('41', { reason: 'Prioridade da diretoria' }, manager.id), domainError(409))
+  assert.equal(context.events.length, 0)
+  assert.equal(context.audits.length, 0)
 })
 
 test('rejeição exige justificativa (400) e grava REJECTED com o motivo', async () => {
@@ -133,7 +129,7 @@ test('decisão com revisão obsoleta retorna conflito sem evento', async () => {
 
 test('solicitação já analisada retorna 409 e não gera novo histórico', async () => {
   const context = setup()
-  await context.service.approve('41', {}, manager.id)
+  await context.service.reject('41', { reason: 'Sem disponibilidade' }, manager.id)
   await assert.rejects(context.service.approve('41', {}, manager.id), domainError(409))
   await assert.rejects(context.service.reject('41', { reason: 'x' }, manager.id), domainError(409))
   assert.equal(context.events.length, 1)
@@ -145,7 +141,7 @@ test('solicitação já analisada retorna 409 e não gera novo histórico', asyn
 
 test('id inválido retorna 400, inexistente 404 e motivo não textual 400', async () => {
   const context = setup()
-  await assert.rejects(context.service.approve('abc', {}, manager.id), domainError(400))
-  await assert.rejects(context.service.approve('99', {}, manager.id), domainError(404))
-  await assert.rejects(context.service.approve('41', { reason: 5 as unknown as string }, manager.id), domainError(400))
+  await assert.rejects(context.service.reject('abc', { reason: 'Inválido' }, manager.id), domainError(400))
+  await assert.rejects(context.service.reject('99', { reason: 'Inexistente' }, manager.id), domainError(404))
+  await assert.rejects(context.service.reject('41', { reason: 5 as unknown as string }, manager.id), domainError(400))
 })

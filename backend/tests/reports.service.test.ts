@@ -9,7 +9,14 @@ import type { User, UserRole } from '../src/types/auth'
 import { ReportServiceError } from '../src/types/report.types'
 import type { ReportsRepositoryContract } from '../src/repositories/reports.repository'
 
-const actor = { id: '1', perfil: 'GESTOR' as const }
+const actor = {
+  id: '1',
+  perfil: 'GESTOR' as const,
+  permissions: [
+    'reports:read:trips', 'reports:read:fleet', 'reports:read:maintenance', 'reports:read:svo',
+    'reports:export:trips', 'reports:export:fleet', 'reports:export:maintenance', 'reports:export:svo',
+  ],
+}
 const dates = { from: '2026-11-01', to: '2026-11-15' }
 function fixture(options: { count?: number; role?: UserRole; rows?: Record<string, unknown>[]; auditFailure?: boolean } = {}) {
   const entries: NormalizedCreateAuditInput[] = []

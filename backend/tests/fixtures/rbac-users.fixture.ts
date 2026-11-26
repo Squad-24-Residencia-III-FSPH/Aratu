@@ -2,6 +2,7 @@ import type { Pool } from 'pg'
 import jwt = require('jsonwebtoken')
 import { USER_ROLES } from '../../src/types/auth'
 import type { UserRole, JwtConfig } from '../../src/types/auth'
+import { LEGACY_ROLE_PERMISSIONS, PERMISSION_DEFINITIONS } from '../../src/types/permission.types'
 import { hashPassword } from '../../src/services/password.service'
 
 /**
@@ -63,6 +64,23 @@ const RBAC_USER_DEFINITIONS: ReadonlyArray<{
 ]
 
 /**
+ * Permissões iniciais mantidas pela migração de perfis, usadas apenas para preparar
+ * o banco de integração depois que cada suíte limpa as tabelas de domínio.
+ */
+function legacyPermissions(role: UserRole): readonly string[] {
+  return LEGACY_ROLE_PERMISSIONS[role] ?? []
+}
+
+const TEST_ROLE_PERMISSIONS: Readonly<Record<UserRole, readonly string[]>> = {
+  ADMINISTRADOR: [...legacyPermissions('ADMINISTRADOR'), 'requests:history:read:all', 'services:history:read'],
+  GESTOR: [...legacyPermissions('GESTOR'), 'requests:history:read:all', 'services:history:read'],
+  SOLICITANTE: [...legacyPermissions('SOLICITANTE'), 'services:read'],
+  MOTORISTA: legacyPermissions('MOTORISTA'),
+  ATENDENTE_SVO: legacyPermissions('ATENDENTE_SVO'),
+  EQUIPE_SVO: legacyPermissions('EQUIPE_SVO'),
+}
+
+/**
  * Representação completa de um usuário de teste instanciado no banco de testes com token válido.
  */
 export interface RbacTestUser {
@@ -101,7 +119,7 @@ export function generateRbacUserToken(
 }
 
 /**
- * Provisiona no banco PostgreSQL de testes (`aratu_test`) os 6 usuários de teste RBAC com dados fictícios.
+ * Provisiona no banco PostgreSQL de testes (`aratu_test`) as permissões e os 6 usuários RBAC fictícios.
  *
  * Garante idempotência através de cláusula `ON CONFLICT (lower(email)) DO UPDATE`, gerando hash bcrypt
  * seguro e tokens de autenticação válidos para cada um dos perfis oficiais.
@@ -120,6 +138,51 @@ export async function seedRbacTestUsers(
 
   try {
     await client.query('BEGIN')
+
+    for (const definition of PERMISSION_DEFINITIONS) {
+      await client.query(
+        `INSERT INTO auth.permissions (name, description)
+         VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`,
+        [definition.code, definition.description],
+      )
+    }
+
+    const rolePermissions = await client.query<{ id: string; name: UserRole }>(
+      `SELECT id::text AS id, name
+       FROM auth.roles
+       WHERE name = ANY($1::text[])`,
+      [USER_ROLES],
+    )
+    const permissionIds = await client.query<{ id: string; name: string }>(
+      `SELECT id::text AS id, name
+       FROM auth.permissions
+       WHERE name = ANY($1::text[])`,
+      [Object.values(TEST_ROLE_PERMISSIONS).flat()],
+    )
+    const roleIds = new Map(rolePermissions.rows.map((role) => [role.name, role.id]))
+    const permissionIdByName = new Map(permissionIds.rows.map((permission) => [permission.name, permission.id]))
+
+    for (const [role, permissionNames] of Object.entries(TEST_ROLE_PERMISSIONS) as [UserRole, readonly string[]][]) {
+      const roleId = roleIds.get(role)
+      if (!roleId) {
+        throw new Error(`Perfil RBAC ${role} não encontrado na tabela auth.roles. Execute o seed prévio.`)
+      }
+
+      for (const permissionName of permissionNames) {
+        const permissionId = permissionIdByName.get(permissionName)
+        if (!permissionId) {
+          throw new Error(`Permissão ${permissionName} não encontrada no catálogo RBAC.`)
+        }
+
+        await client.query(
+          `INSERT INTO auth.role_permissions (role_id, permission_id, is_active)
+           VALUES ($1, $2, true)
+           ON CONFLICT (role_id, permission_id) DO NOTHING`,
+          [roleId, permissionId],
+        )
+      }
+    }
 
     // Recupera os identificadores dos 6 perfis canônicos na tabela auth.roles
     const rolesResult = await client.query<{ id: string; name: UserRole }>(

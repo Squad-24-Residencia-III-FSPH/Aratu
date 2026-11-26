@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { after, before, beforeEach, test } from 'node:test'
@@ -45,11 +46,24 @@ function getUser(role: UserRole): RbacTestUser {
   return user
 }
 
-function schedule(body: Record<string, unknown>, role: UserRole = 'GESTOR'): Promise<Response> {
+async function schedule(body: Record<string, unknown>, role: UserRole = 'GESTOR'): Promise<Response> {
+  const requestId = String(body.requestId ?? '')
+  const request = await pool.query<{ serviceId: string | null; revision: number }>(
+    `SELECT service_id::text AS "serviceId", revision
+       FROM trip.requests
+      WHERE id = $1`,
+    [requestId],
+  )
+  const serviceId = body.serviceId ?? request.rows[0]?.serviceId
+  const expectedRevision = body.expectedRevision ?? request.rows[0]?.revision
   return fetch(`${baseUrl}/trips`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${getUser(role).token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    headers: {
+      Authorization: `Bearer ${getUser(role).token}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': randomUUID(),
+    },
+    body: JSON.stringify({ ...body, serviceId, expectedRevision }),
   })
 }
 
@@ -123,13 +137,16 @@ test('IT-SCHEDULING-01: agendamento válido retorna 201, viagem SCHEDULED e soli
   const request = await pool.query('SELECT status FROM trip.requests WHERE id = $1', [requestId])
   assert.equal(request.rows[0]?.status, 'SCHEDULED')
   const tripEvents = await pool.query('SELECT event_type FROM trip.trip_events WHERE trip_id = $1', [trip.id])
-  const requestEvents = await pool.query('SELECT event_type FROM trip.request_events WHERE request_id = $1', [requestId])
+  const requestEvents = await pool.query('SELECT event_type FROM trip.request_events WHERE request_id = $1 ORDER BY id', [requestId])
   const audits = await pool.query(`SELECT 1 FROM audit.logs WHERE table_name = 'trip.trips' AND record_id = $1`, [trip.id])
-  assert.deepEqual([tripEvents.rows, requestEvents.rows, audits.rowCount], [[{ event_type: 'SCHEDULED' }], [{ event_type: 'SCHEDULED' }], 1])
+  assert.deepEqual(
+    [tripEvents.rows, requestEvents.rows, audits.rowCount],
+    [[{ event_type: 'SCHEDULED' }], [{ event_type: 'UPDATED' }, { event_type: 'SCHEDULED' }], 1],
+  )
 })
 
-test('IT-SCHEDULING-02: solicitação não aprovada retorna 409 (pendente, rejeitada ou já agendada)', async () => {
-  const { serviceId, vehicleId, driverId, requester, requestId } = await scenario()
+test('IT-SCHEDULING-02: pedido pendente é aprovado no agendamento; rejeitado ou já agendado retorna 409', async () => {
+  const { serviceId, vehicleId, driverId, requester } = await scenario()
   const pending = await insertRequest(pool, requester, serviceId, 'PENDING')
   const rejected = await insertRequest(pool, requester, serviceId, 'PENDING')
   await pool.query(
@@ -137,11 +154,9 @@ test('IT-SCHEDULING-02: solicitação não aprovada retorna 409 (pendente, rejei
       WHERE id = $1`,
     [rejected, getUser('GESTOR').id],
   )
-  for (const notApproved of [pending, rejected]) {
-    assert.equal((await schedule({ requestId: notApproved, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 409)
-  }
-  assert.equal((await schedule({ requestId, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 201)
-  assert.equal((await schedule({ requestId, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 409)
+  assert.equal((await schedule({ requestId: pending, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 201)
+  assert.equal((await schedule({ requestId: pending, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 409)
+  assert.equal((await schedule({ requestId: rejected, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 409)
 })
 
 test('IT-SCHEDULING-03: veículo já alocado em período sobreposto retorna 409', async () => {

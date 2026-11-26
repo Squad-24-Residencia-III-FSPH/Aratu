@@ -39,7 +39,7 @@ interface RequestBody extends Record<string, unknown> {
   origin: string
   destination: string
   purpose: string
-  serviceId: string
+  serviceId?: string
 }
 
 const EXPECTED_NOT_FOUND_BODY = { erro: 'Solicitação não encontrada.' }
@@ -147,7 +147,7 @@ describe('Solicitações de viagem — abertura (FROTA-80)', () => {
 
     const requestResult = await pool.query<{
       requesterId: string
-      serviceId: string
+      serviceId: string | null
       status: string
       requesterIdSnapshot: string
     }>(
@@ -161,7 +161,7 @@ describe('Solicitações de viagem — abertura (FROTA-80)', () => {
     )
     assert.deepEqual(requestResult.rows[0], {
       requesterId: requester.id,
-      serviceId,
+      serviceId: null,
       status: 'PENDING',
       requesterIdSnapshot: requester.id,
     })
@@ -215,12 +215,18 @@ describe('Solicitações de viagem — abertura (FROTA-80)', () => {
     }
   })
 
-  test('IT-REQUEST-03: serviço inexistente ou inativo retorna 400 sem persistir', async () => {
+  test('IT-REQUEST-03: tipo de serviço enviado pelo Solicitante é ignorado para classificação no agendamento', async () => {
     const inactiveServiceId = await createService(false)
     for (const serviceId of ['999999', inactiveServiceId]) {
       const response = await submitRequest({ ...validRequest, serviceId })
-      assert.equal(response.status, 400)
-      await assertNoRequestEffects()
+      assert.equal(response.status, 201)
+      const body = await response.json() as { id: string; status: string }
+      assert.equal(body.status, 'PENDING')
+      const request = await pool.query<{ serviceId: string | null }>(
+        `SELECT service_id::text AS "serviceId" FROM trip.requests WHERE id = $1`,
+        [body.id],
+      )
+      assert.equal(request.rows[0]?.serviceId, null)
     }
   })
 

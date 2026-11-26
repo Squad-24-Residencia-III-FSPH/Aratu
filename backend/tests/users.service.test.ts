@@ -52,11 +52,19 @@ function createHarness(): Harness {
     async findAll() { return [] },
     async findById(id) {
       const role = [
-        { id: '1', name: 'ADMINISTRADOR' as const },
-        { id: '2', name: 'GESTOR' as const },
-        { id: '4', name: 'MOTORISTA' as const },
+        { id: '1', name: 'ADMINISTRADOR' as const, displayName: 'Administrador' },
+        { id: '2', name: 'GESTOR' as const, displayName: 'Gestor' },
+        { id: '4', name: 'MOTORISTA' as const, displayName: 'Motorista' },
       ].find((item) => item.id === id)
-      return role ? { ...role, description: null, createdAt: new Date() } as Role : null
+      return role ? {
+        ...role,
+        description: null,
+        active: true,
+        revision: 1,
+        defaultPath: null,
+        activeUserCount: 0,
+        createdAt: new Date(),
+      } satisfies Role : null
     },
     async findByName() { return null },
     async findPermissionsByRoleId() { return [] },
@@ -281,17 +289,15 @@ test('US-SVC-04: autoinativação é bloqueada e inativação/reativação são 
   assert.equal(harness.audits[1]?.operation, 'STATUS_CHANGE')
 })
 
-test('US-SVC-05: listagem valida perfil, situação e paginação e repassa filtros', async () => {
+test('US-SVC-05: listagem repassa filtros e valida situação e paginação', async () => {
   const page = await harness.service.listUsers({ name: 'Motorista', role: 'MOTORISTA', active: true })
   assert.equal(page.total, 1)
   assert.equal(page.users[0]?.email, 'motorista.qa@example.test')
 
+  const unknownRole = await harness.service.listUsers({ role: 'INVALIDO' as never, active: true })
+  assert.equal(unknownRole.total, 0)
   await assert.rejects(
-    harness.service.listUsers({ role: 'INVALIDO' as never }),
-    isServiceError(400, 'Perfil de acesso inválido.'),
-  )
-  await assert.rejects(
-    harness.service.listUsers({ pageSize: 101 }),
+    harness.service.listUsers({ pageSize: 101, active: true }),
     isServiceError(400, 'O tamanho da página deve estar entre 1 e 100.'),
   )
 })
