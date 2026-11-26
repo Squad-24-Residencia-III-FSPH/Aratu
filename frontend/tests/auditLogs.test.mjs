@@ -7,7 +7,7 @@ import { createElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 import { sessionFor } from './fixtures.mjs'
 
@@ -26,7 +26,7 @@ globalThis.requestAnimationFrame = callback => setTimeout(callback, 0)
 globalThis.cancelAnimationFrame = id => clearTimeout(id)
 const { act, cleanup, fireEvent, render, screen, waitFor } = await import('@testing-library/react')
 const userEvent = (await import('@testing-library/user-event')).default
-const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir, plugins: [react()], server: { middlewareMode: true, hmr: false }, appType: 'custom' })
+const vite = await createTestViteServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir, plugins: [react()], server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: AuditLogsPage }, { AuthContext }, service] = await Promise.all([
   vite.ssrLoadModule('/src/pages/AuditLogsPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
   vite.ssrLoadModule('/src/services/auditLogs.ts'),

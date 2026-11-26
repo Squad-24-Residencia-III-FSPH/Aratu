@@ -6,7 +6,7 @@ import path from 'node:path'
 import { createElement } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 import { sessionFor } from './fixtures.mjs'
 
@@ -42,7 +42,7 @@ dom.window.cancelAnimationFrame ??= (id) => clearTimeout(id)
 
 const { cleanup, fireEvent, render, screen, waitFor } = await import('@testing-library/react')
 const userEvent = (await import('@testing-library/user-event')).default
-const vite = await createServer({
+const vite = await createTestViteServer({
   configFile: false,
   root: fileURLToPath(new URL('..', import.meta.url)),
   cacheDir: viteCacheDir,

@@ -6,7 +6,7 @@ import path from 'node:path'
 import { createElement } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 import { sessionFor } from './fixtures.mjs'
 import { makeOrder, makeDetail, jsonResponse } from './svo-orders.fixture.mjs'
@@ -24,7 +24,7 @@ globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0)
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id)
 const { cleanup, fireEvent, render, screen, waitFor, within, act } = await import('@testing-library/react')
 const userEvent = (await import('@testing-library/user-event')).default
-const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), plugins: [react()],
+const vite = await createTestViteServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), plugins: [react()],
   cacheDir, server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: TeamPage }, { default: AttendantPage }, { AuthContext }] = await Promise.all([
   vite.ssrLoadModule('/src/pages/svoOrdersPage/SvoTeamOrdersPage.tsx'), vite.ssrLoadModule('/src/pages/svoOrdersPage/SvoOrdersPage.tsx'),

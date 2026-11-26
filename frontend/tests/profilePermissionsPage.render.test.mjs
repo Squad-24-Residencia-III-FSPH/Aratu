@@ -6,7 +6,7 @@ import path from 'node:path'
 import { createElement } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 import { PROFILE_ACCESS_DENIED_MESSAGE } from '../src/services/profileService.ts'
 import { sessionFor } from './fixtures.mjs'
@@ -27,7 +27,7 @@ globalThis.cancelAnimationFrame = id => clearTimeout(id)
 
 const { act, cleanup, render, screen, waitFor } = await import('@testing-library/react')
 const userEvent = (await import('@testing-library/user-event')).default
-const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir,
+const vite = await createTestViteServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir,
   plugins: [react()], server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: ProfilePermissionsPage }, { AuthContext }] = await Promise.all([
   vite.ssrLoadModule('/src/pages/profilePermissionsPage/ProfilePermissionsPage.tsx'),

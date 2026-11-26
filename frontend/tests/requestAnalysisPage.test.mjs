@@ -7,7 +7,7 @@ import { createElement, Fragment } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 import { sessionFor } from './fixtures.mjs'
 
@@ -32,7 +32,7 @@ globalThis.cancelAnimationFrame ??= dom.window.cancelAnimationFrame.bind(dom.win
 
 const { cleanup, render, screen, waitFor, within } = await import('@testing-library/react')
 const userEvent = (await import('@testing-library/user-event')).default
-const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir, plugins: [react()],
+const vite = await createTestViteServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir, plugins: [react()],
   server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: RequestAnalysisPage }, { AuthContext }] = await Promise.all([
   vite.ssrLoadModule('/src/pages/requestAnalysisPage/RequestAnalysisPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
