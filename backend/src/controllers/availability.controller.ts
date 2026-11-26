@@ -22,13 +22,13 @@ async function respondWithDomainErrors<T>(
 export function createAvailabilityController(service: AvailabilityService) {
   return {
     listVehicles(req: Request, res: Response, next: NextFunction): Promise<void> {
-      const { start, end, serviceId } = req.query
-      return respondWithDomainErrors(res, next, () => service.listVehicles({ start, end, serviceId }))
+      const { start, end, serviceId, requestId } = req.query
+      return respondWithDomainErrors(res, next, () => service.listVehicles({ start, end, serviceId, requestId }))
     },
 
     listDrivers(req: Request, res: Response, next: NextFunction): Promise<void> {
-      const { start, end } = req.query
-      return respondWithDomainErrors(res, next, () => service.listDrivers({ start, end }))
+      const { start, end, requestId } = req.query
+      return respondWithDomainErrors(res, next, () => service.listDrivers({ start, end, requestId }))
     },
   }
 }

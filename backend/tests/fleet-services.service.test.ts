@@ -6,6 +6,7 @@ import type {
   FleetService,
   FleetServiceActorSnapshot,
   FleetServiceFilters,
+  FleetServiceListResult,
   FleetServiceMutationResult,
   NormalizedFleetServiceAttributes,
 } from '../src/types/fleet-service.types'
@@ -37,6 +38,10 @@ function createService(overrides: Partial<FleetService> = {}): FleetService {
     updatedAt: new Date('2026-01-01T00:00:00Z'),
     ...overrides,
   }
+}
+
+function assertUnpaginatedServices(result: FleetServiceListResult): asserts result is FleetService[] {
+  assert.ok(Array.isArray(result))
 }
 
 function createVehicle(overrides: Partial<Vehicle> = {}): Vehicle {
@@ -266,13 +271,16 @@ test('não gestores veem só ativos e recebem 404 no detalhe de inativo; gestore
   const context = setup([createService(), createService({ id: '12', name: 'Antigo', active: false })])
 
   const requesterList = await context.service.listServices({}, 'SOLICITANTE')
+  assertUnpaginatedServices(requesterList)
   assert.deepEqual(requesterList.map((item) => item.id), ['11'])
   await assert.rejects(context.service.listServices({ active: false }, 'ATENDENTE_SVO'), domainError(400))
   await assert.rejects(context.service.getService('12', 'SOLICITANTE'), domainError(404))
 
   const managerList = await context.service.listServices({}, 'GESTOR')
+  assertUnpaginatedServices(managerList)
   assert.equal(managerList.length, 2)
   const inactiveOnly = await context.service.listServices({ active: false }, 'ADMINISTRADOR')
+  assertUnpaginatedServices(inactiveOnly)
   assert.deepEqual(inactiveOnly.map((item) => item.id), ['12'])
   assert.equal((await context.service.getService('12', 'GESTOR')).active, false)
   await assert.rejects(context.service.getService('abc', 'GESTOR'), domainError(400))

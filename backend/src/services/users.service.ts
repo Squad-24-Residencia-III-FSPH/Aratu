@@ -2,7 +2,6 @@ import { Buffer } from 'node:buffer'
 import type { PoolClient } from 'pg'
 import type { RoleRepositoryContract } from '../repositories/roles.repository'
 import type { UsersRepositoryContract } from '../repositories/users.repository'
-import { USER_ROLES } from '../types/auth'
 import type { PaginatedUsers, Role, User } from '../types/auth'
 import type { AuditActorSnapshot, AuditLogger } from '../types/audit.types'
 import { USER_AUDIT_OPERATIONS, UserServiceError } from '../types/user.types'
@@ -110,9 +109,9 @@ export class UsersService {
    * @returns Página de usuários com metadados de total.
    * @throws {UserServiceError} Se o perfil, a situação ou a paginação forem inválidos.
    */
-  async listUsers(filters: UserListFilters): Promise<PaginatedUsers> {
-    if (filters.role !== undefined && !USER_ROLES.includes(filters.role)) {
-      throw new UserServiceError(400, 'Perfil de acesso inválido.')
+  async listUsers(filters: UserListFilters, permissions: readonly string[] = []): Promise<PaginatedUsers> {
+    if (filters.active !== true && !permissions.includes('users:archive')) {
+      throw new UserServiceError(403, 'A permissão para consultar usuários arquivados é necessária.')
     }
     if (filters.active !== undefined && typeof filters.active !== 'boolean') {
       throw new UserServiceError(400, 'Situação do usuário inválida.')
@@ -169,6 +168,9 @@ export class UsersService {
 
     try {
       return await this.users.withTransaction(async (client) => {
+        await this.lockAccessAdministration(client)
+        const currentRole = await this.roles.findById(role.id, client)
+        if (!currentRole?.active) throw new UserServiceError(409, 'O perfil selecionado foi arquivado. Atualize a lista de perfis.')
         const actor = await this.requireActor(actorId, client)
         const created = await this.users.create(
           { name, email, passwordHash, roleId: role.id, active },
@@ -212,8 +214,11 @@ export class UsersService {
 
     try {
       return await this.users.withTransaction(async (client) => {
+        await this.lockAccessAdministration(client)
         const before = await this.users.findByIdForUpdate(userId, client)
         if (!before) throw new UserServiceError(404, 'Usuário não encontrado.')
+        const currentRole = await this.roles.findById(role.id, client)
+        if (!currentRole?.active) throw new UserServiceError(409, 'O perfil selecionado foi arquivado. Atualize a lista de perfis.')
 
         const actor = await this.requireActor(actorId, client)
         const result = await this.users.save(userId, {
@@ -231,6 +236,10 @@ export class UsersService {
             409,
             'O usuário foi alterado por outra operação. Atualize os dados e tente novamente.',
           )
+        }
+
+        if (before.active && await this.roles.countActiveAccessAdministrators?.(client) === 0) {
+          throw new UserServiceError(409, 'A alteração deixaria o sistema sem uma conta ativa capaz de administrar usuários e perfis.')
         }
 
         await this.auditService.recordAudit({
@@ -287,6 +296,7 @@ export class UsersService {
     const userId = validateId(id)
 
     return this.users.withTransaction(async (client) => {
+      await this.lockAccessAdministration(client)
       const before = await this.users.findByIdForUpdate(userId, client)
       if (!before) throw new UserServiceError(404, 'Usuário não encontrado.')
 
@@ -309,6 +319,10 @@ export class UsersService {
           409,
           'O usuário foi alterado por outra operação. Atualize os dados e tente novamente.',
         )
+      }
+
+      if (!active && await this.roles.countActiveAccessAdministrators?.(client) === 0) {
+        throw new UserServiceError(409, 'A alteração deixaria o sistema sem uma conta ativa capaz de administrar usuários e perfis.')
       }
 
       await this.auditService.recordAudit({
@@ -338,7 +352,12 @@ export class UsersService {
   private async requireRole(roleId: unknown): Promise<Role> {
     const id = requireText(roleId, 'Selecione um perfil de acesso.')
     const role = await this.roles.findById(id)
-    if (!role) throw new UserServiceError(400, 'Perfil de acesso inválido.')
+    if (!role?.active) throw new UserServiceError(400, 'Perfil de acesso inexistente ou arquivado.')
     return role
+  }
+
+  /** Serializa mutações de contas com alterações de permissões e arquivamentos de perfil. */
+  private async lockAccessAdministration(client: PoolClient): Promise<void> {
+    await this.roles.lockAccessAdministration?.(client)
   }
 }

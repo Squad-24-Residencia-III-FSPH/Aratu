@@ -13,6 +13,14 @@ export interface FleetService {
   revision: number
 }
 
+export interface FleetServicePage {
+  items: FleetService[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 export interface CompatibleVehiclesView {
   serviceId: string
   revision: number
@@ -128,6 +136,34 @@ export async function listFleetServices(api: ApiRequest): Promise<FleetService[]
     if (!Array.isArray(value)) throw new Error(INVALID_RESPONSE)
     return value.map(parseFleetService)
   })
+}
+
+/** Carrega uma página de serviços filtrada no servidor para a consulta administrativa. */
+export async function listFleetServicePage(api: ApiRequest, filters: {
+  active?: boolean
+  search?: string
+  page: number
+  pageSize: number
+}): Promise<FleetServicePage> {
+  const params = new URLSearchParams({ page: String(filters.page), pageSize: String(filters.pageSize) })
+  if (filters.active !== undefined) params.set('active', String(filters.active))
+  if (filters.search?.trim()) params.set('search', filters.search.trim())
+  const response = await api(`/services?${params}`)
+  if (!response.ok) await fail(response, 'Não foi possível carregar os tipos de serviço.')
+  const body: unknown = await response.json().catch(() => null)
+  if (!isRecord(body) || !Array.isArray(body.items)
+    || !Number.isSafeInteger(body.total) || Number(body.total) < 0
+    || body.page !== filters.page || body.pageSize !== filters.pageSize
+    || !Number.isSafeInteger(body.totalPages) || Number(body.totalPages) < 0) {
+    throw new Error(INVALID_RESPONSE)
+  }
+  return {
+    items: body.items.map(parseFleetService),
+    total: Number(body.total),
+    page: Number(body.page),
+    pageSize: Number(body.pageSize),
+    totalPages: Number(body.totalPages),
+  }
 }
 
 /** Cadastra um tipo de serviço independente de qualquer veículo. */

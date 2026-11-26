@@ -11,7 +11,7 @@ export interface FormFieldProps {
   helperText?: string
   required?: boolean
   disabled?: boolean
-  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local'
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'time' | 'datetime-local'
   multiline?: boolean
   minRows?: number
   autoComplete?: string
@@ -114,7 +114,7 @@ export function FormField({
           ...(inputMode ? { inputMode } : {}),
         },
         inputLabel: {
-          shrink: true,
+          shrink: !hideLabel,
           ...(hideLabel ? { sx: visuallyHiddenLabel } : {}),
         },
       }}
@@ -192,7 +192,7 @@ export function FormSelect(props: FormSelectProps) {
           },
         },
         inputLabel: {
-          shrink: true,
+          shrink: !props.hideLabel,
           ...(props.hideLabel ? { sx: visuallyHiddenLabel } : {}),
         },
       }}

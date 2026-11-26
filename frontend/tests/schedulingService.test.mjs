@@ -18,6 +18,8 @@ function makeApproved(overrides = {}) {
     destination: 'Unidade Fictícia Centro',
     purpose: 'Reunião institucional fictícia',
     passengers: 2,
+    specialRequirements: null,
+    revision: 1,
     status: 'APPROVED',
     createdAt: '2026-11-05T12:00:00.000Z',
     updatedAt: '2026-11-05T12:00:00.000Z',
@@ -36,13 +38,13 @@ function makePage(requests, overrides = {}) {
   }
 }
 
-test('consulta a listagem paginada com status APPROVED e mapeia os campos usados na tela', async () => {
+test('consulta pedidos pendentes e aprovações legadas ainda sem viagem', async () => {
   const calls = []
   const api = async (path) => { calls.push(path); return jsonResponse(makePage([makeApproved()])) }
 
   const requests = await listApprovedRequests(api)
 
-  assert.deepEqual(calls, ['/requests?status=APPROVED&page=1&pageSize=100'])
+  assert.deepEqual(calls, ['/requests?statuses=PENDING%2CAPPROVED&page=1&pageSize=100'])
   assert.deepEqual(requests, [{
     id: '10',
     serviceId: '3',
@@ -53,6 +55,8 @@ test('consulta a listagem paginada com status APPROVED e mapeia os campos usados
     destination: 'Unidade Fictícia Centro',
     purpose: 'Reunião institucional fictícia',
     passengers: 2,
+    specialRequirements: null,
+    revision: 1,
     status: 'APPROVED',
   }])
 })
@@ -60,8 +64,8 @@ test('consulta a listagem paginada com status APPROVED e mapeia os campos usados
 test('percorre todas as páginas e consolida as solicitações aprovadas', async () => {
   const calls = []
   const pages = new Map([
-    ['/requests?status=APPROVED&page=1&pageSize=100', makePage([makeApproved({ id: '10' }), makeApproved({ id: '11' })], { totalPages: 2 })],
-    ['/requests?status=APPROVED&page=2&pageSize=100', makePage([makeApproved({ id: '12' })], { page: 2, totalPages: 2 })],
+    ['/requests?statuses=PENDING%2CAPPROVED&page=1&pageSize=100', makePage([makeApproved({ id: '10' }), makeApproved({ id: '11' })], { totalPages: 2 })],
+    ['/requests?statuses=PENDING%2CAPPROVED&page=2&pageSize=100', makePage([makeApproved({ id: '12' })], { page: 2, totalPages: 2 })],
   ])
   const api = async (path) => {
     calls.push(path)
@@ -123,11 +127,11 @@ test('preserva a mensagem segura da API e classifica o erro HTTP', async () => {
   await assert.rejects(
     listApprovedRequests(async () => jsonResponse({ erro: 'select * from trip.requests falhou' }, 500)),
     (error) => error.kind === 'server'
-      && error.message === 'Não foi possível carregar as solicitações aprovadas.',
+      && error.message === 'Não foi possível carregar as solicitações pendentes.',
   )
   await assert.rejects(
     listApprovedRequests(async () => jsonResponse({}, 418)),
-    { kind: 'rejected', message: 'Não foi possível carregar as solicitações aprovadas.' },
+    { kind: 'rejected', message: 'Não foi possível carregar as solicitações pendentes.' },
   )
 })
 

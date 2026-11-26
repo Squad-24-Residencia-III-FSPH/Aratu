@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Box, Paper, Stack, Typography } from '@mui/material'
+import { Box, Stack, Typography } from '@mui/material'
 import type { ApiRequest } from '../api/client'
 import StateFeedback from './ui/StateFeedback'
 import StatusChip from './ui/StatusChip'
@@ -52,7 +52,7 @@ export default function RequestDetailsPanel({ requestId, api }: RequestDetailsPa
   const decisionAt = request.decidedAt ? formatDateTime(request.decidedAt) : 'Não informado'
 
   return (
-    <Paper component="section" aria-labelledby={titleId} variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+    <Box component="section" aria-labelledby={titleId} sx={{ py: 1, overflowWrap: 'anywhere' }}>
       <Stack spacing={2.5}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Typography id={titleId} component="h2" variant="h6" sx={{ fontWeight: 700 }}>
@@ -68,13 +68,15 @@ export default function RequestDetailsPanel({ requestId, api }: RequestDetailsPa
           <Detail label="Origem" value={request.origin} />
           <Detail label="Destino" value={request.destination} />
           <Detail label="Finalidade" value={request.purpose} />
-          <Detail label="Tipo de serviço" value={request.serviceName} />
+          <Detail label="Tipo de serviço" value={request.serviceName ?? 'A definir no agendamento'} />
           <Detail label="Passageiros" value={String(request.passengers)} />
+          <Detail label="Necessidades especiais" value={request.specialRequirements || 'Não informado'} />
+          <Detail label="Observações" value={request.notes || 'Nenhuma'} />
         </DetailsGrid>
 
         <Box>
           <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-            Histórico da decisão
+            Decisão
           </Typography>
           {request.decidedAt || request.decidedBy || request.decisionReason ? (
             <DetailsGrid>
@@ -85,7 +87,7 @@ export default function RequestDetailsPanel({ requestId, api }: RequestDetailsPa
           ) : <Typography color="text.secondary">Nenhuma decisão registrada.</Typography>}
         </Box>
       </Stack>
-    </Paper>
+    </Box>
   )
 }
 

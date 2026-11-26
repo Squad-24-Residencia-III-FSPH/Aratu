@@ -63,7 +63,7 @@ export function createUsersController(service: UsersService) {
           ...(page !== undefined ? { page } : {}),
           ...(pageSize !== undefined ? { pageSize } : {}),
         }
-        return service.listUsers(filters)
+        return service.listUsers(filters, req.usuario?.permissions ?? [])
       })
     },
 

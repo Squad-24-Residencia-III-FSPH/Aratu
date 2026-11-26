@@ -9,6 +9,8 @@ import type {
   DriverUserAccount,
   NormalizedDriverAttributes,
 } from '../types/driver.types'
+import type { EntityHistoryFilters, EntityHistoryPage } from '../types/entity-history.types'
+import type { PaginatedResult } from '../types/pagination.types'
 
 function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, (character) => `\\${character}`)
@@ -18,6 +20,8 @@ function escapeLikePattern(value: string): string {
 export interface DriversRepositoryContract {
   withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
   list(filters: DriverFilters): Promise<Driver[]>
+  listPaged?(filters: DriverFilters): Promise<PaginatedResult<Driver>>
+  history(id: string, filters: EntityHistoryFilters): Promise<EntityHistoryPage>
   findById(id: string, client?: PoolClient): Promise<Driver | null>
   findByIdForUpdate(id: string, client: PoolClient): Promise<Driver | null>
   findByCpf(cpf: string, client?: PoolClient): Promise<Driver | null>
@@ -52,7 +56,10 @@ export class DriversRepository implements DriversRepositoryContract {
 
   /** Lista motoristas por nome parcial (sem diferenciar maiúsculas) e situação. */
   async list(filters: DriverFilters): Promise<Driver[]> {
-    const namePattern = filters.name ? `%${escapeLikePattern(filters.name)}%` : null
+    const namePattern = filters.search
+      ? `${escapeLikePattern(filters.search)}%`
+      : filters.name ? `%${escapeLikePattern(filters.name)}%` : null
+    const values = [namePattern, filters.status ?? null, filters.view ?? 'all', filters.cnhCategory ?? null]
     const result = await this.pool.query<Driver>(
       `SELECT id::text AS id, name, cpf, cnh_number AS "cnhNumber",
               cnh_category AS "cnhCategory", to_char(cnh_expires_at, 'YYYY-MM-DD') AS "cnhExpiresAt",
@@ -61,10 +68,98 @@ export class DriversRepository implements DriversRepositoryContract {
          FROM fleet.drivers
         WHERE ($1::text IS NULL OR name ILIKE $1)
           AND ($2::text IS NULL OR status = $2)
+          AND ($3::text = 'all' OR ($3::text = 'operational' AND status <> 'INACTIVE')
+               OR ($3::text = 'archived' AND status = 'INACTIVE'))
+          AND ($4::text IS NULL OR cnh_category = $4)
         ORDER BY name ASC, id ASC`,
-      [namePattern, filters.status ?? null],
+      values,
     )
     return result.rows
+  }
+
+  /** Busca e pagina no banco, mantendo o total coerente com os filtros aplicados. */
+  async listPaged(filters: DriverFilters): Promise<PaginatedResult<Driver>> {
+    const namePattern = filters.search ? `${escapeLikePattern(filters.search)}%` : null
+    const values = [namePattern, filters.status ?? null, filters.view ?? 'operational', filters.cnhCategory ?? null]
+    const where = `WHERE ($1::text IS NULL OR name ILIKE $1 ESCAPE '\\')
+          AND ($2::text IS NULL OR status = $2)
+          AND ($3::text = 'all' OR ($3::text = 'operational' AND status <> 'INACTIVE')
+               OR ($3::text = 'archived' AND status = 'INACTIVE'))
+          AND ($4::text IS NULL OR cnh_category = $4)`
+    const [count, result] = await Promise.all([
+      this.pool.query<{ total: string }>(`SELECT count(*)::text AS total FROM fleet.drivers ${where}`, values),
+      this.pool.query<Driver>(
+        `SELECT id::text AS id, name, cpf, cnh_number AS "cnhNumber",
+                cnh_category AS "cnhCategory", to_char(cnh_expires_at, 'YYYY-MM-DD') AS "cnhExpiresAt",
+                phone, status, user_id::text AS "userId", revision,
+                created_at AS "createdAt", updated_at AS "updatedAt"
+           FROM fleet.drivers ${where} ORDER BY name ASC, id ASC LIMIT $5 OFFSET $6`,
+        [...values, filters.pageSize ?? 20, ((filters.page ?? 1) - 1) * (filters.pageSize ?? 20)],
+      ),
+    ])
+    const total = Number(count.rows[0]?.total ?? 0)
+    const page = filters.page ?? 1
+    const pageSize = filters.pageSize ?? 20
+    return { items: result.rows, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
+  }
+
+  /** Lê eventos append-only do motorista sem reunir dados de outros domínios. */
+  async history(id: string, filters: EntityHistoryFilters): Promise<EntityHistoryPage> {
+    const values = [id, filters.eventType ?? null, filters.from ?? null, filters.to ?? null]
+    const count = await this.pool.query<{ total: string }>(
+      `SELECT count(*)::text AS total
+         FROM fleet.driver_events
+        WHERE driver_id = $1
+          AND ($2::text IS NULL OR event_type = $2)
+          AND ($3::date IS NULL OR occurred_at >= ($3::date::timestamp AT TIME ZONE 'America/Maceio'))
+          AND ($4::date IS NULL OR occurred_at < (($4::date + 1)::timestamp AT TIME ZONE 'America/Maceio'))`,
+      values,
+    )
+    const result = await this.pool.query<{
+      id: string
+      eventType: EntityHistoryPage['items'][number]['eventType']
+      occurredAt: Date
+      registeredAt: Date
+      reportedBy: string
+      reason: string
+      actorId: string
+      actorName: string
+      actorRole: string
+      beforeState: Record<string, unknown> | null
+      afterState: Record<string, unknown>
+    }>(
+      `SELECT id::text AS id, event_type AS "eventType", occurred_at AS "occurredAt",
+              registered_at AS "registeredAt", reported_by AS "reportedBy", reason,
+              actor_snapshot->>'id' AS "actorId", actor_snapshot->>'name' AS "actorName",
+              actor_snapshot->>'role' AS "actorRole", before_state AS "beforeState", after_state AS "afterState"
+         FROM fleet.driver_events
+        WHERE driver_id = $1
+          AND ($2::text IS NULL OR event_type = $2)
+          AND ($3::date IS NULL OR occurred_at >= ($3::date::timestamp AT TIME ZONE 'America/Maceio'))
+          AND ($4::date IS NULL OR occurred_at < (($4::date + 1)::timestamp AT TIME ZONE 'America/Maceio'))
+        ORDER BY occurred_at DESC, id DESC
+        LIMIT $5 OFFSET $6`,
+      [...values, filters.pageSize, (filters.page - 1) * filters.pageSize],
+    )
+    const total = Number(count.rows[0]?.total ?? 0)
+    return {
+      items: result.rows.map((row) => ({
+        id: row.id,
+        eventType: row.eventType,
+        occurredAt: row.occurredAt,
+        registeredAt: row.registeredAt,
+        reportedBy: row.reportedBy,
+        reason: row.reason,
+        evidenceDescription: null,
+        actor: { id: row.actorId, name: row.actorName, role: row.actorRole },
+        beforeState: row.beforeState,
+        afterState: row.afterState,
+      })),
+      total,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      totalPages: Math.ceil(total / filters.pageSize),
+    }
   }
 
   /** Busca um motorista pelo identificador, opcionalmente dentro de uma transação. */
@@ -122,10 +217,14 @@ export class DriversRepository implements DriversRepositoryContract {
   async findUserAccount(userId: string, client?: PoolClient): Promise<DriverUserAccount | null> {
     const executor = client ?? this.pool
     const result = await executor.query<DriverUserAccount>(
-      `SELECT u.id::text AS id, r.name AS role, u.active
+      `SELECT u.id::text AS id, u.active,
+              EXISTS (SELECT 1 FROM auth.role_permissions rp
+                JOIN auth.permissions p ON p.id = rp.permission_id
+               WHERE rp.role_id = r.id AND rp.is_active = true
+                 AND p.name = 'trips:execute:assigned') AS "canExecuteTrips"
          FROM auth.users u
          JOIN auth.roles r ON r.id = u.role_id
-        WHERE u.id = $1
+        WHERE u.id = $1 AND r.active = true
         LIMIT 1`,
       [userId],
     )

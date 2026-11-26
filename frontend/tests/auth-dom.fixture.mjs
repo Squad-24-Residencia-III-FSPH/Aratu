@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { JSDOM } from 'jsdom'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 
 // Cada arquivo de teste tem seu próprio processo e armazenamento sintético.
@@ -20,7 +20,7 @@ globalThis.cancelAnimationFrame = (id) => clearTimeout(id)
 export const testing = await import('@testing-library/react')
 export const userEvent = (await import('@testing-library/user-event')).default
 const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aratu-auth-test-'))
-export const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)),
+export const vite = await createTestViteServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)),
   plugins: [react()], cacheDir, server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 export async function closeAuthDom() {
   await vite.close()

@@ -1,12 +1,13 @@
 import type { PoolClient } from 'pg'
 import type { AuditLogger } from '../types/audit.types'
 import type { SvoOccurrencesRepositoryContract } from '../repositories/svo-occurrences.repository'
+import { LEGACY_ROLE_PERMISSIONS } from '../types/permission.types'
 import {
-  SVO_REQUESTER_TYPES, SVO_STATUSES, SVO_TRANSITIONS, SVO_WRITE_ROLES, SvoOccurrenceServiceError,
+  SVO_REQUESTER_TYPES, SVO_STATUSES, SVO_TRANSITIONS, SvoOccurrenceServiceError,
 } from '../types/svo-occurrence.types'
 import type {
   CreateSvoOccurrenceInput, SvoActorSnapshot, SvoOccurrenceDetail, SvoOccurrenceSummary,
-  SvoCreationResult, SvoConfirmationResult,
+  SvoCreationResult, SvoConfirmationResult, SvoDispatchAfterTriage,
 } from '../types/svo-occurrence.types'
 
 const CREATE_FIELDS = ['requesterName', 'requesterPhone', 'requesterType', 'location', 'description', 'notes', 'receivedAt', 'evidenceDescription']
@@ -113,22 +114,28 @@ function civilBoundary(value: string, nextDay = false): Date {
 }
 
 function auditState(occurrence: SvoOccurrenceDetail): Record<string, unknown> {
-  const { id, status, revision, receivedAt, triagedAt, triagedBy } = occurrence
-  return { id, status, revision, receivedAt, triagedAt, triagedBy }
+  const { id, status, revision, receivedAt, triagedAt, triagedBy,
+    dispatchRequestedAt, dispatchRequestedBy, dispatchWaitReason, executionOrderId } = occurrence
+  return { id, status, revision, receivedAt, triagedAt, triagedBy,
+    dispatchRequestedAt, dispatchRequestedBy, dispatchWaitReason, executionOrderId }
 }
 
 /** Registro e confirmação simples do SVO, sem deduplicação por dados pessoais. */
 export class SvoOccurrencesService {
-  constructor(private readonly repository: SvoOccurrencesRepositoryContract, private readonly audit: AuditLogger) {}
+  constructor(
+    private readonly repository: SvoOccurrencesRepositoryContract,
+    private readonly audit: AuditLogger,
+    private readonly dispatch?: SvoDispatchAfterTriage,
+  ) {}
 
   /**
    * Registra recebimento, autoria e auditoria de forma atômica, inclusive fora do expediente.
    * @throws {SvoOccurrenceServiceError} Entrada inválida, recebimento futuro ou conta sem permissão atual.
    */
-  async createOccurrence(body: unknown, userId: string): Promise<SvoCreationResult> {
+  async createOccurrence(body: unknown, userId: string, permissions?: readonly string[]): Promise<SvoCreationResult> {
     const input = createInput(body)
     return this.repository.withTransaction(async (client) => {
-      const actor = await this.requireActor(userId, client)
+      const actor = await this.requireActor(userId, permissions, 'svo:occurrences:create', client)
       const now = await this.repository.currentTime(client)
       const receivedAt = input.receivedAt ? new Date(input.receivedAt) : now
       if (receivedAt > now) invalid('A data de recebimento não pode estar no futuro.')
@@ -173,35 +180,62 @@ export class SvoOccurrencesService {
    * Confirma apenas PENDING após travar conta e ocorrência, preservando o recebimento original.
    * @throws {SvoOccurrenceServiceError} Entrada inválida, acesso negado, registro inexistente ou transição já concluída.
    */
-  async confirmOccurrence(id: unknown, body: unknown, userId: string): Promise<SvoConfirmationResult> {
+  async confirmOccurrence(
+    id: unknown,
+    body: unknown,
+    userId: string,
+    permissions?: readonly string[],
+  ): Promise<SvoConfirmationResult> {
     const validId = occurrenceId(id)
-    inputRecord(body === undefined ? {} : body, [])
-    return this.repository.withTransaction(async (client) => {
-      const actor = await this.requireActor(userId, client)
+    const input = inputRecord(body === undefined ? {} : body, ['expectedRevision'])
+    if (input.expectedRevision !== undefined
+      && (!Number.isSafeInteger(input.expectedRevision) || Number(input.expectedRevision) < 1)) {
+      invalid('Informe a revisão atual da solicitação para concluir a triagem.')
+    }
+    const expectedRevision = input.expectedRevision === undefined ? null : Number(input.expectedRevision)
+    const confirmed = await this.repository.withTransaction(async (client) => {
+      const actor = await this.requireActor(userId, permissions, 'svo:occurrences:confirm', client)
       const before = await this.repository.findByIdForUpdate(validId, client)
       if (!before) throw new SvoOccurrenceServiceError('NOT_FOUND', 'Solicitação SVO não encontrada.')
+      if (expectedRevision !== null && before.revision !== expectedRevision) {
+        throw new SvoOccurrenceServiceError('CONFLICT', 'A solicitação foi alterada. Atualize os dados antes de concluir a triagem.')
+      }
       if (!SVO_TRANSITIONS[before.status].includes('CONFIRMED')) {
         throw new SvoOccurrenceServiceError('INVALID_TRANSITION', before.status === 'CONFIRMED'
           ? 'Esta solicitação já foi confirmada.' : 'Uma solicitação cancelada não pode ser confirmada.')
       }
       requiredFields({ ...before })
       const now = await this.repository.currentTime(client)
-      const after = await this.repository.confirm(validId, actor.id, now, client)
+      const after = await this.repository.confirm(validId, actor, now, client)
       await this.repository.createEvent({
         occurrenceId: validId, eventType: 'CONFIRMED', occurredAt: now, reportedBy: actor.name,
         actorSnapshot: actor, reason: CONFIRMED_REASON, evidenceDescription: CONFIRMATION_EVIDENCE,
+        beforeState: before, afterState: after,
+      }, client)
+      await this.repository.createEvent({
+        occurrenceId: validId, eventType: 'DISPATCH_REQUESTED', occurredAt: now, reportedBy: actor.name,
+        actorSnapshot: actor, reason: 'Triagem informacional conferida pelo atendente SVO.',
+        evidenceDescription: 'A solicitação foi encaminhada para seleção automática de equipe e viatura.',
         beforeState: before, afterState: after,
       }, client)
       await this.recordAudit(before, after, actor, CONFIRMED_REASON, client)
       const { status, triagedAt, triagedBy, revision } = after
       return { id: validId, status, triagedAt, triagedBy, revision }
     })
+    const dispatch = this.dispatch ? await this.dispatch(validId, userId, permissions ?? []) : undefined
+    return dispatch ? { ...confirmed, revision: dispatch.revision, dispatch } : confirmed
   }
 
-  private async requireActor(id: string, client: PoolClient): Promise<SvoActorSnapshot> {
+  private async requireActor(
+    id: string,
+    permissions: readonly string[] | undefined,
+    permission: string,
+    client: PoolClient,
+  ): Promise<SvoActorSnapshot> {
     const actor = await this.repository.findActorSnapshot(id, client)
     if (!actor) throw new SvoOccurrenceServiceError('ACCOUNT_UNAVAILABLE', 'Sua conta não está ativa. Entre novamente ou procure a administração.')
-    if (!SVO_WRITE_ROLES.some((role) => role === actor.role)) {
+    const grants = permissions ?? LEGACY_ROLE_PERMISSIONS[actor.role] ?? []
+    if (!grants.includes(permission)) {
       throw new SvoOccurrenceServiceError('ACCESS_DENIED', 'Seu perfil atual não permite registrar ou confirmar solicitações SVO.')
     }
     return actor

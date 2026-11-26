@@ -1,27 +1,27 @@
 import { Router } from 'express'
 import { createUsersController } from '../controllers/users.controller'
-import { createAuthMiddleware } from '../middlewares/auth.middleware'
-import { authorizeRoles } from '../middlewares/rbac.middleware'
+import { createAuthMiddleware, createCurrentUserMiddleware } from '../middlewares/auth.middleware'
+import { authorizePermissions } from '../middlewares/rbac.middleware'
 import type { JwtConfig } from '../types/auth'
 import type { UsersService } from '../services/users.service'
+import type { UsersRepositoryContract } from '../repositories/users.repository'
 
-const ADMIN_ROLES = ['ADMINISTRADOR'] as const
-
-/** Cria rotas REST de gerenciamento de usuários protegidas por JWT e RBAC administrativo. */
-export function createUsersRouter(service: UsersService, jwtConfig: JwtConfig): Router {
+/** Cria rotas REST de usuários protegidas pelas concessões atuais do perfil. */
+export function createUsersRouter(
+  service: UsersService,
+  jwtConfig: JwtConfig,
+  users: Pick<UsersRepositoryContract, 'findById'>,
+): Router {
   const router = Router()
   const controller = createUsersController(service)
   const authenticate = createAuthMiddleware(jwtConfig.secret)
-  const authorizeAdmin = authorizeRoles(ADMIN_ROLES)
-
-  router.use(authenticate, authorizeAdmin)
-
-  router.get('/', controller.list)
-  router.get('/:id', controller.getById)
-  router.post('/', controller.create)
-  router.put('/:id', controller.update)
-  router.patch('/:id/deactivate', controller.deactivate)
-  router.patch('/:id/activate', controller.activate)
+  const currentUser = createCurrentUserMiddleware(users)
+  router.get('/', authenticate, currentUser, authorizePermissions('users:read'), controller.list)
+  router.get('/:id', authenticate, currentUser, authorizePermissions('users:read'), controller.getById)
+  router.post('/', authenticate, currentUser, authorizePermissions('users:create'), controller.create)
+  router.put('/:id', authenticate, currentUser, authorizePermissions('users:update'), controller.update)
+  router.patch('/:id/deactivate', authenticate, currentUser, authorizePermissions('users:archive'), controller.deactivate)
+  router.patch('/:id/activate', authenticate, currentUser, authorizePermissions('users:archive'), controller.activate)
 
   return router
 }

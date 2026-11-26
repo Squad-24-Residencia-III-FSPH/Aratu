@@ -1,18 +1,24 @@
 import { Router } from 'express'
 import { createFuelingsController } from '../controllers/fuelings.controller'
-import { createAuthMiddleware } from '../middlewares/auth.middleware'
-import { authorizeRoles } from '../middlewares/rbac.middleware'
+import { createAuthMiddleware, createCurrentUserMiddleware } from '../middlewares/auth.middleware'
+import { authorizePermissions } from '../middlewares/rbac.middleware'
 import type { JwtConfig } from '../types/auth'
 import type { FuelingsService } from '../services/fuelings.service'
+import type { UsersRepositoryContract } from '../repositories/users.repository'
 
-/** Restringe inclusive o histórico aos perfis autorizados antes de consultar os fatos. */
-export function createFuelingsRouter(service: FuelingsService, config: JwtConfig): Router {
+/** Exige grants separados para consultar fatos e registrar suas retificações. */
+export function createFuelingsRouter(
+  service: FuelingsService,
+  config: JwtConfig,
+  users: Pick<UsersRepositoryContract, 'findById'>,
+): Router {
   const router = Router()
   const controller = createFuelingsController(service)
-  router.use(createAuthMiddleware(config.secret), authorizeRoles(['GESTOR', 'ADMINISTRADOR']))
-  router.get('/', controller.list)
-  router.get('/:id', controller.getById)
-  router.post('/', controller.create)
-  router.put('/:id', controller.rectify)
+  const authenticate = createAuthMiddleware(config.secret)
+  const currentUser = createCurrentUserMiddleware(users)
+  router.get('/', authenticate, currentUser, authorizePermissions('fuelings:read'), controller.list)
+  router.get('/:id', authenticate, currentUser, authorizePermissions('fuelings:read'), controller.getById)
+  router.post('/', authenticate, currentUser, authorizePermissions('fuelings:create'), controller.create)
+  router.put('/:id', authenticate, currentUser, authorizePermissions('fuelings:rectify'), controller.rectify)
   return router
 }

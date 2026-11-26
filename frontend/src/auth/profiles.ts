@@ -31,7 +31,8 @@ export function resolveProfile(value: string): Profile | null {
   return Object.hasOwn(aliases, key) ? aliases[key] : null
 }
 
-export function profileLabel(value: string): string {
+export function profileLabel(value: string, displayName?: string): string {
+  if (displayName?.trim()) return displayName.trim()
   const profile = resolveProfile(value)
   return profile ? PROFILE_HOMES[profile].label : 'Usuário'
 }

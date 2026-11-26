@@ -8,7 +8,7 @@ import type { VehiclesRepositoryContract } from '../src/repositories/vehicles.re
 import type { AuditEntry, AuditLogger, CreateAuditInput } from '../src/types/audit.types'
 import type { SvoActorSnapshot, SvoOccurrenceDetail } from '../src/types/svo-occurrence.types'
 import { SvoOrderServiceError } from '../src/types/svo-order.types'
-import type { OpenSvoOrderEvent, SvoOrderErrorCode, SvoTeamSnapshot, SvoOrderDetailRow, SvoOrderState, SvoOrderStatusEvent } from '../src/types/svo-order.types'
+import type { OpenSvoOrderEvent, SvoOrderErrorCode, SvoTeamSnapshot, SvoOrderDetailRow, SvoOrderState, SvoOrderStatusEvent, SvoDispatchTeamCandidate } from '../src/types/svo-order.types'
 import { SVO_ORDER_ALLOWED_RESULTS, SVO_ORDER_RESULTS, SVO_ORDER_STATUSES, SVO_ORDER_TRANSITIONS } from '../src/types/svo-order.types'
 import type { Vehicle } from '../src/types/vehicle.types'
 import { svoInput } from './fixtures/svo-occurrences.fixture'
@@ -18,10 +18,11 @@ const input = { occurrenceId: '9007199254740993', teamId: '2', vehicleId: '3' }
 function harness() {
   const client = {} as PoolClient
   const time = new Date('2026-01-05T12:00:00Z')
-  const actor: SvoActorSnapshot = { id: '1', name: 'Operador Fictício', email: 'svo@example.test', role: 'ATENDENTE_SVO' }
+  const actor: SvoActorSnapshot = { id: '1', name: 'Operador Fictício', email: 'svo@example.test', role: 'GESTOR' }
   const occurrence: SvoOccurrenceDetail = {
     ...svoInput(), id: input.occurrenceId, status: 'CONFIRMED', receivedAt: time, createdAt: time,
     notes: 'SENTINELA_NOTAS', attendantId: '1', revision: 2, triagedAt: time, triagedBy: '1', updatedAt: time,
+    dispatchRequestedAt: time, dispatchRequestedBy: '1', dispatchWaitReason: null, executionOrderId: null,
   }
   const vehicle: Vehicle = {
     id: '3', licensePlate: 'FIC0A01', brand: null, model: null, year: null, vehicleType: null,
@@ -29,11 +30,15 @@ function harness() {
     operationType: 'SVO', status: 'AVAILABLE', revision: 1, createdAt: time, updatedAt: time,
   }
   const team: SvoTeamSnapshot = { id: '2', name: 'Equipe Fictícia', active: true, revision: 1 }
+  const candidate: SvoDispatchTeamCandidate = {
+    ...team, shiftId: '9', shiftStartsAt: new Date(time.getTime() - 60_000),
+    shiftEndsAt: new Date(time.getTime() + 60_000), activeOrderCount: 0, lastDispatchAt: null,
+  }
   const calls: string[] = []
   const events: OpenSvoOrderEvent[] = []
   const audits: CreateAuditInput[] = []
   function step(name: string, transaction: PoolClient): void { assert.equal(transaction, client); calls.push(name) }
-  const occurrences: Pick<SvoOccurrencesRepositoryContract, 'withTransaction' | 'findActorSnapshot' | 'currentTime' | 'findByIdForUpdate'> = {
+  const occurrences: Pick<SvoOccurrencesRepositoryContract, 'withTransaction' | 'findActorSnapshot' | 'currentTime' | 'findByIdForUpdate' | 'findById' | 'setDispatchIntent' | 'setDispatchWaitReason' | 'createEvent'> = {
     async withTransaction(work) {
       calls.push('begin')
       try { const result = await work(client); calls.push('commit'); return result }
@@ -42,6 +47,13 @@ function harness() {
     async findActorSnapshot(_id, transaction) { step('actor', transaction); return actor },
     async findByIdForUpdate(id, transaction) { assert.equal(id, input.occurrenceId); step('occurrence', transaction); return occurrence },
     async currentTime(transaction) { step('clock', transaction); return time },
+    async findById() { return occurrence },
+    async setDispatchIntent() { return occurrence },
+    async setDispatchWaitReason(_id, reason, _now, transaction) {
+      step('saveDispatch', transaction)
+      return { ...occurrence, revision: occurrence.revision + 1, dispatchWaitReason: reason, executionOrderId: '4' }
+    },
+    async createEvent(_event, transaction) { step('occurrenceEvent', transaction) },
   }
   const orders: SvoOrdersRepositoryContract = {
     async listForActor() { return [] },
@@ -56,6 +68,10 @@ function harness() {
     async countOccupyingOrders(_id, transaction) { step('capacity', transaction); return 0 },
     async create(order, transaction) { step('create', transaction); return { ...order, id: '4' } },
     async createOpenedEvent(event, transaction) { step('event', transaction); events.push(event) },
+    async lockEligibleDispatchTeams(_now, transaction) { step('lockTeams', transaction) },
+    async rankDispatchTeams(_now, transaction) { step('rankTeams', transaction); return team.active ? [candidate] : [] },
+    async listDispatchVehicleIds() { throw new Error('Despacho inesperado') },
+    async hasInstitutionalTripConflict(_id, _now, transaction) { step('tripConflict', transaction); return false },
   }
   const vehicles: Pick<VehiclesRepositoryContract, 'findByIdForUpdate' | 'hasActiveMaintenanceBlock'> = {
     async findByIdForUpdate(_id, transaction) { step('vehicle', transaction); return vehicle },
@@ -65,7 +81,7 @@ function harness() {
     async recordAudit(data, transaction) { step('audit', transaction!); audits.push(data); return {} as AuditEntry },
   }
   return { service: new SvoOrdersService(occurrences, orders, vehicles, audit), occurrences, orders, vehicles,
-    audit, calls, events, audits, actor, occurrence, vehicle, team, time }
+    audit, calls, events, audits, actor, occurrence, vehicle, team, candidate, time }
 }
 
 function code(expected: SvoOrderErrorCode): (error: unknown) => boolean {
@@ -75,13 +91,61 @@ function code(expected: SvoOrderErrorCode): (error: unknown) => boolean {
 test('ORD unit: usa ordem fixa de travas, mesmo cliente, relógio e auditoria mínima', async () => {
   const h = harness()
   assert.deepEqual(await h.service.createOrder(input, '1'), { id: '4', status: 'OPEN' })
-  assert.deepEqual(h.calls, ['begin', 'actor', 'occurrence', 'unique', 'team', 'vehicle', 'maintenance', 'capacity', 'clock', 'create', 'event', 'audit', 'commit'])
+  assert.deepEqual(h.calls, ['begin', 'actor', 'occurrence', 'unique', 'clock', 'lockTeams', 'rankTeams', 'team', 'vehicle', 'maintenance', 'tripConflict', 'capacity', 'create', 'event', 'audit', 'saveDispatch', 'occurrenceEvent', 'audit', 'commit'])
   assert.equal(h.events[0]!.order.openedAt, h.time)
   assert.deepEqual(h.events[0]!.order.teamSnapshot, h.team)
   assert.equal(h.events[0]!.order.occurrenceSnapshot.requesterPhone, svoInput().requesterPhone)
   assert.deepEqual(Object.keys(h.audits[0]!.after!).sort(), ['id', 'occurrenceId', 'teamId', 'vehicleId', 'status', 'openedAt', 'revision'].sort())
   assert.doesNotMatch(JSON.stringify(h.audits), /SENTINELA/)
   assert.deepEqual(h.audits[0]!.actorSnapshot, h.actor)
+})
+
+test('SVO dispatch: triagem usa equipe de menor carga e viatura elegível, com snapshot da seleção', async () => {
+  const h = harness()
+  h.actor.role = 'ATENDENTE_SVO'
+  const candidate: SvoDispatchTeamCandidate = {
+    ...h.team, shiftId: '9', shiftStartsAt: new Date(h.time.getTime() - 60_000),
+    shiftEndsAt: new Date(h.time.getTime() + 60_000), activeOrderCount: 2, lastDispatchAt: null,
+  }
+  const afterOccurrence = { ...h.occurrence, revision: h.occurrence.revision + 1, dispatchWaitReason: null as null }
+  h.orders.lockEligibleDispatchTeams = async () => { h.calls.push('lockTeams') }
+  h.orders.rankDispatchTeams = async () => { h.calls.push('rankTeams'); return [candidate] }
+  h.orders.listDispatchVehicleIds = async () => { h.calls.push('vehicleCandidates'); return ['3'] }
+  h.orders.hasInstitutionalTripConflict = async () => { h.calls.push('tripConflict'); return false }
+  h.occurrences.setDispatchWaitReason = async (_id, reason, _now, transaction) => {
+    assert.equal(reason, null); h.calls.push('saveDispatch'); return afterOccurrence
+  }
+  h.occurrences.findById = async () => ({ ...afterOccurrence, executionOrderId: '4' })
+
+  const result = await h.service.dispatchAfterTriage(h.occurrence.id, '1')
+
+  assert.deepEqual(result, { status: 'DISPATCHED', orderId: '4', teamId: '2', vehicleId: '3', revision: 3 })
+  assert.equal(h.events[0]!.order.teamShiftId, '9')
+  assert.equal(h.events[0]!.order.allocationSnapshot?.selectionRule, 'LOWEST_ACTIVE_ORDERS_THEN_LONGEST_WITHOUT_DISPATCH')
+  assert.ok(h.calls.indexOf('lockTeams') < h.calls.indexOf('rankTeams'))
+  assert.ok(h.calls.indexOf('rankTeams') < h.calls.indexOf('vehicle'))
+})
+
+test('SVO dispatch: registra fila com motivo controlado quando não há equipe', async () => {
+  const h = harness()
+  h.actor.role = 'ATENDENTE_SVO'
+  h.orders.lockEligibleDispatchTeams = async () => { h.calls.push('lockTeams') }
+  h.orders.rankDispatchTeams = async () => { h.calls.push('rankTeams'); return [] }
+  h.occurrences.setDispatchWaitReason = async (_id, reason, _now, transaction) => {
+    assert.equal(reason, 'NO_TEAM'); h.calls.push('saveWait')
+    return { ...h.occurrence, revision: h.occurrence.revision + 1, dispatchWaitReason: reason }
+  }
+
+  assert.deepEqual(await h.service.dispatchAfterTriage(h.occurrence.id, '1'), { status: 'WAITING', reason: 'NO_TEAM', revision: 3 })
+  assert.ok(h.calls.includes('saveWait'))
+  assert.ok(!h.calls.includes('vehicleCandidates'))
+})
+
+test('SVO dispatch retry: revisão obsoleta é rejeitada antes de selecionar recursos', async () => {
+  const h = harness()
+  h.actor.role = 'GESTOR'
+  await assert.rejects(h.service.retryDispatch(h.occurrence.id, { expectedRevision: 1, reason: 'Nova tentativa após troca de plantão.' }, '1'), code('CONFLICT'))
+  assert.deepEqual(h.calls, ['begin', 'actor', 'occurrence', 'unique', 'rollback'])
 })
 
 function trackingHarness() {
@@ -96,7 +160,7 @@ function trackingHarness() {
   const row = (): SvoOrderDetailRow => ({ ...state, teamActive: h.team.active,
     dispatch: { location: 'Local fictício do despacho', teamName: 'Equipe fictícia', vehicleLicensePlate: 'FIC0A01' },
     current: { location: 'Local fictício atual', teamName: 'Equipe atual', vehicleLicensePlate: 'FIC0A02' },
-    occurrenceSnapshot: null, teamSnapshot: null, vehicleSnapshot: null })
+    occurrenceSnapshot: null, teamSnapshot: null, vehicleSnapshot: null, allocationSnapshot: null })
   h.orders.findByIdForUpdate = async () => { h.calls.push('order'); return { ...state } }
   h.orders.findMembershipForShare = async () => { h.calls.push('membership'); return membership }
   h.orders.findById = async () => { h.calls.push('detail'); return row() }
@@ -209,12 +273,14 @@ test('ORD unit: IDs canônicos até BIGINT, sem perda de precisão ou consulta e
     await assert.rejects(harness().service.createOrder(body, '1'), code('INVALID_INPUT'))
   }
   const h = harness()
+  h.team.id = '9223372036854775807'
+  h.candidate.id = '9223372036854775807'
   h.orders.findTeamForShare = async (id) => { assert.equal(id, '9223372036854775807'); return h.team }
   await h.service.createOrder({ ...input, teamId: '9223372036854775807' }, '1')
 })
 
 test('ORD unit: conta e perfil são revalidados antes de consultar ocorrência', async () => {
-  for (const role of ['GESTOR', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
+  for (const role of ['ATENDENTE_SVO', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
     const h = harness(); h.actor.role = role
     await assert.rejects(h.service.createOrder(input, '1'), code('ACCESS_DENIED'))
     assert.deepEqual(h.calls, ['begin', 'actor', 'rollback'])
@@ -225,7 +291,7 @@ test('ORD unit: conta e perfil são revalidados antes de consultar ocorrência',
 
 test('ORD unit: duplicidade precede estado; referências e equipe são validadas', async () => {
   const duplicate = harness(); duplicate.occurrence.status = 'CANCELED'
-  duplicate.orders.findByOccurrenceId = async () => '9'
+  duplicate.orders.findByOccurrenceId = async () => ({ id: '9', teamId: '2', vehicleId: '3' })
   await assert.rejects(duplicate.service.createOrder(input, '1'), code('ORDER_ALREADY_EXISTS'))
   for (const status of ['PENDING', 'CANCELED'] as const) {
     const h = harness(); h.occurrence.status = status
@@ -274,7 +340,7 @@ test('ORD unit: manutenção impeditiva em veículo AVAILABLE é consultada sob 
     return true
   }
   await assert.rejects(h.service.createOrder(input, '1'), code('VEHICLE_UNAVAILABLE'))
-  assert.deepEqual(h.calls, ['begin', 'actor', 'occurrence', 'unique', 'team', 'vehicle', 'maintenance', 'rollback'])
+  assert.deepEqual(h.calls, ['begin', 'actor', 'occurrence', 'unique', 'clock', 'lockTeams', 'rankTeams', 'team', 'vehicle', 'maintenance', 'rollback'])
   assert.deepEqual(h.events, [])
   assert.deepEqual(h.audits, [])
 })

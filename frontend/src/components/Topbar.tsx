@@ -16,7 +16,7 @@ interface TopbarProps {
 export default function Topbar({ isCompactViewport, navigationExpanded, onMenuToggle }: TopbarProps) {
   const { session, logout } = useAuth();
   const nome = session?.nome ?? 'Usuário';
-  const perfil = session ? profileLabel(session.perfil) : '';
+  const perfil = session ? profileLabel(session.perfil, session.profile?.displayName) : '';
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const isMenuOpen = Boolean(menuAnchor);
 
@@ -30,7 +30,7 @@ export default function Topbar({ isCompactViewport, navigationExpanded, onMenuTo
   }
 
   return (
-    <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, backgroundColor: '#FF6B00', boxShadow: 'none' }}>
+    <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, backgroundColor: 'primary.main', color: 'primary.contrastText', boxShadow: 'none' }}>
       <Toolbar sx={{ justifyContent: 'space-between', minHeight: '64px !important', px: { xs: 1, sm: 3 }, gap: 1 }}>
 
         {/* Logo */}
@@ -48,7 +48,7 @@ export default function Topbar({ isCompactViewport, navigationExpanded, onMenuTo
               width: 44,
               height: 44,
               alignSelf: 'center',
-              display: 'grid',
+              display: isCompactViewport ? 'none' : 'grid',
               placeItems: 'center',
               '&:hover': { backgroundColor: 'rgba(17, 24, 39, 0.08)' },
               '&.Mui-focusVisible': { outline: '2px solid #111827', outlineOffset: 2 },
@@ -98,7 +98,7 @@ export default function Topbar({ isCompactViewport, navigationExpanded, onMenuTo
               <Typography variant="body2" sx={{ fontWeight: 600, color: '#111827', lineHeight: 1.2 }}>
                 {nome}
               </Typography>
-              {perfil && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{perfil}</Typography>}
+              {perfil && <Typography variant="caption" sx={{ color: '#111827' }}>{perfil}</Typography>}
             </Box>
             <Typography component="span" variant="body2" sx={{ display: { xs: 'block', sm: 'none' }, color: '#111827' }}>
               Conta

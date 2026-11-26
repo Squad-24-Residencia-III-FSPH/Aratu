@@ -15,11 +15,14 @@ import type {
   VehicleActorSnapshot,
   VehicleAttributes,
   VehicleFilters,
+  VehicleListResult,
   VehicleOwnership,
   VehicleStatus,
   UpdateVehicleInput,
 } from '../types/vehicle.types'
 import type { VehiclesRepositoryContract } from '../repositories/vehicles.repository'
+import type { EntityHistoryPage, EntityHistoryQueryInput } from '../types/entity-history.types'
+import { EntityHistoryQueryError, normalizeEntityHistoryFilters } from './entity-history'
 
 const LICENSE_PLATE_PATTERN = /^(?:[A-Z]{3}\d{4}|[A-Z]{3}\d[A-Z]\d{2})$/
 const MIN_VEHICLE_YEAR = 1980
@@ -79,7 +82,7 @@ export class VehiclesService {
   ) {}
 
   /** Lista veículos após validar os filtros opcionais. */
-  async listVehicles(filters: VehicleFilters): Promise<Vehicle[]> {
+  async listVehicles(filters: VehicleFilters): Promise<VehicleListResult> {
     if (filters.status !== undefined && !isOneOf(filters.status, VEHICLE_STATUSES)) {
       throw new VehicleServiceError(400, 'Situação de veículo inválida.')
     }
@@ -89,7 +92,30 @@ export class VehiclesService {
     if (filters.operationType !== undefined && !isOneOf(filters.operationType, VEHICLE_OPERATION_TYPES)) {
       throw new VehicleServiceError(400, 'Tipo de operação inválido.')
     }
-    return this.repository.list(filters)
+    if (filters.view !== undefined && !['operational', 'archived', 'all'].includes(filters.view)) {
+      throw new VehicleServiceError(400, 'Filtro de atividade inválido.')
+    }
+    const search = filters.search?.trim()
+    if (search && search.length > 120) throw new VehicleServiceError(400, 'A busca deve ter até 120 caracteres.')
+    const hasPagination = filters.page !== undefined || filters.pageSize !== undefined
+    const { search: _rawSearch, ...filtersWithoutSearch } = filters
+    if (!hasPagination) return this.repository.list({ ...filtersWithoutSearch, ...(search ? { search } : {}) })
+    const page = filters.page ?? 1
+    const pageSize = filters.pageSize ?? 20
+    if (!Number.isInteger(page) || page < 1 || page > 1_000_000) {
+      throw new VehicleServiceError(400, 'page deve ser um inteiro positivo.')
+    }
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+      throw new VehicleServiceError(400, 'pageSize deve ser um inteiro entre 1 e 100.')
+    }
+    if (!this.repository.listPaged) throw new VehicleServiceError(501, 'A paginação de veículos não está disponível.')
+    return this.repository.listPaged({
+      ...filtersWithoutSearch,
+      ...(search ? { search } : {}),
+      view: filters.view ?? 'operational',
+      page,
+      pageSize,
+    })
   }
 
   /** Busca o detalhe do veículo e sinaliza claramente quando ele não existe. */
@@ -98,6 +124,19 @@ export class VehiclesService {
     const vehicle = await this.repository.findById(id)
     if (!vehicle) throw new VehicleServiceError(404, 'Veículo não encontrado.')
     return vehicle
+  }
+
+  /** Lista uma página da história já gravada para o veículo. */
+  async getVehicleHistory(id: string, input: EntityHistoryQueryInput): Promise<EntityHistoryPage> {
+    this.validateId(id)
+    let filters
+    try { filters = normalizeEntityHistoryFilters(input) }
+    catch (error) {
+      if (error instanceof EntityHistoryQueryError) throw new VehicleServiceError(400, error.message)
+      throw error
+    }
+    if (!await this.repository.findById(id)) throw new VehicleServiceError(404, 'Veículo não encontrado.')
+    return this.repository.history(id, filters)
   }
 
   /** Valida e cadastra um veículo, o evento inicial e a auditoria atomicamente. */
@@ -191,9 +230,10 @@ export class VehiclesService {
     id: string,
     input: ChangeVehicleStatusInput,
     actorId: string,
+    permissions?: readonly string[],
   ): Promise<Vehicle> {
     return this.repository.withTransaction(client =>
-      this.changeVehicleStatusInTransaction(id, input, actorId, client))
+      this.changeVehicleStatusInTransaction(id, input, actorId, client, permissions))
   }
 
   /**
@@ -205,6 +245,7 @@ export class VehiclesService {
     input: ChangeVehicleStatusInput,
     actorId: string,
     client: PoolClient,
+    permissions?: readonly string[],
   ): Promise<Vehicle> {
     this.validateId(id)
     this.validateRevision(input.expectedRevision)
@@ -216,6 +257,13 @@ export class VehiclesService {
     if (!before) throw new VehicleServiceError(404, 'Veículo não encontrado.')
     if (before.revision !== input.expectedRevision) {
       throw new VehicleServiceError(409, 'O veículo foi alterado por outra operação. Atualize os dados e tente novamente.')
+    }
+    if (permissions !== undefined) {
+      const archiveTransition = input.status === 'INACTIVE' || before.status === 'INACTIVE'
+      const requiredPermission = archiveTransition ? 'vehicles:archive' : 'vehicles:status:change'
+      if (!permissions.includes(requiredPermission)) {
+        throw new VehicleServiceError(403, 'Seu perfil não tem permissão para arquivar, restaurar ou alterar a situação deste veículo.')
+      }
     }
     if (input.status === 'AVAILABLE' && await this.repository.hasActiveMaintenanceBlock(id, client)) {
       throw new VehicleServiceError(422, 'O veículo possui uma manutenção impeditiva ativa. Encerre a ordem antes de liberar a viatura.')

@@ -472,7 +472,7 @@ test('IT-VEH-11: falha do ator inativado faz rollback do cadastro e da auditoria
 
   assert.equal(response.status, 401)
   assert.deepEqual(await response.json(), {
-    erro: 'Usuário autenticado não está ativo ou não existe.',
+    erro: 'Sua conta ou perfil não está ativo. Entre novamente ou procure a administração.',
   })
 
   const vehicles = await pool.query<{ total: number }>(

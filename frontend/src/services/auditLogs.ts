@@ -4,7 +4,6 @@ export const AUDIT_PATH = '/auditoria'
 export const AUDIT_PAGE_SIZE = 20
 export const AUDIT_MAX_PERIOD_DAYS = 366
 export const AUDIT_TIME_ZONE = 'America/Maceio'
-export const canReadAudit = (profile: string) => profile === 'GESTOR' || profile === 'ADMINISTRADOR'
 
 export interface AuditFilters {
   from: string
@@ -12,6 +11,7 @@ export interface AuditFilters {
   userId: string
   operation: string
   table: string
+  recordId?: string
 }
 
 export interface AuditFilterError {
@@ -41,6 +41,37 @@ export interface AuditPage {
   pageSize: number
   totalPages: number
   partial: boolean
+}
+
+export type AuditEntityType =
+  | 'vehicle' | 'driver' | 'service'
+  | 'trip-request' | 'trip'
+  | 'maintenance-order' | 'fueling' | 'fine' | 'vehicle-document'
+  | 'svo-occurrence' | 'svo-order' | 'svo-team'
+  | 'user' | 'profile'
+
+export interface AuditHistoryEntry {
+  id: string
+  source: 'DOMAIN_EVENT' | 'AUDIT_LOG'
+  eventType: string
+  occurredAt: string
+  registeredAt: string
+  reportedBy: string | null
+  actor: { id: string | null; name: string | null; role: string | null }
+  reason: string | null
+  before: unknown
+  after: unknown
+  sensitiveDataHidden: boolean
+}
+
+export interface AuditHistoryPage {
+  entityType: AuditEntityType
+  recordId: string
+  items: AuditHistoryEntry[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 export class AuditAccessDenied extends Error {}
@@ -93,6 +124,11 @@ export function validateAuditFilters(filters: AuditFilters): AuditFilterError | 
   if (table && !tablePattern.test(table)) {
     return { field: 'table', message: 'Use o nome da entidade no formato schema.tabela, por exemplo: fleet.vehicles.' }
   }
+  const recordId = filters.recordId?.trim() ?? ''
+  if (recordId && !positiveIdPattern.test(recordId)) {
+    return { field: 'recordId', message: 'O ID do registro deve ser um número inteiro positivo.' }
+  }
+  if (recordId && !table) return { field: 'recordId', message: 'Informe também a entidade do registro.' }
   return null
 }
 
@@ -127,6 +163,7 @@ export async function readAuditLogs(api: ApiRequest, filters: AuditFilters, page
   const values: [keyof AuditFilters, string][] = [
     ['from', filters.from], ['to', filters.to], ['userId', filters.userId],
     ['operation', filters.operation], ['table', filters.table],
+    ['recordId', filters.recordId ?? ''],
   ]
   for (const [key, value] of values) if (value.trim()) params.set(key, value.trim())
   const response = await api('/audit-logs?' + params, { method: 'GET', signal, cache: 'no-store' })
@@ -157,5 +194,73 @@ export async function readAuditLogs(api: ApiRequest, filters: AuditFilters, page
     logs, total: data.total as number, page: data.page as number,
     pageSize: data.pageSize as number, totalPages: data.totalPages as number,
     partial: logs.length !== data.logs.length,
+  }
+}
+
+/** Lê o histórico de uma entidade por identificador via fachada central protegida. */
+export async function readAuditHistory(
+  api: ApiRequest,
+  entityType: AuditEntityType,
+  recordId: string,
+  from: string,
+  to: string,
+  page: number,
+  signal: AbortSignal,
+): Promise<AuditHistoryPage> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(AUDIT_PAGE_SIZE) })
+  if (from.trim()) params.set('from', from.trim())
+  if (to.trim()) params.set('to', to.trim())
+  const response = await api(
+    `/audit-logs/records/${encodeURIComponent(entityType)}/${encodeURIComponent(recordId)}/history?${params}`,
+    { method: 'GET', signal, cache: 'no-store' },
+  )
+  if (response.status === 403) throw new AuditAccessDenied()
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null)
+    throw new AuditRequestError(isObject(body) && typeof body.erro === 'string' ? body.erro : 'Não foi possível consultar o histórico do registro.')
+  }
+  const body: unknown = await response.json()
+  if (!isObject(body) || body.entityType !== entityType || body.recordId !== recordId
+    || !Array.isArray(body.items) || !Number.isSafeInteger(body.total) || Number(body.total) < 0
+    || body.page !== page || body.pageSize !== AUDIT_PAGE_SIZE
+    || !Number.isSafeInteger(body.totalPages) || Number(body.totalPages) < 0) {
+    throw new AuditRequestError('A resposta do histórico do registro está em formato inválido.')
+  }
+  const items = body.items.flatMap((item): AuditHistoryEntry[] => {
+    if (!isObject(item) || typeof item.id !== 'string'
+      || !['DOMAIN_EVENT', 'AUDIT_LOG'].includes(String(item.source))
+      || typeof item.eventType !== 'string'
+      || typeof item.occurredAt !== 'string' || !Number.isFinite(Date.parse(item.occurredAt))
+      || typeof item.registeredAt !== 'string' || !Number.isFinite(Date.parse(item.registeredAt))
+      || typeof item.sensitiveDataHidden !== 'boolean' || !isObject(item.actor)
+      || !(item.actor.id === null || typeof item.actor.id === 'string')
+      || !(item.actor.name === null || typeof item.actor.name === 'string')
+      || !(item.actor.role === null || typeof item.actor.role === 'string')
+      || !(item.reason === null || typeof item.reason === 'string')
+      || !(item.reportedBy === null || typeof item.reportedBy === 'string')
+      || !('before' in item) || !('after' in item)) return []
+    return [{
+      id: item.id,
+      source: item.source as AuditHistoryEntry['source'],
+      eventType: item.eventType,
+      occurredAt: item.occurredAt,
+      registeredAt: item.registeredAt,
+      reportedBy: item.reportedBy,
+      actor: { id: item.actor.id, name: item.actor.name, role: item.actor.role },
+      reason: item.reason,
+      before: item.before,
+      after: item.after,
+      sensitiveDataHidden: item.sensitiveDataHidden,
+    }]
+  })
+  if (body.items.length > 0 && items.length === 0) throw new AuditRequestError('Nenhum evento válido na resposta.')
+  return {
+    entityType,
+    recordId,
+    items,
+    total: Number(body.total),
+    page,
+    pageSize: AUDIT_PAGE_SIZE,
+    totalPages: Number(body.totalPages),
   }
 }

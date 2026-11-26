@@ -6,7 +6,7 @@ import path from 'node:path'
 import { createElement } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 import { sessionFor } from './fixtures.mjs'
 
@@ -42,7 +42,7 @@ dom.window.cancelAnimationFrame ??= (id) => clearTimeout(id)
 
 const { cleanup, fireEvent, render, screen, waitFor } = await import('@testing-library/react')
 const userEvent = (await import('@testing-library/user-event')).default
-const vite = await createServer({
+const vite = await createTestViteServer({
   configFile: false,
   root: fileURLToPath(new URL('..', import.meta.url)),
   cacheDir: viteCacheDir,
@@ -63,8 +63,8 @@ after(async () => {
 })
 
 const profiles = [
-  { id: '1', name: 'ADMINISTRADOR', description: 'Administração do sistema', createdAt: '2026-01-01T00:00:00.000Z' },
-  { id: '2', name: 'GESTOR', description: 'Gestão de frota', createdAt: '2026-01-01T00:00:00.000Z' },
+  { id: '1', name: 'ADMINISTRADOR', displayName: 'Administrador do Sistema', description: 'Administração do sistema', active: true, revision: 1, defaultPath: '/administracao/usuarios', activeUserCount: 1, createdAt: '2026-01-01T00:00:00.000Z' },
+  { id: '2', name: 'GESTOR', displayName: 'Gestor de Frota', description: 'Gestão de frota', active: true, revision: 1, defaultPath: '/solicitacoes/analisar', activeUserCount: 2, createdAt: '2026-01-01T00:00:00.000Z' },
 ]
 
 function makeUser(id, overrides = {}) {
@@ -247,10 +247,10 @@ test('busca, filtros e paginação mantêm os parâmetros da API', async () => {
   await selectOption(user, 'Filtrar por perfil', 'Administrador do Sistema')
   await waitFor(() => assert.ok(calls.some(({ path }) => path.includes('perfil=ADMINISTRADOR'))))
 
-  await selectOption(user, 'Filtrar por situação', 'Inativo')
+  await selectOption(user, 'Filtrar por situação', 'Arquivado')
   await waitFor(() => assert.ok(calls.some(({ path }) => path.includes('ativo=false'))))
 
-  await selectOption(user, 'Filtrar por situação', 'Todos os status')
+  await selectOption(user, 'Filtrar por situação', 'Todos')
   await selectOption(user, 'Filtrar por perfil', 'Todos os perfis')
   await waitFor(() => assert.equal(screen.getByRole('button', { name: 'Próxima' }).disabled, false))
   await user.click(screen.getByRole('button', { name: 'Próxima' }))
@@ -309,7 +309,8 @@ test('edição confirma mudança de perfil e envia a revisão atual', async () =
   renderPage(api)
   await screen.findByText('Pessoa Fictícia 2')
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Editar Pessoa Fictícia 2' }))
+  await user.click(screen.getByRole('button', { name: 'Ações de Pessoa Fictícia 2' }))
+  await user.click(await screen.findByRole('menuitem', { name: 'Editar' }))
   await user.clear(screen.getByRole('textbox', { name: 'Nome completo' }))
   await user.type(screen.getByRole('textbox', { name: 'Nome completo' }), 'Nome Atualizado')
   await selectOption(user, 'Perfil de acesso', 'Administrador do Sistema')
@@ -334,7 +335,7 @@ test('edição confirma mudança de perfil e envia a revisão atual', async () =
   await waitFor(() => assert.match(document.body.textContent, /Usu.rio atualizado com sucesso/))
 })
 
-test('inativação e reativação confirmam a ação e bloqueiam repetição enquanto aguardam', async () => {
+test('arquivamento e restauração confirmam a ação e bloqueiam repetição enquanto aguardam', async () => {
   let resolveStatus
   let statusCalls = 0
   const { api, calls } = createApi([makeUser(2)], {
@@ -349,22 +350,28 @@ test('inativação e reativação confirmam a ação e bloqueiam repetição enq
   renderPage(api)
   await screen.findByText('Pessoa Fictícia 2')
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Inativar Pessoa Fictícia 2' }))
-  assert.ok(await screen.findByText(/O histórico é preservado/))
-  await user.click(screen.getByRole('button', { name: 'Cancelar' }))
-  assert.equal(calls.filter(({ path }) => path.endsWith('/deactivate')).length, 0)
-  await screen.findByRole('button', { name: /Inativar Pessoa/ })
+  const openRowAction = async (action) => {
+    await user.click(screen.getByRole('button', { name: 'Ações de Pessoa Fictícia 2' }))
+    await user.click(await screen.findByRole('menuitem', { name: action }))
+  }
 
-  await user.click(screen.getByRole('button', { name: 'Inativar Pessoa Fictícia 2' }))
-  await user.click(screen.getByRole('button', { name: 'Inativar' }))
-  const pendingConfirm = await screen.findByRole('button', { name: 'Aguarde...' })
+  await openRowAction('Arquivar')
+  assert.ok(screen.getByText(/O histórico é preservado/))
+  await user.click(screen.getByRole('button', { name: 'Arquivar' }))
+  const pendingConfirm = screen.getByRole('button', { name: 'Aguarde...' })
   assert.equal(pendingConfirm.disabled, true)
   assert.equal(calls.filter(({ path }) => path.endsWith('/deactivate')).length, 1)
   resolveStatus(jsonResponse(makeUser(2, { active: false })))
-  await waitFor(() => assert.match(document.body.textContent, /Usu.rio Pessoa Fict.cia 2 inativado com sucesso/))
+  await waitFor(() => assert.match(document.body.textContent, /Usu.rio Pessoa Fict.cia 2 arquivado com sucesso/))
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  assert.equal(document.querySelector('[role="dialog"]'), null)
 
-  await user.click(await screen.findByRole('button', { name: 'Reativar Pessoa Fictícia 2' }))
-  await user.click(screen.getByRole('button', { name: 'Reativar' }))
-  await waitFor(() => assert.match(document.body.textContent, /Usu.rio Pessoa Fict.cia 2 reativado com sucesso/))
+  await selectOption(user, 'Filtrar por situação', 'Arquivado')
+  await screen.findByText('Pessoa Fictícia 2')
+  await openRowAction('Restaurar')
+  await user.click(screen.getByRole('button', { name: 'Restaurar' }))
+  await waitFor(() => assert.match(document.body.textContent, /Usu.rio Pessoa Fict.cia 2 restaurado com sucesso/))
   assert.equal(calls.filter(({ path }) => path.endsWith('/activate')).length, 1)
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  assert.equal(document.querySelector('[role="dialog"]'), null)
 })

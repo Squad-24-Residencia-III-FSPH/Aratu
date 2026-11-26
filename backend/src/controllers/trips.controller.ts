@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import { TripServiceError } from '../types/trip.types'
-import type { ConfirmTripInput, FinishTripInput, ScheduleTripInput, StartTripInput } from '../types/trip.types'
+import type { ConfirmTripInput, CreateDirectTripInput, FinishTripInput, ScheduleTripInput, StartTripInput } from '../types/trip.types'
 import type { TripsService } from '../services/trips.service'
 
 function bodyRecord(body: unknown): Record<string, unknown> {
@@ -18,7 +18,7 @@ async function respondWithDomainErrors<T>(
     response.status(successStatus).json(await operation())
   } catch (error) {
     if (error instanceof TripServiceError) {
-      response.status(error.statusCode).json({ erro: error.message })
+      response.status(error.statusCode).json({ erro: error.message, ...(error.code ? { codigo: error.code } : {}) })
       return
     }
     next(error)
@@ -30,7 +30,24 @@ export function createTripsController(service: TripsService) {
   return {
     schedule(req: Request, res: Response, next: NextFunction): Promise<void> {
       const input = bodyRecord(req.body) as ScheduleTripInput
-      return respondWithDomainErrors(res, next, () => service.scheduleTrip(input, req.usuario?.id ?? ''), 201)
+      return (async () => {
+        try {
+          const result = await service.scheduleTrip(input, req.usuario?.id ?? '', req.get('Idempotency-Key'))
+          res.status(result.replayed ? 200 : 201).json(result.trip)
+        } catch (error) {
+          if (error instanceof TripServiceError) {
+            res.status(error.statusCode).json({ erro: error.message, ...(error.code ? { codigo: error.code } : {}) })
+            return
+          }
+          next(error)
+        }
+      })()
+    },
+
+    createDirect(req: Request, res: Response, next: NextFunction): Promise<void> {
+      const input = bodyRecord(req.body) as CreateDirectTripInput
+      return respondWithDomainErrors(res, next,
+        () => service.createDirectTrip(input, req.usuario?.id ?? '', req.get('Idempotency-Key')), 201)
     },
 
     start(req: Request, res: Response, next: NextFunction): Promise<void> {

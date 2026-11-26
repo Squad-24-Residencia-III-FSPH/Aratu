@@ -1,6 +1,4 @@
 import type { ApiRequest } from '../api/client'
-import { resolveProfile } from '../auth/profiles.ts'
-import type { Profile } from '../auth/profiles'
 import type {
   CreateUserInput,
   ManagedUser,
@@ -22,13 +20,12 @@ function errorMessage(value: unknown, fallback: string): string {
 
 function parseUser(value: unknown): ManagedUser {
   if (!isRecord(value)) throw new Error('A resposta de usuários da API está em um formato inválido.')
-  const role = typeof value.role === 'string' ? resolveProfile(value.role) : null
   if (
     typeof value.id !== 'string' || !value.id.trim()
     || typeof value.name !== 'string'
     || typeof value.email !== 'string'
     || typeof value.roleId !== 'string' || !value.roleId.trim()
-    || !role
+    || typeof value.role !== 'string' || !value.role.trim()
     || typeof value.active !== 'boolean'
     || typeof value.revision !== 'number' || !Number.isInteger(value.revision)
   ) {
@@ -39,7 +36,8 @@ function parseUser(value: unknown): ManagedUser {
     name: value.name,
     email: value.email,
     roleId: value.roleId,
-    role,
+    role: value.role,
+    ...(typeof value.roleDisplayName === 'string' ? { roleDisplayName: value.roleDisplayName } : {}),
     active: value.active,
     revision: value.revision,
     createdAt: typeof value.createdAt === 'string' ? value.createdAt : '',
@@ -142,9 +140,4 @@ export function deactivateUser(api: ApiRequest, id: string): Promise<ManagedUser
 /** Reativa uma conta previamente inativada. */
 export function activateUser(api: ApiRequest, id: string): Promise<ManagedUser> {
   return changeStatus(api, id, 'activate')
-}
-
-/** Resolve um perfil retornado pela API para o catálogo do frontend. */
-export function toProfile(value: string): Profile | null {
-  return resolveProfile(value)
 }

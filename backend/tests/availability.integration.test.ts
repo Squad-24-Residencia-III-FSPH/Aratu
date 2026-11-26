@@ -13,6 +13,7 @@ import type { RbacTestUser } from './fixtures/rbac-users.fixture'
 import {
   FICTITIOUS_CPFS,
   insertDriver,
+  insertDriverAccount,
   insertRequest,
   insertService,
   insertTrip,
@@ -73,10 +74,10 @@ async function scenario() {
   for (const id of [free, maintenance, busy, touching]) await linkVehicleToService(pool, id, serviceId)
   await linkVehicleToService(pool, incompatible, serviceId, false)
 
-  const activeDriver = await insertDriver(pool, 'A Motorista Livre', FICTITIOUS_CPFS[0])
-  const awayDriver = await insertDriver(pool, 'B Motorista Afastado', FICTITIOUS_CPFS[1], '2099-12-31', 'AWAY')
-  const expiringDriver = await insertDriver(pool, 'C Motorista CNH Vencendo', FICTITIOUS_CPFS[2], '2099-11-30')
-  const busyDriver = await insertDriver(pool, 'D Motorista Ocupado', FICTITIOUS_CPFS[3])
+  const activeDriver = await insertDriver(pool, 'A Motorista Livre', FICTITIOUS_CPFS[0], '2099-12-31', 'ACTIVE', await insertDriverAccount(pool))
+  const awayDriver = await insertDriver(pool, 'B Motorista Afastado', FICTITIOUS_CPFS[1], '2099-12-31', 'AWAY', await insertDriverAccount(pool))
+  const expiringDriver = await insertDriver(pool, 'C Motorista CNH Vencendo', FICTITIOUS_CPFS[2], '2099-11-30', 'ACTIVE', await insertDriverAccount(pool))
+  const busyDriver = await insertDriver(pool, 'D Motorista Ocupado', FICTITIOUS_CPFS[3], '2099-12-31', 'ACTIVE', await insertDriverAccount(pool))
 
   const requester = getUser('SOLICITANTE').id
   await insertTrip(pool, {
@@ -109,7 +110,7 @@ test('IT-AVAILABILITY-01: veículos com motivos; encostar e viagem cancelada nã
 
 test('IT-AVAILABILITY-02: motoristas afastado, com CNH vencendo antes da viagem e ocupado', async () => {
   await scenario()
-  const { status, body } = await get<DriverAvailability[]>(`/drivers/available?${PERIOD}`, 'ADMINISTRADOR')
+  const { status, body } = await get<DriverAvailability[]>(`/drivers/available?${PERIOD}`, 'GESTOR')
   assert.equal(status, 200)
   assert.deepEqual(body.map((item) => [item.name, item.available, item.reasons]), [
     ['A Motorista Livre', true, []],

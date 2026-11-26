@@ -81,25 +81,18 @@ after(async () => {
   await closeTestPool()
 })
 
-test('IT-ANALYSIS-01: aprovação de pendente retorna 200 com APPROVED, responsável e data do servidor', async () => {
+test('IT-ANALYSIS-01: aprovação isolada retorna 409 e mantém pendente até concluir o agendamento', async () => {
   const requestId = await insertPendingRequest()
-  const gestor = getUser('GESTOR')
-  const requestedAt = Date.now()
   const response = await decide(requestId, 'approve')
-  const answeredAt = Date.now()
-  assert.equal(response.status, 200)
-  const body = (await response.json()) as RequestDecisionResult
-  assert.equal(body.status, 'APPROVED')
-  assert.equal(body.decidedBy, gestor.id)
-  const decidedAt = new Date(body.decidedAt).getTime()
-  assert.ok(decidedAt >= requestedAt - 1000 && decidedAt <= answeredAt + 1000, 'decidedAt deve ser o relógio do servidor no momento da decisão')
+  assert.equal(response.status, 409)
+  assert.match(((await response.json()) as { erro: string }).erro, /conclua o agendamento/i)
 
   const row = await pool.query('SELECT status, decided_by::text AS decided_by FROM trip.requests WHERE id = $1', [requestId])
-  assert.deepEqual(row.rows[0], { status: 'APPROVED', decided_by: gestor.id })
+  assert.deepEqual(row.rows[0], { status: 'PENDING', decided_by: null })
   const events = await pool.query('SELECT event_type, reason FROM trip.request_events WHERE request_id = $1', [requestId])
-  assert.deepEqual(events.rows, [{ event_type: 'APPROVED', reason: 'Solicitação aprovada' }])
+  assert.deepEqual(events.rows, [])
   const audits = await pool.query(`SELECT operation FROM audit.logs WHERE table_name = 'trip.requests' AND record_id = $1`, [requestId])
-  assert.equal(audits.rowCount, 1)
+  assert.equal(audits.rowCount, 0)
 })
 
 test('IT-ANALYSIS-02: rejeição com justificativa retorna 200 com REJECTED e o motivo', async () => {
@@ -121,12 +114,13 @@ test('IT-ANALYSIS-03: rejeição sem justificativa retorna 400 e mantém a solic
   assert.equal(row.rows[0]?.status, 'PENDING')
 })
 
-test('IT-ANALYSIS-04: analisar solicitação já decidida retorna 409; inexistente retorna 404', async () => {
+test('IT-ANALYSIS-04: aprovação exige agendamento; rejeição repetida retorna 409 e inexistente retorna 404', async () => {
   const requestId = await insertPendingRequest()
-  assert.equal((await decide(requestId, 'approve')).status, 200)
+  assert.equal((await decide(requestId, 'approve')).status, 409)
+  assert.equal((await decide(requestId, 'reject', 'GESTOR', { reason: 'Sem veículo disponível' })).status, 200)
   assert.equal((await decide(requestId, 'approve')).status, 409)
   assert.equal((await decide(requestId, 'reject', 'GESTOR', { reason: 'Tarde demais' })).status, 409)
-  assert.equal((await decide('999999', 'approve')).status, 404)
+  assert.equal((await decide('999999', 'reject', 'GESTOR', { reason: 'Inexistente' })).status, 404)
 })
 
 test('IT-ANALYSIS-05: duas decisões simultâneas sobre a mesma solicitação — só uma vence', async () => {

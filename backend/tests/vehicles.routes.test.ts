@@ -10,8 +10,12 @@ import { RBAC_JWT_CONFIG, RBAC_JWT_SECRET, generateRbacUserToken } from './fixtu
 
 const READ_ROLES: readonly UserRole[] = ['ADMINISTRADOR', 'GESTOR', 'ATENDENTE_SVO']
 const WRITE_ROLES: readonly UserRole[] = ['ADMINISTRADOR', 'GESTOR']
+const HISTORY_ROLES: readonly UserRole[] = ['ADMINISTRADOR', 'GESTOR']
+const TOKEN_ROLES: readonly UserRole[] = [
+  'ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO',
+]
 const FORBIDDEN_BODY = {
-  erro: 'Acesso negado: perfil de usuário não autorizado para esta operação.',
+  erro: 'Acesso negado: seu perfil não possui a permissão necessária para esta ação.',
 }
 
 const vehicle = {
@@ -31,6 +35,7 @@ const vehicle = {
 const vehiclesService = {
   async listVehicles() { return [vehicle] },
   async getVehicle() { return vehicle },
+  async getVehicleHistory() { return { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 } },
   async createVehicle() { return vehicle },
   async updateVehicle() { return vehicle },
   async changeVehicleStatus() { return vehicle },
@@ -39,6 +44,7 @@ const vehiclesService = {
 const endpoints = [
   { method: 'GET', path: '/vehicles', allowedRoles: READ_ROLES, successStatus: 200, responseBody: [vehicle] },
   { method: 'GET', path: '/vehicles/1', allowedRoles: READ_ROLES, successStatus: 200, responseBody: vehicle },
+  { method: 'GET', path: '/vehicles/1/history', allowedRoles: HISTORY_ROLES, successStatus: 200, responseBody: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 } },
   { method: 'POST', path: '/vehicles', allowedRoles: WRITE_ROLES, successStatus: 201, responseBody: vehicle },
   { method: 'PUT', path: '/vehicles/1', allowedRoles: WRITE_ROLES, successStatus: 200, responseBody: vehicle },
   { method: 'PATCH', path: '/vehicles/1/status', allowedRoles: WRITE_ROLES, successStatus: 200, responseBody: vehicle },
@@ -50,7 +56,22 @@ let baseUrl: string
 before(async () => {
   const app = express()
   app.use(express.json())
-  app.use('/vehicles', createVehiclesRouter(vehiclesService, RBAC_JWT_CONFIG))
+  app.use('/vehicles', createVehiclesRouter(vehiclesService, RBAC_JWT_CONFIG, {
+    async findById(id) {
+      const role = TOKEN_ROLES[Number(id) - 1]
+      return role ? {
+        id,
+        name: `Usuário Sintético ${id}`,
+        email: `usuario-${id}@example.test`,
+        roleId: id,
+        role,
+        active: true,
+        revision: 1,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      } : null
+    },
+  }))
   server = app.listen(0)
   await new Promise<void>((resolve) => server.once('listening', resolve))
   const address = server.address() as AddressInfo
@@ -66,9 +87,7 @@ after(async () => {
 })
 
 test('rotas reais de veículos permitem e negam leitura e escrita conforme os papéis configurados', async () => {
-  const roles: readonly UserRole[] = [
-    'ADMINISTRADOR', 'GESTOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO',
-  ]
+  const roles = TOKEN_ROLES
 
   for (const endpoint of endpoints) {
     for (const [index, role] of roles.entries()) {

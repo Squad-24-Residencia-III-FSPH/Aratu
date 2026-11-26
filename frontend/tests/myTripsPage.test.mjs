@@ -6,8 +6,9 @@ import path from 'node:path'
 import { createElement } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
+import { tokenUserId } from '../src/auth/token.ts'
 import { sessionFor } from './fixtures.mjs'
 import { jsonResponse, makeDriverTrip, makeTrip } from './my-trips.fixture.mjs'
 
@@ -32,7 +33,7 @@ globalThis.cancelAnimationFrame ??= dom.window.cancelAnimationFrame.bind(dom.win
 
 const { cleanup, fireEvent, render, screen, waitFor, within } = await import('@testing-library/react')
 const userEvent = (await import('@testing-library/user-event')).default
-const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), plugins: [react()],
+const vite = await createTestViteServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), plugins: [react()],
   cacheDir: viteCacheDir, server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: MyTripsPage }, { AuthContext }] = await Promise.all([
   vite.ssrLoadModule('/src/pages/myTripsPage/MyTripsPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
@@ -55,8 +56,12 @@ function deferred() {
 }
 
 function renderPage(api, session = sessionFor('MOTORISTA')) {
-  const element = (current) => createElement(AuthContext.Provider,
-    { value: { session: current, signIn: async () => {}, logout() {}, api, notice: '' } }, createElement(MyTripsPage))
+  const element = (current) => {
+    const identity = current ? `${tokenUserId(current.token) ?? 'unknown'}:${current.perfil ?? 'unknown'}` : 'anonymous'
+    return createElement(AuthContext.Provider,
+      { value: { session: current, signIn: async () => {}, logout() {}, api, notice: '' } },
+      createElement(MyTripsPage, { key: identity }))
+  }
   const view = render(element(session))
   return { ...view, switchSession: (next) => view.rerender(element(next)) }
 }
@@ -402,10 +407,10 @@ test('trocar a sessão limpa as viagens do usuário anterior', async () => {
   const second = { list: [makeDriverTrip(9, { scheduledStart: NOW_ISO })] }
   let active = first
   const { api } = makeApi({ onList: () => jsonResponse(active.list) })
-  const view = renderPage(api, sessionFor('MOTORISTA', 3600))
+  const view = renderPage(api, sessionFor('MOTORISTA', 3600, { id: 1 }))
   assert.ok(await screen.findByText('Unidade fictícia 1'))
   active = second
-  view.switchSession(sessionFor('MOTORISTA', 7200))
-  assert.equal(screen.queryByText('Unidade fictícia 1'), null)
+  view.switchSession(sessionFor('MOTORISTA', 7200, { id: 9 }))
+  assert.equal(Boolean(screen.queryByText('Unidade fictícia 1')), false)
   assert.ok(await screen.findByText('Unidade fictícia 9'))
 })

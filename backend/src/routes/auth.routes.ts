@@ -1,10 +1,10 @@
 import { Router } from 'express'
 import { createAuthController } from '../controllers/auth.controller'
-import { createAuthMiddleware } from '../middlewares/auth.middleware'
+import { createAuthMiddleware, createCurrentUserMiddleware } from '../middlewares/auth.middleware'
 import type { JwtConfig } from '../types/auth'
 import type { AuditLogger } from '../types/audit.types'
 import { AuthService } from '../services/auth.service'
-import type { UserRepository } from '../repositories/users.repository'
+import type { UserRepository, UsersRepositoryContract } from '../repositories/users.repository'
 
 /**
  * Cria o roteador Express com os endpoints de autenticação (`/auth/login` e `/auth/logout`).
@@ -21,13 +21,19 @@ export function createAuthRouter(
   users: UserRepository,
   jwtConfig: JwtConfig,
   auditLogger?: AuditLogger,
+  currentUsers?: Pick<UsersRepositoryContract, 'findById'>,
 ): Router {
   const router = Router()
   const controller = createAuthController(new AuthService(users, jwtConfig, auditLogger))
   const authenticate = createAuthMiddleware(jwtConfig.secret)
+  const currentUser = currentUsers ? createCurrentUserMiddleware(currentUsers) : undefined
 
   router.post('/login', controller.login)
-  router.post('/logout', authenticate, controller.logout)
+  router.post('/logout', authenticate, ...(currentUser ? [currentUser] : []), controller.logout)
+  if (currentUser) {
+    router.get('/me', authenticate, currentUser, controller.session)
+    router.get('/session', authenticate, currentUser, controller.session)
+  }
 
   return router
 }

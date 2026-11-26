@@ -10,7 +10,7 @@ import type {
 export interface RequestDecisionsRepositoryContract {
   withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
   findByIdForUpdate(id: string, client: PoolClient): Promise<DecidableRequest | null>
-  saveDecision(id: string, decision: RequestDecision, deciderId: string, reason: string | null, client: PoolClient): Promise<DecidableRequest | null>
+  saveDecision(id: string, decision: RequestDecision, deciderId: string, reason: string | null, client: PoolClient, expectedRevision?: number): Promise<DecidableRequest | null>
   findActorSnapshot(id: string, client: PoolClient): Promise<RequestDecisionActor | null>
   createEvent(input: CreateRequestEventInput, client: PoolClient): Promise<void>
 }
@@ -41,7 +41,8 @@ export class RequestDecisionsRepository implements RequestDecisionsRepositoryCon
       `SELECT id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
               to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
               to_char(requested_time, 'HH24:MI') AS "requestedTime",
-              origin, destination, purpose, passengers, status,
+              origin, destination, purpose, passengers,
+              special_requirements AS "specialRequirements", notes, status,
               decided_by::text AS "decidedBy", decided_at AS "decidedAt",
               decision_reason AS "decisionReason", revision,
               created_at AS "createdAt", updated_at AS "updatedAt"
@@ -60,6 +61,7 @@ export class RequestDecisionsRepository implements RequestDecisionsRepositoryCon
     deciderId: string,
     reason: string | null,
     client: PoolClient,
+    expectedRevision?: number,
   ): Promise<DecidableRequest | null> {
     const result = await client.query<DecidableRequest>(
       `UPDATE trip.requests
@@ -70,14 +72,16 @@ export class RequestDecisionsRepository implements RequestDecisionsRepositoryCon
               revision = revision + 1,
               updated_at = clock_timestamp()
         WHERE id = $4 AND status = 'PENDING'
+          AND ($5::integer IS NULL OR revision = $5)
         RETURNING id::text AS id, requester_id::text AS "requesterId", service_id::text AS "serviceId",
                   to_char(requested_date, 'YYYY-MM-DD') AS "requestedDate",
                   to_char(requested_time, 'HH24:MI') AS "requestedTime",
-                  origin, destination, purpose, passengers, status,
+                  origin, destination, purpose, passengers,
+                  special_requirements AS "specialRequirements", notes, status,
                   decided_by::text AS "decidedBy", decided_at AS "decidedAt",
                   decision_reason AS "decisionReason", revision,
                   created_at AS "createdAt", updated_at AS "updatedAt"`,
-      [decision, deciderId, reason, id],
+      [decision, deciderId, reason, id, expectedRevision ?? null],
     )
     return result.rows[0] ?? null
   }

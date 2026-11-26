@@ -22,17 +22,23 @@ function isString(value: unknown): value is string {
   return typeof value === 'string'
 }
 
+function isNullableString(value: unknown): value is string | null {
+  return value === null || isString(value)
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isString)
 }
 
 function parseApprovedRequest(value: unknown): ApprovedRequestSummary {
-  if (!isRecord(value) || !isString(value.id) || !isString(value.serviceId)
-    || !isString(value.serviceName) || !isString(value.requestedDate)
+  if (!isRecord(value) || !isString(value.id) || !isNullableString(value.serviceId)
+    || !isNullableString(value.serviceName) || !isString(value.requestedDate)
     || !isString(value.requestedTime) || !isString(value.origin)
     || !isString(value.destination) || !isString(value.purpose)
     || typeof value.passengers !== 'number' || !Number.isInteger(value.passengers)
-    || value.status !== 'APPROVED') throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
+    || !isNullableString(value.specialRequirements)
+    || typeof value.revision !== 'number' || !Number.isInteger(value.revision)
+    || (value.status !== 'PENDING' && value.status !== 'APPROVED')) throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
   return {
     id: value.id,
     serviceId: value.serviceId,
@@ -43,7 +49,9 @@ function parseApprovedRequest(value: unknown): ApprovedRequestSummary {
     destination: value.destination,
     purpose: value.purpose,
     passengers: value.passengers,
-    status: 'APPROVED',
+    specialRequirements: value.specialRequirements,
+    revision: value.revision,
+    status: value.status,
   }
 }
 
@@ -125,40 +133,40 @@ async function getJson<T>(api: ApiRequest, path: string, fallback: string,
 }
 
 /**
- * Lista as solicitações aprovadas liberadas para agendamento ao Gestor.
+ * Lista solicitações pendentes e aprovações legadas que ainda não receberam viagem.
  *
  * Consome a consulta paginada `GET /requests?status=APPROVED` (FROTA-82) e
  * percorre todas as páginas para que nenhuma solicitação deixe de aparecer no
  * seletor da tela de agendamento.
  */
 export async function listApprovedRequests(api: ApiRequest): Promise<ApprovedRequestSummary[]> {
-  const approved: ApprovedRequestSummary[] = []
+  const schedulable: ApprovedRequestSummary[] = []
 
   for (let page = 1; ; page += 1) {
     const query = new URLSearchParams({
-      status: 'APPROVED',
+      statuses: 'PENDING,APPROVED',
       page: String(page),
       pageSize: String(APPROVED_PAGE_SIZE),
     })
     const current = await getJson(
       api,
       `/requests?${query}`,
-      'Não foi possível carregar as solicitações aprovadas.',
+      'Não foi possível carregar as solicitações pendentes.',
       parseRequestsPage,
     )
-    approved.push(...current.requests.map(parseApprovedRequest))
+    schedulable.push(...current.requests.map(parseApprovedRequest))
     // Uma página vazia encerra a leitura mesmo que `totalPages` divirja do
     // conteúdo, evitando uma sequência de requisições sem fim.
     if (current.requests.length === 0 || page >= current.totalPages) break
   }
 
-  return approved
+  return schedulable
 }
 
 /** Consulta candidatos de veículo, mantendo os motivos de compatibilidade e agenda da API. */
 export async function listAvailableVehicles(api: ApiRequest, start: string, end: string,
-  serviceId: string): Promise<VehicleAvailability[]> {
-  const query = new URLSearchParams({ start, end, serviceId })
+  serviceId: string, requestId?: string): Promise<VehicleAvailability[]> {
+  const query = new URLSearchParams({ start, end, serviceId, ...(requestId ? { requestId } : {}) })
   return getJson(api, `/vehicles/available?${query}`, 'Não foi possível consultar os veículos disponíveis.', (value) => {
     if (!Array.isArray(value)) throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
     return value.map(parseVehicleAvailability)
@@ -167,8 +175,8 @@ export async function listAvailableVehicles(api: ApiRequest, start: string, end:
 
 /** Consulta candidatos de motorista, incluindo CNH e conflitos de agenda. */
 export async function listAvailableDrivers(api: ApiRequest, start: string,
-  end: string): Promise<DriverAvailability[]> {
-  const query = new URLSearchParams({ start, end })
+  end: string, requestId?: string): Promise<DriverAvailability[]> {
+  const query = new URLSearchParams({ start, end, ...(requestId ? { requestId } : {}) })
   return getJson(api, `/drivers/available?${query}`, 'Não foi possível consultar os motoristas disponíveis.', (value) => {
     if (!Array.isArray(value)) throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
     return value.map(parseDriverAvailability)

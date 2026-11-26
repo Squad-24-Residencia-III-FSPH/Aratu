@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { after, before, beforeEach, test } from 'node:test'
@@ -52,6 +53,7 @@ function call(method: string, path: string, token: string | null, body?: unknown
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(method === 'POST' && path === '/trips' ? { 'Idempotency-Key': randomUUID() } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
@@ -258,6 +260,8 @@ test('IT-EXECUTION-08: histórico cumulativo preserva agendamento e leituras ant
   const priorRequestId = await insertRequest(pool, getUser('SOLICITANTE').id, serviceId, 'APPROVED')
   const priorScheduled = await call('POST', '/trips', getUser('GESTOR').token, {
     requestId: priorRequestId,
+    serviceId,
+    expectedRevision: 1,
     vehicleId,
     driverId,
     scheduledStart: '2099-11-10T08:00:00-03:00',
@@ -272,6 +276,8 @@ test('IT-EXECUTION-08: histórico cumulativo preserva agendamento e leituras ant
   const requestId = await insertRequest(pool, getUser('SOLICITANTE').id, serviceId, 'APPROVED')
   const scheduleResponse = await call('POST', '/trips', getUser('GESTOR').token, {
     requestId,
+    serviceId,
+    expectedRevision: 1,
     vehicleId,
     driverId,
     scheduledStart: '2099-12-01T08:00:00-03:00',

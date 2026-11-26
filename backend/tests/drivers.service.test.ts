@@ -55,6 +55,7 @@ function setup(initial: Driver | null = createDriver(), accounts: DriverUserAcco
       return work(fakeClient)
     },
     async list(_filters: DriverFilters): Promise<Driver[]> { return stored ? [stored] : [] },
+    async history(_id, filters) { return { items: [], total: 0, page: filters.page, pageSize: filters.pageSize, totalPages: 0 } },
     async findById(id: string): Promise<Driver | null> { return stored?.id === id ? stored : null },
     async findByIdForUpdate(id: string): Promise<Driver | null> { return stored?.id === id ? stored : null },
     async findByCpf(cpf: string): Promise<Driver | null> { return stored?.cpf === cpf ? stored : null },
@@ -214,9 +215,9 @@ test('edição de motorista ativo com CNH vencida retorna 422', async () => {
 
 test('vínculo exige conta ativa de perfil MOTORISTA (422) e não pode repetir conta (409)', async () => {
   const accounts: DriverUserAccount[] = [
-    { id: '50', role: 'MOTORISTA', active: true },
-    { id: '51', role: 'SOLICITANTE', active: true },
-    { id: '52', role: 'MOTORISTA', active: false },
+    { id: '50', active: true, canExecuteTrips: true },
+    { id: '51', active: true, canExecuteTrips: false },
+    { id: '52', active: false, canExecuteTrips: true },
   ]
   const context = setup(createDriver({ userId: '50' }), accounts)
   await assert.rejects(context.service.createDriver({ ...newDriver, userId: '51' }, actor.id), domainError(422))
@@ -244,4 +245,12 @@ test('filtro de situação inválido, id malformado e motorista ausente', async 
 test('mutações exigem reportedBy e reason', async () => {
   const context = setup(null)
   await assert.rejects(context.service.createDriver({ ...newDriver, reason: ' ' }, actor.id), domainError(400))
+})
+
+test('histórico do motorista valida entidade e filtros antes de consultar os eventos', async () => {
+  const context = setup()
+  const history = await context.service.getDriverHistory('31', { page: 2, pageSize: 10, eventType: 'UPDATED' })
+  assert.deepEqual(history, { items: [], total: 0, page: 2, pageSize: 10, totalPages: 0 })
+  await assert.rejects(context.service.getDriverHistory('31', { eventType: 'DELETED' }), domainError(400))
+  await assert.rejects(setup(null).service.getDriverHistory('99', {}), domainError(404))
 })

@@ -11,6 +11,7 @@ import { SvoOrdersRepository } from '../src/repositories/svo-orders.repository'
 import { VehiclesRepository } from '../src/repositories/vehicles.repository'
 import { AuditService } from '../src/services/audit.service'
 import { SvoOrdersService } from '../src/services/svo-orders.service'
+import { SvoOccurrencesService } from '../src/services/svo-occurrences.service'
 import type { AuditRepositoryContract } from '../src/types/audit.types'
 import type { UserRole } from '../src/types/auth'
 import { SVO_ORDER_OCCUPYING_STATUSES, SvoOrderServiceError } from '../src/types/svo-order.types'
@@ -19,7 +20,14 @@ import { closeTestPool, getTestDatabaseUrl, getTestPool, setupTestDatabase, trun
 import { RBAC_JWT_CONFIG, generateRbacUserToken, seedRbacTestUsers } from './fixtures/rbac-users.fixture'
 import type { RbacTestUser } from './fixtures/rbac-users.fixture'
 import { insertLegacySvo, svoInput } from './fixtures/svo-occurrences.fixture'
-import { insertLegacyMaintenance, insertLegacySvoOrder, insertSvoTeam, insertSvoVehicle, insertSvoMembership } from './fixtures/svo-orders.fixture'
+import {
+  insertLegacyMaintenance,
+  insertLegacySvoOrder,
+  insertSvoMembership,
+  insertSvoTeam,
+  insertSvoVehicle,
+  prepareSvoTeamForDispatch,
+} from './fixtures/svo-orders.fixture'
 
 type JsonRecord = Record<string, unknown>
 let pool: Pool
@@ -270,7 +278,7 @@ function postResult(id: string, body: unknown, role: UserRole | null = 'EQUIPE_S
 
 function user(role: UserRole = 'ATENDENTE_SVO'): RbacTestUser { return users.get(role)! }
 
-function call(body: unknown, role: UserRole | null = 'ATENDENTE_SVO', token?: string, url = baseUrl): Promise<Response> {
+function call(body: unknown, role: UserRole | null = 'GESTOR', token?: string, url = baseUrl): Promise<Response> {
   return fetch(`${url}/svo/orders`, {
     method: 'POST', headers: { 'Content-Type': 'application/json',
       ...(role ? { Authorization: `Bearer ${token ?? user(role).token}` } : {}) },
@@ -289,14 +297,18 @@ async function confirmedOccurrence(): Promise<string> {
     body: JSON.stringify(svoInput()),
   })
   const created = await json(response, 201)
-  await json(await fetch(`${baseUrl}/svo/occurrences/${created.id}/confirm`, {
-    method: 'POST', headers: { Authorization: `Bearer ${user().token}`, 'Content-Type': 'application/json' }, body: '{}',
-  }), 200)
+  // Os cenários abaixo exercitam despacho explícito pelo gestor, sem chamar o despachante automático.
+  const confirmation = new SvoOccurrencesService(
+    new SvoOccurrencesRepository(pool), new AuditService(new AuditRepository(pool)),
+  )
+  await confirmation.confirmOccurrence(created.id, {}, user().id)
   return created.id as string
 }
 
 async function eligible(bodyLimit = 1): Promise<CreateSvoOrderInput> {
-  return { occurrenceId: await confirmedOccurrence(), teamId: await insertSvoTeam(pool),
+  const teamId = await insertSvoTeam(pool)
+  await prepareSvoTeamForDispatch(pool, teamId, user('GESTOR').id)
+  return { occurrenceId: await confirmedOccurrence(), teamId,
     vehicleId: await insertSvoVehicle(pool, { bodyLimit }) }
 }
 
@@ -306,7 +318,9 @@ async function databaseState(): Promise<unknown> {
     'SELECT id, occurrence_id, team_id, vehicle_id, driver_id, driver_snapshot, status, result, failure_reason, notes, opened_at, departed_at, arrived_at, collected_at, closed_at, closed_by, updated_at, created_by, revision, occurrence_snapshot, team_snapshot, vehicle_snapshot FROM svo.execution_orders ORDER BY id',
     'SELECT id, execution_order_id, event_type, occurred_at, registered_at, reported_by, registered_by, actor_snapshot, reason, evidence_description, before_state, after_state FROM svo.execution_order_events ORDER BY id',
     'SELECT id, table_name, record_id, user_id, operation, "before", "after", actor_snapshot FROM audit.logs ORDER BY id',
-    'SELECT id, status, revision, triaged_at, triaged_by, updated_at FROM svo.occurrences ORDER BY id',
+    `SELECT o.id, o.status, o.revision, o.triaged_at, o.triaged_by, o.dispatch_wait_reason,
+            (SELECT x.id::text FROM svo.execution_orders x WHERE x.occurrence_id = o.id) AS execution_order_id, o.updated_at
+       FROM svo.occurrences o ORDER BY o.id`,
     'SELECT id, status, revision, body_limit FROM fleet.vehicles ORDER BY id',
     'SELECT id, event_type, after_state FROM svo.occurrence_events ORDER BY id',
   ]
@@ -372,10 +386,16 @@ after(async () => {
   await closeTestPool()
 })
 
-test('ORD-01/15: atendente e administrador criam OPEN, OPENED e CREATE sem alterar ocorrência/veículo', async () => {
-  for (const role of ['ATENDENTE_SVO', 'ADMINISTRADOR'] as const) {
+test('ORD-01/15: gestor e administrador criam OPEN e atualizam o despacho sem alterar a viatura', async () => {
+  for (const role of ['GESTOR', 'ADMINISTRADOR'] as const) {
     const input = await eligible()
     const beforeState = await databaseState() as unknown[][]
+    const dispatchResourcesBefore = await pool.query<{ members: number; shifts: number }>(
+      `SELECT (SELECT count(*)::integer FROM svo.team_members WHERE team_id = $1) AS members,
+              (SELECT count(*)::integer FROM svo.team_shifts WHERE team_id = $1 AND canceled_at IS NULL) AS shifts`,
+      [input.teamId],
+    )
+    assert.deepEqual(dispatchResourcesBefore.rows[0], { members: 1, shifts: 1 })
     const result = await json(await call(input, role), 201)
     assert.deepEqual(Object.keys(result).sort(), ['id', 'status']); assert.equal(typeof result.id, 'string')
     assert.equal(result.status, 'OPEN')
@@ -394,8 +414,24 @@ test('ORD-01/15: atendente e administrador criam OPEN, OPENED e CREATE sem alter
     assert.equal(audits[0]!.before, null)
     assert.deepEqual(audits[0]!.actor_snapshot, events[0]!.actor_snapshot)
     const afterState = await databaseState() as unknown[][]
-    assert.deepEqual(afterState.slice(3), beforeState.slice(3))
-    assert.equal((await pool.query('SELECT id FROM svo.team_members')).rows.length, 0)
+    const occurrenceBefore = (beforeState[3] as JsonRecord[]).find((row) => String(row.id) === input.occurrenceId)!
+    const occurrenceAfter = (afterState[3] as JsonRecord[]).find((row) => String(row.id) === input.occurrenceId)!
+    assert.equal(occurrenceAfter.status, 'CONFIRMED')
+    assert.equal(occurrenceAfter.revision, (occurrenceBefore.revision as number) + 1)
+    assert.equal(occurrenceAfter.execution_order_id, result.id)
+    assert.equal(occurrenceAfter.dispatch_wait_reason, null)
+    assert.deepEqual(afterState[4], beforeState[4])
+    const occurrenceEventsBefore = beforeState[5] as JsonRecord[]
+    const occurrenceEventsAfter = afterState[5] as JsonRecord[]
+    assert.equal(occurrenceEventsAfter.length, occurrenceEventsBefore.length + 1)
+    assert.equal(occurrenceEventsAfter.at(-1)!.event_type, 'DISPATCHED')
+    assert.equal((afterState[2] as JsonRecord[]).length, (beforeState[2] as JsonRecord[]).length + 2)
+    const dispatchResourcesAfter = await pool.query<{ members: number; shifts: number }>(
+      `SELECT (SELECT count(*)::integer FROM svo.team_members WHERE team_id = $1) AS members,
+              (SELECT count(*)::integer FROM svo.team_shifts WHERE team_id = $1 AND canceled_at IS NULL) AS shifts`,
+      [input.teamId],
+    )
+    assert.deepEqual(dispatchResourcesAfter.rows, dispatchResourcesBefore.rows)
   }
 })
 
@@ -503,9 +539,9 @@ test('ORD-06: referências, IDs e JSON inválidos não gravam nem ecoam dados', 
   } finally { console.error = original }
 })
 
-test('ORD-07: RBAC atual, conta ativa e tokens válidos são obrigatórios', async () => {
+test('ORD-07: somente gestor e administrador geram ordens; conta ativa e tokens válidos são obrigatórios', async () => {
   const input = await eligible()
-  for (const role of ['GESTOR', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
+  for (const role of ['ATENDENTE_SVO', 'SOLICITANTE', 'MOTORISTA', 'EQUIPE_SVO'] as const) {
     await rejectsWithoutWrite(() => call(input, role), 403)
     await rejectsWithoutWrite(() => call({ occurrenceId: MISSING_ID }, role), 403)
   }
@@ -514,9 +550,9 @@ test('ORD-07: RBAC atual, conta ativa e tokens válidos são obrigatórios', asy
   const expired = generateRbacUserToken(user(), RBAC_JWT_CONFIG.secret, { expiresIn: -1 })
   await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO', expired), 401)
   await pool.query('UPDATE auth.users SET active = false WHERE id = $1', [user().id])
-  await rejectsWithoutWrite(() => call(input), 401)
-  await pool.query('UPDATE auth.users SET active = true, role_id = $2 WHERE id = $1', [user().id, user('GESTOR').roleId])
-  await rejectsWithoutWrite(() => call(input), 403)
+  await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO'), 401)
+  await pool.query('UPDATE auth.users SET active = true, role_id = $2 WHERE id = $1', [user().id, user('SOLICITANTE').roleId])
+  await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO'), 403)
   const missingToken = generateRbacUserToken({ id: MISSING_ID, role: 'ATENDENTE_SVO' })
   await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO', missingToken), 401)
 })
@@ -623,7 +659,7 @@ test('ORD-11/14: falha de auditoria desfaz tudo, sanitiza logs e permite nova te
   })
   const logs: unknown[] = []; const original = console.error; console.error = (...args: unknown[]) => { logs.push(args) }
   try {
-    await rejectsWithoutWrite(() => call(input, 'ATENDENTE_SVO', undefined, broken.url), 500)
+    await rejectsWithoutWrite(() => call(input, 'GESTOR', undefined, broken.url), 500)
     assert.equal(logs.length, 1)
     assert.doesNotMatch(JSON.stringify(logs), /SENTINELA|22P02|stack|detail/)
     assert.match(JSON.stringify(logs), /CREATE_ORDER/)
@@ -642,7 +678,7 @@ test('ORD-12: falha SQL no evento faz rollback real e libera a conexão', async 
     new VehiclesRepository(pool), new AuditService(new AuditRepository(pool)))
   const state = await databaseState()
   for (let attempt = 0; attempt < 11; attempt++) {
-    await assert.rejects(service.createOrder(input, user().id), (error: unknown) =>
+    await assert.rejects(service.createOrder(input, user('GESTOR').id), (error: unknown) =>
       typeof error === 'object' && error !== null && 'code' in error && error.code === '22P02')
   }
   assert.deepEqual(await databaseState(), state)
@@ -689,6 +725,8 @@ test('ORD repository: INSERT e evento respeitam cliente e rollback explícito', 
       occurrenceSnapshot: afterState.occurrenceSnapshot as Parameters<SvoOrdersRepository['create']>[0]['occurrenceSnapshot'],
       teamSnapshot: afterState.teamSnapshot as Parameters<SvoOrdersRepository['create']>[0]['teamSnapshot'],
       vehicleSnapshot: afterState.vehicleSnapshot as Parameters<SvoOrdersRepository['create']>[0]['vehicleSnapshot'],
+      teamShiftId: null,
+      allocationSnapshot: null,
     }, client)
     await repository.createOpenedEvent({ order, actor: { id: user().id, name: user().name, email: user().email, role: user().role },
       reason: 'Verificação fictícia de transação.', evidenceDescription: 'Teste sintético.' }, client)
@@ -703,12 +741,12 @@ test('ORD-03: constraint real de unicidade é traduzida após rollback', async (
   const input = await eligible(2)
   await json(await call(input), 201)
   class SkipEarlyDuplicateCheck extends SvoOrdersRepository {
-    override async findByOccurrenceId(): Promise<string | null> { return null }
+    override async findByOccurrenceId(): Promise<{ id: string; teamId: string; vehicleId: string } | null> { return null }
   }
   const service = new SvoOrdersService(new SvoOccurrencesRepository(pool), new SkipEarlyDuplicateCheck(),
     new VehiclesRepository(pool), new AuditService(new AuditRepository(pool)))
   const state = await databaseState()
-  await assert.rejects(service.createOrder(input, user().id), (error: unknown) =>
+  await assert.rejects(service.createOrder(input, user('GESTOR').id), (error: unknown) =>
     error instanceof SvoOrderServiceError && error.code === 'ORDER_ALREADY_EXISTS')
   assert.deepEqual(await databaseState(), state)
 })

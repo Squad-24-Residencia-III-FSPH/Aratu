@@ -501,7 +501,6 @@ export default function DashboardPage() {
   return (
     <Box sx={{ minWidth: 0 }}>
       <PageHeader
-        breadcrumbs={['Início', 'Gestão', 'Dashboard']}
         title="Dashboard"
         description="Visão consolidada da frota, viagens, manutenção, abastecimentos, documentos e SVO."
         actions={<Button variant="outlined" onClick={() => setRefreshVersion((value) => value + 1)}>Atualizar dados</Button>}

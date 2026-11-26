@@ -450,7 +450,7 @@ test('IT-DRV-09: vínculo e desvinculação com conta de usuário', async () => 
   })
   assert.equal(invalidRole.status, 422)
   assert.deepEqual(await invalidRole.json(), {
-    erro: 'A conta vinculada deve existir, estar ativa e ter o perfil MOTORISTA.',
+    erro: 'A conta vinculada deve estar ativa e ter permissão para executar viagens atribuídas.',
   })
 
   const duplicateLink = await api('/drivers', {
@@ -595,7 +595,7 @@ test('IT-DRV-13: atomicidade e rollback em falhas de transação', async () => {
 
   assert.equal(response.status, 401)
   assert.deepEqual(await response.json(), {
-    erro: 'Usuário autenticado não está ativo ou não existe.',
+    erro: 'Sua conta ou perfil não está ativo. Entre novamente ou procure a administração.',
   })
 
   const drivers = await pool.query<{ total: number }>(

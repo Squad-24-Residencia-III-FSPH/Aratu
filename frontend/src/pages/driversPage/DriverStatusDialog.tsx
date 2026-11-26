@@ -13,15 +13,17 @@ interface DriverStatusDialogProps {
   reportedBy: string
   onSaved: (driver: Driver) => void
   onCancel: () => void
+  mode?: 'archive' | 'restore' | 'reactivate'
 }
 
 /** Confirma a ativação ou inativação pedida e registra a justificativa na auditoria. */
-export default function DriverStatusDialog({ api, driver, reportedBy, onSaved, onCancel }: DriverStatusDialogProps) {
+export default function DriverStatusDialog({ api, driver, reportedBy, onSaved, onCancel, mode = 'archive' }: DriverStatusDialogProps) {
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [saving, setSaving] = useState(false)
-  const activating = driver.status !== 'ACTIVE'
+  const activating = mode !== 'archive'
+  const targetStatus = mode === 'archive' ? 'INACTIVE' : 'ACTIVE'
 
   async function confirmStatus() {
     if (!reason.trim()) {
@@ -32,7 +34,7 @@ export default function DriverStatusDialog({ api, driver, reportedBy, onSaved, o
     setSubmitError('')
     try {
       const saved = await changeDriverStatus(api, driver.id, {
-        status: activating ? 'ACTIVE' : 'INACTIVE',
+        status: targetStatus,
         expectedRevision: driver.revision,
         reportedBy,
         reason: reason.trim(),
@@ -50,11 +52,11 @@ export default function DriverStatusDialog({ api, driver, reportedBy, onSaved, o
   return (
     <ConfirmDialog
       open
-      title={activating ? 'Reativar motorista' : 'Inativar motorista'}
-      description={activating
-        ? `O motorista ${driver.name} voltará à situação ativa. A CNH precisa estar válida.`
-        : `O acesso operacional de ${driver.name} será inativado. O histórico será preservado.`}
-      confirmLabel={activating ? 'Reativar' : 'Inativar'}
+      title={mode === 'archive' ? 'Arquivar motorista' : mode === 'restore' ? 'Restaurar motorista' : 'Ativar motorista'}
+      description={mode === 'archive'
+        ? `O motorista ${driver.name} será retirado da consulta operacional. O histórico será preservado.`
+        : `O motorista ${driver.name} voltará à situação ativa. A CNH precisa estar válida.`}
+      confirmLabel={mode === 'archive' ? 'Arquivar' : mode === 'restore' ? 'Restaurar' : 'Ativar'}
       onConfirm={confirmStatus}
       onCancel={onCancel}
       loading={saving}

@@ -6,12 +6,14 @@ import {
   DEFAULT_CONFIRMATION_REASON,
   DEFAULT_EXECUTION_REASONS,
   DEFAULT_SCHEDULING_REASON,
+  DirectTripContext,
   SCHEDULING_STATUSES,
   TRIP_STATUSES,
   TripServiceError,
 } from '../types/trip.types'
 import type {
   ConfirmTripInput,
+  CreateDirectTripInput,
   DriverTrip,
   TripConfirmation,
   TripListFilters,
@@ -20,6 +22,7 @@ import type {
   TripSummary,
   FinishTripInput,
   ScheduleTripInput,
+  ScheduledTripResult,
   SchedulingEventMetadata,
   StartTripInput,
   Trip,
@@ -33,6 +36,8 @@ import type { AvailabilityService } from './availability.service'
 const ID_PATTERN = /^[1-9]\d*$/
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const MAX_ODOMETER_KM = 2_147_483_647
+const MAX_PASSENGERS = 2_147_483_647
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const MISSING_EVIDENCE_MESSAGE = 'Viagem sem evidências do odômetro não pode ser confirmada'
 const IN_PROGRESS_CONFLICT_MESSAGE = 'Já existe viagem em andamento com este veículo ou motorista.'
 
@@ -46,6 +51,8 @@ const REASON_LABELS: Readonly<Record<AvailabilityReason, string>> = {
   INACTIVE: 'está inativo',
   AWAY: 'está afastado',
   CNH_EXPIRED: 'tem CNH vencida antes do fim da viagem',
+  INSUFFICIENT_CAPACITY: 'não comporta todos os passageiros solicitados',
+  ACCOUNT_UNAVAILABLE: 'não possui conta ativa vinculada com perfil de Motorista',
 }
 
 function requireId(value: unknown, field: string): string {
@@ -88,6 +95,26 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505'
 }
 
+function directText(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new TripServiceError(400, `${field} é obrigatório.`)
+  }
+  return value.trim()
+}
+
+function optionalDirectText(value: unknown, field: string): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') throw new TripServiceError(400, `${field} deve ser um texto.`)
+  return value.trim() || null
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+  if (typeof value !== 'object' || value === null) return JSON.stringify(value) ?? 'null'
+  const record = value as Record<string, unknown>
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')}}`
+}
+
 /** Viagens: agendamento pelo Gestor e execução (início e término) pelo Motorista alocado. */
 export class TripsService {
   /**
@@ -113,43 +140,133 @@ export class TripsService {
    * @throws {TripServiceError} 400 dados inválidos, 404 solicitação/veículo/motorista inexistente,
    *   409 solicitação não aprovada ou conflito de agenda, 422 início no passado ou recurso indisponível.
    */
-  async scheduleTrip(input: ScheduleTripInput, managerId: string): Promise<Trip> {
+  async scheduleTrip(input: ScheduleTripInput, managerId: string, idempotencyKey: unknown): Promise<ScheduledTripResult> {
+    if (typeof idempotencyKey !== 'string' || !UUID_PATTERN.test(idempotencyKey)) {
+      throw new TripServiceError(400, 'Informe um UUID válido no cabeçalho Idempotency-Key.')
+    }
+    const creationKey = idempotencyKey.toLowerCase()
     const requestId = requireId(input.requestId, 'requestId')
+    const serviceId = requireId(input.serviceId, 'serviceId')
     const vehicleId = requireId(input.vehicleId, 'vehicleId')
     const driverId = requireId(input.driverId, 'driverId')
-    const period = this.validatePeriod(input.scheduledStart, input.scheduledEnd)
+    if (typeof input.expectedRevision !== 'number' || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) {
+      throw new TripServiceError(400, 'expectedRevision é obrigatório e deve ser um número inteiro positivo.')
+    }
+    const period = this.parseTripPeriod(input.scheduledStart, input.scheduledEnd)
     const reason = optionalReason(input.reason, DEFAULT_SCHEDULING_REASON)
+    if (input.specialRequirementsAcknowledged !== undefined
+      && typeof input.specialRequirementsAcknowledged !== 'boolean') {
+      throw new TripServiceError(400, 'specialRequirementsAcknowledged deve ser um valor booleano.')
+    }
+    if (input.evidenceDescription !== undefined && input.evidenceDescription !== null
+      && typeof input.evidenceDescription !== 'string') {
+      throw new TripServiceError(400, 'evidenceDescription deve ser um texto.')
+    }
+    const specialRequirementsAcknowledged = input.specialRequirementsAcknowledged === true
+    const evidenceDescription = typeof input.evidenceDescription === 'string'
+      ? input.evidenceDescription.trim() || null
+      : null
+    const creationPayload = {
+      requestId, expectedRevision: input.expectedRevision, serviceId, vehicleId, driverId,
+      scheduledStart: period.start.toISOString(), scheduledEnd: period.end.toISOString(),
+      reason, specialRequirementsAcknowledged, evidenceDescription,
+    }
+    const findRegistration = this.repository.findScheduleTripRegistration
+    if (!findRegistration) {
+      throw new TripServiceError(500, 'A recuperação idempotente do agendamento ainda não está disponível.')
+    }
+    const previous = await findRegistration.call(this.repository, managerId, creationKey)
+    if (previous) return this.replayScheduledTrip(previous.creationPayload, creationPayload, previous.trip)
+    if (period.start < this.now()) {
+      throw new TripServiceError(422, 'O início da viagem não pode estar no passado.')
+    }
 
     try {
       return await this.repository.withTransaction(async (client) => {
+        const retry = await findRegistration.call(this.repository, managerId, creationKey, client)
+        if (retry) return this.replayScheduledTrip(retry.creationPayload, creationPayload, retry.trip)
+
         const request = await this.repository.findRequestForUpdate(requestId, client)
         if (!request) throw new TripServiceError(404, 'Solicitação não encontrada.')
-        if (request.status !== SCHEDULING_STATUSES.approvedRequest) {
-          throw new TripServiceError(409, 'Somente solicitações aprovadas podem ser agendadas.')
+        if (request.status !== 'PENDING' && request.status !== SCHEDULING_STATUSES.approvedRequest) {
+          throw new TripServiceError(409, 'Somente solicitações pendentes ou aprovadas ainda sem viagem podem ser agendadas.')
+        }
+        if (request.revision !== input.expectedRevision) {
+          throw new TripServiceError(409, 'A solicitação mudou desde a consulta. Atualize os dados antes de agendar.')
         }
 
-        const vehicle = await this.availability.assessVehicle(vehicleId, request.serviceId, period, client)
+        const service = await this.repository.findActiveServiceForScheduling(serviceId, client)
+        if (!service) throw new TripServiceError(422, 'O tipo de serviço escolhido não existe ou está inativo.')
+        const hasSpecialRequirements = Boolean(request.specialRequirements?.trim())
+        if (hasSpecialRequirements && !specialRequirementsAcknowledged) {
+          throw new TripServiceError(422, 'Confirme a conferência das necessidades especiais antes de agendar a viagem.')
+        }
+        if (hasSpecialRequirements && !evidenceDescription) {
+          throw new TripServiceError(422, 'Registre como as necessidades especiais serão atendidas antes de agendar a viagem.')
+        }
+        if (!hasSpecialRequirements && (specialRequirementsAcknowledged || evidenceDescription)) {
+          throw new TripServiceError(400, 'A conferência especial só pode ser registrada quando a solicitação informar uma necessidade especial.')
+        }
+
+        const vehicle = await this.availability.assessVehicle(vehicleId, serviceId, period, client)
         if (!vehicle) throw new TripServiceError(404, 'Veículo não encontrado.')
+        if (request.passengers > vehicle.seats) {
+          throw new TripServiceError(422,
+            `O veículo comporta ${vehicle.seats} passageiros, mas a solicitação informa ${request.passengers}.`,
+            'INSUFFICIENT_CAPACITY')
+        }
         const driver = await this.availability.assessDriver(driverId, period, client)
         if (!driver) throw new TripServiceError(404, 'Motorista não encontrado.')
         this.assertAvailable(vehicle.reasons, driver.reasons)
 
         const actor = await this.requireActor(managerId, client)
+        let approvedRequest = request
+        if (request.status === 'PENDING') {
+          const approved = await this.repository.approveAndClassifyRequest(
+            request.id, request.revision, service, actor.id, reason, client,
+          )
+          if (!approved) throw new TripServiceError(409, 'A solicitação mudou desde a consulta. Atualize os dados antes de agendar.')
+          const metadata = { reportedBy: actor.name, registeredBy: actor.id, actorSnapshot: actor, reason }
+          await this.repository.createRequestEvent(request, approved, metadata, client, 'APPROVED')
+          approvedRequest = approved
+        } else {
+          const reclassified = await this.repository.reclassifyApprovedRequest(
+            request.id, request.revision, service, client,
+          )
+          if (!reclassified) throw new TripServiceError(409, 'A solicitação mudou desde a consulta. Atualize os dados antes de agendar.')
+          const metadata = {
+            reportedBy: actor.name,
+            registeredBy: actor.id,
+            actorSnapshot: actor,
+            reason: 'Tipo de serviço definido pelo Gestor antes do agendamento.',
+          }
+          await this.repository.createRequestEvent(request, reclassified, metadata, client, 'UPDATED')
+          approvedRequest = reclassified
+        }
+
         const trip = await this.repository.createTrip({
           requestId,
+          serviceId,
+          serviceSnapshot: service,
           vehicleId,
           driverId,
           scheduledStart: period.start,
           scheduledEnd: period.end,
           vehicleSnapshot: vehicle,
           driverSnapshot: driver,
+          requestSnapshot: approvedRequest,
+          creationKey,
+          creationPayload,
+          createdBy: actor.id,
+          specialRequirementsAcknowledged,
+          evidenceDescription,
         }, client)
         const scheduledRequest = await this.repository.markRequestScheduled(requestId, client)
         if (!scheduledRequest) throw new TripServiceError(409, 'Somente solicitações aprovadas podem ser agendadas.')
 
         const metadata = { reportedBy: actor.name, registeredBy: actor.id, actorSnapshot: actor, reason }
         await this.repository.createTripEvent('SCHEDULED', null, trip, metadata, client)
-        await this.repository.createRequestEvent(request, scheduledRequest, metadata, client)
+        await this.repository.createRequestEvent(approvedRequest, scheduledRequest, metadata, client, 'SCHEDULED')
         await this.auditService.recordAudit({
           userId: actor.id,
           table: 'trip.trips',
@@ -160,12 +277,171 @@ export class TripsService {
           actorSnapshot: { id: actor.id, name: actor.name, email: actor.email, role: actor.role },
           reason,
         }, client)
+        return { trip, replayed: false }
+      })
+    } catch (error) {
+      const registration = await findRegistration.call(this.repository, managerId, creationKey)
+      if (registration) return this.replayScheduledTrip(registration.creationPayload, creationPayload, registration.trip)
+      if (isUniqueViolation(error)) throw new TripServiceError(409, 'Esta solicitação já possui viagem agendada ou a chave já foi usada.')
+      throw error
+    }
+  }
+
+  private replayScheduledTrip(
+    storedPayload: Record<string, unknown>,
+    requestedPayload: Record<string, unknown>,
+    trip: Trip,
+  ): ScheduledTripResult {
+    if (stableJson(storedPayload) !== stableJson(requestedPayload)) {
+      throw new TripServiceError(409, 'Esta chave de criação já foi usada com outros dados.')
+    }
+    return { trip, replayed: true }
+  }
+
+  /** Cria uma viagem por decisão do Gestor sem fabricar uma solicitação de outro usuário. */
+  async createDirectTrip(input: CreateDirectTripInput, managerId: string, idempotencyKey: unknown): Promise<Trip> {
+    if (Object.hasOwn(input, 'requestId')) {
+      throw new TripServiceError(400, 'A criação direta não aceita requestId.')
+    }
+    if (typeof idempotencyKey !== 'string' || !UUID_PATTERN.test(idempotencyKey)) {
+      throw new TripServiceError(400, 'Informe um UUID válido no cabeçalho Idempotency-Key.')
+    }
+    const creationKey = idempotencyKey.toLowerCase()
+    const serviceId = requireId(input.serviceId, 'serviceId')
+    const vehicleId = requireId(input.vehicleId, 'vehicleId')
+    const driverId = requireId(input.driverId, 'driverId')
+    const period = this.parseTripPeriod(input.scheduledStart, input.scheduledEnd)
+    const origin = directText(input.origin, 'origin')
+    const destination = directText(input.destination, 'destination')
+    const purpose = directText(input.purpose, 'purpose')
+    const passengers = input.passengers
+    if (typeof passengers !== 'number' || !Number.isSafeInteger(passengers)
+      || passengers < 1 || passengers > MAX_PASSENGERS) {
+      throw new TripServiceError(400, 'Informe uma quantidade válida de passageiros.')
+    }
+    const specialRequirements = optionalDirectText(input.specialRequirements, 'specialRequirements')
+    const notes = optionalDirectText(input.notes, 'notes')
+    if (input.specialRequirementsAcknowledged !== undefined && typeof input.specialRequirementsAcknowledged !== 'boolean') {
+      throw new TripServiceError(400, 'specialRequirementsAcknowledged deve ser um valor booleano.')
+    }
+    if (input.evidenceDescription !== undefined && input.evidenceDescription !== null
+      && typeof input.evidenceDescription !== 'string') {
+      throw new TripServiceError(400, 'evidenceDescription deve ser um texto.')
+    }
+    const specialRequirementsAcknowledged = input.specialRequirementsAcknowledged === true
+    const evidenceDescription = optionalDirectText(input.evidenceDescription, 'evidenceDescription')
+    if (specialRequirements && !specialRequirementsAcknowledged) {
+      throw new TripServiceError(422, 'Confirme a conferência das necessidades especiais antes de agendar a viagem.')
+    }
+    if (specialRequirements && !evidenceDescription) {
+      throw new TripServiceError(422, 'Registre como as necessidades especiais serão atendidas antes de agendar a viagem.')
+    }
+    if (!specialRequirements && (specialRequirementsAcknowledged || evidenceDescription)) {
+      throw new TripServiceError(400, 'A conferência especial só pode ser registrada quando houver necessidade especial.')
+    }
+    const reason = optionalReason(input.reason, DEFAULT_SCHEDULING_REASON)
+    const directContext: DirectTripContext = {
+      serviceId,
+      serviceName: '',
+      origin,
+      destination,
+      purpose,
+      passengers,
+      specialRequirements,
+      notes,
+    }
+    const creationPayload = {
+      serviceId, vehicleId, driverId,
+      scheduledStart: period.start.toISOString(), scheduledEnd: period.end.toISOString(),
+      origin, destination, purpose, passengers, specialRequirements, notes,
+      specialRequirementsAcknowledged, evidenceDescription, reason,
+    }
+    const findRegistration = this.repository.findDirectTripRegistration
+    const createDirectTrip = this.repository.createDirectTrip
+    const findService = this.repository.findActiveServiceForDirect
+    if (!findRegistration || !createDirectTrip || !findService) {
+      throw new TripServiceError(500, 'A criação direta ainda não está disponível no serviço de viagens.')
+    }
+
+    const previous = await findRegistration.call(this.repository, managerId, creationKey)
+    if (previous) return this.replayDirectTrip(previous.creationPayload, creationPayload, previous.trip)
+    if (period.start < this.now()) {
+      throw new TripServiceError(422, 'O início da viagem não pode estar no passado.')
+    }
+
+    try {
+      return await this.repository.withTransaction(async (client) => {
+        const actor = await this.requireActor(managerId, client)
+        const service = await findService.call(this.repository, serviceId, client)
+        if (!service) throw new TripServiceError(404, 'Tipo de serviço não encontrado ou inativo.')
+        directContext.serviceName = service.name
+
+        const vehicle = await this.availability.assessVehicle(vehicleId, serviceId, period, client)
+        if (!vehicle) throw new TripServiceError(404, 'Veículo não encontrado.')
+        if (passengers > vehicle.seats) {
+          throw new TripServiceError(422,
+            `O veículo comporta ${vehicle.seats} passageiros, mas a viagem informa ${passengers}.`,
+            'INSUFFICIENT_CAPACITY')
+        }
+        const driver = await this.availability.assessDriver(driverId, period, client)
+        if (!driver) throw new TripServiceError(404, 'Motorista não encontrado.')
+        this.assertAvailable(vehicle.reasons, driver.reasons)
+
+        const trip = await createDirectTrip.call(this.repository, {
+          requestId: null,
+          serviceId,
+          serviceSnapshot: service,
+          vehicleId,
+          driverId,
+          scheduledStart: period.start,
+          scheduledEnd: period.end,
+          vehicleSnapshot: vehicle,
+          driverSnapshot: driver,
+          directContext,
+          creationKey,
+          creationPayload,
+          specialRequirementsAcknowledged,
+          evidenceDescription,
+          createdBy: actor.id,
+        }, client)
+        const metadata: SchedulingEventMetadata = {
+          reportedBy: actor.name, registeredBy: actor.id, actorSnapshot: actor, reason,
+        }
+        await this.repository.createTripEvent('SCHEDULED', null, trip, metadata, client)
+        await this.auditService.recordAudit({
+          userId: actor.id,
+          table: 'trip.trips',
+          recordId: trip.id,
+          operation: 'CREATE',
+          before: null,
+          after: {
+            id: trip.id, requestId: null, serviceId, vehicleId, driverId,
+            scheduledStart: trip.scheduledStart, scheduledEnd: trip.scheduledEnd,
+            status: trip.status, context: directContext,
+            vehicleLicensePlate: vehicle.licensePlate, driverName: driver.name,
+          },
+          actorSnapshot: { id: actor.id, name: actor.name, email: actor.email, role: actor.role },
+          reason,
+        }, client)
         return trip
       })
     } catch (error) {
-      if (isUniqueViolation(error)) throw new TripServiceError(409, 'Esta solicitação já possui viagem agendada.')
+      const registration = await findRegistration.call(this.repository, managerId, creationKey)
+      if (registration) return this.replayDirectTrip(registration.creationPayload, creationPayload, registration.trip)
+      if (isUniqueViolation(error)) throw new TripServiceError(409, 'O veículo, motorista ou chave de criação conflitou com outra viagem.')
       throw error
     }
+  }
+
+  private replayDirectTrip(
+    storedPayload: Record<string, unknown>,
+    requestedPayload: Record<string, unknown>,
+    trip: Trip,
+  ): Trip {
+    if (stableJson(storedPayload) !== stableJson(requestedPayload)) {
+      throw new TripServiceError(409, 'Esta chave de criação já foi usada com outros dados.')
+    }
+    return trip
   }
 
   /**
@@ -355,15 +631,20 @@ export class TripsService {
   }
 
   private validatePeriod(start: unknown, end: unknown): Period {
+    const period = this.parseTripPeriod(start, end)
+    if (period.start < this.now()) {
+      throw new TripServiceError(422, 'O início da viagem não pode estar no passado.')
+    }
+    return period
+  }
+
+  private parseTripPeriod(start: unknown, end: unknown): Period {
     let period: Period
     try {
       period = parsePeriod(start, end)
     } catch (error) {
       if (error instanceof AvailabilityError) throw new TripServiceError(error.statusCode, error.message)
       throw error
-    }
-    if (period.start < this.now()) {
-      throw new TripServiceError(422, 'O início da viagem não pode estar no passado.')
     }
     return period
   }
@@ -373,10 +654,11 @@ export class TripsService {
     const vehicleBlocking = vehicleReasons.filter((reason) => !isConflict(reason))
     const driverBlocking = driverReasons.filter((reason) => !isConflict(reason))
     if (vehicleBlocking.length > 0 || driverBlocking.length > 0) {
+      const code = driverBlocking.includes(AVAILABILITY_REASONS.accountUnavailable) ? 'ACCOUNT_UNAVAILABLE' : undefined
       throw new TripServiceError(422, [
         vehicleBlocking.length > 0 ? describe('O veículo', vehicleBlocking) : '',
         driverBlocking.length > 0 ? describe('O motorista', driverBlocking) : '',
-      ].filter(Boolean).join(' '))
+      ].filter(Boolean).join(' '), code)
     }
     const conflicts = [
       vehicleReasons.some(isConflict) ? 'O veículo já tem viagem no período.' : '',

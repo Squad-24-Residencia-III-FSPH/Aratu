@@ -4,6 +4,7 @@ import type {
   RequestActor,
   RequestListFilters,
   RequestStatus,
+  ResubmitRequestBody,
 } from '../types/request.types'
 import { RequestServiceError } from '../types/request.types'
 import type { RequestsService } from '../services/requests.service'
@@ -18,7 +19,17 @@ function bodyRecord(body: unknown): CreateRequestBody {
     destination: value.destination,
     purpose: value.purpose,
     serviceId: value.serviceId,
+    passengers: value.passengers,
+    specialRequirements: value.specialRequirements,
+    notes: value.notes,
   }
+}
+
+function resubmitBody(body: unknown): ResubmitRequestBody {
+  const value = typeof body === 'object' && body !== null && !Array.isArray(body)
+    ? body as Record<string, unknown>
+    : {}
+  return { ...bodyRecord(body), expectedRevision: value.expectedRevision }
 }
 
 function queryText(value: unknown): string | undefined {
@@ -41,7 +52,11 @@ function requireActor(request: Request): RequestActor {
   if (!usuario) {
     throw new RequestServiceError(401, 'Autenticação necessária.')
   }
-  return { id: usuario.id, role: usuario.perfil }
+  return {
+    id: usuario.id,
+    role: usuario.perfil,
+    ...(usuario.permissions === undefined ? {} : { permissions: usuario.permissions }),
+  }
 }
 
 async function respondWithDomainErrors<T>(
@@ -78,6 +93,7 @@ export function createRequestsController(service: RequestsService) {
     list(req: Request, res: Response, next: NextFunction): Promise<void> {
       return respondWithDomainErrors(res, next, () => {
         const status = queryText(req.query.status)
+        const statuses = queryText(req.query.statuses)
         const from = queryText(req.query.from)
         const to = queryText(req.query.to)
         const requester = queryText(req.query.requester)
@@ -86,6 +102,7 @@ export function createRequestsController(service: RequestsService) {
         const pageSize = queryNumber(req.query.pageSize)
         const filters: RequestListFilters = {
           ...(status !== undefined ? { status: status as RequestStatus } : {}),
+          ...(statuses !== undefined ? { statuses: statuses.split(',') as RequestStatus[] } : {}),
           ...(from !== undefined ? { from } : {}),
           ...(to !== undefined ? { to } : {}),
           ...(requester !== undefined ? { requester } : {}),
@@ -104,6 +121,29 @@ export function createRequestsController(service: RequestsService) {
         next,
         () => service.getRequest(String(req.params.id), requireActor(req)),
       )
+    },
+
+    /** Reenvia uma versão corrigida pelo Solicitante proprietário. */
+    resubmit(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return respondWithDomainErrors(
+        res,
+        next,
+        () => service.resubmitRequest(String(req.params.id), resubmitBody(req.body), req.usuario?.id ?? ''),
+      )
+    },
+
+    /** Retorna a linha cronológica de eventos dentro do escopo autorizado. */
+    history(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return respondWithDomainErrors(res, next, () => {
+        const page = queryNumber(req.query.page)
+        const pageSize = queryNumber(req.query.pageSize)
+        return service.getRequestHistory(
+          String(req.params.id),
+          requireActor(req),
+          page ?? 1,
+          pageSize ?? 20,
+        )
+      })
     },
   }
 }

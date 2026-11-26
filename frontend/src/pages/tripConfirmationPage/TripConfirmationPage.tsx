@@ -5,7 +5,7 @@ import {
 import CheckIcon from '@mui/icons-material/Check'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import { useAuth } from '../../auth/useAuth'
-import { resolveProfile } from '../../auth/profiles'
+import { hasAnyPermission, hasPermission } from '../../auth/access'
 import { useTripConfirmations } from '../../hooks/useTripConfirmations'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import DataTable from '../../components/ui/DataTable'
@@ -34,8 +34,8 @@ function DetailValue({ label, value }: { label: string; value: string }) {
 
 const COLUMNS: readonly DataTableColumn<TripConfirmationItem>[] = [
   {
-    key: 'request', header: 'Solicitação', width: 200,
-    render: (trip) => <Stack spacing={0.25}><Typography sx={{ fontWeight: 600 }}>#{trip.requestId}</Typography><Typography variant="body2" color="text.secondary">{trip.origin} → {trip.destination}</Typography></Stack>,
+    key: 'request', header: 'Origem', width: 200,
+    render: (trip) => <Stack spacing={0.25}><Typography sx={{ fontWeight: 600 }}>{trip.requestId === null ? 'Criada pelo gestor' : `Solicitação #${trip.requestId}`}</Typography><Typography variant="body2" color="text.secondary">{trip.origin} → {trip.destination}</Typography></Stack>,
   },
   { key: 'vehicle', header: 'Veículo', width: 140, render: (trip) => trip.vehicleLicensePlate },
   { key: 'driver', header: 'Motorista', width: 180, render: (trip) => trip.driverName },
@@ -51,7 +51,8 @@ const COLUMNS: readonly DataTableColumn<TripConfirmationItem>[] = [
 /** Permite ao Gestor conferir os dados disponíveis e confirmar viagens finalizadas pela API FROTA-106. */
 export default function TripConfirmationPage() {
   const { api, session } = useAuth()
-  const allowed = session !== null && resolveProfile(session.perfil) === 'GESTOR'
+  const allowed = hasAnyPermission(session, ['trips:read:all', 'trips:confirm'])
+  const canOperate = hasPermission(session, 'trips:confirm')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [vehicle, setVehicle] = useState('')
@@ -90,14 +91,16 @@ export default function TripConfirmationPage() {
   return (
     <Box>
       <PageHeader
-        title="Confirmar viagens"
-        breadcrumbs={['Início', 'Viagens', 'Conferência']}
+        title="Conferência"
         description="Confira os registros das viagens finalizadas antes de confirmar a conclusão."
       />
 
       {!allowed && <StateFeedback kind="forbidden" title="Acesso restrito" description="Seu perfil não tem permissão para consultar ou confirmar viagens." />}
 
       {allowed && <>
+        {!canOperate && <Alert severity="info" role="note" sx={{ mb: 2 }}>
+          A consulta está disponível para manutenção e supervisão. A confirmação operacional é feita pelo Gestor.
+        </Alert>}
         {state.success && <Alert severity="success" role="status" sx={{ mb: 2 }}>{state.success}</Alert>}
         {state.partialError && <StateFeedback kind="partial" title="A confirmação foi registrada." description={state.partialError} actionLabel="Atualizar listagem" onAction={state.refresh} />}
 
@@ -146,7 +149,7 @@ export default function TripConfirmationPage() {
           <DialogContent dividers>
             <Stack spacing={2.5}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-                <Box><Typography variant="body2" color="text.secondary">Solicitação</Typography><Typography variant="h6">#{selectedTrip.requestId} · {selectedTrip.origin} → {selectedTrip.destination}</Typography></Box>
+                <Box><Typography variant="body2" color="text.secondary">{selectedTrip.requestId === null ? 'Origem da viagem' : 'Solicitação'}</Typography><Typography variant="h6">{selectedTrip.requestId === null ? 'Criada pelo gestor' : `#${selectedTrip.requestId}`} · {selectedTrip.origin} → {selectedTrip.destination}</Typography></Box>
                 <StatusChip label="Finalizada" tone="warning" />
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' }, gap: 2 }}>
@@ -170,14 +173,14 @@ export default function TripConfirmationPage() {
           </DialogContent>
           <DialogActions sx={{ p: 2, flexWrap: 'wrap' }}>
             <Button onClick={() => setSelectedId(null)} sx={{ minHeight: 44 }}>Fechar</Button>
-            <Button
+            {canOperate && <Button
               variant="contained"
               color="success"
               startIcon={<CheckIcon aria-hidden="true" />}
               disabled={!canConfirmTrip(selectedTrip) || state.confirmingId === selectedTrip.id}
               onClick={() => setConfirmOpen(true)}
               sx={{ minHeight: 44 }}
-            >Confirmar viagem</Button>
+            >Confirmar viagem</Button>}
           </DialogActions>
         </Dialog>}
 

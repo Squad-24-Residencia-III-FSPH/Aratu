@@ -4,8 +4,10 @@ import {
   AUDIT_LOGS_MAX_PERIOD_DAYS,
   AuditLogsError,
 } from '../types/audit-log.types'
-import type { AuditLogFilters, AuditLogPage, AuditLogView, AuditLogsQuery, StoredAuditLog } from '../types/audit-log.types'
+import type { AuditHistoryActor, AuditLogFilters, AuditLogPage, AuditLogView, AuditLogsQuery, StoredAuditLog } from '../types/audit-log.types'
 import type { AuditLogsRepositoryContract } from '../repositories/audit-logs.repository'
+import type { AuditEntityType, AuditHistoryPage, AuditHistoryQuery } from '../types/audit-log.types'
+import { EntityHistoryQueryError, normalizeEntityHistoryFilters } from './entity-history'
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const ID_PATTERN = /^[1-9]\d{0,18}$/
@@ -17,6 +19,53 @@ const SECRET_KEY = /password|senha|token|secret|hash/i
 const CPF_KEY = /^cpf$/i
 const CNH_NUMBER_KEY = /^cnh_?number$/i
 const SVO_TABLE_PREFIX = 'svo.'
+const AUDIT_HISTORY_ENTITY_TYPES: readonly AuditEntityType[] = [
+  'vehicle', 'driver', 'service', 'trip-request', 'trip', 'maintenance-order', 'fueling', 'fine',
+  'vehicle-document', 'svo-occurrence', 'svo-order', 'svo-team', 'user', 'profile',
+]
+const DOMAIN_HISTORY_PERMISSIONS: Readonly<Partial<Record<AuditEntityType, readonly string[]>>> = {
+  vehicle: ['vehicles:read', 'vehicles:history:read'],
+  driver: ['drivers:read', 'drivers:history:read'],
+  service: ['services:read', 'services:history:read'],
+  'maintenance-order': ['maintenance:read'],
+  fueling: ['fuelings:read'],
+  fine: ['fines:read'],
+  'vehicle-document': ['vehicle-documents:read'],
+  'svo-occurrence': ['svo:occurrences:read'],
+  'svo-order': [],
+  'svo-team': ['svo:teams:read'],
+  user: ['users:read'],
+  profile: ['profiles:read'],
+}
+
+function resolveHistoryScope(entityType: AuditEntityType, actor: AuditHistoryActor): 'all' | 'own' | 'assigned' {
+  const grants = new Set(actor.permissions)
+  if (!grants.has('audit:history:read')) throw new AuditLogsError(403, 'Seu perfil não pode consultar o histórico central.')
+
+  if (entityType === 'trip-request') {
+    if (grants.has('requests:history:read:all') && grants.has('requests:read:all')) return 'all'
+    if (grants.has('requests:history:read:own') && grants.has('requests:read:own')) return 'own'
+    throw new AuditLogsError(403, 'Seu perfil não pode consultar este histórico de solicitações.')
+  }
+
+  if (entityType === 'trip') {
+    if (grants.has('trips:read:all')) return 'all'
+    if (grants.has('trips:read:assigned')) return 'assigned'
+    throw new AuditLogsError(403, 'Seu perfil não pode consultar este histórico de viagens.')
+  }
+
+  if (entityType === 'svo-order') {
+    if (grants.has('svo:orders:read:all')) return 'all'
+    if (grants.has('svo:orders:read:assigned')) return 'assigned'
+    throw new AuditLogsError(403, 'Seu perfil não pode consultar este histórico de ordens SVO.')
+  }
+
+  const required = DOMAIN_HISTORY_PERMISSIONS[entityType] ?? []
+  if (!required.every((permission) => grants.has(permission))) {
+    throw new AuditLogsError(403, 'Seu perfil não pode consultar este histórico.')
+  }
+  return 'all'
+}
 
 function maskCpf(value: unknown): string {
   const digits = String(value).replace(/\D/g, '')
@@ -51,6 +100,7 @@ function toView(log: StoredAuditLog): AuditLogView {
   const hideSnapshots = log.table.startsWith(SVO_TABLE_PREFIX)
   return {
     ...log,
+    reason: hideSnapshots ? null : log.reason,
     before: hideSnapshots ? null : maskAuditPayload(log.before),
     after: hideSnapshots ? null : maskAuditPayload(log.after),
     actorSnapshot: maskAuditPayload(log.actorSnapshot),
@@ -110,14 +160,75 @@ export class AuditLogsService {
     const pageSize = positiveInteger(query.pageSize, AUDIT_LOGS_DEFAULT_PAGE_SIZE, AUDIT_LOGS_MAX_PAGE_SIZE,
       `pageSize deve ser um inteiro entre 1 e ${AUDIT_LOGS_MAX_PAGE_SIZE}.`)
     const page = positiveInteger(query.page, 1, 1_000_000, 'page deve ser um inteiro positivo.')
+    const table = optionalText(query.table, TABLE_PATTERN, 'table deve ser o nome de uma entidade, ex.: fleet.vehicles.')
+    const recordId = optionalText(query.recordId, ID_PATTERN, 'recordId deve ser um identificador válido.')
+    if (recordId && !table) throw new AuditLogsError(400, 'Informe também a entidade para filtrar pelo identificador do registro.')
     return {
       from,
       to,
       userId: optionalText(query.userId, ID_PATTERN, 'userId deve ser um identificador válido.'),
       operation: optionalText(query.operation, OPERATION_PATTERN, 'operation deve ser um código em maiúsculas, ex.: CREATE, STATUS_CHANGE.'),
-      table: optionalText(query.table, TABLE_PATTERN, 'table deve ser o nome de uma entidade, ex.: fleet.vehicles.'),
+      table,
+      recordId,
       limit: pageSize,
       offset: (page - 1) * pageSize,
     }
+  }
+
+  /** Retorna a trilha de um registro por readers explicitamente liberados. */
+  async getRecordHistory(query: AuditHistoryQuery, actor: AuditHistoryActor): Promise<AuditHistoryPage> {
+    const entityType = query.entityType
+    if (typeof entityType !== 'string' || !AUDIT_HISTORY_ENTITY_TYPES.includes(entityType as AuditEntityType)) {
+      throw new AuditLogsError(404, 'Este tipo de registro não está disponível na área de Auditoria.')
+    }
+    if (typeof query.recordId !== 'string' || !ID_PATTERN.test(query.recordId)) {
+      throw new AuditLogsError(400, 'recordId deve ser um identificador válido.')
+    }
+    if (!actor || typeof actor.id !== 'string' || !ID_PATTERN.test(actor.id)) {
+      throw new AuditLogsError(401, 'Sessão autenticada necessária para consultar o histórico.')
+    }
+    const scopeKind = resolveHistoryScope(entityType as AuditEntityType, actor)
+    let filters
+    try {
+      filters = normalizeEntityHistoryFilters({
+        page: query.page,
+        pageSize: query.pageSize,
+        from: query.from,
+        to: query.to,
+      })
+    } catch (error) {
+      if (error instanceof EntityHistoryQueryError) throw new AuditLogsError(400, error.message)
+      throw error
+    }
+    if (filters.from && filters.to) {
+      const days = (Date.parse(filters.to) - Date.parse(filters.from)) / DAY_MS + 1
+      if (days > AUDIT_LOGS_MAX_PERIOD_DAYS) {
+        throw new AuditLogsError(400, `O período máximo da consulta é de ${AUDIT_LOGS_MAX_PERIOD_DAYS} dias.`)
+      }
+    }
+    if (!this.repository.listHistory) throw new AuditLogsError(501, 'A consulta do histórico do registro não está disponível.')
+    const safeEntityType = entityType as AuditEntityType
+    const { items, total, found } = await this.repository.listHistory(safeEntityType, query.recordId, filters, {
+      kind: scopeKind,
+      actorId: actor.id,
+    })
+    if (found === false) throw new AuditLogsError(404, 'Registro não encontrado ou fora do seu escopo de consulta.')
+    const page: AuditHistoryPage = {
+      entityType: safeEntityType,
+      recordId: query.recordId,
+      items: items.map((item) => {
+        return {
+          ...item,
+          before: maskAuditPayload(item.before),
+          after: maskAuditPayload(item.after),
+          actor: item.actor,
+        }
+      }),
+      total,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      totalPages: Math.ceil(total / filters.pageSize),
+    }
+    return page
   }
 }

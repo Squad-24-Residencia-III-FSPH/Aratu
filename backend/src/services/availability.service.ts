@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg'
 import { AVAILABILITY_REASONS, AvailabilityError } from '../types/availability.types'
 import type {
   AvailabilityQuery,
+  AvailabilityRequest,
   AvailabilityReason,
   DriverAvailability,
   DriverAvailabilityFacts,
@@ -14,6 +15,7 @@ import { currentFsphDate, fsphDateOf } from './drivers.service'
 
 const ISO_DATE_TIME_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/
 const ID_PATTERN = /^[1-9]\d*$/
+const SCHEDULABLE_REQUEST_STATUSES = ['PENDING', 'APPROVED'] as const
 
 function parseInstant(value: unknown, field: string): Date {
   if (typeof value !== 'string' || !ISO_DATE_TIME_WITH_OFFSET.test(value)) {
@@ -66,12 +68,20 @@ export class AvailabilityService {
    */
   async listVehicles(query: AvailabilityQuery): Promise<VehicleAvailability[]> {
     const period = parsePeriod(query.start, query.end)
+    const request = await this.findRequest(query.requestId)
     const serviceId = requireId(query.serviceId, 'serviceId é obrigatório e deve ser um identificador válido.')
     if (!(await this.repository.serviceExists(serviceId))) {
       throw new AvailabilityError(404, 'Tipo de serviço não encontrado.')
     }
     const facts = await this.repository.listVehicleFacts(serviceId, period, null)
-    return facts.map((item) => this.toVehicleAvailability(item))
+    return facts.map((item) => {
+      const availability = this.toVehicleAvailability(item)
+      if (request && request.passengers > item.seats) {
+        return { ...availability, available: false,
+          reasons: [...availability.reasons, AVAILABILITY_REASONS.insufficientCapacity] }
+      }
+      return availability
+    })
   }
 
   /**
@@ -81,6 +91,7 @@ export class AvailabilityService {
    */
   async listDrivers(query: AvailabilityQuery): Promise<DriverAvailability[]> {
     const period = parsePeriod(query.start, query.end)
+    await this.findRequest(query.requestId)
     const facts = await this.repository.listDriverFacts(period, null)
     return facts.map((item) => this.toDriverAvailability(item, period))
   }
@@ -121,10 +132,22 @@ export class AvailabilityService {
     const reasons: AvailabilityReason[] = []
     if (driver.status === 'INACTIVE') reasons.push(AVAILABILITY_REASONS.inactive)
     if (driver.status === 'AWAY') reasons.push(AVAILABILITY_REASONS.away)
+    if (!driver.accountEligible) reasons.push(AVAILABILITY_REASONS.accountUnavailable)
     if (driver.cnhExpiresAt < this.today() || driver.cnhExpiresAt < fsphDateOf(period.end)) {
       reasons.push(AVAILABILITY_REASONS.cnhExpired)
     }
     if (hasConflict) reasons.push(AVAILABILITY_REASONS.conflict)
     return { ...driver, available: reasons.length === 0, reasons }
+  }
+
+  private async findRequest(value: unknown): Promise<AvailabilityRequest | null> {
+    if (value === undefined || value === '') return null
+    const requestId = requireId(value, 'requestId deve ser um identificador válido.')
+    const request = await this.repository.findRequestForAvailability(requestId)
+    if (!request) throw new AvailabilityError(404, 'Solicitação não encontrada.')
+    if (!SCHEDULABLE_REQUEST_STATUSES.includes(request.status as typeof SCHEDULABLE_REQUEST_STATUSES[number])) {
+      throw new AvailabilityError(409, 'Somente solicitações pendentes ou aprovadas podem consultar recursos para agendamento.')
+    }
+    return request
   }
 }

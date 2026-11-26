@@ -13,14 +13,16 @@ import type {
   DriverActorSnapshot,
   DriverAttributes,
   DriverFilters,
+  DriverListResult,
   DriverStatus,
   NormalizedDriverAttributes,
   UpdateDriverInput,
 } from '../types/driver.types'
 import type { DriversRepositoryContract } from '../repositories/drivers.repository'
+import type { EntityHistoryPage, EntityHistoryQueryInput } from '../types/entity-history.types'
+import { EntityHistoryQueryError, normalizeEntityHistoryFilters } from './entity-history'
 
 const FSPH_TIME_ZONE = 'America/Maceio'
-const DRIVER_ROLE = 'MOTORISTA'
 const CPF_PATTERN = /^\d{11}$/
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const ID_PATTERN = /^[1-9]\d*$/
@@ -113,14 +115,42 @@ export class DriversService {
    *
    * @throws {DriverServiceError} 400 quando a situação informada não existe.
    */
-  async listDrivers(filters: DriverFilters): Promise<Driver[]> {
+  async listDrivers(filters: DriverFilters): Promise<DriverListResult> {
     if (filters.status !== undefined && !isOneOf(filters.status, DRIVER_STATUSES)) {
       throw new DriverServiceError(400, 'Situação de motorista inválida.')
     }
-    const name = filters.name?.trim()
-    return this.repository.list({
-      ...(name ? { name } : {}),
-      ...(filters.status ? { status: filters.status } : {}),
+    if (filters.cnhCategory !== undefined && !isOneOf(filters.cnhCategory, CNH_CATEGORIES)) {
+      throw new DriverServiceError(400, 'Categoria da CNH inválida.')
+    }
+    if (filters.view !== undefined && !['operational', 'archived', 'all'].includes(filters.view)) {
+      throw new DriverServiceError(400, 'Filtro de atividade inválido.')
+    }
+    const search = (filters.search ?? filters.name)?.trim()
+    if (search && search.length > 120) throw new DriverServiceError(400, 'A busca deve ter até 120 caracteres.')
+    const hasPagination = filters.page !== undefined || filters.pageSize !== undefined
+    const { search: rawSearch, ...filtersWithoutSearch } = filters
+    if (!hasPagination) {
+      return this.repository.list({
+        ...filtersWithoutSearch,
+        ...(filters.name?.trim() ? { name: filters.name.trim() } : {}),
+        ...(rawSearch !== undefined && search ? { search } : {}),
+      })
+    }
+    const page = filters.page ?? 1
+    const pageSize = filters.pageSize ?? 20
+    if (!Number.isInteger(page) || page < 1 || page > 1_000_000) {
+      throw new DriverServiceError(400, 'page deve ser um inteiro positivo.')
+    }
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+      throw new DriverServiceError(400, 'pageSize deve ser um inteiro entre 1 e 100.')
+    }
+    if (!this.repository.listPaged) throw new DriverServiceError(501, 'A paginação de motoristas não está disponível.')
+    return this.repository.listPaged({
+      ...filtersWithoutSearch,
+      ...(search ? { search } : {}),
+      view: filters.view ?? 'operational',
+      page,
+      pageSize,
     })
   }
 
@@ -134,6 +164,19 @@ export class DriversService {
     const driver = await this.repository.findById(id)
     if (!driver) throw new DriverServiceError(404, 'Motorista não encontrado.')
     return driver
+  }
+
+  /** Lista uma página da história já gravada para o motorista. */
+  async getDriverHistory(id: string, input: EntityHistoryQueryInput): Promise<EntityHistoryPage> {
+    this.validateId(id)
+    let filters
+    try { filters = normalizeEntityHistoryFilters(input) }
+    catch (error) {
+      if (error instanceof EntityHistoryQueryError) throw new DriverServiceError(400, error.message)
+      throw error
+    }
+    if (!await this.repository.findById(id)) throw new DriverServiceError(404, 'Motorista não encontrado.')
+    return this.repository.history(id, filters)
   }
 
   /**
@@ -211,7 +254,12 @@ export class DriversService {
    *
    * @throws {DriverServiceError} 400, 404, 409 (revisão) ou 422 (CNH vencida).
    */
-  async changeDriverStatus(id: string, input: ChangeDriverStatusInput, actorId: string): Promise<Driver> {
+  async changeDriverStatus(
+    id: string,
+    input: ChangeDriverStatusInput,
+    actorId: string,
+    permissions?: readonly string[],
+  ): Promise<Driver> {
     this.validateId(id)
     this.validateRevision(input.expectedRevision)
     if (!isOneOf(input.status, DRIVER_STATUSES)) {
@@ -223,6 +271,13 @@ export class DriversService {
       if (!before) throw new DriverServiceError(404, 'Motorista não encontrado.')
       if (before.revision !== input.expectedRevision) throw new DriverServiceError(409, REVISION_CONFLICT_MESSAGE)
       if (before.status === input.status) return before
+      if (permissions !== undefined) {
+        const archiveTransition = input.status === 'INACTIVE' || before.status === 'INACTIVE'
+        const requiredPermission = archiveTransition ? 'drivers:archive' : 'drivers:status:change'
+        if (!permissions.includes(requiredPermission)) {
+          throw new DriverServiceError(403, 'Seu perfil não tem permissão para arquivar, restaurar ou alterar a situação deste motorista.')
+        }
+      }
       this.assertCnhAllowsStatus(input.status, before.cnhExpiresAt)
       const actor = await this.requireActor(actorId, client)
       const result = await this.repository.saveStatus(id, input.expectedRevision, input.status, client)
@@ -257,8 +312,8 @@ export class DriversService {
 
   private async assertUserCanBeLinked(userId: string, driverId: string | null, client: PoolClient): Promise<void> {
     const account = await this.repository.findUserAccount(userId, client)
-    if (!account || !account.active || account.role !== DRIVER_ROLE) {
-      throw new DriverServiceError(422, 'A conta vinculada deve existir, estar ativa e ter o perfil MOTORISTA.')
+    if (!account || !account.active || !account.canExecuteTrips) {
+      throw new DriverServiceError(422, 'A conta vinculada deve estar ativa e ter permissão para executar viagens atribuídas.')
     }
     const linked = await this.repository.findByUserId(userId, client)
     if (linked && linked.id !== driverId) throw this.duplicateUserLinkError()

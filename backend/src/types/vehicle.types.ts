@@ -81,7 +81,13 @@ export interface VehicleFilters {
   status?: VehicleStatus
   category?: VehicleCategory
   operationType?: VehicleOperationType
+  search?: string
+  view?: import('./pagination.types').ActivityView
+  page?: number
+  pageSize?: number
 }
+
+export type VehicleListResult = Vehicle[] | import('./pagination.types').PaginatedResult<Vehicle>
 
 /** Snapshot público do ator autenticado preservado no histórico. */
 export interface VehicleActorSnapshot {

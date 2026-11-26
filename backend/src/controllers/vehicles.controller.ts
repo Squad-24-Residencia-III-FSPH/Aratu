@@ -13,6 +13,10 @@ function bodyRecord(body: unknown): Record<string, unknown> {
   return body as Record<string, unknown>
 }
 
+function queryInteger(value: unknown): number {
+  return typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : Number.NaN
+}
+
 async function respondWithDomainErrors<T>(
   response: Response,
   next: NextFunction,
@@ -45,6 +49,10 @@ export function createVehiclesController(service: VehiclesService) {
         ...(typeof req.query.operationType === 'string'
           ? { operationType: req.query.operationType as NonNullable<VehicleFilters['operationType']> }
           : {}),
+        ...(typeof req.query.search === 'string' ? { search: req.query.search } : {}),
+        ...(typeof req.query.view === 'string' ? { view: req.query.view as NonNullable<VehicleFilters['view']> } : {}),
+        ...(req.query.page !== undefined ? { page: queryInteger(req.query.page) } : {}),
+        ...(req.query.pageSize !== undefined ? { pageSize: queryInteger(req.query.pageSize) } : {}),
       }
       return respondWithDomainErrors(res, next, () => service.listVehicles(filters))
     },
@@ -52,6 +60,17 @@ export function createVehiclesController(service: VehiclesService) {
     /** Retorna o detalhe de um veículo identificado pelo parâmetro da rota. */
     getById(req: Request, res: Response, next: NextFunction): Promise<void> {
       return respondWithDomainErrors(res, next, () => service.getVehicle(String(req.params.id)))
+    },
+
+    /** Retorna uma página da história imutável do veículo. */
+    history(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return respondWithDomainErrors(res, next, () => service.getVehicleHistory(String(req.params.id), {
+        page: req.query.page,
+        pageSize: req.query.pageSize,
+        eventType: req.query.eventType,
+        from: req.query.from,
+        to: req.query.to,
+      }))
     },
 
     /** Cria veículo e retorna HTTP 201 após persistir histórico e auditoria. */
@@ -81,7 +100,7 @@ export function createVehiclesController(service: VehiclesService) {
       return respondWithDomainErrors(
         res,
         next,
-        () => service.changeVehicleStatus(String(req.params.id), input, req.usuario?.id ?? ''),
+        () => service.changeVehicleStatus(String(req.params.id), input, req.usuario?.id ?? '', req.usuario?.permissions ?? []),
       )
     },
   }

@@ -8,11 +8,15 @@ import type {
   VehicleMutationResult,
   VehicleStatus,
 } from '../types/vehicle.types'
+import type { EntityHistoryFilters, EntityHistoryPage } from '../types/entity-history.types'
+import type { PaginatedResult } from '../types/pagination.types'
 
 /** Contrato de persistência usado pelos casos de uso e testes isolados do service. */
 export interface VehiclesRepositoryContract {
   withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
   list(filters: VehicleFilters): Promise<Vehicle[]>
+  listPaged?(filters: VehicleFilters): Promise<PaginatedResult<Vehicle>>
+  history(id: string, filters: EntityHistoryFilters): Promise<EntityHistoryPage>
   findById(id: string, client?: PoolClient): Promise<Vehicle | null>
   findByIdForUpdate(id: string, client: PoolClient): Promise<Vehicle | null>
   findByLicensePlate(licensePlate: string, client?: PoolClient): Promise<Vehicle | null>
@@ -55,7 +59,13 @@ export class VehiclesRepository implements VehiclesRepositoryContract {
 
   /** Lista veículos aplicando os filtros fornecidos. */
   async list(filters: VehicleFilters): Promise<Vehicle[]> {
-    const values = [filters.status ?? null, filters.category ?? null, filters.operationType ?? null]
+    const values = [
+      filters.status ?? null,
+      filters.category ?? null,
+      filters.operationType ?? null,
+      filters.view ?? 'all',
+      filters.search ? `${filters.search.replace(/[\\%_]/g, (character) => `\\${character}`)}%` : null,
+    ]
     const result = await this.pool.query<Vehicle>(
       `SELECT id::text AS id,
               license_plate AS "licensePlate",
@@ -82,10 +92,111 @@ export class VehiclesRepository implements VehiclesRepositoryContract {
           ))
           AND ($2::text IS NULL OR $2 = ANY(categories))
           AND ($3::text IS NULL OR operation_type = $3)
+          AND ($4::text = 'all' OR ($4::text = 'operational' AND status <> 'INACTIVE')
+               OR ($4::text = 'archived' AND status = 'INACTIVE'))
+          AND ($5::text IS NULL OR license_plate ILIKE $5 ESCAPE '\\')
         ORDER BY license_plate ASC, id ASC`,
       values,
     )
     return result.rows
+  }
+
+  /** Conta e pagina no PostgreSQL para que filtros representem toda a frota. */
+  async listPaged(filters: VehicleFilters): Promise<PaginatedResult<Vehicle>> {
+    const values = [
+      filters.status ?? null,
+      filters.category ?? null,
+      filters.operationType ?? null,
+      filters.view ?? 'operational',
+      filters.search ? `${filters.search.replace(/[\\%_]/g, (character) => `\\${character}`)}%` : null,
+    ]
+    const where = `WHERE ($1::text IS NULL OR status = $1)
+          AND ($1::text IS DISTINCT FROM 'AVAILABLE' OR NOT EXISTS (
+            SELECT m.id FROM fleet.maintenance_orders m
+             WHERE m.vehicle_id = fleet.vehicles.id AND m.blocks_vehicle
+               AND m.status IN ('OPEN', 'IN_PROGRESS')
+          ))
+          AND ($2::text IS NULL OR $2 = ANY(categories))
+          AND ($3::text IS NULL OR operation_type = $3)
+          AND ($4::text = 'all' OR ($4::text = 'operational' AND status <> 'INACTIVE')
+               OR ($4::text = 'archived' AND status = 'INACTIVE'))
+          AND ($5::text IS NULL OR license_plate ILIKE $5 ESCAPE '\\')`
+    const [count, result] = await Promise.all([
+      this.pool.query<{ total: string }>(`SELECT count(*)::text AS total FROM fleet.vehicles ${where}`, values),
+      this.pool.query<Vehicle>(
+        `SELECT id::text AS id, license_plate AS "licensePlate", brand, model, year,
+                vehicle_type AS "vehicleType", ownership, categories, seats,
+                body_limit AS "bodyLimit", weight_limit::double precision AS "weightLimit",
+                operation_type AS "operationType", status, revision,
+                created_at AS "createdAt", updated_at AS "updatedAt"
+           FROM fleet.vehicles ${where}
+          ORDER BY license_plate ASC, id ASC LIMIT $6 OFFSET $7`,
+        [...values, filters.pageSize ?? 20, ((filters.page ?? 1) - 1) * (filters.pageSize ?? 20)],
+      ),
+    ])
+    const total = Number(count.rows[0]?.total ?? 0)
+    const page = filters.page ?? 1
+    const pageSize = filters.pageSize ?? 20
+    return { items: result.rows, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
+  }
+
+  /** Lê eventos append-only do veículo sem expor eventos de outros domínios. */
+  async history(id: string, filters: EntityHistoryFilters): Promise<EntityHistoryPage> {
+    const values = [id, filters.eventType ?? null, filters.from ?? null, filters.to ?? null]
+    const count = await this.pool.query<{ total: string }>(
+      `SELECT count(*)::text AS total
+         FROM fleet.vehicle_events
+        WHERE vehicle_id = $1
+          AND ($2::text IS NULL OR event_type = $2)
+          AND ($3::date IS NULL OR occurred_at >= ($3::date::timestamp AT TIME ZONE 'America/Maceio'))
+          AND ($4::date IS NULL OR occurred_at < (($4::date + 1)::timestamp AT TIME ZONE 'America/Maceio'))`,
+      values,
+    )
+    const result = await this.pool.query<{
+      id: string
+      eventType: EntityHistoryPage['items'][number]['eventType']
+      occurredAt: Date
+      registeredAt: Date
+      reportedBy: string
+      reason: string
+      actorId: string
+      actorName: string
+      actorRole: string
+      beforeState: Record<string, unknown> | null
+      afterState: Record<string, unknown>
+    }>(
+      `SELECT id::text AS id, event_type AS "eventType", occurred_at AS "occurredAt",
+              registered_at AS "registeredAt", reported_by AS "reportedBy", reason,
+              actor_snapshot->>'id' AS "actorId", actor_snapshot->>'name' AS "actorName",
+              actor_snapshot->>'role' AS "actorRole", before_state AS "beforeState", after_state AS "afterState"
+         FROM fleet.vehicle_events
+        WHERE vehicle_id = $1
+          AND ($2::text IS NULL OR event_type = $2)
+          AND ($3::date IS NULL OR occurred_at >= ($3::date::timestamp AT TIME ZONE 'America/Maceio'))
+          AND ($4::date IS NULL OR occurred_at < (($4::date + 1)::timestamp AT TIME ZONE 'America/Maceio'))
+        ORDER BY occurred_at DESC, id DESC
+        LIMIT $5 OFFSET $6`,
+      [...values, filters.pageSize, (filters.page - 1) * filters.pageSize],
+    )
+    const total = Number(count.rows[0]?.total ?? 0)
+    return {
+      items: result.rows.map((row) => ({
+        id: row.id,
+        eventType: row.eventType,
+        occurredAt: row.occurredAt,
+        registeredAt: row.registeredAt,
+        reportedBy: row.reportedBy,
+        reason: row.reason,
+        evidenceDescription: null,
+        actor: { id: row.actorId, name: row.actorName, role: row.actorRole },
+        beforeState: row.beforeState,
+        afterState: row.afterState,
+      })),
+      total,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      totalPages: Math.ceil(total / filters.pageSize),
+    }
   }
 
   /** Busca um veículo pelo identificador, opcionalmente dentro de uma transação. */

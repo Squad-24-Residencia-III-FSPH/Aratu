@@ -9,10 +9,12 @@ Este documento define as diretrizes de desenvolvimento de interface, componentes
 Toda tela do Aratu é desenhada a partir da rotina operacional real dos profissionais da **FSPH** e do **SVO**, e nunca como um espelho direto das colunas do banco de dados:
 
 1. **Identifique o perfil e o contexto de uso:**
-   - **Motorista (`DRIVER` — campo/pátio):** utiliza smartphone ou tablet sob sol forte ou à noite. Exige alvos de toque de no mínimo **44×44px**, alto contraste e formulários diretos.
-   - **Gestor de Frota (`MANAGER` — central):** utiliza desktop com teclado e mouse. Exige tabelas semânticas densas, filtros rápidos e visão clara de disponibilidade.
-   - **Operador / Equipe SVO (`OPERATOR` / `TRIAGE` — plantão/acolhimento):** lida com situações sensíveis de verificação de óbito e liberação de corpos. Exige máxima prevenção de erros, confirmações explícitas e sigilo visual.
-   - **Solicitante FSPH (`REQUESTER` — setores/unidades):** uso esporádico. Exige telas autoexplicativas, instruções de preenchimento claras e acompanhamento simples do pedido.
+   - **Motorista (`MOTORISTA` — campo/pátio):** utiliza smartphone ou tablet sob sol forte ou à noite. Exige alvos de toque de no mínimo **44×44px**, alto contraste e formulários diretos.
+   - **Gestor de Frota (`GESTOR` — central):** utiliza desktop com teclado e mouse para gerir frota, equipes/plantões SVO, despacho e fila de recursos; a interface móvel também deve permitir consulta e ações essenciais.
+   - **Atendente SVO (`ATENDENTE_SVO` — acolhimento e triagem administrativa):** recebe solicitações da população, verifica informações e registra a triagem para evitar trotes e obter dados necessários. Não mantém equipes, plantões ou viaturas e não realiza procedimentos clínicos.
+   - **Equipe SVO (`EQUIPE_SVO` — execução):** recebe e executa ordens atribuídas, com ações de operação claras e proteção contra encerramento acidental.
+   - **Solicitante FSPH (`SOLICITANTE` — setores/unidades):** uso esporádico. Exige telas autoexplicativas, instruções de preenchimento claras e acompanhamento simples do pedido.
+   - **Administrador (`ADMINISTRADOR` — manutenção do sistema):** mantém contas e tem acesso global para manutenção e supervisão. Não é uma etapa obrigatória dos fluxos operacionais, que pertencem aos perfis responsáveis.
 
 ---
 
@@ -130,9 +132,35 @@ Toda tela ou listagem que consome dados assíncronos da API deve implementar exp
 - **Anúncio de Mensagens de Status (4.1.3):** feedbacks assíncronos (toast/alerta de sucesso ou despacho) devem utilizar `role="status"` ou `aria-live="polite"`.
 - **Autenticação Acessível (3.3.8) e Entrada Não Redundante (3.3.7):** nunca bloquear colar senha nos campos de login e não exigir que o usuário redigite dados já informados no mesmo passo a passo.
 
+## 7. Layout responsivo e uso com uma mão
+
+- Em telas estreitas, priorize cartões com conteúdo e ações essenciais em vez de tabelas comprimidas; mantenha tabelas apenas em uma região com rolagem horizontal identificável quando a comparação tabular for necessária.
+- Use o container, a tipografia, os espaçamentos e os controles do tema compartilhado. Evite cada página definir largura, fonte ou margem principal de forma isolada.
+- Ações frequentes ficam numa faixa inferior alcançável pelo polegar direito, com alvos de pelo menos **44×44px** e área segura do sistema operacional. Não esconda navegação, foco ou conteúdo atrás de barras fixas.
+- Formulários no celular ficam em uma coluna, preservam rascunho durante a navegação para detalhes e colocam a ação primária perto da parte inferior sem cobrir campos ou teclado virtual.
+- Não dependa de swipe, hover, arrastar ou alcance de uma zona fixa: a interface também precisa funcionar com a mão esquerda, teclado, leitor de tela, zoom e orientação horizontal.
+- Verifique largura de **320px**, zoom de 200%, áreas seguras, teclado virtual e foco visível. Ergonomia final precisa ser observada em aparelhos reais; uma regra CSS não comprova alcance físico.
+
 ---
 
 ## 6. Padrões de Projeto no Frontend (React 19)
 
 A interface adota formalmente os padrões **Custom Hooks** (para isolamento de efeitos assíncronos e I/O de rede) e **Compound Components** (para componentes visuais acessíveis e compostos com Context). Consulte os exemplos em:
 👉 **[`docs/manuais/padroes-projeto.md`](padroes-projeto.md)**
+
+
+## 7. Consultas compactas e auditoria central
+
+- Em listas operacionais, priorize colunas que apoiam a decisão imediata. Use detalhes progressivos para atributos secundários e <code>RowActionsMenu</code> para agrupar ações raras; cada botão mantém nome acessível por registro e alvo mínimo do tema.
+- Arquive e restaure cadastros usando o estado de atividade existente e filtros explícitos para operação, arquivados e todos. Não use exclusão física para limpar listagens e não aplique arquivamento genérico a fatos operacionais.
+- Mantenha trilhas completas em <code>/auditoria</code>, com filtro por entidade/registro e autorização pela permissão central e pelo escopo do domínio. Telas de rotina mostram apenas o contexto necessário à ação atual.
+- Use tons semânticos e neutros do tema; não aplique a cor primária a todos os ícones. Cor não é o único meio de comunicar seleção, situação ou erro. Foco, contraste e alvos de toque permanecem requisitos WCAG 2.2 AA.
+- A navegação pode agrupar itens por área (por exemplo, SVO) e encurtar rótulos, desde que cada destino continue claro e só apareça quando a sessão tiver a permissão correspondente.
+
+## 8. Testes do frontend com Vite
+
+- Testes que simulam listagens paginadas devem aplicar os filtros antes de calcular totais e selecionar a página, seguindo o contrato real da API. As buscas devem refletir os campos e o tipo de comparação oferecidos ao usuário.
+- Aguarde a resposta e a atualização da interface antes de verificar a remoção ou inclusão de linhas após mudanças de filtro.
+- Asserções de presença, ausência e foco devem receber booleanos ou outros valores primitivos: `assert.equal(document.activeElement === expectedElement, true)`. Comparar elementos DOM diretamente pode gerar um diff enorme em falhas transitórias e esgotar a memória durante um `waitFor`.
+- Testes baseados em `node:test` criam servidores Vite por meio de `frontend/tests/viteTestServer.mjs`. O servidor desativa descoberta e inclusão de dependências pré-empacotadas, inclusive após plugins de framework alterarem essa configuração.
+- Feche o servidor e remova diretórios de cache temporários em blocos `finally` para que falhas também liberem os recursos.

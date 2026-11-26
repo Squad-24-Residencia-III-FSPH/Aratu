@@ -126,9 +126,11 @@ test('IT-CONFIRMATION-04: confirmar duas vezes → 409, inclusive em simultâneo
   assert.equal(events.rows[0]?.total, 1)
 })
 
-test('IT-CONFIRMATION-05: perfil diferente de GESTOR → 403; sem token → 401', async () => {
+test('IT-CONFIRMATION-05: administrador consulta; somente GESTOR opera; sem token → 401', async () => {
   const tripId = await tripWith('FINISHED', { start: 1500, end: 1580 })
-  for (const role of ['ADMINISTRADOR', 'SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO'] as const) {
+  assert.equal((await call('POST', `/trips/${tripId}/confirm`, 'ADMINISTRADOR')).status, 403)
+  assert.equal((await call('GET', '/trips?status=FINISHED', 'ADMINISTRADOR')).status, 200)
+  for (const role of ['SOLICITANTE', 'MOTORISTA', 'ATENDENTE_SVO', 'EQUIPE_SVO'] as const) {
     assert.equal((await call('POST', `/trips/${tripId}/confirm`, role)).status, 403, role)
     assert.equal((await call('GET', '/trips?status=FINISHED', role)).status, 403, role)
   }

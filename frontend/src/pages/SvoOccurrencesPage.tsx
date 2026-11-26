@@ -4,6 +4,9 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardActions,
+  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,6 +17,7 @@ import {
   useTheme,
 } from '@mui/material'
 import { useAuth } from '../auth/useAuth'
+import { hasPermission } from '../auth/access'
 import { useSvoOccurrences } from '../hooks/useSvoOccurrences'
 import DataTable from '../components/ui/DataTable'
 import FilterBar from '../components/ui/FilterBar'
@@ -80,6 +84,29 @@ function occurrenceColumns(onView: (occurrence: SvoOccurrenceSummary) => void): 
   ]
 }
 
+function dispatchColumns(
+  onView: (occurrence: SvoOccurrenceSummary) => void,
+  onRetry: (occurrence: SvoOccurrenceSummary) => void,
+  retryingId: string | null,
+): readonly DataTableColumn<SvoOccurrenceSummary>[] {
+  return [
+    { key: 'id', header: 'Solicitação', width: 130, render: (occurrence) => `#${occurrence.id}` },
+    { key: 'location', header: 'Local', render: (occurrence) => occurrence.location },
+    { key: 'waitingReason', header: 'Aguardando', width: 220, render: (occurrence) => occurrence.dispatchWaitReason === 'NO_TEAM' ? 'Equipe sem plantão elegível' : 'Viatura sem vaga elegível' },
+    {
+      key: 'actions', header: 'Ações', align: 'right', width: 270,
+      render: (occurrence) => (
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+          <Button onClick={() => onView(occurrence)} sx={{ minHeight: 44 }}>Detalhes</Button>
+          <Button variant="contained" onClick={() => onRetry(occurrence)} disabled={retryingId !== null} sx={{ minHeight: 44 }}>
+            {retryingId === occurrence.id ? 'Avaliando...' : 'Tentar despacho'}
+          </Button>
+        </Stack>
+      ),
+    },
+  ]
+}
+
 /** Cadastro, consulta e confirmação técnica das solicitações SVO. */
 export default function SvoOccurrencesPage() {
   const { api, session } = useAuth()
@@ -92,7 +119,8 @@ export default function SvoOccurrencesPage() {
   const [filterDraft, setFilterDraft] = useState<SvoOccurrenceFilters>(EMPTY_FILTERS)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
-  const canWrite = session?.perfil === 'ATENDENTE_SVO' || session?.perfil === 'ADMINISTRADOR'
+  const canWrite = hasPermission(session, 'svo:occurrences:create')
+  const canManageDispatch = hasPermission(session, 'svo:orders:manage')
 
   function updateForm(field: keyof OccurrenceFormValues, value: string): void {
     setFormValues((current) => ({ ...current, [field]: value }))
@@ -158,12 +186,18 @@ export default function SvoOccurrencesPage() {
 
   const columns = occurrenceColumns((occurrence) => { void viewDetails(occurrence) })
   const rows = workflow.occurrences ?? []
+  const dispatchQueue = rows.filter((occurrence) => occurrence.status === 'CONFIRMED'
+    && occurrence.dispatchRequestedAt && !occurrence.executionOrderId)
+  const queueColumns = dispatchColumns(
+    (occurrence) => { void viewDetails(occurrence) },
+    (occurrence) => { void workflow.retryDispatch(occurrence) },
+    workflow.dispatchingId,
+  )
 
   return (
     <Box>
       <PageHeader
-        title="Solicitações SVO"
-        breadcrumbs={['Início', 'SVO — Atendimento', 'Solicitações']}
+        title="Solicitações"
         description="Registre solicitações recebidas externamente, confira os dados e acompanhe a situação."
         actions={canWrite ? <Button variant="contained" onClick={openNewOccurrence} sx={{ minHeight: 44 }}>Nova solicitação</Button> : undefined}
       />
@@ -173,6 +207,7 @@ export default function SvoOccurrencesPage() {
           {workflow.notice}
         </Alert>
       )}
+      {workflow.dispatchError && <Alert severity="error" role="alert" sx={{ mb: 2 }}>{workflow.dispatchError}</Alert>}
 
       {workflow.permissionDenied ? (
         <StateFeedback
@@ -222,6 +257,46 @@ export default function SvoOccurrencesPage() {
               actionLabel="Atualizar lista"
               onAction={() => { void workflow.reload() }}
             />
+          )}
+
+          {canManageDispatch && (
+            <Box component="section" aria-labelledby="svo-dispatch-queue-title" sx={{ mb: 3 }}>
+              <Typography id="svo-dispatch-queue-title" component="h2" variant="h6" sx={{ mb: 1 }}>
+                Aguardando despacho
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                A equipe e a viatura são selecionadas automaticamente após a triagem. Aqui você pode solicitar uma nova avaliação quando os recursos mudarem.
+              </Typography>
+              {dispatchQueue.length === 0 ? (
+                <StateFeedback kind="empty" title="Nenhuma solicitação aguardando despacho." />
+              ) : (
+                <>
+                  <Box sx={{ display: { xs: 'grid', sm: 'none' }, gap: 1.5 }}>
+                    {dispatchQueue.map((occurrence) => (
+                      <Card key={occurrence.id} variant="outlined">
+                        <CardContent>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Solicitação #{occurrence.id}</Typography>
+                          <Typography variant="body2">{occurrence.location}</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            {occurrence.dispatchWaitReason === 'NO_TEAM' ? 'Aguardando equipe em plantão elegível.' : 'Aguardando viatura com vaga elegível.'}
+                          </Typography>
+                        </CardContent>
+                        <CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                          <Button onClick={() => { void viewDetails(occurrence) }} sx={{ minHeight: 48 }}>Detalhes</Button>
+                          <Button variant="contained" onClick={() => { void workflow.retryDispatch(occurrence) }} disabled={workflow.dispatchingId !== null} sx={{ minHeight: 48 }}>
+                            {workflow.dispatchingId === occurrence.id ? 'Avaliando...' : 'Tentar despacho'}
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    ))}
+                  </Box>
+                  <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                    <DataTable caption="Fila de solicitações SVO aguardando despacho" columns={queueColumns} rows={dispatchQueue}
+                      rowKey={(occurrence) => occurrence.id} busy={workflow.loading} minWidth={700} />
+                  </Box>
+                </>
+              )}
+            </Box>
           )}
 
           {workflow.listError && workflow.occurrences && (

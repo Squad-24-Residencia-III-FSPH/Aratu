@@ -1,4 +1,5 @@
 import type { UserRole } from './auth'
+import type { PaginatedResult } from './pagination.types'
 import type { Vehicle, VehicleCategory } from './vehicle.types'
 
 /** Perfis que mantêm o catálogo e enxergam também os tipos de serviço inativos. */
@@ -74,7 +75,12 @@ export interface ChangeFleetServiceStatusInput {
 /** Filtros da listagem; `active` só é aceito para perfis gestores. */
 export interface FleetServiceFilters {
   active?: boolean
+  search?: string
+  page?: number
+  pageSize?: number
 }
+
+export type FleetServiceListResult = FleetService[] | PaginatedResult<FleetService>
 
 /** Envelope simétrico devolvido pelo GET e pelo PUT de compatibilidade veículo × serviço. */
 export interface CompatibleVehiclesView {

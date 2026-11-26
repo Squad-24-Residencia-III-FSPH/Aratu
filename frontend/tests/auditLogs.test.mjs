@@ -4,9 +4,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { createElement } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
-import { createServer } from 'vite'
+import { createTestViteServer } from './viteTestServer.mjs'
 import react from '@vitejs/plugin-react'
 import { sessionFor } from './fixtures.mjs'
 
@@ -25,7 +26,7 @@ globalThis.requestAnimationFrame = callback => setTimeout(callback, 0)
 globalThis.cancelAnimationFrame = id => clearTimeout(id)
 const { act, cleanup, fireEvent, render, screen, waitFor } = await import('@testing-library/react')
 const userEvent = (await import('@testing-library/user-event')).default
-const vite = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir, plugins: [react()], server: { middlewareMode: true, hmr: false }, appType: 'custom' })
+const vite = await createTestViteServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), cacheDir: viteCacheDir, plugins: [react()], server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const [{ default: AuditLogsPage }, { AuthContext }, service] = await Promise.all([
   vite.ssrLoadModule('/src/pages/AuditLogsPage.tsx'), vite.ssrLoadModule('/src/auth/AuthContext.ts'),
   vite.ssrLoadModule('/src/services/auditLogs.ts'),
@@ -43,7 +44,8 @@ const log = (overrides = {}) => ({
 const page = (logs = [log()], overrides = {}) => ({ logs, total: logs.length, page: 1, pageSize: 20, totalPages: 1, ...overrides })
 
 function mount(api) {
-  render(createElement(AuthContext.Provider, { value: { session: sessionFor('GESTOR'), api, notice: '', logout() {}, signIn: async () => {} } }, createElement(AuditLogsPage)))
+  render(createElement(MemoryRouter, null,
+    createElement(AuthContext.Provider, { value: { session: sessionFor('GESTOR'), api, notice: '', logout() {}, signIn: async () => {} } }, createElement(AuditLogsPage))))
   return userEvent.setup()
 }
 
@@ -182,7 +184,7 @@ test('usa a paginação retornada pelo backend, fallback do usuário e detalhes 
   let dialog = await screen.findByRole('dialog', { name: 'Detalhes do registro 1' })
   assert.ok(dialog.textContent.includes('Login realizado em Usuários'))
   assert.ok(dialog.textContent.includes('***.***.***-09'))
-  assert.equal(dialog.textContent.includes('Acesso autorizado'), false)
+  assert.equal(dialog.textContent.includes('Acesso autorizado'), true)
   fireEvent.keyDown(document.querySelector('.MuiModal-root'), { key: 'Escape', code: 'Escape', which: 27 })
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 350)) })
   assert.equal(screen.queryByRole('dialog'), null)

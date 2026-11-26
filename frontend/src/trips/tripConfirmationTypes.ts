@@ -3,7 +3,7 @@ export const TRIP_CONFIRMATION_PATH = '/viagens/confirmacao'
 
 export interface TripConfirmationItem {
   id: string
-  requestId: string
+  requestId: string | null
   status: 'FINISHED'
   scheduledStart: string
   scheduledEnd: string

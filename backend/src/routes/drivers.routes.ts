@@ -1,24 +1,30 @@
 import { Router } from 'express'
 import { createDriversController } from '../controllers/drivers.controller'
-import { createAuthMiddleware } from '../middlewares/auth.middleware'
-import { authorizeRoles } from '../middlewares/rbac.middleware'
+import { createAuthMiddleware, createCurrentUserMiddleware } from '../middlewares/auth.middleware'
+import { authorizePermissions } from '../middlewares/rbac.middleware'
 import type { JwtConfig } from '../types/auth'
 import type { DriversService } from '../services/drivers.service'
+import type { UsersRepositoryContract } from '../repositories/users.repository'
 
-const DRIVER_MANAGER_ROLES = ['GESTOR', 'ADMINISTRADOR'] as const
-
-/** Cria rotas REST de motoristas; leitura e escrita são exclusivas de GESTOR e ADMINISTRADOR (dados pessoais). */
-export function createDriversRouter(service: DriversService, jwtConfig: JwtConfig): Router {
+/** Cria rotas de motoristas sob grants explícitos de consulta e manutenção. */
+export function createDriversRouter(
+  service: DriversService,
+  jwtConfig: JwtConfig,
+  users: Pick<UsersRepositoryContract, 'findById'>,
+): Router {
   const router = Router()
   const controller = createDriversController(service)
 
-  router.use(createAuthMiddleware(jwtConfig.secret), authorizeRoles(DRIVER_MANAGER_ROLES))
-
-  router.get('/', controller.list)
-  router.get('/:id', controller.getById)
-  router.post('/', controller.create)
-  router.put('/:id', controller.update)
-  router.patch('/:id/status', controller.changeStatus)
+  const authenticate = createAuthMiddleware(jwtConfig.secret)
+  const currentUser = createCurrentUserMiddleware(users)
+  router.get('/', authenticate, currentUser, authorizePermissions('drivers:read'), controller.list)
+  router.get('/:id', authenticate, currentUser, authorizePermissions('drivers:read'), controller.getById)
+  router.get('/:id/history', authenticate, currentUser,
+    authorizePermissions(['audit:history:read', 'drivers:history:read', 'drivers:read']), controller.history)
+  router.post('/', authenticate, currentUser, authorizePermissions('drivers:create'), controller.create)
+  router.put('/:id', authenticate, currentUser, authorizePermissions('drivers:update'), controller.update)
+  router.patch('/:id/status', authenticate, currentUser,
+    authorizePermissions(['drivers:status:change', 'drivers:archive'], 'any'), controller.changeStatus)
 
   return router
 }

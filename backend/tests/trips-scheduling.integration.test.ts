@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { after, before, beforeEach, test } from 'node:test'
@@ -13,6 +14,7 @@ import type { RbacTestUser } from './fixtures/rbac-users.fixture'
 import {
   FICTITIOUS_CPFS,
   insertDriver,
+  insertDriverAccount,
   insertRequest,
   insertService,
   insertTrip,
@@ -44,11 +46,24 @@ function getUser(role: UserRole): RbacTestUser {
   return user
 }
 
-function schedule(body: Record<string, unknown>, role: UserRole = 'GESTOR'): Promise<Response> {
+async function schedule(body: Record<string, unknown>, role: UserRole = 'GESTOR'): Promise<Response> {
+  const requestId = String(body.requestId ?? '')
+  const request = await pool.query<{ serviceId: string | null; revision: number }>(
+    `SELECT service_id::text AS "serviceId", revision
+       FROM trip.requests
+      WHERE id = $1`,
+    [requestId],
+  )
+  const serviceId = body.serviceId ?? request.rows[0]?.serviceId
+  const expectedRevision = body.expectedRevision ?? request.rows[0]?.revision
   return fetch(`${baseUrl}/trips`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${getUser(role).token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    headers: {
+      Authorization: `Bearer ${getUser(role).token}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': randomUUID(),
+    },
+    body: JSON.stringify({ ...body, serviceId, expectedRevision }),
   })
 }
 
@@ -56,7 +71,7 @@ async function scenario(): Promise<Scenario> {
   const serviceId = await insertService(pool, 'Transporte Fictício QA')
   const vehicleId = await insertVehicle(pool, 'AGE1A00')
   await linkVehicleToService(pool, vehicleId, serviceId)
-  const driverId = await insertDriver(pool, 'Motorista Fictício QA', FICTITIOUS_CPFS[0])
+  const driverId = await insertDriver(pool, 'Motorista Fictício QA', FICTITIOUS_CPFS[0], '2099-12-31', 'ACTIVE', await insertDriverAccount(pool))
   const requester = getUser('SOLICITANTE').id
   const requestId = await insertRequest(pool, requester, serviceId, 'APPROVED')
   return { serviceId, vehicleId, driverId, requester, requestId }
@@ -122,13 +137,16 @@ test('IT-SCHEDULING-01: agendamento válido retorna 201, viagem SCHEDULED e soli
   const request = await pool.query('SELECT status FROM trip.requests WHERE id = $1', [requestId])
   assert.equal(request.rows[0]?.status, 'SCHEDULED')
   const tripEvents = await pool.query('SELECT event_type FROM trip.trip_events WHERE trip_id = $1', [trip.id])
-  const requestEvents = await pool.query('SELECT event_type FROM trip.request_events WHERE request_id = $1', [requestId])
+  const requestEvents = await pool.query('SELECT event_type FROM trip.request_events WHERE request_id = $1 ORDER BY id', [requestId])
   const audits = await pool.query(`SELECT 1 FROM audit.logs WHERE table_name = 'trip.trips' AND record_id = $1`, [trip.id])
-  assert.deepEqual([tripEvents.rows, requestEvents.rows, audits.rowCount], [[{ event_type: 'SCHEDULED' }], [{ event_type: 'SCHEDULED' }], 1])
+  assert.deepEqual(
+    [tripEvents.rows, requestEvents.rows, audits.rowCount],
+    [[{ event_type: 'SCHEDULED' }], [{ event_type: 'UPDATED' }, { event_type: 'SCHEDULED' }], 1],
+  )
 })
 
-test('IT-SCHEDULING-02: solicitação não aprovada retorna 409 (pendente, rejeitada ou já agendada)', async () => {
-  const { serviceId, vehicleId, driverId, requester, requestId } = await scenario()
+test('IT-SCHEDULING-02: pedido pendente é aprovado no agendamento; rejeitado ou já agendado retorna 409', async () => {
+  const { serviceId, vehicleId, driverId, requester } = await scenario()
   const pending = await insertRequest(pool, requester, serviceId, 'PENDING')
   const rejected = await insertRequest(pool, requester, serviceId, 'PENDING')
   await pool.query(
@@ -136,16 +154,14 @@ test('IT-SCHEDULING-02: solicitação não aprovada retorna 409 (pendente, rejei
       WHERE id = $1`,
     [rejected, getUser('GESTOR').id],
   )
-  for (const notApproved of [pending, rejected]) {
-    assert.equal((await schedule({ requestId: notApproved, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 409)
-  }
-  assert.equal((await schedule({ requestId, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 201)
-  assert.equal((await schedule({ requestId, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 409)
+  assert.equal((await schedule({ requestId: pending, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 201)
+  assert.equal((await schedule({ requestId: pending, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 409)
+  assert.equal((await schedule({ requestId: rejected, vehicleId, driverId, scheduledStart: START, scheduledEnd: END })).status, 409)
 })
 
 test('IT-SCHEDULING-03: veículo já alocado em período sobreposto retorna 409', async () => {
   const base = await scenario()
-  const otherDriver = await insertDriver(pool, 'Motorista Ocupante', FICTITIOUS_CPFS[1])
+  const otherDriver = await insertDriver(pool, 'Motorista Ocupante', FICTITIOUS_CPFS[1], '2099-12-31', 'ACTIVE', await insertDriverAccount(pool))
   await existingTrip(base, base.vehicleId, otherDriver)
   const response = await schedule({
     requestId: base.requestId, vehicleId: base.vehicleId, driverId: base.driverId, scheduledStart: OVERLAP_START, scheduledEnd: OVERLAP_END,
@@ -212,8 +228,12 @@ test('IT-SCHEDULING-08: motorista inativo, afastado ou com CNH vencida antes do 
     ['Motorista Afastado', FICTITIOUS_CPFS[3], '2099-12-31', 'AWAY', /afastado/],
     ['Motorista CNH Vencendo', FICTITIOUS_CPFS[4], '2099-11-30', 'ACTIVE', /CNH vencida/],
   ] as const
+  const unlinkedDriver = await insertDriver(pool, 'Motorista sem conta vinculada', FICTITIOUS_CPFS[7])
+  const unlinkedResponse = await schedule({ requestId: base.requestId, vehicleId: base.vehicleId, driverId: unlinkedDriver, scheduledStart: START, scheduledEnd: END })
+  assert.equal(unlinkedResponse.status, 422)
+  assert.match(((await unlinkedResponse.json()) as { erro: string }).erro, /conta ativa vinculada/)
   for (const [name, cpf, cnhExpiresAt, status, message] of cases) {
-    const driverId = await insertDriver(pool, name, cpf, cnhExpiresAt, status)
+    const driverId = await insertDriver(pool, name, cpf, cnhExpiresAt, status, await insertDriverAccount(pool))
     const response = await schedule({ requestId: base.requestId, vehicleId: base.vehicleId, driverId, scheduledStart: START, scheduledEnd: END })
     assert.equal(response.status, 422, name)
     assert.match(((await response.json()) as { erro: string }).erro, message)
@@ -224,8 +244,8 @@ test('IT-SCHEDULING-08: motorista inativo, afastado ou com CNH vencida antes do 
 test('IT-SCHEDULING-09: dois agendamentos simultâneos do mesmo veículo — só um vence', async () => {
   const base = await scenario()
   const secondRequest = await insertRequest(pool, base.requester, base.serviceId, 'APPROVED')
-  const driverA = await insertDriver(pool, 'Motorista Concorrente A', FICTITIOUS_CPFS[5])
-  const driverB = await insertDriver(pool, 'Motorista Concorrente B', FICTITIOUS_CPFS[6])
+  const driverA = await insertDriver(pool, 'Motorista Concorrente A', FICTITIOUS_CPFS[5], '2099-12-31', 'ACTIVE', await insertDriverAccount(pool))
+  const driverB = await insertDriver(pool, 'Motorista Concorrente B', FICTITIOUS_CPFS[6], '2099-12-31', 'ACTIVE', await insertDriverAccount(pool))
   const responses = await Promise.all([
     schedule({ requestId: base.requestId, vehicleId: base.vehicleId, driverId: driverA, scheduledStart: START, scheduledEnd: END }),
     schedule({ requestId: secondRequest, vehicleId: base.vehicleId, driverId: driverB, scheduledStart: '2099-12-01T09:00:00-03:00', scheduledEnd: '2099-12-01T10:00:00-03:00' }),

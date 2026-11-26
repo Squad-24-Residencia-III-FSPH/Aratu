@@ -4,7 +4,7 @@ import { createElement, useState } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ThemeProvider } from '@mui/material/styles'
 import { dom, testing, vite, userEvent, closeAuthDom } from './auth-dom.fixture.mjs'
-import { sessionFor } from './fixtures.mjs'
+import { sessionFor as createSession } from './fixtures.mjs'
 
 const { render, cleanup, screen, act, waitFor } = testing
 const [{ AuthProvider }, { default: Layout }, { default: LoginPage }, { default: App }, { theme }] = await Promise.all([
@@ -13,6 +13,7 @@ const [{ AuthProvider }, { default: Layout }, { default: LoginPage }, { default:
 ])
 const KEY = 'aratu.auth.session'
 const originalFetch = globalThis.fetch
+const sessionFor = (...args) => ({ ...createSession(...args), permissions: [] })
 afterEach(() => { cleanup(); window.localStorage.clear(); window.sessionStorage.clear(); globalThis.fetch = originalFetch; window.history.replaceState(null, '', '/') })
 after(closeAuthDom)
 
@@ -79,7 +80,7 @@ test('layout sem sessão redireciona sem mostrar conteúdo', async () => {
 
 test('rota real legada também exige sessão após logout', async () => {
   window.history.replaceState(null, '', '/#/minhas-solicitacoes')
-  window.localStorage.setItem(KEY, JSON.stringify(sessionFor('SOLICITANTE')))
+  window.localStorage.setItem(KEY, JSON.stringify({ ...sessionFor('SOLICITANTE'), permissions: ['requests:read:own'] }))
   globalThis.fetch = async () => Response.json({ mensagem: 'ok' })
   render(createElement(ThemeProvider, { theme }, createElement(AuthProvider, null, createElement(App))))
   const user = userEvent.setup()

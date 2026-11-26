@@ -12,6 +12,7 @@ import type { JwtConfig } from './types/auth'
 import type { AuditRepositoryContract } from './types/audit.types'
 import { AuditRepository } from './repositories/audit.repository'
 import type { UserRepository } from './repositories/users.repository'
+import type { UsersRepositoryContract } from './repositories/users.repository'
 import { UsersRepository } from './repositories/users.repository'
 import type { RoleRepositoryContract } from './repositories/roles.repository'
 import { RolesRepository } from './repositories/roles.repository'
@@ -59,6 +60,9 @@ import { createSvoOccurrencesRouter, svoErrorHandler } from './routes/svo-occurr
 import { SvoOrdersRepository } from './repositories/svo-orders.repository'
 import { SvoOrdersService } from './services/svo-orders.service'
 import { createSvoOrdersRouter, svoOrderErrorHandler } from './routes/svo-orders.routes'
+import { SvoTeamsRepository } from './repositories/svo-teams.repository'
+import { SvoTeamsService } from './services/svo-teams.service'
+import { createSvoTeamsRouter, svoTeamsErrorHandler } from './routes/svo-teams.routes'
 import { ReportsRepository } from './repositories/reports.repository'
 import { ReportsService } from './services/reports.service'
 import { ReportRegistry } from './services/reports/report-registry'
@@ -80,6 +84,8 @@ export interface AppDependencies {
   jwtConfig: JwtConfig
   /** Repositório de usuários customizado (utilizado primariamente em testes unitários). */
   users?: UserRepository
+  /** Leitor do cadastro atual para revalidar conta e perfil antes de autorizar rotas. */
+  currentUsers?: Pick<UsersRepositoryContract, 'findById'>
   /** Repositório de perfis RBAC customizado (utilizado primariamente em testes). */
   roles?: RoleRepositoryContract
   /** Repositório de auditoria customizado para gravação em `audit.logs`. */
@@ -104,6 +110,7 @@ export function createApp({
   corsOrigin,
   jwtConfig,
   users,
+  currentUsers,
   roles,
   audits,
   pool,
@@ -111,6 +118,7 @@ export function createApp({
 }: AppDependencies) {
   const userRepository = users ?? (pool ? new UsersRepository(pool) : null)
   if (!userRepository) throw new Error('O repository de usuários ou o pool PostgreSQL é obrigatório.')
+  const currentUsersRepository = currentUsers ?? (pool ? new UsersRepository(pool) : undefined)
 
   const rolesRepository = roles ?? (pool ? new RolesRepository(pool) : undefined)
   const auditRepository = audits ?? (pool ? new AuditRepository(pool) : undefined)
@@ -127,28 +135,28 @@ export function createApp({
   app.get('/', (_req, res) => {
     res.json({ mensagem: 'Servidor Express rodando com sucesso no Docker!' })
   })
-  app.use('/auth', createAuthRouter(userRepository, jwtConfig, auditService))
+  app.use('/auth', createAuthRouter(userRepository, jwtConfig, auditService, currentUsersRepository))
   if (rolesRepository) {
-    app.use('/profiles', createProfileRouter(new ProfileService(rolesRepository), jwtConfig.secret))
+    app.use('/profiles', createProfileRouter(new ProfileService(rolesRepository, auditService), jwtConfig.secret, currentUsersRepository))
   }
-  if (pool && auditService) {
+  if (pool && auditService && currentUsersRepository) {
     const availabilityService = new AvailabilityService(new AvailabilityRepository(pool))
-    app.use(createAvailabilityRouter(availabilityService, jwtConfig))
+    app.use(createAvailabilityRouter(availabilityService, jwtConfig, currentUsersRepository))
     const tripsService = new TripsService(new TripsRepository(pool), availabilityService, auditService, new FuelingsRepository(pool))
-    app.use('/trips', createTripsRouter(tripsService, jwtConfig))
+    app.use('/trips', createTripsRouter(tripsService, jwtConfig, currentUsersRepository))
     const vehiclesRepository = new VehiclesRepository(pool)
     const vehiclesService = new VehiclesService(vehiclesRepository, auditService)
-    app.use('/vehicles', createVehiclesRouter(vehiclesService, jwtConfig))
+    app.use('/vehicles', createVehiclesRouter(vehiclesService, jwtConfig, currentUsersRepository))
     const fuelingsService = new FuelingsService(new FuelingsRepository(pool), vehiclesRepository, auditService)
-    app.use('/fuelings', createFuelingsRouter(fuelingsService, jwtConfig))
+    app.use('/fuelings', createFuelingsRouter(fuelingsService, jwtConfig, currentUsersRepository))
     const maintenanceService = new MaintenanceOrdersService(
       new MaintenanceOrdersRepository(pool), vehiclesRepository, vehiclesService, auditService,
     )
-    app.use('/maintenance-orders', createMaintenanceOrdersRouter(maintenanceService, jwtConfig))
+    app.use('/maintenance-orders', createMaintenanceOrdersRouter(maintenanceService, jwtConfig, currentUsersRepository))
     const driversService = new DriversService(new DriversRepository(pool), auditService)
-    app.use('/drivers', createDriversRouter(driversService, jwtConfig))
+    app.use('/drivers', createDriversRouter(driversService, jwtConfig, currentUsersRepository))
     const fleetServicesService = new FleetServicesService(new ServicesRepository(pool), auditService)
-    app.use('/services', createServicesRouter(fleetServicesService, jwtConfig))
+    app.use('/services', createServicesRouter(fleetServicesService, jwtConfig, currentUsersRepository))
     const finesService = new FinesService(new FinesRepository(pool), vehiclesRepository,
       new DriversRepository(pool), auditService)
     const vehicleDocumentsService = new VehicleDocumentsService(
@@ -157,9 +165,6 @@ export function createApp({
       auditService,
       vehicleDocumentAlertDays ?? DEFAULT_VEHICLE_DOCUMENT_ALERT_DAYS,
     )
-    const currentUsersRepository = userRepository instanceof UsersRepository
-      ? userRepository
-      : new UsersRepository(pool)
     const reportsService = new ReportsService(new ReportsRepository(pool), new ReportRegistry(vehicleDocumentAlertDays), currentUsersRepository, auditService)
     app.use('/reports', createReportsRouter(reportsService, jwtConfig, currentUsersRepository))
     app.use('/audit-logs', createAuditLogsRouter(new AuditLogsService(new AuditLogsRepository(pool)), jwtConfig, currentUsersRepository))
@@ -168,22 +173,28 @@ export function createApp({
     app.use('/fines', createFinesRouter(finesService, jwtConfig, currentUsersRepository))
     app.use('/vehicle-documents', createVehicleDocumentsRouter(vehicleDocumentsService, jwtConfig, currentUsersRepository))
     const requestDecisionsService = new RequestDecisionsService(new RequestDecisionsRepository(pool), auditService)
-    app.use('/requests', createRequestDecisionsRouter(requestDecisionsService, jwtConfig))
+    app.use('/requests', createRequestDecisionsRouter(requestDecisionsService, jwtConfig, currentUsersRepository))
     const requestsService = new RequestsService(new RequestsRepository(pool), auditService)
     app.use('/requests', createRequestsRouter(requestsService, jwtConfig, currentUsersRepository))
-    const svoService = new SvoOccurrencesService(new SvoOccurrencesRepository(pool), auditService)
-    app.use('/svo/occurrences', createSvoOccurrencesRouter(svoService, jwtConfig, currentUsersRepository))
     const svoOrdersService = new SvoOrdersService(
       new SvoOccurrencesRepository(pool), new SvoOrdersRepository(), vehiclesRepository, auditService,
     )
+    const svoService = new SvoOccurrencesService(
+      new SvoOccurrencesRepository(pool), auditService,
+      (occurrenceId, userId, permissions) => svoOrdersService.dispatchAfterTriage(occurrenceId, userId, permissions),
+    )
+    app.use('/svo/occurrences', createSvoOccurrencesRouter(svoService, jwtConfig, currentUsersRepository))
     app.use('/svo/orders', createSvoOrdersRouter(svoOrdersService, jwtConfig, currentUsersRepository))
+    const svoTeamsService = new SvoTeamsService(new SvoTeamsRepository(pool), auditService)
+    app.use('/svo/teams', createSvoTeamsRouter(svoTeamsService, jwtConfig, currentUsersRepository))
   }
-  if (rolesRepository && auditService && userRepository instanceof UsersRepository) {
+  if (rolesRepository && auditService && userRepository instanceof UsersRepository && currentUsersRepository) {
     const usersService = new UsersService(userRepository, rolesRepository, auditService)
-    app.use('/users', createUsersRouter(usersService, jwtConfig))
+    app.use('/users', createUsersRouter(usersService, jwtConfig, currentUsersRepository))
   }
   app.use('/svo/occurrences', svoErrorHandler)
   app.use('/svo/orders', svoOrderErrorHandler)
+  app.use('/svo/teams', svoTeamsErrorHandler)
   app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (res.headersSent) {
       next(error)

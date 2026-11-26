@@ -6,6 +6,16 @@ import type { ReportCatalogEntry, ReportDefinition, ReportExportResult, ReportPr
 import { REPORT_CSV_MAX_ROWS, REPORT_PRINT_MAX_ROWS, REPORT_MAX_PERIOD_DAYS, REPORT_PREVIEW_DEFAULT_PAGE_SIZE, REPORT_PREVIEW_MAX_PAGE_SIZE, ReportServiceError } from '../types/report.types'
 import { ReportRegistry } from './reports/report-registry'
 import { ReportExporterContext } from './reports/export/report-exporter.strategy'
+import { LEGACY_ROLE_PERMISSIONS } from '../types/permission.types'
+
+const REPORT_PERMISSION_MODULE: Record<ReportDefinition['module'], string> = {
+  VIAGENS: 'trips',
+  FROTA: 'fleet',
+  MOTORISTAS: 'fleet',
+  MANUTENCOES: 'maintenance',
+  AUTENTICACAO_RBAC: 'auth',
+  SVO: 'svo',
+}
 
 const DAY_MS = 86_400_000
 const BASE_QUERY_KEYS = ['from', 'to', 'columns', 'page', 'pageSize', 'format']
@@ -30,9 +40,12 @@ export class ReportsService {
     private readonly users: Pick<UsersRepositoryContract, 'findById'>, private readonly audit: AuditLogger,
     private readonly exporter = new ReportExporterContext()) {}
 
-  /** Retorna somente metadados públicos dos relatórios permitidos ao perfil atual. @throws {ReportServiceError} Se o perfil não tiver relatórios. */
-  getCatalogForRole(role: UserRole): { module: string; reports: ReportCatalogEntry[] }[] {
-    const definitions = this.registry.forRole(role)
+  /** Retorna somente metadados públicos dos relatórios concedidos no contexto atual. */
+  getCatalogForUser(user: AuthenticatedUser): { module: string; reports: ReportCatalogEntry[] }[] {
+    const permissions = user.permissions ?? []
+    const definitions = this.registry.all().filter((definition) =>
+      permissions.includes(`reports:read:${REPORT_PERMISSION_MODULE[definition.module]}`),
+    )
     if (!definitions.length) throw new ReportServiceError('FORBIDDEN_REPORT', 'Seu perfil não tem permissão para gerar relatórios.')
     const groups = new Map<string, ReportCatalogEntry[]>()
     for (const definition of definitions) {
@@ -43,10 +56,15 @@ export class ReportsService {
     return [...groups].map(([module, reports]) => ({ module, reports }))
   }
 
+  /** Mantém a integração de leitores legados enquanto o cliente atualiza o contexto de sessão. */
+  getCatalogForRole(role: UserRole): { module: string; reports: ReportCatalogEntry[] }[] {
+    return this.getCatalogForUser({ id: '', perfil: role, permissions: LEGACY_ROLE_PERMISSIONS[role] ?? [] })
+  }
+
   /** Consulta página e somas globais, preservando a ordem solicitada das colunas. @throws {ReportServiceError} Se o acesso ou os filtros forem inválidos. */
   async previewReport(key: string, raw: Record<string, unknown>, actor: AuthenticatedUser): Promise<ReportPreviewResult> {
     const user = await this.currentActor(actor)
-    const definition = this.authorize(key, user.role)
+    const definition = this.authorize(key, actor.permissions ?? [], false)
     const { input, page } = this.validate(definition, raw)
     const result = await this.read(definition, input)
     return { reportKey: key, title: definition.title, module: definition.module, period: { from: input.from, to: input.to },
@@ -57,7 +75,7 @@ export class ReportsService {
   /** Exporta o conjunto completo dentro do limite e só libera o resultado após auditar. @throws {ReportServiceError} Se exceder o volume permitido ou a consulta for inválida. */
   async exportReport(key: string, raw: Record<string, unknown>, actor: AuthenticatedUser): Promise<ReportExportResult> {
     const user = await this.currentActor(actor)
-    const definition = this.authorize(key, user.role)
+    const definition = this.authorize(key, actor.permissions ?? [], true)
     if (raw.format !== 'csv' && raw.format !== 'print') throw new ReportServiceError('INVALID_EXPORT_FORMAT', 'Escolha exportar em CSV ou imprimir o relatório.')
     const format = raw.format
     const { input: validated } = this.validate(definition, raw)
@@ -81,10 +99,14 @@ export class ReportsService {
     if (!user?.active) throw new ReportServiceError('INACTIVE_ACTOR', 'Sua conta não está ativa. Entre novamente ou procure a administração.')
     return user
   }
-  private authorize(key: string, role: UserRole): ReportDefinition {
+  private authorize(key: string, permissions: readonly string[], exporting: boolean): ReportDefinition {
     const definition = this.registry.get(key)
     if (!definition) throw new ReportServiceError('REPORT_NOT_FOUND', 'Relatório não encontrado. Escolha um relatório do catálogo.')
-    if (!definition.allowedRoles.includes(role)) throw new ReportServiceError('FORBIDDEN_REPORT', 'Seu perfil não tem permissão para este relatório.')
+    const module = REPORT_PERMISSION_MODULE[definition.module]
+    const action = exporting ? 'export' : 'read'
+    if (!permissions.includes(`reports:${action}:${module}`)) {
+      throw new ReportServiceError('FORBIDDEN_REPORT', 'Seu perfil não tem permissão para este relatório.')
+    }
     return definition
   }
   private validate(definition: ReportDefinition, raw: Record<string, unknown>): { input: ValidatedReportQueryInput; page: number } {

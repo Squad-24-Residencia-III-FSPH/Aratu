@@ -1,6 +1,5 @@
 import type { AuditLogger } from '../types/audit.types'
 import {
-  DEFAULT_APPROVAL_REASON,
   REQUEST_DECISION_STATUSES,
   RequestDecisionError,
 } from '../types/request-decision.types'
@@ -19,6 +18,14 @@ function optionalReason(value: unknown): string | null {
   if (value === undefined || value === null) return null
   if (typeof value !== 'string') throw new RequestDecisionError(400, 'reason deve ser um texto.')
   return value.trim() || null
+}
+
+function optionalExpectedRevision(value: unknown): number | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+    throw new RequestDecisionError(400, 'expectedRevision deve ser um número inteiro positivo.')
+  }
+  return value
 }
 
 function toResult(request: DecidableRequest, decision: RequestDecision): RequestDecisionResult {
@@ -47,9 +54,8 @@ export class RequestDecisionsService {
    *
    * @throws {RequestDecisionError} 400 id inválido, 404 inexistente e 409 quando já foi analisada.
    */
-  async approve(id: string, input: RequestDecisionInput, deciderId: string): Promise<RequestDecisionResult> {
-    const reason = optionalReason(input.reason)
-    return this.decide(id, REQUEST_DECISION_STATUSES.approved, reason, reason ?? DEFAULT_APPROVAL_REASON, deciderId)
+  async approve(_id: string, _input: RequestDecisionInput, _deciderId: string): Promise<RequestDecisionResult> {
+    throw new RequestDecisionError(409, 'Para aprovar esta solicitação, conclua o agendamento da viagem.')
   }
 
   /**
@@ -60,7 +66,19 @@ export class RequestDecisionsService {
   async reject(id: string, input: RequestDecisionInput, deciderId: string): Promise<RequestDecisionResult> {
     const reason = optionalReason(input.reason)
     if (!reason) throw new RequestDecisionError(400, 'Informe a justificativa da rejeição.')
-    return this.decide(id, REQUEST_DECISION_STATUSES.rejected, reason, reason, deciderId)
+    const expectedRevision = optionalExpectedRevision(input.expectedRevision)
+    return this.decide(id, REQUEST_DECISION_STATUSES.rejected, reason, reason, deciderId, expectedRevision)
+  }
+
+  /** Devolve uma solicitação pendente para o autor corrigir os dados antes de nova análise. */
+  async returnForCorrection(id: string, input: RequestDecisionInput, deciderId: string): Promise<RequestDecisionResult> {
+    const reason = optionalReason(input.reason)
+    if (!reason) throw new RequestDecisionError(400, 'Informe a observação para devolução da solicitação.')
+    const expectedRevision = optionalExpectedRevision(input.expectedRevision)
+    if (expectedRevision === undefined) {
+      throw new RequestDecisionError(400, 'expectedRevision é obrigatório para devolver a solicitação.')
+    }
+    return this.decide(id, REQUEST_DECISION_STATUSES.returned, reason, reason, deciderId, expectedRevision)
   }
 
   /**
@@ -73,15 +91,19 @@ export class RequestDecisionsService {
     storedReason: string | null,
     historyReason: string,
     deciderId: string,
+    expectedRevision?: number,
   ): Promise<RequestDecisionResult> {
     if (!ID_PATTERN.test(id)) throw new RequestDecisionError(400, 'Identificador de solicitação inválido.')
     return this.repository.withTransaction(async (client) => {
       const before = await this.repository.findByIdForUpdate(id, client)
       if (!before) throw new RequestDecisionError(404, 'Solicitação não encontrada.')
       if (before.status !== REQUEST_DECISION_STATUSES.pending) throw this.alreadyDecidedError()
+      if (expectedRevision !== undefined && before.revision !== expectedRevision) {
+        throw new RequestDecisionError(409, 'A solicitação foi alterada. Atualize os dados antes de decidir.')
+      }
       const actor = await this.repository.findActorSnapshot(deciderId, client)
       if (!actor) throw new RequestDecisionError(401, 'Usuário autenticado não está ativo ou não existe.')
-      const after = await this.repository.saveDecision(id, decision, actor.id, storedReason, client)
+      const after = await this.repository.saveDecision(id, decision, actor.id, storedReason, client, expectedRevision)
       if (!after) throw this.alreadyDecidedError()
       await this.repository.createEvent({
         requestId: id,

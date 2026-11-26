@@ -18,7 +18,8 @@ O ambiente local roda integralmente em containers orquestrados pelo `docker-comp
 
 | Serviço | Imagem / Contexto | Porta Local | Descrição |
 |---|---|---|---|
-| `db` | `postgres:18-alpine` | `5432` | Banco de dados relacional **PostgreSQL 18** com volume persistente (`pgdata`). |
+| `db` | `postgres:18-alpine` | `5432` | Banco de dados relacional **PostgreSQL 18** com volume persistente (`pgdata`) e verificação de prontidão. |
+| `migrate` | `./backend` | — | Aplica migrações pendentes e só libera a API quando conclui com sucesso. |
 | `backend` | `./backend` (Node.js + Express 5 + TypeScript via `tsx`) | `3000` | API REST conectada ao PostgreSQL via variável `DATABASE_URL`. |
 | `frontend` | `./frontend` (React 19 + TypeScript + Vite) | `5173` | Interface web SPA com Hot Module Replacement (HMR). |
 
@@ -37,6 +38,10 @@ cp .env.example .env
 # Construir e iniciar todos os serviços em segundo plano
 docker compose up -d --build
 
+# Conferir a conclusão das migrações antes de investigar rotas da API
+docker compose ps
+docker compose logs migrate
+
 # Verificar status dos containers em execução
 docker compose ps
 
@@ -47,6 +52,8 @@ docker compose logs -f backend
 # Parar os containers mantendo os dados do banco
 docker compose down
 ```
+
+O serviço `migrate` executa o mesmo runner `npm run db:migrate` usado pelo backend. Se alguma migração falhar, o Compose não inicia a API; consulte `docker compose logs migrate`, corrija a causa e execute `docker compose up -d --build` novamente. As migrações aplicadas são registradas e reexecutar o comando não reaplica versões concluídas. Preserve o volume `pgdata`; não use `docker compose down -v` para corrigir erros de schema.
 
 ---
 

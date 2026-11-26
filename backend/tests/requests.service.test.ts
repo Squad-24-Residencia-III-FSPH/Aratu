@@ -6,7 +6,9 @@ import type { RequestsRepositoryContract } from '../src/repositories/requests.re
 import { RequestsService } from '../src/services/requests.service'
 import type {
   CreateRequestEventInput,
+  CreateRequestLifecycleEventInput,
   CreateRequestInput,
+  PaginatedRequestHistory,
   PaginatedRequests,
   RequestActorSnapshot,
   RequestDetail,
@@ -39,7 +41,10 @@ function createSummary(overrides: Partial<RequestSummary> = {}): RequestSummary 
     destination: 'Unidade Centro',
     purpose: 'Reunião institucional',
     passengers: 2,
+    specialRequirements: null,
+    notes: null,
     status: 'PENDING',
+    revision: 1,
     createdAt: '2026-11-05T12:00:00.000Z',
     updatedAt: '2026-11-05T12:00:00.000Z',
     ...overrides,
@@ -53,16 +58,29 @@ function createDetail(overrides: Partial<RequestDetail> = {}): RequestDetail {
     decidedByName: null,
     decidedAt: null,
     decisionReason: null,
+    revision: 1,
     trip: null,
     ...overrides,
   }
 }
 
-function setup(options: { serviceAvailable?: boolean; failAudit?: boolean } = {}) {
-  const saved: { input?: CreateRequestInput; actor?: RequestActorSnapshot; event?: CreateRequestEventInput } = {}
+function setup(options: { serviceAvailable?: boolean; failAudit?: boolean; requestStatus?: TripRequest['status']; revision?: number } = {}) {
+  const saved: {
+    input?: CreateRequestInput
+    actor?: RequestActorSnapshot
+    event?: CreateRequestEventInput
+    lifecycle?: CreateRequestLifecycleEventInput
+  } = {}
   const calls: Array<RequestListFilters & { requesterId?: string }> = []
   let detail: RequestDetail | null = createDetail()
   let receivedDetailArgs: { id: string; requesterId?: string } | null = null
+  let versionState: TripRequest | null = {
+    id: '10', requesterId: actor.id, serviceId: serviceSnapshot.id,
+    requestedDate: '2099-12-01', requestedTime: '08:30', origin: 'Origem anterior',
+    destination: 'Destino anterior', purpose: 'Finalidade anterior', passengers: 1,
+    specialRequirements: null, notes: null, status: options.requestStatus ?? 'PENDING',
+    revision: options.revision ?? 1, requesterSnapshot: actor, serviceSnapshot,
+  }
 
   const repository: RequestsRepositoryContract = {
     async withTransaction<T>(work: (transaction: PoolClient) => Promise<T>): Promise<T> { return work(client) },
@@ -74,8 +92,8 @@ function setup(options: { serviceAvailable?: boolean; failAudit?: boolean } = {}
       saved.input = input
       saved.actor = requester
       return {
-        id: '41', requesterId: requester.id, ...input, passengers: 1,
-        status: 'PENDING', requesterSnapshot: requester, serviceSnapshot: service,
+        id: '41', requesterId: requester.id, ...input,
+        status: 'PENDING', revision: 1, requesterSnapshot: requester, serviceSnapshot: service,
       }
     },
     async createEvent(input): Promise<void> { saved.event = input },
@@ -91,7 +109,22 @@ function setup(options: { serviceAvailable?: boolean; failAudit?: boolean } = {}
     },
     async findById(id, requesterId): Promise<RequestDetail | null> {
       receivedDetailArgs = { id, ...(requesterId !== undefined ? { requesterId } : {}) }
+      if (!detail || detail.id !== id || (requesterId !== undefined && detail.requesterId !== requesterId)) return null
       return detail
+    },
+    async findByIdForUpdate(id): Promise<TripRequest | null> { return versionState?.id === id ? versionState : null },
+    async resubmit(id, expectedRevision, input, requester): Promise<TripRequest | null> {
+      const currentState = versionState
+      if (!currentState || currentState.id !== id || currentState.status !== 'RETURNED'
+        || currentState.revision !== expectedRevision || currentState.requesterId !== requester.id) return null
+      versionState = { ...currentState, ...input, status: 'PENDING', revision: currentState.revision + 1,
+        requesterSnapshot: requester }
+      detail = { ...createDetail(), id, requesterId: requester.id, ...input, status: 'PENDING', revision: versionState.revision }
+      return versionState
+    },
+    async createLifecycleEvent(input): Promise<void> { saved.lifecycle = input },
+    async listHistory(): Promise<PaginatedRequestHistory> {
+      return { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }
     },
   }
 
@@ -124,25 +157,64 @@ function isServiceError(statusCode: number) {
   return (error: unknown): boolean => error instanceof RequestServiceError && error.statusCode === statusCode
 }
 
-test('cria solicitação PENDING com autoria do usuário autenticado e evento CREATED', async () => {
+test('cria solicitação PENDING sem classificar serviço e registra autoria no evento CREATED', async () => {
   const context = setup()
   const forgedBody = { ...futureRequest, status: 'APPROVED', requesterId: '999' }
   const result = await context.service.createRequest(forgedBody, actor.id)
 
   assert.deepEqual(result, { id: '41', status: 'PENDING' })
   assert.equal(context.saved.actor?.id, actor.id)
-  assert.equal(context.saved.input?.serviceId, '5')
+  assert.equal(context.saved.input?.serviceId, null)
+  assert.equal(context.saved.input?.passengers, 1)
   assert.equal(context.saved.event?.reportedBy, actor.name)
   assert.equal(context.saved.event?.afterState.status, 'PENDING')
 })
 
-test('rejeita campos inválidos, serviço indisponível e data passada', async () => {
+test('valida passageiros e registra campos adicionais da solicitação', async () => {
+  const context = setup()
+  await assert.rejects(context.service.createRequest({ ...futureRequest, passengers: 0 }, actor.id), isServiceError(400))
+  await assert.rejects(context.service.createRequest({ ...futureRequest, passengers: 1.5 }, actor.id), isServiceError(400))
+  await context.service.createRequest({ ...futureRequest, passengers: 3, specialRequirements: '  Acesso sem escadas  ', notes: '  Contato na recepção  ' }, actor.id)
+  assert.deepEqual(context.saved.input && {
+    passengers: context.saved.input.passengers,
+    specialRequirements: context.saved.input.specialRequirements,
+    notes: context.saved.input.notes,
+  }, { passengers: 3, specialRequirements: 'Acesso sem escadas', notes: 'Contato na recepção' })
+})
+
+test('reenviada devolução com revisão atual preserva os snapshots e os estados no histórico', async () => {
+  const context = setup({ requestStatus: 'RETURNED', revision: 4 })
+  const result = await context.service.resubmitRequest('10', {
+    ...futureRequest, expectedRevision: 4, passengers: 2,
+    specialRequirements: 'Acesso sem escadas', notes: 'Contato na recepção',
+  }, actor.id)
+
+  assert.equal(result.status, 'PENDING')
+  assert.equal(result.revision, 5)
+  assert.equal(context.saved.lifecycle?.eventType, 'RESUBMITTED')
+  assert.equal(context.saved.lifecycle?.beforeState.status, 'RETURNED')
+  assert.equal(context.saved.lifecycle?.afterState.revision, 5)
+  assert.equal(context.saved.lifecycle?.reason, 'Solicitação reenviada após correção pelo Solicitante.')
+})
+
+test('reenvio exige revisão, estado devolvido e titularidade', async () => {
+  const returned = setup({ requestStatus: 'RETURNED', revision: 2 })
+  await assert.rejects(returned.service.resubmitRequest('10', { ...futureRequest }, actor.id), isServiceError(400))
+  await assert.rejects(returned.service.resubmitRequest('10', { ...futureRequest, expectedRevision: 1 }, actor.id), isServiceError(409))
+  await assert.rejects(returned.service.resubmitRequest('10', { ...futureRequest, expectedRevision: 2 }, '9'), isServiceError(404))
+  const pending = setup({ revision: 2 })
+  await assert.rejects(pending.service.resubmitRequest('10', { ...futureRequest, expectedRevision: 2 }, actor.id), isServiceError(409))
+})
+
+test('rejeita campos inválidos e data passada; serviço fica para a etapa de agendamento', async () => {
   const context = setup()
   await assert.rejects(context.service.createRequest({ ...futureRequest, origin: '  ' }, actor.id), isServiceError(400))
   await assert.rejects(context.service.createRequest({ ...futureRequest, requestedDate: '2025-02-30' }, actor.id), isServiceError(400))
   await assert.rejects(context.service.createRequest({ ...futureRequest, requestedTime: '24:00' }, actor.id), isServiceError(400))
   await assert.rejects(context.service.createRequest({ ...futureRequest, requestedDate: '2000-01-01' }, actor.id), isServiceError(422))
-  await assert.rejects(setup({ serviceAvailable: false }).service.createRequest(futureRequest, actor.id), isServiceError(400))
+  const unclassified = setup({ serviceAvailable: false })
+  await unclassified.service.createRequest(futureRequest, actor.id)
+  assert.equal(unclassified.saved.input?.serviceId, null)
   assert.equal(context.saved.input, undefined)
 })
 

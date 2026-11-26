@@ -2,7 +2,7 @@ import test, { after, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { createElement } from 'react'
 import { dom, testing, vite, closeAuthDom } from './auth-dom.fixture.mjs'
-import { sessionFor, tokenFor } from './fixtures.mjs'
+import { sessionFor as createSession, tokenFor } from './fixtures.mjs'
 
 const { render, cleanup, act } = testing
 const { AuthProvider } = await vite.ssrLoadModule('/src/auth/AuthProvider.tsx')
@@ -10,6 +10,10 @@ const { useAuth } = await vite.ssrLoadModule('/src/auth/useAuth.ts')
 const KEY = 'aratu.auth.session'
 const originalFetch = globalThis.fetch
 const credentials = { email: 'teste@example.invalid', senha: 'senha-ficticia' }
+const sessionFor = (...args) => ({ ...createSession(...args), permissions: [] })
+const sessionResponse = (url, session) => String(url).endsWith('/auth/me')
+  ? Response.json({ id: '1', nome: session.nome, perfil: session.perfil, permissions: session.permissions ?? [] })
+  : Response.json(session)
 afterEach(() => { cleanup(); window.localStorage.clear(); window.sessionStorage.clear(); globalThis.fetch = originalFetch; window.history.replaceState(null, '', '/') })
 after(closeAuthDom)
 
@@ -27,7 +31,11 @@ function storage(key = KEY, area = window.localStorage, newValue = null) {
 
 test('login persiste DTO mínimo e restaura o mesmo exp ao remontar', async () => {
   const session = sessionFor()
-  globalThis.fetch = async () => Response.json({ ...session, senha: 'não persistir' })
+  const loginDto = { ...session }
+  delete loginDto.permissions
+  globalThis.fetch = async (url) => String(url).endsWith('/auth/me')
+    ? sessionResponse(url, session)
+    : Response.json({ ...loginDto, senha: 'não persistir' })
   const first = mount()
   await act(async () => { await first.auth().signIn(credentials) })
   assert.deepEqual(JSON.parse(window.localStorage.getItem(KEY)), session)
@@ -131,7 +139,7 @@ test('401 corrente remove sessão e 403 preserva acesso', async () => {
 
 test('resultado de logout antigo não afeta login e aviso posteriores', async () => {
   const pending = deferred(), b = sessionFor('MOTORISTA')
-  globalThis.fetch = (url) => url.endsWith('/logout') ? pending.promise : Promise.resolve(Response.json(b))
+  globalThis.fetch = (url) => url.endsWith('/logout') ? pending.promise : Promise.resolve(sessionResponse(url, b))
   const view = mount(sessionFor())
   act(() => view.auth().logout())
   await act(async () => { await view.auth().signIn(credentials) })
@@ -153,9 +161,53 @@ test('expiração limpa sessão; temporizador A não remove sessão B', (t) => {
   assert.match(view.auth().notice, /expirou/)
 })
 
+test('renova token somente após login e identidade/perfil atuais coincidirem', async () => {
+  const prior = sessionFor('GESTOR')
+  const renewed = { ...prior, token: tokenFor('GESTOR', 7200), nome: 'Nome retornado no login' }
+  const requests = []
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url: String(url), options })
+    if (String(url).endsWith('/auth/login')) return Response.json(renewed)
+    if (String(url).endsWith('/auth/me')) return Response.json({ id: '1', nome: 'Pessoa de teste', perfil: 'GESTOR' })
+    return new Response(null, { status: 404 })
+  }
+  const view = mount(prior)
+  await act(async () => { await view.auth().renewSession(credentials) })
+  assert.equal(view.auth().session.token, renewed.token)
+  assert.equal(view.auth().session.nome, 'Pessoa de teste')
+  assert.deepEqual(JSON.parse(window.localStorage.getItem(KEY)), view.auth().session)
+  assert.deepEqual(requests.map(({ url }) => url), ['/api/auth/login', '/api/auth/me'])
+  assert.equal(requests[1].options.headers.Authorization, `Bearer ${renewed.token}`)
+  assert.equal(JSON.stringify(JSON.parse(window.localStorage.getItem(KEY))).includes('senha-ficticia'), false)
+})
+
+test('renovação com conta ou perfil diferente limpa a sessão anterior', async () => {
+  const prior = sessionFor('GESTOR')
+  const other = sessionFor('MOTORISTA', 7200)
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith('/auth/login')) return Response.json(other)
+    return Response.json({ id: '1', nome: 'Pessoa de teste', perfil: 'MOTORISTA' })
+  }
+  const view = mount(prior)
+  await act(async () => { await view.auth().renewSession(credentials) })
+  assert.equal(view.auth().session, null)
+  assert.equal(window.localStorage.getItem(KEY), null)
+  assert.match(view.auth().notice, /conta ou o perfil mudou/i)
+})
+
+test('aviso para renovar a sessão é apresentado dois minutos antes do vencimento', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const view = mount({ ...sessionFor(), token: tokenFor('GESTOR', 150) })
+  assert.equal(view.auth().renewalPrompt, false)
+  act(() => t.mock.timers.tick(29_900))
+  assert.equal(view.auth().renewalPrompt, false)
+  act(() => t.mock.timers.tick(200))
+  assert.equal(view.auth().renewalPrompt, true)
+})
+
 test('escrita bloqueada impede login; remoção bloqueada não restaura memória', async (t) => {
   const view = mount()
-  globalThis.fetch = async () => Response.json(sessionFor())
+  globalThis.fetch = async (url) => sessionResponse(url, sessionFor())
   const write = t.mock.method(dom.window.Storage.prototype, 'setItem', () => { throw new Error('bloqueado') })
   await act(async () => { await assert.rejects(view.auth().signIn(credentials), /Permita o armazenamento/) })
   assert.equal(view.auth().session, null)

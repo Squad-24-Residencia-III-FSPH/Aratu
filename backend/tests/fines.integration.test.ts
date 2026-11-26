@@ -417,9 +417,9 @@ test('IT-FINE-18 falha real na consulta de conta interrompe a API antes de persi
   const v = await vehicle()
   const baseline = await ledger()
   class FailingUsersRepository extends UsersRepository {
-    override async findById(): Promise<never> { throw new Error('Falha fictícia QA na consulta de conta') }
+    override async findAuthorizationById(): Promise<never> { throw new Error('Falha fictícia QA na consulta de conta') }
   }
-  const isolated = createApp({ pool, jwtConfig: RBAC_JWT_CONFIG, users: new FailingUsersRepository(pool) }).listen(0, '127.0.0.1')
+  const isolated = createApp({ pool, jwtConfig: RBAC_JWT_CONFIG, currentUsers: new FailingUsersRepository(pool) }).listen(0, '127.0.0.1')
   try {
     await new Promise<void>(resolve => isolated.once('listening', resolve))
     const response = await fetch(`http://127.0.0.1:${(isolated.address() as AddressInfo).port}/fines`, {
