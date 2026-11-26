@@ -62,6 +62,8 @@ const request = {
   createdAt: '2026-11-12T12:00:00.000Z', updatedAt: '2026-11-12T12:00:00.000Z', trip: null,
 }
 
+const requestDetailsButtonName = 'Ver detalhes da solicitação 41, de Solicitante Fictício'
+
 test('seleciona, lê os detalhes e rejeita com justificativa; a solicitação sai da lista', async () => {
   let listCalls = 0
   let rejection = null
@@ -82,8 +84,8 @@ test('seleciona, lê os detalhes e rejeita com justificativa; a solicitação sa
   mount(auth)
 
   assert.equal(document.title, 'Solicitações | Aratu')
-  assert.ok(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
-  await user.click(screen.getByRole('button', { name: 'Ver detalhes da solicitação 41' }))
+  assert.ok(await screen.findByRole('button', { name: requestDetailsButtonName }))
+  await user.click(screen.getByRole('button', { name: requestDetailsButtonName }))
   assert.ok(await screen.findByText('Atividade institucional fictícia'))
 
   await user.click(screen.getByRole('button', { name: 'Recusar definitivamente' }))
@@ -99,8 +101,9 @@ test('seleciona, lê os detalhes e rejeita com justificativa; a solicitação sa
   assert.deepEqual(rejection, { reason: 'Sem veículo disponível', expectedRevision: 1 })
   // O botão que abriu o diálogo sai da lista com a linha decidida; o foco retorna
   // ao aviso para o teclado não cair no body (ver `onExited` do ConfirmDialog).
-  assert.equal(screen.queryByRole('button', { name: 'Ver detalhes da solicitação 41' }), null)
-  await waitFor(() => assert.equal(document.activeElement, screen.getByRole('status')))
+  assert.equal(screen.queryByRole('button', { name: requestDetailsButtonName }), null)
+  const rejectionNotice = screen.getByText('Solicitação #41 rejeitada.').closest('[role="status"]')
+  await waitFor(() => assert.equal(document.activeElement, rejectionNotice))
 })
 
 test('gestor encaminha a solicitação para o fluxo de agendamento sem aprová-la antes', async () => {
@@ -112,7 +115,7 @@ test('gestor encaminha a solicitação para o fluxo de agendamento sem aprová-l
   const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
   const user = userEvent.setup()
   mount(auth)
-  await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
+  await user.click(await screen.findByRole('button', { name: requestDetailsButtonName }))
   await user.click(screen.getByRole('button', { name: 'Aprovar e agendar' }))
   assert.equal(screen.getByTestId('router-location').textContent, '/agendar-viagem?requestId=41')
 })
@@ -131,7 +134,7 @@ test('devolve solicitação para correção com observação e revisão atual', 
   const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
   const user = userEvent.setup()
   mount(auth)
-  await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
+  await user.click(await screen.findByRole('button', { name: requestDetailsButtonName }))
   await user.click(await screen.findByRole('button', { name: 'Devolver para correção' }))
   const dialog = await screen.findByRole('dialog')
   await user.type(within(dialog).getByRole('textbox', { name: 'Observação para correção' }), 'Confirme o endereço de origem')
@@ -156,7 +159,7 @@ test('mostra estado parcial quando a recusa foi salva e a atualização da lista
   const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
   const user = userEvent.setup()
   mount(auth)
-  await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
+  await user.click(await screen.findByRole('button', { name: requestDetailsButtonName }))
   await user.click(await screen.findByRole('button', { name: 'Recusar definitivamente' }))
   const dialog = await screen.findByRole('dialog')
   await user.type(within(dialog).getByRole('textbox', { name: 'Justificativa da recusa definitiva' }), 'Sem disponibilidade operacional')
@@ -186,7 +189,7 @@ test('preserva o erro da API quando outro Gestor já analisou a solicitação', 
   const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
   const user = userEvent.setup()
   mount(auth)
-  await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
+  await user.click(await screen.findByRole('button', { name: requestDetailsButtonName }))
   await user.click(await screen.findByRole('button', { name: 'Recusar definitivamente' }))
   const dialog = await screen.findByRole('dialog')
   await user.type(within(dialog).getByRole('textbox', { name: 'Justificativa da recusa definitiva' }), 'Sem disponibilidade operacional')
@@ -196,7 +199,7 @@ test('preserva o erro da API quando outro Gestor já analisou a solicitação', 
   assert.equal(error.textContent, 'Esta solicitação já foi analisada por outro Gestor.')
   assert.equal(listCalls, 1)
   await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
-  assert.ok(await screen.findByRole('button', { name: 'Solicitação selecionada 41' }))
+  assert.ok(await screen.findByRole('button', { name: requestDetailsButtonName }))
 })
 
 test('administrador consulta e abre os dados sem receber ações de decisão', async () => {
@@ -209,9 +212,9 @@ test('administrador consulta e abre os dados sem receber ações de decisão', a
   const user = userEvent.setup()
   mount(auth)
 
-  assert.ok(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
+  assert.ok(await screen.findByRole('button', { name: requestDetailsButtonName }))
   assert.ok(screen.getByText('A consulta está disponível para manutenção e supervisão. Decisões operacionais são registradas pelo Gestor.'))
-  await user.click(screen.getByRole('button', { name: 'Ver detalhes da solicitação 41' }))
+  await user.click(screen.getByRole('button', { name: requestDetailsButtonName }))
   assert.ok(await screen.findByText('Atividade institucional fictícia'))
   assert.equal(screen.queryByRole('button', { name: 'Aprovar solicitação' }), null)
   assert.equal(screen.queryByRole('button', { name: 'Devolver para correção' }), null)

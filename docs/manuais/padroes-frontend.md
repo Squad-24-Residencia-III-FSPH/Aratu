@@ -156,3 +156,10 @@ A interface adota formalmente os padrões **Custom Hooks** (para isolamento de e
 - Mantenha trilhas completas em <code>/auditoria</code>, com filtro por entidade/registro e autorização pela permissão central e pelo escopo do domínio. Telas de rotina mostram apenas o contexto necessário à ação atual.
 - Use tons semânticos e neutros do tema; não aplique a cor primária a todos os ícones. Cor não é o único meio de comunicar seleção, situação ou erro. Foco, contraste e alvos de toque permanecem requisitos WCAG 2.2 AA.
 - A navegação pode agrupar itens por área (por exemplo, SVO) e encurtar rótulos, desde que cada destino continue claro e só apareça quando a sessão tiver a permissão correspondente.
+
+## 8. Testes do frontend com Vite
+
+- Testes que simulam listagens paginadas devem aplicar os filtros antes de calcular totais e selecionar a página, seguindo o contrato real da API. As buscas devem refletir os campos e o tipo de comparação oferecidos ao usuário.
+- Aguarde a resposta e a atualização da interface antes de verificar a remoção ou inclusão de linhas após mudanças de filtro.
+- Testes baseados em `node:test` criam servidores Vite por meio de `frontend/tests/viteTestServer.mjs`. O servidor desativa descoberta e inclusão de dependências pré-empacotadas, inclusive após plugins de framework alterarem essa configuração.
+- Feche o servidor e remova diretórios de cache temporários em blocos `finally` para que falhas também liberem os recursos.

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — PR-105 — Correção do CI e testes de motoristas (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+    .tableRegion { overflow-x: auto; margin: 16px 0; }
+    .tableRegion table { margin: 0; }
+    .tableRegion:focus-visible { outline: 3px solid var(--brand-strong); outline-offset: 2px; }
+    body { overflow-wrap: anywhere; }
+    .check label { display: block; min-height: 44px; cursor: pointer; }
+    @media (max-width: 600px) { body { margin-top: 16px; padding-inline: 16px; } h1 { font-size: 1.4rem; } table { min-width: 600px; } }
+    @media print { .tableRegion { overflow: visible; } table { min-width: 0; } }
+  </style>
+</head>
+<body>
+<main>
+
+<h1>SDD — PR-105: Correção do CI e testes de motoristas</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>PR-105</code> — Correção do CI e testes de motoristas</p>
+  <p><strong>Branch (Gitflow):</strong> <code>feat/fluxo-solicitacoes-navegacao-acessibilidade</code> (branch existente do PR #105 → <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulo:</strong> <code>FROTA</code></p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>Sem alteração de concessões; testes de GESTOR e ADMINISTRADOR</code></p>
+  <p><strong>Data:</strong> 2026-11-26</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+<p><strong>Objetivo:</strong> corrigir as falhas comprovadas da infraestrutura de testes, dos testes de motoristas e das regressões encontradas ao executar a suíte frontend do PR <a href="https://github.com/Squad-24-Residencia-III-FSPH/Aratu/pull/105">#105</a>, destinado a <code>develop</code>. Demanda direta, sem chave Jira informada. A implementação está aplicada na branch existente; a execução final completa foi interrompida por consumo excessivo de recursos no ambiente local e o estado verde do CI remoto não foi confirmado.</p>
+<div class="notice-block"><strong>Estado da implementação:</strong> correções de mock, configuração do Vite, expectativas dos testes e a opção duplicada “Todos” do filtro de situação foram aplicadas. Os testes direcionados de motoristas/Vite e o lint passaram antes do ajuste das suítes adicionais. Depois das últimas correções, as novas execuções de suítes Vite foram interrompidas para evitar novo esgotamento de memória. Não houve commit, push ou validação remota.</div>
+<p><strong>Revisão analisada:</strong> HEAD <code>ce1715e0e19ece6a9c6aa3e1bcd9845591dc17b3</code>, base local <code>3f2cbea6b056856ae68ba8c08051a16e110405e5</code>, iguais aos pais informados no log do merge de CI <code>c036a9a5a5fe4b9b27dfe39cea564bf8eb9ef1d8</code>. O diff local contra <code>origin/develop</code> contém 211 arquivos. A análise é dirigida ao bloqueio de CI; não constitui auditoria completa das alterações de domínio.</p>
+<h3>Leitura correta do log recebido</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Evidências da execução de 26/11/2026, horários UTC"><table><caption>Evidências da execução de 26/11/2026, horários UTC</caption><thead><tr><th scope="col">Momento</th><th scope="col">Evidência</th><th scope="col">Conclusão permitida</th></tr></thead><tbody>
+<tr><td>17:53:17–17:53:29</td><td>Instalação, dois testes dos delivery guards e lint concluídos.</td><td>O trecho fornecido não aponta falha nessas etapas.</td></tr>
+<tr><td>17:53:29–17:53:36</td><td>41 subtestes frontend aprovados, terminando nos três testes de <code>driverForm.test.mjs</code>.</td><td>Não há <code>not ok</code> antes da interrupção. Com concorrência 1, o próximo arquivo na ordem é <code>driversPage.test.mjs</code>.</td></tr>
+<tr><td>17:54:05.338</td><td>Runner recebe sinal de encerramento.</td><td>Cancelamento ou parada do runner; o motivo externo não aparece no arquivo enviado. O job tinha limite de 15 minutos e foi encerrado após aproximadamente 1min54s.</td></tr>
+<tr><td>17:54:05.423 e seguintes</td><td><code>EPIPE</code> ao escrever e operação cancelada.</td><td>O erro de escrita é posterior ao sinal. Não atribuir a ele a causa inicial do encerramento.</td></tr>
+</tbody></table></div>
+<h3>Achados confirmados no código e em diagnóstico local</h3>
+<ol>
+<li><strong>P1 — mock de busca incompatível:</strong> <code>frontend/tests/driversPage.test.mjs:53–63</code> usa apenas <code>page/pageSize</code>. Ao receber <code>search</code>, devolve itens não filtrados e totais do conjunto completo. No primeiro teste, a linha 12 permanece presente; a asserção de ausência falha.</li>
+<li><strong>P1 — expectativas antigas e corrida:</strong> o primeiro cenário procura <code>CNH2</code>, mas <code>DriversPage.tsx</code> apresenta “Buscar pelo nome” e <code>DriversRepository.listPaged</code> implementa prefixo do nome. O cenário de limpar filtros verifica a ausência da linha 2 imediatamente após <code>fireEvent.change</code>, antes da resposta da API.</li>
+<li><strong>P2 — desativação incompleta do otimizador:</strong> <code>frontend/tests/viteTestServer.mjs:7</code> define apenas <code>noDiscovery: true</code>. Com o plugin React, a configuração resolvida contém quatro entradas em <code>include</code> e <code>vite.environments.client.depsOptimizer</code> continua ativo. É um defeito independente confirmado; não há evidência suficiente para atribuir a ele o cancelamento remoto.</li>
+</ol>
+<p>Asserções que comparam diretamente um elemento DOM inesperado com <code>null</code> também dificultam o diagnóstico: a execução original não concluiu dentro da janela local de 45 segundos; trocar somente as duas comparações por valores booleanos expôs <strong>6 aprovações e 2 falhas em cerca de 4 segundos</strong>. Isso demonstra um caminho de diagnóstico caro no ambiente local, sem provar o mecanismo interno de serialização no runner remoto.</p>
+<p><strong>Prova de viabilidade:</strong> cópia experimental em diretório temporário, com busca por prefixo do nome, mock filtrado, espera assíncrona e comparações booleanas, concluiu <strong>8/8 testes</strong> em aproximadamente 4 segundos. Outro experimento, com hook de configuração executado após o plugin React, resolveu <code>include: []</code> e otimizador ausente. O repositório não recebeu essas alterações experimentais.</p>
+<p><strong>Limites:</strong> diagnóstico local em Node 22.22.2, Vite instalado 8.3.5 e jsdom 31.0.0; CI do log usa Node 24.22.3. Não foi possível consultar a página remota do PR neste ambiente. Backend, Docker, build frontend e o CI completo não foram executados nesta análise. A origem externa do cancelamento continua não determinada.</p>
+<p><strong>Escopo do fix:</strong> helper de Vite para testes, contrato dos mocks e sincronização dos testes de motoristas, regressão do helper e documentação técnica. O aceite exige execução completa dos jobs atuais; não reduzir gates, pular testes, mudar permissões ou alterar regras operacionais para obter verde.</p>
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Requisitos e critérios observáveis"><table><caption>Requisitos e critérios observáveis</caption><thead><tr><th scope="col">ID</th><th scope="col">Dado / Quando / Então</th></tr></thead><tbody>
+<tr><td>RF1</td><td>Dado o mock de motoristas, quando houver <code>search</code>, então aplicar prefixo do nome sem diferenciar maiúsculas antes de calcular total, totalPages e recortar a página.</td></tr>
+<tr><td>RF2</td><td>Dada a página 2, quando pesquisar, então a requisição deve voltar para <code>page=1</code>, manter <code>pageSize=20</code> e enviar o prefixo em <code>search</code>.</td></tr>
+<tr><td>RF3</td><td>Dado um filtro aplicado, quando a API responder, então verificar somente após a atualização que os itens excluídos sumiram; ao limpar, aguardar a resposta sem filtro e o retorno da lista.</td></tr>
+<tr><td>RF4</td><td>Dado um elemento que deveria estar ausente, quando a asserção falhar, então o valor comparado deve ser primitivo e a mensagem deve identificar o item, evitando despejar o DOM como valor de assert.equal.</td></tr>
+<tr><td>RF5</td><td>Dado <code>createTestViteServer</code> com e sem plugin React, quando o servidor for criado, então a configuração final deve ter descoberta desativada, include vazio e nenhum otimizador cliente.</td></tr>
+<tr><td>RF6</td><td>Dado um módulo TS/TSX carregado por SSR, quando o teste terminar, então fechar servidor, JSDOM e cache temporário, sem forçar o encerramento do processo.</td></tr>
+<tr><td>RNF1</td><td>Dado o pipeline atual, quando validar o fix em Node 24, então lint, todos os testes, gate TAP, builds, backend e Docker devem concluir; <code>ci-required</code> deve estar verde no commit final.</td></tr>
+<tr><td>RNF2</td><td>Dado um novo cancelamento, quando não houver erro de teste anterior ao sinal, então registrar o motivo e a origem no histórico do Actions antes de atribuir uma causa ao código.</td></tr>
+</tbody></table></div>
+<p>Casos de borda: busca sem resultado, diferença de caixa, filtro removido, página reiniciada, resposta atrasada, total zero e cadastro de administrador com consulta separada de vínculos. Os endpoints não paginados usados para vínculos devem continuar recebendo arrays nas fixtures. Dados exclusivamente fictícios.</p>
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Arquivos da implementação"><table><caption>Arquivos da implementação</caption><thead><tr><th scope="col">Ação</th><th scope="col">Arquivo</th><th scope="col">Responsabilidade</th></tr></thead><tbody>
+<tr><td>Alterar</td><td><code>frontend/tests/driversPage.test.mjs</code></td><td>Filtrar o mock, atualizar cenário de nome/paginação, esperar respostas e usar asserções primitivas nas ausências afetadas.</td></tr>
+<tr><td>Alterar</td><td><code>frontend/tests/viteTestServer.mjs</code></td><td>Desativar efetivamente a otimização após as configurações dos plugins; manter a fábrica única e documentar o motivo em português.</td></tr>
+<tr><td>Criar</td><td><code>frontend/tests/viteTestServer.test.mjs</code></td><td>Regressão que instancia o Vite real com plugin React, inspeciona o estado final e carrega módulo SSR. Usa o padrão node:test já existente.</td></tr>
+<tr><td>Alterar</td><td><code>frontend/tests/requestAnalysisPage.test.mjs</code>, <code>frontend/tests/routing.test.mjs</code> e <code>frontend/tests/userManagementPage.test.mjs</code></td><td>Alinhar consultas e expectativas aos nomes acessíveis, menus, rótulos, rotas e concessões já vigentes; não alterar a matriz RBAC.</td></tr>
+<tr><td>Alterar</td><td><code>frontend/src/pages/userManagementPage/UserManagementPage.tsx</code></td><td>Remover a opção vazia duplicada “Todos” do filtro de situação, mantendo as três opções distintas: Ativo, Arquivado e Todos.</td></tr>
+<tr><td>Alterar</td><td><code>docs/manuais/padroes-frontend.md</code></td><td>Registrar contrato de mocks paginados e configuração de testes Vite.</td></tr>
+<tr><td>Atualizar</td><td><code>docs/plans/pr-105-correcao-ci-testes-motoristas.html</code></td><td>Registrar alterações aplicadas e limites da validação observada.</td></tr>
+</tbody></table></div>
+<p><strong>Referências de leitura:</strong> <code>frontend/src/pages/driversPage/DriversPage.tsx</code>, <code>frontend/src/services/driversService.ts</code>, <code>backend/src/repositories/drivers.repository.ts</code>, <code>.github/workflows/ci.yml</code>, <code>docs/scripts/check-test-report.mjs</code> e demais 16 consumidores atuais da fábrica. Não alterar o código funcional nem o workflow como parte dos achados confirmados.</p>
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+<p>Não se aplica migração, DDL, mudança de índice ou alteração de registros. A consulta existente foi lida para fixar o contrato do mock: <code>search</code> corresponde a <code>name ILIKE prefixo%</code>, com escape de caracteres especiais, e a paginação retorna total filtrado. A ordenação do banco é nome e id crescentes.</p><p><strong>Rollback:</strong> reverter apenas o commit do fix de testes/documentação. Não existe rollback de banco para esta correção. As migrations já presentes no PR continuam sujeitas aos jobs backend e Docker existentes, em banco descartável.</p>
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+<p>Sem alteração em endpoint, DTO, status HTTP, Service ou Repository. Os contratos existentes orientam a correção dos testes:</p>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Contratos relevantes já existentes"><table><caption>Contratos relevantes já existentes</caption><thead><tr><th scope="col">Requisição</th><th scope="col">Resposta de sucesso</th><th scope="col">Uso no teste</th></tr></thead><tbody>
+<tr><td><code>GET /drivers?view=operational&amp;page=1&amp;pageSize=20&amp;search=Motorista</code></td><td>200: <code>{ items, total, page, pageSize, totalPages }</code></td><td>Filtrar pelo prefixo do nome antes da paginação; manter metadados consistentes.</td></tr>
+<tr><td><code>GET /drivers</code></td><td>200: array de motoristas.</td><td>Consulta de vínculos, distinta da listagem paginada.</td></tr>
+<tr><td><code>GET /drivers/:id</code></td><td>200: objeto do motorista.</td><td>Manter o teste de detalhe e recuperação após 503.</td></tr>
+<tr><td><code>POST /drivers</code>, <code>PUT /drivers/:id</code>, <code>PATCH /drivers/:id/status</code></td><td>Respostas e validações existentes.</td><td>Preservar justificativa, revisão, autoria, erro 409 e bloqueio de envio duplicado.</td></tr>
+</tbody></table></div><p>Os testes futuros devem validar a URL enviada, além do DOM exibido. Não ampliar a busca para CNH nem transferir filtragem para a página React para satisfazer expectativas antigas.</p>
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+<h3>Sequência de implementação</h3>
+<ol>
+<li><strong>Corrigir o mock:</strong> em <code>driversPageResponse</code>, ler <code>search</code>, filtrar prefixos de <code>name</code> sem distinguir caixa, calcular metadados no conjunto filtrado e só então paginar. Manter o mock no arquivo existente; não criar infraestrutura genérica de API fictícia.</li>
+<li><strong>Atualizar o cenário de paginação:</strong> renomear o teste para busca por nome; usar nomes com dois dígitos apenas no conjunto de 25 registros, de forma que a ordem da fixture represente nome crescente. Validar primeira página, avanço à segunda e busca por um nome da primeira com retorno a <code>page=1</code>. Registrar chamadas e verificar <code>search/page/pageSize</code>.</li>
+<li><strong>Corrigir sincronização:</strong> pesquisar um prefixo real, como <code>Motorista Fictício 1</code>, no teste de limpeza; aguardar a ausência da linha 2 com <code>waitFor</code> antes de clicar em limpar. Aguardar a linha reaparecer e confirmar nova consulta sem search. Remover a expectativa sobre “Atualizando motoristas...”, texto que a página atual não apresenta; verificar o estado busy acessível ou o botão de paginação habilitado após a resposta.</li>
+<li><strong>Reduzir o custo das falhas:</strong> usar <code>assert.equal(Boolean(screen.queryByText(...)), false, mensagem)</code> nas duas ausências problemáticas. Não remover a verificação de ausência nem convertê-la em skip.</li>
+<li><strong>Corrigir a fábrica:</strong> adicionar um plugin interno com <code>enforce: 'post'</code> ao conjunto recebido. No hook <code>config</code>, atribuir <code>config.optimizeDeps = { ...config.optimizeDeps, noDiscovery: true, include: [] }</code> depois dos hooks do plugin React. A atribuição evita o merge aditivo de arrays. Preservar as demais opções do chamador. Não adotar a opção depreciada <code>optimizeDeps.disabled</code>.</li>
+<li><strong>Proteger a integração:</strong> adicionar o teste do servidor real com o plugin React e sem ele. Inspecionar configuração final e <code>vite.environments.client.depsOptimizer</code>; carregar módulo SSR e fechar recursos em <code>finally</code>. No teste novo, <code>server.ws: false</code> evita abertura de socket desnecessária no ambiente restrito. O helper de produção da aplicação não é usado nem alterado.</li>
+<li><strong>Executar a matriz da seção 9:</strong> corrigir qualquer falha adicional comprovada na suíte completa antes de considerar o PR validado. Se surgir divergência de negócio, aplicar a Regra da Dúvida, sem mudar contratos unilateralmente.</li>
+</ol>
+<p>A documentação oficial do <a href="https://vite.dev/config/dep-optimization-options#optimizedeps-nodiscovery">Vite sobre noDiscovery</a> esclarece que dependências explicitamente incluídas ainda são otimizadas; a desativação completa também exige include vazio. O experimento local com o hook post confirmou otimizador ausente.</p>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Paridade dos cinco estados da tela"><table><caption>Paridade dos cinco estados da tela</caption><thead><tr><th scope="col">Estado</th><th scope="col">Cobertura preservada</th></tr></thead><tbody>
+<tr><td>Ideal</td><td>Listagem, paginação, busca, cadastro, edição e detalhe.</td></tr>
+<tr><td>Carregando</td><td>Promessa controlada na primeira consulta; espera de atualização nas consultas posteriores.</td></tr>
+<tr><td>Vazio</td><td>Mensagem de nenhum cadastro e busca sem resultado.</td></tr>
+<tr><td>Erro</td><td>503 e retry, conflito 409 e justificativa obrigatória.</td></tr>
+<tr><td>Parcial</td><td>Sem novo estado de produto. A alteração nos testes não modifica o tratamento atual de dados anteriores durante atualização.</td></tr>
+</tbody></table></div>
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+<p>O ajuste funcional limita-se a remover uma opção acessível duplicada no filtro de situação dos usuários. Não muda os valores do filtro, autorização ou navegação. Os testes agora usam nomes acessíveis atuais, papéis de menu e esperam as transições dos diálogos antes de interagir; mantêm foco, estados busy, justificativas e feedback de erro. JSDOM valida semântica e interação, mas não certifica contraste ou responsividade visual.</p><p>Este SDD mantém idioma pt-BR, estrutura de títulos, links visíveis, legendas de tabelas e cabeçalhos com <code>scope="col"</code>.</p>
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+<p><strong>Impacto direto:</strong> infraestrutura compartilhada por 17 consumidores atuais de <code>createTestViteServer</code>; por isso o aceite inclui a suíte frontend inteira. O novo teste passa a ser descoberto pelo glob existente <code>tests/*.test.mjs</code>.</p>
+<p><strong>RBAC:</strong> preservar GESTOR sem leitura de contas e ADMINISTRADOR com seletor e consulta de vínculos no cenário de motoristas. Nenhuma concessão muda para SOLICITANTE, MOTORISTA, ATENDENTE_SVO ou EQUIPE_SVO; os testes de autorização existentes devem continuar executando.</p>
+<p><strong>Configuração:</strong> ajuste limitado ao servidor Vite usado por testes. Sem feature flags, nova dependência, alteração de lockfile ou nova variável de ambiente. Usar Node 24 na validação conclusiva, conforme workflow atual.</p>
+<p><strong>Gitflow:</strong> aplicar a correção na branch existente do PR #105, mantendo destino develop. Não trocar para develop nem criar branch de feature separada para corrigir o próprio PR. Antes da implementação, verificar se o HEAD remoto mudou desde ce1715e e atualizar o diagnóstico se necessário. Sugestão de commit: <code>fix(tests): alinhar mocks de motoristas e desativar otimizacao do Vite</code>. Commit e push dependem de instrução explícita.</p>
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+<h3>Validações da análise e implementação</h3>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Resultados locais, sem aplicação do fix ao repositório"><table><caption>Resultados locais, sem aplicação do fix ao repositório</caption><thead><tr><th scope="col">Experimento</th><th scope="col">Resultado</th><th scope="col">Limite</th></tr></thead><tbody>
+<tr><td>Arquivo original de motoristas, isolado</td><td>Não concluiu em janela de 45s; encerrado pelo limite diagnóstico.</td><td>Ambiente local Node 22; não identifica origem do cancelamento remoto.</td></tr>
+<tr><td>Comparações DOM/null convertidas para booleanos</td><td>8 executados, 6 aprovados, 2 falhos, cerca de 4s.</td><td>Expõe falhas dos cenários de busca e limpeza; não corrige contrato.</td></tr>
+<tr><td>Mock com prefixo de nome + buscas atualizadas + espera assíncrona</td><td>8 executados, 8 aprovados, 0 falhas/cancelados/skips/TODO, cerca de 4s.</td><td>Cópia temporária diagnóstica; não representa a validação integral nem o commit futuro.</td></tr>
+<tr><td>Fábrica atual + plugin React</td><td>include com 4 dependências; otimizador ativo.</td><td>Confirma a insuficiência de noDiscovery isolado.</td></tr>
+<tr><td>Hook post experimental</td><td>noDiscovery=true, include=[], otimizador ausente.</td><td>Requer regressão nos consumidores existentes.</td></tr>
+<tr><td>Implementação: <code>driversPage.test.mjs</code> e <code>viteTestServer.test.mjs</code></td><td>Passaram, sem falha/cancelamento/skip/TODO, cerca de 9s.</td><td>Executado em Node 22.22.2; não valida as demais suítes nem Node 24.</td></tr>
+<tr><td>Implementação: <code>npm run lint</code></td><td>Passou.</td><td>Executado antes dos ajustes adicionais nas suítes antigas.</td></tr>
+<tr><td>Execução frontend completa antes das correções adicionais</td><td>47 arquivos passaram; falharam <code>requestAnalysisPage.test.mjs</code>, <code>routing.test.mjs</code> e <code>userManagementPage.test.mjs</code>.</td><td>Os casos incompatíveis foram atualizados. A reexecução subsequente consumiu recursos excessivos e foi interrompida; o resultado após esses ajustes permanece sem confirmação.</td></tr>
+<tr><td><code>git diff --check</code></td><td>Passou depois das alterações.</td><td>Validação estática de whitespace; não substitui testes.</td></tr>
+</tbody></table></div>
+<p><strong>Conferência do documento:</strong> abertura solicitada via xdg-open. A prévia automatizada no navegador bloqueou o protocolo file por política de segurança; a estrutura HTML foi verificada estaticamente, sem inspeção visual automatizada.</p>
+<h3>Roteiro obrigatório após implementação, em Node 24</h3>
+<ol>
+<li>Na pasta frontend, executar os dois arquivos diretamente pelo runner: <code>node --test --test-concurrency=1 --test-reporter=tap tests/driversPage.test.mjs tests/viteTestServer.test.mjs</code>. Conferir subtestes individuais e resumo completo.</li>
+<li>Executar as regressões do helper e dos motoristas novamente com cache temporário novo para verificar inicialização fria. Os nomes das pastas temporárias devem ser exclusivos e o cleanup garantido.</li>
+<li>Na raiz: <code>node --test docs/scripts/tests/*.test.mjs</code>. No frontend: <code>npm ci</code>, <code>npm run lint</code>, suíte completa com pipefail e relatório TAP e <code>npm run build</code>. Não considerar êxito de um arquivo como cobertura da suíte inteira.</li>
+<li>Na raiz, validar o relatório: <code>node docs/scripts/check-test-report.mjs /tmp/aratu-frontend-ci.tap Frontend</code>. Exigir todos os testes aprovados e zero falhas, cancelamentos, skips e TODO; conferir que as suítes esperadas aparecem.</li>
+<li>Executar backend como em <code>backend-ci</code>, em PostgreSQL 18 descartável: instalação, <code>npm run test:db:setup</code>, <code>npm run test:ci</code>, gate TAP, <code>npx tsc --noEmit</code> e <code>npm run build</code>. Não usar banco operacional.</li>
+<li>Executar o job Docker existente com credenciais sintéticas e verificar build, health/readiness e smoke definidos no workflow. Rodar a pré-auditoria <code>node docs/scripts/aratu-check.mjs</code> e tratar achados pertinentes.</li>
+<li>No Actions, validar o commit final ou seu merge de PR: <code>frontend-ci</code>, <code>backend-ci</code>, <code>docker-ci</code> e <code>ci-required</code> aprovados. Se cancelar antes do fim, consultar histórico do run e eventos de cancelamento; preservar o primeiro erro cronológico.</li>
+</ol>
+<p>Exemplo de captura da suíte completa, executado em frontend com Bash:</p>
+<pre><code>set -o pipefail
+npm run test:ci | tee /tmp/aratu-frontend-ci.tap</code></pre>
+<p><strong>Aceite:</strong> apenas um run completo no commit final autoriza afirmar que o PR passou no CI. O trecho enviado não contém resultados de backend/Docker nem conclusão dos testes/build frontend. Não corrigir EPIPE adicionando handler que ignore erro de stdout, não aumentar timeout sem medição e não desabilitar o gate TAP.</p>
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+<ul class="check">
+<li><label><input type="checkbox"> HEAD e destino develop do PR #105 revalidados antes de implementar.</label></li>
+<li><label><input type="checkbox"> Mock aplica prefixo e metadados antes de paginar; chamadas sem paginação continuam sendo arrays.</label></li>
+<li><label><input type="checkbox"> Busca volta à página 1 e limpeza aguarda resposta; ausências continuam sendo verificadas.</label></li>
+<li><label><input type="checkbox"> Helper sem otimizador mesmo com plugin React; teste real de regressão incluído.</label></li>
+<li><label><input type="checkbox"> Recursos temporários fechados e nenhum diagnóstico temporário incluído no commit.</label></li>
+<li><label><input type="checkbox"> Frontend completo, backend PostgreSQL 18, Docker e ci-required aprovados no commit final.</label></li>
+<li><label><input type="checkbox"> Zero skips, TODO, testes cancelados ou gates enfraquecidos; dados fictícios e paridade RBAC preservados.</label></li>
+<li><label><input type="checkbox"> Documentação e evidências atualizadas com resultados reais; Conventional Commits.</label></li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+<p>A documentação funcional de <code>docs/modulos/FROTA.html</code> e dos demais módulos não precisa mudar para um fix limitado aos testes: fluxos, API e permissões permanecem iguais. Não criar um documento MOTORISTAS apenas para registrar este ajuste de CI; esse arquivo não existe no checkout analisado.</p><p>Adicionar uma nota técnica curta em <code>docs/manuais/padroes-frontend.md</code> sobre mocks que reproduzem paginação do servidor e o motivo do hook post da fábrica. Atualizar este SDD com SHA, comandos, contagens e link do run aprovado após a implementação. Não registrar aprovação antecipada.</p>
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</main>
+</body>
+</html>

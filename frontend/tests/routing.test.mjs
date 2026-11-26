@@ -57,7 +57,7 @@ for (const [profile, path] of destinations) {
     const session = sessionFor(profile)
     assert.deepEqual(resolveRoute(session, '/login'), { kind: 'redirect', to: path })
     const homeDecision = profile === 'ADMINISTRADOR' ? { kind: 'users', profile }
-      : profile === 'GESTOR' ? { kind: 'request-analysis', profile }
+      : profile === 'GESTOR' ? { kind: 'home', profile }
         : profile === 'ATENDENTE_SVO' ? { kind: 'svo-occurrences', profile }
           : profile === 'EQUIPE_SVO' ? { kind: 'svo-team-orders', profile }
             : { kind: 'home', profile }
@@ -211,11 +211,11 @@ test('GESTOR e ADMINISTRADOR podem consultar a agenda operacional de todos os es
 })
 
 test('catálogo de tipos de serviço fica disponível para perfis com leitura de serviços', () => {
-  for (const profile of ['SOLICITANTE', 'GESTOR', 'ADMINISTRADOR']) {
+  for (const profile of ['SOLICITANTE', 'GESTOR', 'ADMINISTRADOR', 'ATENDENTE_SVO']) {
     assert.deepEqual(resolveRoute(sessionFor(profile), SERVICE_TYPES_PATH), { kind: 'service-types', profile })
   }
   for (const [profile, home] of destinations) {
-    if (profile === 'SOLICITANTE' || profile === 'GESTOR' || profile === 'ADMINISTRADOR') continue
+    if (profile === 'SOLICITANTE' || profile === 'GESTOR' || profile === 'ADMINISTRADOR' || profile === 'ATENDENTE_SVO') continue
     assert.deepEqual(resolveRoute(sessionFor(profile), SERVICE_TYPES_PATH), { kind: 'redirect', to: home })
   }
   assert.deepEqual(resolveRoute(null, SERVICE_TYPES_PATH), { kind: 'redirect', to: '/login' })

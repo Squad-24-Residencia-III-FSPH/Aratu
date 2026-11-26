@@ -50,16 +50,20 @@ function makeDriver(id, overrides = {}) {
     createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', ...overrides }
 }
 function jsonResponse(value, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }) }
-function driversPageResponse(path, items) {
-  const url = new URL(path, 'http://localhost')
+function driversPageResponse(requestUrl, items) {
+  const url = new URL(requestUrl, 'http://localhost')
   const page = Number(url.searchParams.get('page') ?? 1)
   const pageSize = Number(url.searchParams.get('pageSize') ?? 20)
+  const search = url.searchParams.get('search')?.toLowerCase() ?? ''
+  const filteredItems = search
+    ? items.filter(({ name }) => name.toLowerCase().startsWith(search))
+    : items
   return jsonResponse({
-    items: items.slice((page - 1) * pageSize, page * pageSize),
-    total: items.length,
+    items: filteredItems.slice((page - 1) * pageSize, page * pageSize),
+    total: filteredItems.length,
     page,
     pageSize,
-    totalPages: Math.ceil(items.length / pageSize),
+    totalPages: Math.ceil(filteredItems.length / pageSize),
   })
 }
 function renderPage(api, profile = 'GESTOR') {
@@ -67,26 +71,37 @@ function renderPage(api, profile = 'GESTOR') {
   return render(createElement(AuthContext.Provider, { value: auth }, createElement(DriversPage)))
 }
 
-test('mostra carregamento e lista preenchida, busca por nome/CNH e paginação', async () => {
+test('mostra carregamento, paginação e busca por prefixo do nome', async () => {
   let resolveList
   const pending = new Promise((resolve) => { resolveList = resolve })
-  const drivers = Array.from({ length: 25 }, (_, index) => makeDriver(index + 1))
+  const drivers = Array.from({ length: 25 }, (_, index) => {
+    const number = String(index + 1).padStart(2, '0')
+    return makeDriver(index + 1, { name: `Motorista Fictício ${number}` })
+  })
+  const requestedUrls = []
   let firstLoad = true
   const api = async (path) => {
+    requestedUrls.push(path)
     if (firstLoad) { firstLoad = false; return pending }
     return driversPageResponse(path, drivers)
   }
   renderPage(api)
   assert.ok(await screen.findByText('Carregando motoristas…'))
   resolveList(driversPageResponse('/drivers?page=1&pageSize=20', drivers))
-  assert.ok(await screen.findByText('Motorista Fictício 1'))
-  assert.equal(screen.queryByText('Motorista Fictício 21'), null)
+  assert.ok(await screen.findByText('Motorista Fictício 01'))
+  assert.equal(Boolean(screen.queryByText('Motorista Fictício 21')), false, 'A primeira página não deve mostrar a linha 21.')
   await userEvent.setup().click(screen.getByRole('button', { name: 'Próxima' }))
   assert.ok(await screen.findByText('Motorista Fictício 21'))
   const search = screen.getByRole('textbox', { name: 'Buscar pelo nome' })
-  fireEvent.change(search, { target: { value: 'CNH2' } })
-  assert.ok(await screen.findByText('Motorista Fictício 2'))
-  assert.equal(screen.queryByText('Motorista Fictício 12'), null)
+  fireEvent.change(search, { target: { value: 'Motorista Fictício 02' } })
+  assert.ok(await screen.findByText('Motorista Fictício 02'))
+  assert.equal(Boolean(screen.queryByText('Motorista Fictício 12')), false, 'A busca pelo nome 02 não deve incluir o nome 12.')
+  const searchRequest = new URL(requestedUrls.at(-1), 'http://localhost')
+  assert.equal(searchRequest.searchParams.get('search'), 'Motorista Fictício 02')
+  assert.equal(searchRequest.searchParams.get('page'), '1')
+  assert.equal(searchRequest.searchParams.get('pageSize'), '20')
+  fireEvent.change(search, { target: { value: 'Nome inexistente' } })
+  assert.ok(await screen.findByText('Nenhum motorista encontrado'))
 })
 
 test('mostra erro sem estado vazio e mantém retry', async () => {
@@ -222,12 +237,12 @@ test('limpar filtros refaz a consulta e volta a exibir a lista completa', async 
   renderPage(api)
   await screen.findByText('Motorista Fictício 1')
   const search = screen.getByRole('textbox', { name: 'Buscar pelo nome' })
-  fireEvent.change(search, { target: { value: 'Fictício 1' } })
-  assert.equal(screen.queryByText('Motorista Fictício 2'), null)
+  fireEvent.change(search, { target: { value: 'Motorista Fictício 1' } })
+  assert.ok(await screen.findByText('Motorista Fictício 1'))
+  await waitFor(() => assert.equal(Boolean(screen.queryByText('Motorista Fictício 2')), false))
   await userEvent.setup().click(screen.getByRole('button', { name: 'Limpar filtros' }))
   assert.ok(await screen.findByText('Motorista Fictício 2'))
-  assert.equal(screen.queryByText('Atualizando motoristas...'), null)
-  assert.ok(listCalls >= 2)
+  assert.ok(listCalls >= 3)
 })
 
 test('detalhes exibem CPF mascarado e permitem repetir a consulta após erro', async () => {

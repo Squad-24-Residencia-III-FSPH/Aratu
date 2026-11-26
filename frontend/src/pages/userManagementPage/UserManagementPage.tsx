@@ -551,7 +551,6 @@ export default function UserManagementPage() {
                   { value: 'all', label: 'Todos' },
                 ] : []),
               ]}
-              emptyLabel="Todos"
               displayEmpty
               sx={fieldSx}
             />
