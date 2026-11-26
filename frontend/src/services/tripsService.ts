@@ -126,7 +126,6 @@ function parseTripConfirmationItem(value: unknown): TripConfirmationItem {
   if (!isRecord(value)
     || !isString(value.id)
     || !isNullable(value.requestId, isString)
-    || typeof value.createdDirectly !== 'boolean'
     || value.status !== 'FINISHED'
     || !isIsoDate(value.scheduledStart)
     || !isIsoDate(value.scheduledEnd)
@@ -145,7 +144,6 @@ function parseTripConfirmationItem(value: unknown): TripConfirmationItem {
   return {
     id: value.id,
     requestId: value.requestId,
-    createdDirectly: value.createdDirectly,
     status: 'FINISHED',
     scheduledStart: value.scheduledStart,
     scheduledEnd: value.scheduledEnd,

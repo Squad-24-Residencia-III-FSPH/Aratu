@@ -24,6 +24,10 @@ function formatError(error: unknown): string {
   return error instanceof Error ? error.message : 'Ocorreu um erro inesperado. Tente novamente.'
 }
 
+function operationalIso(value: string): string | null {
+  try { return value ? operationalDateTimeToIso(value) : null } catch { return null }
+}
+
 /** Cria viagem operacional por iniciativa do Gestor, sem associar solicitação. */
 export default function DirectTripPage() {
   const { api } = useAuth()
@@ -67,19 +71,13 @@ export default function DirectTripPage() {
   const selectedService = useMemo(() => services?.find((service) => service.id === serviceId) ?? null,
     [services, serviceId])
   const passengerCount = Number(passengers)
-  const scheduledStart = useMemo(() => {
-    try { return period.start ? operationalDateTimeToIso(period.start) : null } catch { return null }
-  }, [period.start])
-  const scheduledEnd = useMemo(() => {
-    try { return period.end ? operationalDateTimeToIso(period.end) : null } catch { return null }
-  }, [period.end])
+  const scheduledStart = useMemo(() => operationalIso(period.start), [period.start])
+  const scheduledEnd = useMemo(() => operationalIso(period.end), [period.end])
   const validPeriod = Boolean(scheduledStart && scheduledEnd && Date.parse(scheduledEnd) > Date.parse(scheduledStart))
 
   useEffect(() => {
     if (!serviceId || !validPeriod || !scheduledStart || !scheduledEnd) return
     let current = true
-    setAvailabilityState('loading')
-    setAvailabilityError('')
     void Promise.allSettled([
       listAvailableVehicles(api, scheduledStart, scheduledEnd, serviceId),
       listAvailableDrivers(api, scheduledStart, scheduledEnd),
@@ -127,18 +125,24 @@ export default function DirectTripPage() {
     updateForm(() => setServiceId(value))
     setVehicleId('')
     setDriverId('')
-    setAvailabilityState('idle')
+    setAvailabilityState(value && validPeriod ? 'loading' : 'idle')
+    setAvailabilityError('')
     setVehicleAvailability(null)
     setDriverAvailability(null)
   }
 
   function updatePeriod(field: 'start' | 'end', value: string) {
-    updateForm(() => setPeriod((current) => ({ ...current, [field]: value })))
+    const nextPeriod = { ...period, [field]: value }
+    const nextStart = operationalIso(nextPeriod.start)
+    const nextEnd = operationalIso(nextPeriod.end)
+    const hasValidPeriod = Boolean(nextStart && nextEnd && Date.parse(nextEnd) > Date.parse(nextStart))
+    updateForm(() => setPeriod(nextPeriod))
     setVehicleId('')
     setDriverId('')
     setVehicleAvailability(null)
     setDriverAvailability(null)
-    setAvailabilityState('idle')
+    setAvailabilityState(serviceId && hasValidPeriod ? 'loading' : 'idle')
+    setAvailabilityError('')
   }
 
   async function submit() {

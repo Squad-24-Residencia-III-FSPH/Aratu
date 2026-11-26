@@ -22,7 +22,7 @@ const STATUS_OPTIONS = TRIP_AGENDA_STATUSES.map((value) => ({ value, label: TRIP
 
 const COLUMNS: readonly DataTableColumn<TripAgendaItem>[] = [
   { key: 'start', header: 'Início previsto', width: 160, render: (trip) => formatDateTime(trip.scheduledStart) },
-  { key: 'request', header: 'Origem', width: 170, render: (trip) => trip.createdDirectly ? 'Criada pelo gestor' : `Solicitação #${trip.requestId}` },
+  { key: 'request', header: 'Origem', width: 170, render: (trip) => trip.requestId === null ? 'Criada pelo gestor' : `Solicitação #${trip.requestId}` },
   { key: 'route', header: 'Origem e destino', render: (trip) => `${trip.origin} → ${trip.destination}` },
   { key: 'vehicle', header: 'Veículo', width: 130, render: (trip) => trip.vehicleLicensePlate },
   { key: 'driver', header: 'Motorista', width: 180, render: (trip) => trip.driverName },
@@ -40,7 +40,7 @@ function AgendaCard({ trip }: { trip: TripAgendaItem }) {
         <EntityCard.Status><StatusChip label={TRIP_AGENDA_STATUS_LABELS[trip.status]} tone={TRIP_AGENDA_STATUS_TONES[trip.status]} /></EntityCard.Status>
       </EntityCard.Header>
       <EntityCard.Body>
-        <Typography variant="body2">{trip.createdDirectly ? 'Criada pelo gestor' : `Solicitação #${trip.requestId}`}</Typography>
+        <Typography variant="body2">{trip.requestId === null ? 'Criada pelo gestor' : `Solicitação #${trip.requestId}`}</Typography>
         <Typography variant="body2">Início previsto: {formatDateTime(trip.scheduledStart)}</Typography>
         <Typography variant="body2">Veículo: {trip.vehicleLicensePlate}</Typography>
         <Typography variant="body2">Motorista: {trip.driverName}</Typography>
