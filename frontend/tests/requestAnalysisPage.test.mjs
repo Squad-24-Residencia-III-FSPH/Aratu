@@ -39,7 +39,11 @@ const [{ default: RequestAnalysisPage }, { AuthContext }] = await Promise.all([
 ])
 
 afterEach(() => cleanup())
-after(async () => { await vite.close(); dom.window.close() })
+after(async () => {
+  await vite.close()
+  fs.rmSync(viteCacheDir, { recursive: true, force: true })
+  dom.window.close()
+})
 
 function LocationProbe() {
   const location = useLocation()
@@ -101,9 +105,12 @@ test('seleciona, lê os detalhes e rejeita com justificativa; a solicitação sa
   assert.deepEqual(rejection, { reason: 'Sem veículo disponível', expectedRevision: 1 })
   // O botão que abriu o diálogo sai da lista com a linha decidida; o foco retorna
   // ao aviso para o teclado não cair no body (ver `onExited` do ConfirmDialog).
-  assert.equal(screen.queryByRole('button', { name: requestDetailsButtonName }), null)
+  assert.equal(Boolean(screen.queryByRole('button', { name: requestDetailsButtonName })), false)
   const rejectionNotice = screen.getByText('Solicitação #41 rejeitada.').closest('[role="status"]')
-  await waitFor(() => assert.equal(document.activeElement, rejectionNotice))
+  assert.ok(rejectionNotice)
+  // Não passe elementos React/JSDOM ao assert: o diff de uma falha percorre a árvore inteira.
+  await waitFor(() => assert.equal(document.activeElement === rejectionNotice, true,
+    'O foco deve retornar ao aviso de rejeição após fechar o diálogo.'))
 })
 
 test('gestor encaminha a solicitação para o fluxo de agendamento sem aprová-la antes', async () => {
@@ -167,10 +174,10 @@ test('mostra estado parcial quando a recusa foi salva e a atualização da lista
 
   assert.ok(await screen.findByText('A decisão foi registrada, mas a lista pode estar desatualizada.'))
   assert.ok(screen.getByText('Falha ao atualizar a lista.'))
-  assert.equal(screen.queryByText('Agendar viagem'), null)
+  assert.equal(Boolean(screen.queryByText('Agendar viagem')), false)
   await user.click(await screen.findByRole('button', { name: 'Tentar novamente' }))
   await waitFor(() => assert.equal(listCalls, 3))
-  await waitFor(() => assert.equal(screen.queryByText('A decisão foi registrada, mas a lista pode estar desatualizada.'), null))
+  await waitFor(() => assert.equal(Boolean(screen.queryByText('A decisão foi registrada, mas a lista pode estar desatualizada.')), false))
 })
 
 test('preserva o erro da API quando outro Gestor já analisou a solicitação', async () => {
@@ -199,7 +206,8 @@ test('preserva o erro da API quando outro Gestor já analisou a solicitação', 
   assert.equal(error.textContent, 'Esta solicitação já foi analisada por outro Gestor.')
   assert.equal(listCalls, 1)
   await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
-  assert.ok(await screen.findByRole('button', { name: requestDetailsButtonName }))
+  const details = await screen.findByRole('dialog', { name: 'Detalhes da solicitação #41' })
+  assert.ok(await within(details).findByText('Atividade institucional fictícia'))
 })
 
 test('administrador consulta e abre os dados sem receber ações de decisão', async () => {
@@ -216,7 +224,7 @@ test('administrador consulta e abre os dados sem receber ações de decisão', a
   assert.ok(screen.getByText('A consulta está disponível para manutenção e supervisão. Decisões operacionais são registradas pelo Gestor.'))
   await user.click(screen.getByRole('button', { name: requestDetailsButtonName }))
   assert.ok(await screen.findByText('Atividade institucional fictícia'))
-  assert.equal(screen.queryByRole('button', { name: 'Aprovar solicitação' }), null)
-  assert.equal(screen.queryByRole('button', { name: 'Devolver para correção' }), null)
-  assert.equal(screen.queryByRole('button', { name: 'Recusar definitivamente' }), null)
+  assert.equal(Boolean(screen.queryByRole('button', { name: 'Aprovar e agendar' })), false)
+  assert.equal(Boolean(screen.queryByRole('button', { name: 'Devolver para correção' })), false)
+  assert.equal(Boolean(screen.queryByRole('button', { name: 'Recusar definitivamente' })), false)
 })

@@ -161,5 +161,6 @@ A interface adota formalmente os padrões **Custom Hooks** (para isolamento de e
 
 - Testes que simulam listagens paginadas devem aplicar os filtros antes de calcular totais e selecionar a página, seguindo o contrato real da API. As buscas devem refletir os campos e o tipo de comparação oferecidos ao usuário.
 - Aguarde a resposta e a atualização da interface antes de verificar a remoção ou inclusão de linhas após mudanças de filtro.
+- Asserções de presença, ausência e foco devem receber booleanos ou outros valores primitivos: `assert.equal(document.activeElement === expectedElement, true)`. Comparar elementos DOM diretamente pode gerar um diff enorme em falhas transitórias e esgotar a memória durante um `waitFor`.
 - Testes baseados em `node:test` criam servidores Vite por meio de `frontend/tests/viteTestServer.mjs`. O servidor desativa descoberta e inclusão de dependências pré-empacotadas, inclusive após plugins de framework alterarem essa configuração.
 - Feche o servidor e remova diretórios de cache temporários em blocos `finally` para que falhas também liberem os recursos.
