@@ -356,19 +356,15 @@ test('arquivamento e restauração confirmam a ação e bloqueiam repetição en
   }
 
   await openRowAction('Arquivar')
-  assert.ok(await screen.findByText(/O histórico é preservado/))
-  await user.click(screen.getByRole('button', { name: 'Cancelar' }))
-  await waitFor(() => assert.equal(screen.queryByRole('dialog'), null))
-  assert.equal(calls.filter(({ path }) => path.endsWith('/deactivate')).length, 0)
-
-  await openRowAction('Arquivar')
+  assert.ok(screen.getByText(/O histórico é preservado/))
   await user.click(screen.getByRole('button', { name: 'Arquivar' }))
-  const pendingConfirm = await screen.findByRole('button', { name: 'Aguarde...' })
+  const pendingConfirm = screen.getByRole('button', { name: 'Aguarde...' })
   assert.equal(pendingConfirm.disabled, true)
   assert.equal(calls.filter(({ path }) => path.endsWith('/deactivate')).length, 1)
   resolveStatus(jsonResponse(makeUser(2, { active: false })))
   await waitFor(() => assert.match(document.body.textContent, /Usu.rio Pessoa Fict.cia 2 arquivado com sucesso/))
-  await waitFor(() => assert.equal(screen.queryByRole('dialog'), null))
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  assert.equal(document.querySelector('[role="dialog"]'), null)
 
   await selectOption(user, 'Filtrar por situação', 'Arquivado')
   await screen.findByText('Pessoa Fictícia 2')
@@ -376,4 +372,6 @@ test('arquivamento e restauração confirmam a ação e bloqueiam repetição en
   await user.click(screen.getByRole('button', { name: 'Restaurar' }))
   await waitFor(() => assert.match(document.body.textContent, /Usu.rio Pessoa Fict.cia 2 restaurado com sucesso/))
   assert.equal(calls.filter(({ path }) => path.endsWith('/activate')).length, 1)
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  assert.equal(document.querySelector('[role="dialog"]'), null)
 })

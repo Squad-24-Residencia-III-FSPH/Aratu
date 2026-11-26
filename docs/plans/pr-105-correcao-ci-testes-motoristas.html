@@ -211,13 +211,14 @@
 
 <h2 id="s9">9. Casos de Teste e Verificação</h2>
 <h3>Validações da análise e implementação</h3>
-<div class="tableRegion" role="region" tabindex="0" aria-label="Resultados locais, sem aplicação do fix ao repositório"><table><caption>Resultados locais, sem aplicação do fix ao repositório</caption><thead><tr><th scope="col">Experimento</th><th scope="col">Resultado</th><th scope="col">Limite</th></tr></thead><tbody>
+<div class="tableRegion" role="region" tabindex="0" aria-label="Resultados locais da análise e implementação"><table><caption>Resultados locais da análise e implementação</caption><thead><tr><th scope="col">Experimento</th><th scope="col">Resultado</th><th scope="col">Limite</th></tr></thead><tbody>
 <tr><td>Arquivo original de motoristas, isolado</td><td>Não concluiu em janela de 45s; encerrado pelo limite diagnóstico.</td><td>Ambiente local Node 22; não identifica origem do cancelamento remoto.</td></tr>
 <tr><td>Comparações DOM/null convertidas para booleanos</td><td>8 executados, 6 aprovados, 2 falhos, cerca de 4s.</td><td>Expõe falhas dos cenários de busca e limpeza; não corrige contrato.</td></tr>
 <tr><td>Mock com prefixo de nome + buscas atualizadas + espera assíncrona</td><td>8 executados, 8 aprovados, 0 falhas/cancelados/skips/TODO, cerca de 4s.</td><td>Cópia temporária diagnóstica; não representa a validação integral nem o commit futuro.</td></tr>
 <tr><td>Fábrica atual + plugin React</td><td>include com 4 dependências; otimizador ativo.</td><td>Confirma a insuficiência de noDiscovery isolado.</td></tr>
 <tr><td>Hook post experimental</td><td>noDiscovery=true, include=[], otimizador ausente.</td><td>Requer regressão nos consumidores existentes.</td></tr>
 <tr><td>Implementação: <code>driversPage.test.mjs</code> e <code>viteTestServer.test.mjs</code></td><td>Passaram, sem falha/cancelamento/skip/TODO, cerca de 9s.</td><td>Executado em Node 22.22.2; não valida as demais suítes nem Node 24.</td></tr>
+<tr><td>Implementação: <code>userManagementPage.test.mjs</code></td><td>Arquivo inteiro passou em cerca de 14s; o caso 8 isolado passou em cerca de 6s.</td><td>Execuções limitadas a heap de 384 MB e timeout de 20s; Node 22.22.2. Não valida Node 24 nem a suíte frontend completa.</td></tr>
 <tr><td>Implementação: <code>npm run lint</code></td><td>Passou.</td><td>Executado antes dos ajustes adicionais nas suítes antigas.</td></tr>
 <tr><td>Execução frontend completa antes das correções adicionais</td><td>47 arquivos passaram; falharam <code>requestAnalysisPage.test.mjs</code>, <code>routing.test.mjs</code> e <code>userManagementPage.test.mjs</code>.</td><td>Os casos incompatíveis foram atualizados. A reexecução subsequente consumiu recursos excessivos e foi interrompida; o resultado após esses ajustes permanece sem confirmação.</td></tr>
 <tr><td><code>git diff --check</code></td><td>Passou depois das alterações.</td><td>Validação estática de whitespace; não substitui testes.</td></tr>
