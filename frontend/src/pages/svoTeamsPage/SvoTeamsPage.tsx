@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert, Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle,
   Stack, Typography, useMediaQuery, useTheme,
@@ -86,21 +86,22 @@ export default function SvoTeamsPage() {
     ...(search.trim() ? { search: search.trim() } : {}),
   }), [view, page, search])
 
-  const load = useCallback(async (): Promise<void> => {
-    if (!canRead) { setLoading(false); return }
-    setLoading(true)
-    setLoadError('')
-    try {
-      const result = await listSvoTeamPage(api, filters)
-      setTeams(result)
-      const lastPage = Math.max(1, result.totalPages)
-      if (page > lastPage) setPage(lastPage)
-    } catch (requestError) {
-      setLoadError(requestError instanceof Error ? requestError.message : 'Não foi possível consultar as equipes SVO.')
-    } finally { setLoading(false) }
-  }, [api, canRead, filters, page])
-
-  useEffect(() => { void load() }, [load, refreshToken])
+  useEffect(() => {
+    if (!canRead) return
+    let active = true
+    listSvoTeamPage(api, filters)
+      .then((result) => {
+        if (!active) return
+        setTeams(result)
+        const lastPage = Math.max(1, result.totalPages)
+        if (page > lastPage) setPage(lastPage)
+      })
+      .catch((requestError: unknown) => {
+        if (active) setLoadError(requestError instanceof Error ? requestError.message : 'Não foi possível consultar as equipes SVO.')
+      })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [api, canRead, filters, page, refreshToken])
 
   useEffect(() => { if (notice) noticeRef.current?.focus() }, [notice])
 
@@ -116,6 +117,8 @@ export default function SvoTeamsPage() {
       setRemoveMember(null); setShiftDraft(null); setCancelShift(null); setDetailsTeam(null)
       setCreateName(''); setMemberId(''); setTeamReason(''); setStatusReason('')
       setRemoveReason(''); setShiftReason(''); setCancelReason('')
+      setLoading(true)
+      setLoadError('')
       setRefreshToken((value) => value + 1)
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Não foi possível salvar as alterações.')
@@ -123,6 +126,7 @@ export default function SvoTeamsPage() {
   }
 
   function reload(): void {
+    setLoading(true)
     setLoadError('')
     setRefreshToken((value) => value + 1)
   }

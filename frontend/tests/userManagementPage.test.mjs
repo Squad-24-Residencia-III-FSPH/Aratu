@@ -63,8 +63,8 @@ after(async () => {
 })
 
 const profiles = [
-  { id: '1', name: 'ADMINISTRADOR', description: 'Administração do sistema', createdAt: '2026-01-01T00:00:00.000Z' },
-  { id: '2', name: 'GESTOR', description: 'Gestão de frota', createdAt: '2026-01-01T00:00:00.000Z' },
+  { id: '1', name: 'ADMINISTRADOR', displayName: 'Administrador do Sistema', description: 'Administração do sistema', active: true, revision: 1, defaultPath: '/administracao/usuarios', activeUserCount: 1, createdAt: '2026-01-01T00:00:00.000Z' },
+  { id: '2', name: 'GESTOR', displayName: 'Gestor de Frota', description: 'Gestão de frota', active: true, revision: 1, defaultPath: '/solicitacoes/analisar', activeUserCount: 2, createdAt: '2026-01-01T00:00:00.000Z' },
 ]
 
 function makeUser(id, overrides = {}) {

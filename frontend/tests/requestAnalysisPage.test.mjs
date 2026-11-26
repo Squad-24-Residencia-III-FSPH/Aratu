@@ -3,10 +3,10 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { createElement } from 'react'
+import { createElement, Fragment } from 'react'
 import { JSDOM } from 'jsdom'
 import { fileURLToPath } from 'node:url'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { sessionFor } from './fixtures.mjs'
@@ -41,6 +41,17 @@ const [{ default: RequestAnalysisPage }, { AuthContext }] = await Promise.all([
 afterEach(() => cleanup())
 after(async () => { await vite.close(); dom.window.close() })
 
+function LocationProbe() {
+  const location = useLocation()
+  return createElement('output', { 'data-testid': 'router-location' }, `${location.pathname}${location.search}`)
+}
+
+function mount(auth) {
+  render(createElement(MemoryRouter, null,
+    createElement(AuthContext.Provider, { value: auth },
+      createElement(Fragment, null, createElement(RequestAnalysisPage), createElement(LocationProbe)))))
+}
+
 const request = {
   id: '41', requesterId: '8', requesterName: 'Solicitante Fictício', serviceId: '5',
   serviceName: 'Transporte institucional', requestedDate: '2026-12-15', requestedTime: '08:30',
@@ -68,10 +79,9 @@ test('seleciona, lê os detalhes e rejeita com justificativa; a solicitação sa
   }
   const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
   const user = userEvent.setup()
-  render(createElement(MemoryRouter, null,
-    createElement(AuthContext.Provider, { value: auth }, createElement(RequestAnalysisPage))))
+  mount(auth)
 
-  assert.equal(document.title, 'Análise de solicitações — Aratu')
+  assert.equal(document.title, 'Solicitações | Aratu')
   assert.ok(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
   await user.click(screen.getByRole('button', { name: 'Ver detalhes da solicitação 41' }))
   assert.ok(await screen.findByText('Atividade institucional fictícia'))
@@ -93,31 +103,18 @@ test('seleciona, lê os detalhes e rejeita com justificativa; a solicitação sa
   await waitFor(() => assert.equal(document.activeElement, screen.getByRole('status')))
 })
 
-test('aprovação oferece atalho para agendar a solicitação aprovada', async () => {
-  let listCalls = 0
+test('gestor encaminha a solicitação para o fluxo de agendamento sem aprová-la antes', async () => {
   const api = async (path) => {
-    if (path.startsWith('/requests?')) {
-      listCalls += 1
-      return Response.json({ requests: listCalls === 1 ? [request] : [], total: listCalls === 1 ? 1 : 0, page: 1, pageSize: 20, totalPages: listCalls === 1 ? 1 : 0 })
-    }
+    if (path.startsWith('/requests?')) return Response.json({ requests: [request], total: 1, page: 1, pageSize: 20, totalPages: 1 })
     if (path === '/requests/41') return Response.json(request)
-    if (path === '/requests/41/approve') return Response.json({ id: '41', status: 'APPROVED' })
     throw new Error(`Rota de teste inesperada: ${path}`)
   }
   const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
   const user = userEvent.setup()
-  render(createElement(MemoryRouter, null,
-    createElement(AuthContext.Provider, { value: auth }, createElement(RequestAnalysisPage))))
+  mount(auth)
   await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
-  await user.click(await screen.findByRole('button', { name: 'Aprovar solicitação' }))
-  const dialog = await screen.findByRole('dialog')
-  await user.click(within(dialog).getByRole('button', { name: 'Aprovar solicitação' }))
-  assert.ok(await screen.findByText('Solicitação #41 aprovada.'))
-  const scheduleLink = screen.getByText('Agendar viagem').closest('a')
-  assert.equal(scheduleLink?.getAttribute('href'), '#/agendar-viagem?requestId=41')
-  await waitFor(() => assert.equal(listCalls, 2))
-  assert.ok(await screen.findByText('Nenhuma solicitação pendente encontrada.'))
-  assert.equal(screen.queryByRole('button', { name: 'Ver detalhes da solicitação 41' }), null)
+  await user.click(screen.getByRole('button', { name: 'Aprovar e agendar' }))
+  assert.equal(screen.getByTestId('router-location').textContent, '/agendar-viagem?requestId=41')
 })
 
 test('devolve solicitação para correção com observação e revisão atual', async () => {
@@ -133,8 +130,7 @@ test('devolve solicitação para correção com observação e revisão atual', 
   }
   const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
   const user = userEvent.setup()
-  render(createElement(MemoryRouter, null,
-    createElement(AuthContext.Provider, { value: auth }, createElement(RequestAnalysisPage))))
+  mount(auth)
   await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
   await user.click(await screen.findByRole('button', { name: 'Devolver para correção' }))
   const dialog = await screen.findByRole('dialog')
@@ -145,7 +141,7 @@ test('devolve solicitação para correção com observação e revisão atual', 
   assert.deepEqual(returnBody, { reason: 'Confirme o endereço de origem', expectedRevision: 1 })
 })
 
-test('mostra estado parcial quando a decisão foi salva e a atualização da lista falha', async () => {
+test('mostra estado parcial quando a recusa foi salva e a atualização da lista falha', async () => {
   let listCalls = 0
   const api = async (path) => {
     if (path.startsWith('/requests?')) {
@@ -154,21 +150,21 @@ test('mostra estado parcial quando a decisão foi salva e a atualização da lis
       return Response.json({ requests: listCalls === 1 ? [request] : [], total: listCalls === 1 ? 1 : 0, page: 1, pageSize: 20, totalPages: listCalls === 1 ? 1 : 0 })
     }
     if (path === '/requests/41') return Response.json(request)
-    if (path === '/requests/41/approve') return Response.json({ id: '41', status: 'APPROVED' })
+    if (path === '/requests/41/reject') return Response.json({ id: '41', status: 'REJECTED' })
     throw new Error(`Rota de teste inesperada: ${path}`)
   }
   const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
   const user = userEvent.setup()
-  render(createElement(MemoryRouter, null,
-    createElement(AuthContext.Provider, { value: auth }, createElement(RequestAnalysisPage))))
+  mount(auth)
   await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
-  await user.click(await screen.findByRole('button', { name: 'Aprovar solicitação' }))
+  await user.click(await screen.findByRole('button', { name: 'Recusar definitivamente' }))
   const dialog = await screen.findByRole('dialog')
-  await user.click(within(dialog).getByRole('button', { name: 'Aprovar solicitação' }))
+  await user.type(within(dialog).getByRole('textbox', { name: 'Justificativa da recusa definitiva' }), 'Sem disponibilidade operacional')
+  await user.click(within(dialog).getByRole('button', { name: 'Recusar definitivamente' }))
 
   assert.ok(await screen.findByText('A decisão foi registrada, mas a lista pode estar desatualizada.'))
   assert.ok(screen.getByText('Falha ao atualizar a lista.'))
-  assert.ok(screen.getByText('Agendar viagem'))
+  assert.equal(screen.queryByText('Agendar viagem'), null)
   await user.click(await screen.findByRole('button', { name: 'Tentar novamente' }))
   await waitFor(() => assert.equal(listCalls, 3))
   await waitFor(() => assert.equal(screen.queryByText('A decisão foi registrada, mas a lista pode estar desatualizada.'), null))
@@ -182,19 +178,19 @@ test('preserva o erro da API quando outro Gestor já analisou a solicitação', 
       return Response.json({ requests: [request], total: 1, page: 1, pageSize: 20, totalPages: 1 })
     }
     if (path === '/requests/41') return Response.json(request)
-    if (path === '/requests/41/approve') {
+    if (path === '/requests/41/reject') {
       return Response.json({ erro: 'Esta solicitação já foi analisada por outro Gestor.' }, { status: 409 })
     }
     throw new Error(`Rota de teste inesperada: ${path}`)
   }
   const auth = { session: sessionFor('GESTOR'), signIn: async () => {}, logout() {}, api, notice: '' }
   const user = userEvent.setup()
-  render(createElement(MemoryRouter, null,
-    createElement(AuthContext.Provider, { value: auth }, createElement(RequestAnalysisPage))))
+  mount(auth)
   await user.click(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
-  await user.click(await screen.findByRole('button', { name: 'Aprovar solicitação' }))
+  await user.click(await screen.findByRole('button', { name: 'Recusar definitivamente' }))
   const dialog = await screen.findByRole('dialog')
-  await user.click(within(dialog).getByRole('button', { name: 'Aprovar solicitação' }))
+  await user.type(within(dialog).getByRole('textbox', { name: 'Justificativa da recusa definitiva' }), 'Sem disponibilidade operacional')
+  await user.click(within(dialog).getByRole('button', { name: 'Recusar definitivamente' }))
 
   const error = await within(dialog).findByRole('alert')
   assert.equal(error.textContent, 'Esta solicitação já foi analisada por outro Gestor.')
@@ -211,8 +207,7 @@ test('administrador consulta e abre os dados sem receber ações de decisão', a
   }
   const auth = { session: sessionFor('ADMINISTRADOR'), signIn: async () => {}, logout() {}, api, notice: '' }
   const user = userEvent.setup()
-  render(createElement(MemoryRouter, null,
-    createElement(AuthContext.Provider, { value: auth }, createElement(RequestAnalysisPage))))
+  mount(auth)
 
   assert.ok(await screen.findByRole('button', { name: 'Ver detalhes da solicitação 41' }))
   assert.ok(screen.getByText('A consulta está disponível para manutenção e supervisão. Decisões operacionais são registradas pelo Gestor.'))

@@ -50,6 +50,18 @@ function makeDriver(id, overrides = {}) {
     createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', ...overrides }
 }
 function jsonResponse(value, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }) }
+function driversPageResponse(path, items) {
+  const url = new URL(path, 'http://localhost')
+  const page = Number(url.searchParams.get('page') ?? 1)
+  const pageSize = Number(url.searchParams.get('pageSize') ?? 20)
+  return jsonResponse({
+    items: items.slice((page - 1) * pageSize, page * pageSize),
+    total: items.length,
+    page,
+    pageSize,
+    totalPages: Math.ceil(items.length / pageSize),
+  })
+}
 function renderPage(api, profile = 'GESTOR') {
   const auth = { session: sessionFor(profile), signIn: async () => {}, logout() {}, api, notice: '' }
   return render(createElement(AuthContext.Provider, { value: auth }, createElement(DriversPage)))
@@ -58,16 +70,20 @@ function renderPage(api, profile = 'GESTOR') {
 test('mostra carregamento e lista preenchida, busca por nome/CNH e paginação', async () => {
   let resolveList
   const pending = new Promise((resolve) => { resolveList = resolve })
-  const drivers = Array.from({ length: 12 }, (_, index) => makeDriver(index + 1))
-  const api = async () => pending
+  const drivers = Array.from({ length: 25 }, (_, index) => makeDriver(index + 1))
+  let firstLoad = true
+  const api = async (path) => {
+    if (firstLoad) { firstLoad = false; return pending }
+    return driversPageResponse(path, drivers)
+  }
   renderPage(api)
-  assert.ok(await screen.findByText('Carregando motoristas...'))
-  resolveList(jsonResponse(drivers))
+  assert.ok(await screen.findByText('Carregando motoristas…'))
+  resolveList(driversPageResponse('/drivers?page=1&pageSize=20', drivers))
   assert.ok(await screen.findByText('Motorista Fictício 1'))
-  assert.equal(screen.queryByText('Motorista Fictício 11'), null)
+  assert.equal(screen.queryByText('Motorista Fictício 21'), null)
   await userEvent.setup().click(screen.getByRole('button', { name: 'Próxima' }))
-  assert.ok(await screen.findByText('Motorista Fictício 11'))
-  const search = screen.getByRole('textbox', { name: 'Buscar motoristas por nome ou CNH' })
+  assert.ok(await screen.findByText('Motorista Fictício 21'))
+  const search = screen.getByRole('textbox', { name: 'Buscar pelo nome' })
   fireEvent.change(search, { target: { value: 'CNH2' } })
   assert.ok(await screen.findByText('Motorista Fictício 2'))
   assert.equal(screen.queryByText('Motorista Fictício 12'), null)
@@ -77,7 +93,8 @@ test('mostra erro sem estado vazio e mantém retry', async () => {
   let attempts = 0
   const api = async () => {
     attempts += 1
-    return attempts === 1 ? jsonResponse({ erro: 'Falha fictícia ao listar.' }, 503) : jsonResponse([])
+    if (attempts === 1) return jsonResponse({ erro: 'Falha fictícia ao listar.' }, 503)
+    return driversPageResponse('/drivers?page=1&pageSize=20', [])
   }
   renderPage(api)
   assert.ok(await screen.findByText('Falha fictícia ao listar.'))
@@ -93,12 +110,12 @@ test('cadastro envia situação inicial, justificativa e bloqueia envio duplicad
   const api = async (path, request = {}) => {
     calls.push({ path, request })
     if (request.method === 'POST') return new Promise((resolve) => { resolveCreate = resolve })
-    return jsonResponse([])
+    return path.startsWith('/drivers?') ? driversPageResponse(path, []) : jsonResponse([])
   }
   renderPage(api)
   await screen.findByText('Nenhum motorista cadastrado')
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Cadastrar Motorista' }))
+  await user.click(screen.getByRole('button', { name: 'Cadastrar motorista' }))
   await user.type(screen.getByRole('textbox', { name: 'Nome completo' }), 'Motorista de Teste')
   await user.type(screen.getByRole('textbox', { name: 'CPF' }), '12345678901')
   await user.type(screen.getByRole('textbox', { name: 'Número da CNH' }), '12345678901')
@@ -127,17 +144,18 @@ test('confirma inativação com justificativa, revisão e mensagem de erro da AP
   const api = async (path, request = {}) => {
     calls.push({ path, request })
     if (request.method === 'PATCH') return jsonResponse({ erro: 'Conflito fictício de revisão.' }, 409)
-    return jsonResponse([driver])
+    return path.startsWith('/drivers?') ? driversPageResponse(path, [driver]) : jsonResponse([driver])
   }
   renderPage(api)
   await screen.findByText('Motorista Fictício 4')
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Inativar Motorista Fictício 4' }))
-  await user.click(screen.getByRole('button', { name: 'Inativar', exact: true }))
+  await user.click(screen.getByRole('button', { name: 'Ações do motorista Motorista Fictício 4' }))
+  await user.click(await screen.findByRole('menuitem', { name: 'Arquivar' }))
+  await user.click(screen.getByRole('button', { name: 'Arquivar', exact: true }))
   assert.ok(await screen.findByText('Informe a justificativa da mudança de situação.'))
   assert.equal(calls.filter(({ request }) => request.method === 'PATCH').length, 0)
   await user.type(screen.getByRole('textbox', { name: 'Justificativa' }), 'Encerramento fictício')
-  await user.click(screen.getByRole('button', { name: 'Inativar', exact: true }))
+  await user.click(screen.getByRole('button', { name: 'Arquivar', exact: true }))
   assert.ok(await screen.findByText('Conflito fictício de revisão.'))
   const statusCall = calls.find(({ request }) => request.method === 'PATCH')
   assert.equal(statusCall.path, '/drivers/4/status')
@@ -152,12 +170,13 @@ test('edição envia campos atualizados e a revisão retornada pela consulta', a
   const api = async (path, request = {}) => {
     calls.push({ path, request })
     if (request.method === 'PUT') return jsonResponse({ ...driver, name: 'Nome Atualizado', revision: 8 })
-    return path === '/drivers/5' ? jsonResponse(driver) : jsonResponse([driver])
+    return path === '/drivers/5' ? jsonResponse(driver) : driversPageResponse(path, [driver])
   }
   renderPage(api)
   await screen.findByText('Motorista Fictício 5')
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Editar Motorista Fictício 5' }))
+  await user.click(screen.getByRole('button', { name: 'Ações do motorista Motorista Fictício 5' }))
+  await user.click(await screen.findByRole('menuitem', { name: 'Editar cadastro' }))
   const name = screen.getByRole('textbox', { name: 'Nome completo' })
   await user.clear(name)
   await user.type(name, 'Nome Atualizado')
@@ -179,17 +198,17 @@ test('gestor não recebe seletor de contas, administrador recebe e pode carregá
   const api = async (path) => {
     seen.push(path)
     if (path.startsWith('/users?')) return jsonResponse({ users: [], total: 0, page: 1, pageSize: 100, totalPages: 0 })
-    return jsonResponse([])
+    return path.startsWith('/drivers?') ? driversPageResponse(path, []) : jsonResponse([])
   }
   const { unmount } = renderPage(api, 'GESTOR')
   await screen.findByText('Nenhum motorista cadastrado')
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Cadastrar Motorista' }))
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Cadastrar motorista' }))
   assert.equal(screen.queryByLabelText('Conta de usuário vinculada (opcional)'), null)
   assert.equal(seen.some((path) => path.startsWith('/users?')), false)
   unmount()
   renderPage(api, 'ADMINISTRADOR')
   await screen.findByText('Nenhum motorista cadastrado')
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Cadastrar Motorista' }))
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Cadastrar motorista' }))
   assert.ok(await screen.findByRole('combobox', { name: 'Conta de usuário vinculada (opcional)' }))
   await waitFor(() => assert.ok(seen.some((path) => path.startsWith('/users?'))))
 })
@@ -198,11 +217,11 @@ test('limpar filtros refaz a consulta e volta a exibir a lista completa', async 
   let listCalls = 0
   const api = async (path) => {
     if (path.startsWith('/drivers')) listCalls += 1
-    return jsonResponse([makeDriver(1), makeDriver(2)])
+    return driversPageResponse(path, [makeDriver(1), makeDriver(2)])
   }
   renderPage(api)
   await screen.findByText('Motorista Fictício 1')
-  const search = screen.getByRole('textbox', { name: 'Buscar motoristas por nome ou CNH' })
+  const search = screen.getByRole('textbox', { name: 'Buscar pelo nome' })
   fireEvent.change(search, { target: { value: 'Fictício 1' } })
   assert.equal(screen.queryByText('Motorista Fictício 2'), null)
   await userEvent.setup().click(screen.getByRole('button', { name: 'Limpar filtros' }))
@@ -221,12 +240,12 @@ test('detalhes exibem CPF mascarado e permitem repetir a consulta após erro', a
         ? jsonResponse({ erro: 'Falha fictícia no detalhe.' }, 503)
         : jsonResponse(driver)
     }
-    return jsonResponse([driver])
+    return path.startsWith('/drivers?') ? driversPageResponse(path, [driver]) : jsonResponse([driver])
   }
   renderPage(api)
   await screen.findByText('Motorista Fictício 3')
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Consultar detalhes de Motorista Fictício 3' }))
+  await user.click(screen.getByRole('button', { name: 'Ver detalhes de Motorista Fictício 3' }))
   assert.ok(await screen.findByText('Falha fictícia no detalhe.'))
   assert.equal(screen.queryByText('123.456.789-01'), null)
   await user.click(screen.getByRole('button', { name: 'Tentar novamente' }))

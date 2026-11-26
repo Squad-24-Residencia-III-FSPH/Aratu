@@ -109,16 +109,13 @@ export default function AuditLogsPage() {
   }))
   const [historyQuery, setHistoryQuery] = useState<HistoryDraft | null>(() =>
     validDeepLink ? { entityType: deepLinkEntity ?? 'vehicle', recordId: linkedRecordId, from: '', to: '', page: 1 } : null)
-  const [historyResult, setHistoryResult] = useState<HistoryResult | null>(null)
+  const [historyResult, setHistoryResult] = useState<{ queryKey: string; result: HistoryResult } | null>(null)
   const [selectedHistory, setSelectedHistory] = useState<AuditHistoryEntry | null>(null)
 
   useEffect(() => { document.title = 'Registros de auditoria — Aratu' }, [])
 
   useEffect(() => {
-    if (!canReadOperations) {
-      setResult({ kind: 'forbidden' })
-      return
-    }
+    if (!canReadOperations) return
     const controller = new AbortController()
     void readAuditLogs(api, query.filters, query.page, controller.signal).then(
       data => { if (!controller.signal.aborted) setResult({ kind: 'ready', data }) },
@@ -133,20 +130,16 @@ export default function AuditLogsPage() {
   }, [api, canReadOperations, query])
 
   useEffect(() => {
-    if (!historyQuery) return
-    if (!canReadHistory) {
-      setHistoryResult({ kind: 'forbidden' })
-      return
-    }
+    if (!historyQuery || !canReadHistory) return
+    const queryKey = JSON.stringify(historyQuery)
     const controller = new AbortController()
-    setHistoryResult({ kind: 'loading' })
     void readAuditHistory(api, historyQuery.entityType, historyQuery.recordId,
       historyQuery.from, historyQuery.to, historyQuery.page ?? 1, controller.signal).then(
-      data => { if (!controller.signal.aborted) setHistoryResult({ kind: 'ready', data }) },
+      data => { if (!controller.signal.aborted) setHistoryResult({ queryKey, result: { kind: 'ready', data } }) },
       error => {
         if (controller.signal.aborted) return
-        if (error instanceof AuditAccessDenied) setHistoryResult({ kind: 'forbidden' })
-        else setHistoryResult({ kind: 'error', message: error instanceof Error ? error.message : 'Não foi possível consultar o histórico.' })
+        if (error instanceof AuditAccessDenied) setHistoryResult({ queryKey, result: { kind: 'forbidden' } })
+        else setHistoryResult({ queryKey, result: { kind: 'error', message: error instanceof Error ? error.message : 'Não foi possível consultar o histórico.' } })
       },
     )
     return () => controller.abort()
@@ -191,7 +184,12 @@ export default function AuditLogsPage() {
     setSearchParams(params, { replace: true })
   }
 
-  const data = result.kind === 'ready' ? result.data : null
+  const visibleResult = canReadOperations ? result : { kind: 'forbidden' as const }
+  const data = visibleResult.kind === 'ready' ? visibleResult.data : null
+  const historyQueryKey = historyQuery ? JSON.stringify(historyQuery) : null
+  const visibleHistoryResult: HistoryResult | null = !historyQuery ? null
+    : !canReadHistory ? { kind: 'forbidden' }
+      : historyResult?.queryKey === historyQueryKey ? historyResult.result : { kind: 'loading' }
   return (
     <Box sx={{ width: '100%', minWidth: 0, '& :is(button, a, pre):focus-visible': { outline: `2px solid ${theme.palette.text.primary}`, outlineOffset: 2 } }}>
       <PageHeader title="Registros de auditoria"
@@ -227,10 +225,10 @@ export default function AuditLogsPage() {
           <Button color="inherit" onClick={() => { setDraft(empty); setFilterError(null); load(empty) }}>Limpar filtros</Button>
         </FilterBar>
       </Box>
-      {result.kind === 'loading' && <StateFeedback kind="loading" title="Carregando registros de auditoria…" />}
-      {result.kind === 'error' && <StateFeedback kind="error" title={result.message}
+      {visibleResult.kind === 'loading' && <StateFeedback kind="loading" title="Carregando registros de auditoria…" />}
+      {visibleResult.kind === 'error' && <StateFeedback kind="error" title={visibleResult.message}
         actionLabel="Tentar novamente" onAction={() => load(query.filters, query.page)} />}
-      {result.kind === 'forbidden' && <StateFeedback kind="forbidden" title="Seu perfil não pode consultar estes registros." />}
+      {visibleResult.kind === 'forbidden' && <StateFeedback kind="forbidden" title="Seu perfil não pode consultar estes registros." />}
       {data?.partial && <StateFeedback kind="partial" title="A resposta contém registros inválidos que foram ocultados." />}
       {data && !data.logs.length && <StateFeedback kind="empty" title="Nenhum registro encontrado."
         description="Revise os filtros ou tente outro período." />}
@@ -288,14 +286,18 @@ export default function AuditLogsPage() {
         </Box>
         {!historyQuery && <StateFeedback kind="empty" title="Selecione um cadastro para consultar o histórico."
           description="Escolha o tipo do registro e informe seu identificador." />}
-        {historyResult?.kind === 'loading' && <StateFeedback kind="loading" title="Carregando histórico do registro…" />}
-        {historyResult?.kind === 'error' && <StateFeedback kind="error" title={historyResult.message}
-          actionLabel="Tentar novamente" onAction={() => setHistoryQuery(historyQuery ? { ...historyQuery } : null)} />}
-        {historyResult?.kind === 'forbidden' && <StateFeedback kind="forbidden" title="Seu perfil não pode consultar este histórico." />}
-        {historyResult?.kind === 'ready' && historyResult.data.items.length === 0 && <StateFeedback kind="empty" title="Nenhum evento encontrado."
+        {visibleHistoryResult?.kind === 'loading' && <StateFeedback kind="loading" title="Carregando histórico do registro…" />}
+        {visibleHistoryResult?.kind === 'error' && <StateFeedback kind="error" title={visibleHistoryResult.message}
+          actionLabel="Tentar novamente" onAction={() => {
+            if (!historyQuery) return
+            setHistoryResult({ queryKey: JSON.stringify(historyQuery), result: { kind: 'loading' } })
+            setHistoryQuery({ ...historyQuery })
+          }} />}
+        {visibleHistoryResult?.kind === 'forbidden' && <StateFeedback kind="forbidden" title="Seu perfil não pode consultar este histórico." />}
+        {visibleHistoryResult?.kind === 'ready' && visibleHistoryResult.data.items.length === 0 && <StateFeedback kind="empty" title="Nenhum evento encontrado."
           description="O registro ainda não possui alterações disponíveis para consulta." />}
-        {historyResult?.kind === 'ready' && historyResult.data.items.length > 0 && <>
-          <DataTable caption={`Histórico do registro ${historyResult.data.recordId}`} rows={historyResult.data.items}
+        {visibleHistoryResult?.kind === 'ready' && visibleHistoryResult.data.items.length > 0 && <>
+          <DataTable caption={`Histórico do registro ${visibleHistoryResult.data.recordId}`} rows={visibleHistoryResult.data.items}
             rowKey={row => row.id} columns={[
               { key: 'date', header: 'Data e hora', render: row => <time dateTime={row.occurredAt}>{formatDate(row.occurredAt)}</time> },
               { key: 'event', header: 'Evento', render: row => row.eventType.replaceAll('_', ' ') },
@@ -304,9 +306,9 @@ export default function AuditLogsPage() {
             ]} renderActions={row => <Button color="inherit" aria-label={`Ver evento ${row.eventType} ${row.id}`}
               onClick={() => setSelectedHistory(row)}>Detalhes</Button>} />
           <Stack component="nav" aria-label="Paginação do histórico" direction="row" sx={{ mt: 2, alignItems: 'center', gap: 1 }}>
-            <Button color="inherit" disabled={historyResult.data.page <= 1} onClick={() => setHistoryQuery(historyQuery ? { ...historyQuery, page: Math.max(1, historyResult.data.page - 1) } : null)}>Anterior</Button>
-            <Typography role="status">{historyResult.data.total} evento(s) · Página {historyResult.data.page} de {historyResult.data.totalPages}</Typography>
-            <Button color="inherit" disabled={historyResult.data.page >= historyResult.data.totalPages} onClick={() => setHistoryQuery(historyQuery ? { ...historyQuery, page: historyResult.data.page + 1 } : null)}>Próxima</Button>
+            <Button color="inherit" disabled={visibleHistoryResult.data.page <= 1} onClick={() => setHistoryQuery(historyQuery ? { ...historyQuery, page: Math.max(1, visibleHistoryResult.data.page - 1) } : null)}>Anterior</Button>
+            <Typography role="status">{visibleHistoryResult.data.total} evento(s) · Página {visibleHistoryResult.data.page} de {visibleHistoryResult.data.totalPages}</Typography>
+            <Button color="inherit" disabled={visibleHistoryResult.data.page >= visibleHistoryResult.data.totalPages} onClick={() => setHistoryQuery(historyQuery ? { ...historyQuery, page: visibleHistoryResult.data.page + 1 } : null)}>Próxima</Button>
           </Stack>
         </>}
       </>}

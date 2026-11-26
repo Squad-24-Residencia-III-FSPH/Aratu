@@ -179,11 +179,7 @@ export default function UserManagementPage() {
   const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
-    if (!canManageUsers) {
-      setProfiles([])
-      setProfilesLoading(false)
-      return
-    }
+    if (!canManageUsers) return
     let active = true
 
     listProfiles(api)
@@ -221,14 +217,8 @@ export default function UserManagementPage() {
   }
 
   useEffect(() => {
+    if (!canRead) return
     let active = true
-    if (!canRead) {
-      setUsers([])
-      setTotal(0)
-      setTotalPages(0)
-      setListLoading(false)
-      return () => { active = false }
-    }
     listUsers(api, {
       ...(search.trim() ? { name: search.trim() } : {}),
       ...(roleFilter ? { role: roleFilter } : {}),

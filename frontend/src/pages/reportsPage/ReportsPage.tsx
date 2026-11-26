@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Box, Button, Stack, Typography } from '@mui/material'
 import { useAuth } from '../../auth/useAuth'
-import { hasPermission } from '../../auth/access'
+import { hasAnyPermission, hasPermission } from '../../auth/access'
 import { tokenUserId } from '../../auth/token'
 import PageHeader from '../../components/ui/PageHeader'
 import FilterBar from '../../components/ui/FilterBar'
@@ -19,7 +19,7 @@ import styles from './ReportsPage.module.css'
 /** Orquestra o catálogo modular, os filtros e a conferência dos relatórios operacionais. */
 export default function ReportsPage() {
   const { api, session } = useAuth()
-  const allowed = Boolean(session?.permissions?.some((permission) => permission.startsWith('reports:read:')))
+  const allowed = hasAnyPermission(session, ['reports:read:trips', 'reports:read:fleet', 'reports:read:maintenance', 'reports:read:svo', 'reports:read:auth'])
   const accessRevision = `${session?.profile?.id ?? session?.perfil ?? ''}:${session?.profile?.revision ?? 0}`
   const state = useReports(api, session ? tokenUserId(session.token) : null, allowed, accessRevision)
   useEffect(() => { document.title = 'Relatórios Operacionais — Aratu' }, [])

@@ -41,15 +41,12 @@ test('links operacionais aparecem apenas nos perfis autorizados', () => {
   }
 })
 
-test('SOLICITANTE recebe ação para criar pedido e destinos reais no celular', () => {
+test('SOLICITANTE vê apenas suas solicitações; a criação fica na ação principal da tela', () => {
   const navigation = getSidebarNavigation('SOLICITANTE')
   const createAction = allItems(navigation).find((item) => item.label === 'Nova solicitação')
 
-  assert.deepEqual(
-    { behavior: createAction?.behavior, action: createAction?.action },
-    { behavior: 'action', action: 'open-request' },
-  )
-  assert.equal(navigation.primaryAction?.action, 'open-request')
+  assert.equal(createAction, undefined)
+  assert.deepEqual(navigation.topItems.map(({ label, path }) => [label, path]), [['Minhas solicitações', '/solicitacoes/minhas']])
   assert.deepEqual(navigation.mobileItems.map(({ path }) => path), ['/solicitacoes/minhas'])
 })
 
@@ -59,7 +56,7 @@ test('controles sem destino não são publicados e módulos conectados têm rota
     assert.equal(labels.includes('Configurações'), false)
     assert.equal(labels.includes('Ajuda'), false)
     assert.equal(labels.includes('Documentos'), profile === 'GESTOR' || profile === 'ADMINISTRADOR')
-    assert.equal(labels.includes('Multas e Infrações'), profile === 'GESTOR' || profile === 'ADMINISTRADOR')
+    assert.equal(labels.includes('Multas'), profile === 'GESTOR' || profile === 'ADMINISTRADOR')
   }
   assert.deepEqual(allItems(getSidebarNavigation(null)), [])
 })

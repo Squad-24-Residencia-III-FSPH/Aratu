@@ -1,5 +1,5 @@
 import type { AuthSession } from './types'
-import { resolveProfile } from './profiles'
+import { resolveProfile } from './profiles.ts'
 
 type SessionAccess = Pick<AuthSession, 'perfil' | 'permissions'> | null
 

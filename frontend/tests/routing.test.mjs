@@ -9,12 +9,13 @@ import { TRIP_AGENDA_PATH } from '../src/trips/tripAgendaTypes.ts'
 import { SVO_OCCURRENCES_PATH } from '../src/svo/svoOccurrenceTypes.ts'
 import { SERVICE_TYPES_PATH } from '../src/services/fleetServicesAccess.ts'
 import { SVO_TEAMS_PATH } from '../src/svo/svoTeamTypes.ts'
+import { SVO_ORDERS_PATH, SVO_TEAM_ORDERS_PATH } from '../src/svo/svoOrderTypes.ts'
 import { VEHICLE_DOCUMENTS_PATH } from '../src/vehicleDocuments/vehicleDocumentTypes.ts'
 import { FINES_PATH } from '../src/fines/fineTypes.ts'
 
 const destinations = [
   ['ADMINISTRADOR', '/administracao/usuarios'],
-  ['GESTOR', '/frota/inicio'],
+  ['GESTOR', '/solicitacoes/analisar'],
   ['SOLICITANTE', '/solicitacoes/minhas'],
   ['MOTORISTA', '/viagens/minhas'],
   ['ATENDENTE_SVO', '/svo/solicitacoes'],
@@ -34,13 +35,33 @@ test('acompanhamento SVO admite consulta pelo atendente, gestor e administrador'
   assert.deepEqual(resolveRoute(null, '/svo/acompanhamento'), { kind: 'redirect', to: '/login' })
 })
 
+test('ordens SVO aplicam escopo de equipe e escopo de supervisão', () => {
+  for (const [profile, home] of destinations) {
+    const mayReadTeamOrders = ['EQUIPE_SVO', 'ATENDENTE_SVO', 'GESTOR', 'ADMINISTRADOR'].includes(profile)
+    assert.deepEqual(resolveRoute(sessionFor(profile), SVO_TEAM_ORDERS_PATH), mayReadTeamOrders
+      ? { kind: 'svo-team-orders', profile }
+      : { kind: 'redirect', to: home })
+  }
+  assert.deepEqual(resolveRoute(null, SVO_TEAM_ORDERS_PATH), { kind: 'redirect', to: '/login' })
+  for (const [profile, home] of destinations) {
+    const mayReadAllOrders = ['ATENDENTE_SVO', 'GESTOR', 'ADMINISTRADOR'].includes(profile)
+    assert.deepEqual(resolveRoute(sessionFor(profile), SVO_ORDERS_PATH), mayReadAllOrders
+      ? { kind: 'svo-orders', profile }
+      : { kind: 'redirect', to: home })
+  }
+  assert.deepEqual(resolveRoute(null, SVO_ORDERS_PATH), { kind: 'redirect', to: '/login' })
+})
+
 for (const [profile, path] of destinations) {
   test(profile + ' vai para a própria tela e não pode abrir as demais', () => {
     const session = sessionFor(profile)
     assert.deepEqual(resolveRoute(session, '/login'), { kind: 'redirect', to: path })
-    assert.deepEqual(resolveRoute(session, path), profile === 'ATENDENTE_SVO'
-      ? { kind: 'svo-occurrences', profile }
-      : { kind: 'home', profile })
+    const homeDecision = profile === 'ADMINISTRADOR' ? { kind: 'users', profile }
+      : profile === 'GESTOR' ? { kind: 'request-analysis', profile }
+        : profile === 'ATENDENTE_SVO' ? { kind: 'svo-occurrences', profile }
+          : profile === 'EQUIPE_SVO' ? { kind: 'svo-team-orders', profile }
+            : { kind: 'home', profile }
+    assert.deepEqual(resolveRoute(session, path), homeDecision)
     assert.deepEqual(
       resolveRoute(session, PROFILE_PERMISSIONS_PATH),
       profile === 'ADMINISTRADOR'
@@ -48,7 +69,14 @@ for (const [profile, path] of destinations) {
         : { kind: 'redirect', to: path },
     )
     for (const [, otherPath] of destinations) {
-      if (otherPath !== path && !(otherPath === SVO_OCCURRENCES_PATH && ['GESTOR', 'ADMINISTRADOR'].includes(profile))) {
+      if (otherPath === path) continue
+      if (otherPath === REQUEST_ANALYSIS_PATH && profile === 'ADMINISTRADOR') {
+        assert.deepEqual(resolveRoute(session, otherPath), { kind: 'request-analysis', profile })
+      } else if (otherPath === SVO_OCCURRENCES_PATH && ['GESTOR', 'ADMINISTRADOR'].includes(profile)) {
+        assert.deepEqual(resolveRoute(session, otherPath), { kind: 'svo-occurrences', profile })
+      } else if (otherPath === SVO_TEAM_ORDERS_PATH && ['ADMINISTRADOR', 'GESTOR', 'ATENDENTE_SVO'].includes(profile)) {
+        assert.deepEqual(resolveRoute(session, otherPath), { kind: 'svo-team-orders', profile })
+      } else {
         assert.deepEqual(resolveRoute(session, otherPath), { kind: 'redirect', to: path })
       }
     }
@@ -182,12 +210,12 @@ test('GESTOR e ADMINISTRADOR podem consultar a agenda operacional de todos os es
   assert.deepEqual(resolveRoute(null, TRIP_AGENDA_PATH), { kind: 'redirect', to: '/login' })
 })
 
-test('catálogo independente de tipos de serviço fica disponível para gestor e administrador', () => {
-  for (const profile of ['GESTOR', 'ADMINISTRADOR']) {
+test('catálogo de tipos de serviço fica disponível para perfis com leitura de serviços', () => {
+  for (const profile of ['SOLICITANTE', 'GESTOR', 'ADMINISTRADOR']) {
     assert.deepEqual(resolveRoute(sessionFor(profile), SERVICE_TYPES_PATH), { kind: 'service-types', profile })
   }
   for (const [profile, home] of destinations) {
-    if (profile === 'GESTOR' || profile === 'ADMINISTRADOR') continue
+    if (profile === 'SOLICITANTE' || profile === 'GESTOR' || profile === 'ADMINISTRADOR') continue
     assert.deepEqual(resolveRoute(sessionFor(profile), SERVICE_TYPES_PATH), { kind: 'redirect', to: home })
   }
   assert.deepEqual(resolveRoute(null, SERVICE_TYPES_PATH), { kind: 'redirect', to: '/login' })

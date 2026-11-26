@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import {
   Alert,
@@ -145,51 +145,47 @@ export default function ProfilePermissionsPage() {
     return [...groups]
   }, [catalog])
 
-  const loadCatalog = useCallback(async () => {
-    if (!canManage) {
-      setCatalog([])
-      setCatalogLoading(false)
-      return
-    }
-    setCatalogLoading(true)
-    setCatalogError('')
-    try { setCatalog(await listPermissions(api)) }
-    catch (error) { setCatalogError(errorText(error, 'Não foi possível carregar o catálogo de permissões.')) }
-    finally { setCatalogLoading(false) }
+  useEffect(() => {
+    if (!canManage) return
+    let active = true
+    listPermissions(api)
+      .then((loaded) => { if (active) { setCatalog(loaded); setCatalogError('') } })
+      .catch((error: unknown) => { if (active) setCatalogError(errorText(error, 'Não foi possível carregar o catálogo de permissões.')) })
+      .finally(() => { if (active) setCatalogLoading(false) })
+    return () => { active = false }
   }, [api, canManage])
 
-  useEffect(() => { void loadCatalog() }, [loadCatalog])
+  useEffect(() => {
+    if (!canRead) return
+    let active = true
+    listProfiles(api, {
+      ...(activeFilter !== undefined ? { active: activeFilter } : {}),
+      ...(search.trim() ? { search: search.trim() } : {}),
+      page,
+      pageSize: PAGE_SIZE,
+    })
+      .then((result) => {
+        if (!active) return
+        setListError('')
+        setProfiles(result.profiles)
+        setTotal(result.total)
+        setTotalPages(result.totalPages)
+        if (result.totalPages > 0 && page > result.totalPages) setPage(result.totalPages)
+      })
+      .catch((error: unknown) => { if (active) setListError(errorText(error, 'Não foi possível carregar os perfis.')) })
+      .finally(() => { if (active) setListLoading(false) })
+    return () => { active = false }
+  }, [activeFilter, api, canRead, listReload, page, search])
 
-  const loadProfiles = useCallback(async () => {
-    if (!canRead) {
-      setProfiles([])
-      setTotal(0)
-      setTotalPages(0)
-      setListLoading(false)
-      return
-    }
+  function refreshList() {
     setListLoading(true)
     setListError('')
-    try {
-      const result = await listProfiles(api, {
-        ...(activeFilter !== undefined ? { active: activeFilter } : {}),
-        ...(search.trim() ? { search: search.trim() } : {}),
-        page,
-        pageSize: PAGE_SIZE,
-      })
-      setProfiles(result.profiles)
-      setTotal(result.total)
-      setTotalPages(result.totalPages)
-      if (result.totalPages > 0 && page > result.totalPages) setPage(result.totalPages)
-    } catch (error) { setListError(errorText(error, 'Não foi possível carregar os perfis.')) }
-    finally { setListLoading(false) }
-  }, [activeFilter, api, canRead, page, search])
-
-  useEffect(() => { void loadProfiles() }, [loadProfiles, listReload])
-
-  function refreshList() { setListReload((current) => current + 1) }
+    setListReload((current) => current + 1)
+  }
 
   function updateFilter(next: boolean | undefined) {
+    setListLoading(true)
+    setListError('')
     setActiveFilter(next)
     setPage(1)
   }
@@ -342,7 +338,7 @@ export default function ProfilePermissionsPage() {
           id={`${dialogId}-search`}
           label="Buscar perfil"
           value={search}
-          onChange={(event: ChangeEvent<HTMLInputElement>) => { setSearch(event.target.value); setPage(1) }}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => { setListLoading(true); setListError(''); setSearch(event.target.value); setPage(1) }}
           size="small"
           sx={{ minWidth: { xs: '100%', sm: 240 }, '& .MuiInputBase-root': { minHeight: 44 } }}
         />
@@ -364,7 +360,11 @@ export default function ProfilePermissionsPage() {
         </Typography>
       </Paper>}
 
-      {canRead && catalogError && <Alert severity="warning" sx={{ mb: 2 }} action={<Button color="inherit" onClick={() => void loadCatalog()} sx={{ minHeight: 44 }}>Tentar novamente</Button>}>{catalogError}</Alert>}
+      {canManage && catalogError && <Alert severity="warning" sx={{ mb: 2 }} action={<Button color="inherit" onClick={() => {
+        setCatalogLoading(true)
+        setCatalogError('')
+        listPermissions(api).then(setCatalog).catch((error: unknown) => setCatalogError(errorText(error, 'Não foi possível carregar o catálogo de permissões.'))).finally(() => setCatalogLoading(false))
+      }} sx={{ minHeight: 44 }}>Tentar novamente</Button>}>{catalogError}</Alert>}
       {canRead && (listError ? (
         <StateFeedback kind="error" title={listError} actionLabel="Tentar novamente" onAction={() => refreshList()} />
       ) : (
@@ -392,7 +392,7 @@ export default function ProfilePermissionsPage() {
 
       {totalPages > 1 && (
           <Stack direction="row" sx={{ py: 2, justifyContent: 'center' }}>
-          <Pagination count={totalPages} page={page} onChange={(_event, nextPage) => setPage(nextPage)} aria-label="Paginação de perfis" />
+          <Pagination count={totalPages} page={page} onChange={(_event, nextPage) => { setListLoading(true); setListError(''); setPage(nextPage) }} aria-label="Paginação de perfis" />
         </Stack>
       )}
 

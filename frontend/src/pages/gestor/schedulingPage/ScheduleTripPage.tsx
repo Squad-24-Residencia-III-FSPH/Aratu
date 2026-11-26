@@ -100,7 +100,7 @@ function ApprovedRequestSchedulePage() {
   const [availabilityRefresh, setAvailabilityRefresh] = useState(0)
   const [vehicleId, setVehicleId] = useState('')
   const [driverId, setDriverId] = useState('')
-  const [serviceId, setServiceId] = useState('')
+  const [serviceSelection, setServiceSelection] = useState<{ requestId: string; serviceId: string } | null>(null)
   const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey)
   const [submitting, setSubmitting] = useState(false)
   const [scheduleError, setScheduleError] = useState('')
@@ -141,21 +141,20 @@ function ApprovedRequestSchedulePage() {
     () => requests?.find((request) => request.id === selectedRequestId) ?? null,
     [requests, selectedRequestId],
   )
-  useEffect(() => {
-    if (!selectedRequest) return
-    setServiceId(selectedRequest.serviceId ?? '')
-  }, [selectedRequest?.id])
-  const selectedService = services?.find((service) => service.id === serviceId) ?? null
-  useEffect(() => {
-    if (services && serviceId && !selectedService) setServiceId('')
-  }, [services, serviceId, selectedService])
+  const requestedServiceId = selectedRequest
+    ? serviceSelection?.requestId === selectedRequest.id
+      ? serviceSelection.serviceId
+      : selectedRequest.serviceId ?? ''
+    : ''
+  const selectedService = services?.find((service) => service.id === requestedServiceId) ?? null
+  const serviceId = services && requestedServiceId && !selectedService ? '' : requestedServiceId
   const scheduledStart = toOperationalIso(period.start)
   const scheduledEnd = toOperationalIso(period.end)
   const validPeriod = Boolean(scheduledStart && scheduledEnd && Date.parse(scheduledEnd) > Date.parse(scheduledStart))
   const invalidWallTime = Boolean((period.start && !scheduledStart) || (period.end && !scheduledEnd))
 
   useEffect(() => {
-    if (!selectedRequest || !serviceId || !validPeriod || !scheduledStart || !scheduledEnd) return
+    if (!selectedRequest || !selectedService || !serviceId || !validPeriod || !scheduledStart || !scheduledEnd) return
 
     let current = true
     void Promise.allSettled([
@@ -182,7 +181,7 @@ function ApprovedRequestSchedulePage() {
       }
     })
     return () => { current = false }
-  }, [api, selectedRequest, serviceId, scheduledStart, scheduledEnd, validPeriod, availabilityRefresh])
+  }, [api, selectedRequest, selectedService, serviceId, scheduledStart, scheduledEnd, validPeriod, availabilityRefresh])
 
   const availableVehicles = vehicleAvailability?.filter((vehicle) => vehicle.available) ?? []
   const availableDrivers = driverAvailability?.filter((driver) => driver.available) ?? []
@@ -195,7 +194,7 @@ function ApprovedRequestSchedulePage() {
   function chooseRequest(request: ApprovedRequestSummary) {
     setSearchParams({ requestId: request.id })
     setPeriod({ start: '', end: '' })
-    setServiceId(request.serviceId ?? '')
+    setServiceSelection({ requestId: request.id, serviceId: request.serviceId ?? '' })
     setVehicleId('')
     setDriverId('')
     setScheduleError('')
@@ -210,7 +209,7 @@ function ApprovedRequestSchedulePage() {
   }
 
   function changeService(value: string) {
-    setServiceId(value)
+    if (selectedRequest) setServiceSelection({ requestId: selectedRequest.id, serviceId: value })
     setVehicleId('')
     setDriverId('')
     setVehicleAvailability(null)
@@ -261,7 +260,7 @@ function ApprovedRequestSchedulePage() {
       setPeriod({ start: '', end: '' })
       setVehicleId('')
       setDriverId('')
-      setServiceId('')
+      setServiceSelection(null)
       setIdempotencyKey(createIdempotencyKey())
       setSpecialRequirementsAcknowledged(false)
       setEvidenceDescription('')

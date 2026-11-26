@@ -87,10 +87,9 @@ test('respostas incompletas e erros desconhecidos jamais indicam sucesso', () =>
   }
 })
 
-test('perfil desconhecido não cria sessão mesmo em uma resposta HTTP 200', () => {
-  assert.throws(() => parseLoginResponse({ ...session, perfil: 'OUTRO' }), {
-    message: 'Não foi possível identificar seu perfil de acesso.',
-  })
+test('perfil personalizado é aceito quando corresponde ao claim do token', () => {
+  const customProfile = { ...session, perfil: 'PERFIL_PERSONALIZADO', token: tokenFor('PERFIL_PERSONALIZADO') }
+  assert.equal(parseLoginResponse(customProfile).perfil, 'PERFIL_PERSONALIZADO')
 })
 
 test('JWT expirado, malformado ou com perfil diferente não cria sessão', () => {
