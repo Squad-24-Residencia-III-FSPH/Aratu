@@ -33,7 +33,8 @@ export interface TripListFilters {
 /** Item da listagem de conferência do Gestor. */
 export interface TripSummary {
   id: string
-  requestId: string
+  requestId: string | null
+  createdDirectly: boolean
   status: string
   scheduledStart: Date
   scheduledEnd: Date
@@ -84,6 +85,24 @@ export interface ScheduleTripInput {
   evidenceDescription?: unknown
 }
 
+/** Dados operacionais informados pelo Gestor ao criar uma viagem sem solicitação. */
+export interface CreateDirectTripInput {
+  serviceId?: unknown
+  vehicleId?: unknown
+  driverId?: unknown
+  scheduledStart?: unknown
+  scheduledEnd?: unknown
+  origin?: unknown
+  destination?: unknown
+  purpose?: unknown
+  passengers?: unknown
+  specialRequirements?: unknown
+  notes?: unknown
+  specialRequirementsAcknowledged?: unknown
+  evidenceDescription?: unknown
+  reason?: unknown
+}
+
 /** Corpo bruto de `POST /trips/:id/start`. */
 export interface StartTripInput {
   startKm?: unknown
@@ -99,7 +118,7 @@ export interface FinishTripInput {
 /** Viagem devolvida pela API; km e horários reais ficam nulos até a execução. */
 export interface Trip {
   id: string
-  requestId: string
+  requestId: string | null
   vehicleId: string
   driverId: string
   scheduledStart: Date
@@ -112,8 +131,45 @@ export interface Trip {
   revision: number
   createdAt: Date
   requestSnapshot?: SchedulableRequest
+  directContext?: DirectTripContext
   specialRequirementsAcknowledged?: boolean
   evidenceDescription?: string | null
+}
+
+/** Snapshot imutável da finalidade e do trajeto de uma viagem criada diretamente pelo Gestor. */
+export interface DirectTripContext {
+  serviceId: string
+  serviceName: string
+  origin: string
+  destination: string
+  purpose: string
+  passengers: number
+  specialRequirements: string | null
+  notes: string | null
+}
+
+/** Entrada normalizada da viagem direta persistida pelo Repository. */
+export interface CreateDirectTripData {
+  requestId: null
+  serviceId: string
+  vehicleId: string
+  driverId: string
+  scheduledStart: Date
+  scheduledEnd: Date
+  vehicleSnapshot: VehicleAvailability
+  driverSnapshot: DriverAvailability
+  directContext: DirectTripContext
+  creationKey: string
+  creationPayload: Record<string, unknown>
+  specialRequirementsAcknowledged: boolean
+  evidenceDescription: string | null
+  createdBy: string
+}
+
+/** Reenvio idempotente associado à viagem direta original. */
+export interface DirectTripRegistration {
+  trip: Trip
+  creationPayload: Record<string, unknown>
 }
 
 /** Viagem exibida ao Motorista em `GET /trips/mine`. */

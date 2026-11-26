@@ -5,7 +5,7 @@ export type TripAgendaStatus = typeof TRIP_AGENDA_STATUSES[number]
 
 export interface TripAgendaItem {
   id: string
-  requestId: string
+  requestId: string | null
   status: TripAgendaStatus
   scheduledStart: string
   scheduledEnd: string

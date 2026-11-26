@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDD — ARATU — Estabilização local, interface e viagens diretas (Sistema Aratu)</title>
+  <style>
+    :root {
+      --brand-strong: #115e59;
+      --brand: #0f766e;
+      --brand-surface: #f0fdfa;
+      --brand-border: #99f6e4;
+      --brand-hover: #ccfbf1;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --code-inline-bg: #f1f5f9;
+      --code-inline-border: #cbd5e1;
+      --code-block-bg: #0f172a;
+      --code-block-text: #f8fafc;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); max-width: 960px; margin: 40px auto; padding: 0 28px 60px; color: var(--text-primary); line-height: 1.75; background: var(--bg-page); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: 1.6rem; color: var(--text-primary); border-bottom: 3px solid var(--brand); padding-bottom: 10px; margin: 28px 0 18px; line-height: 1.3; }
+    h2 { font-size: 1.2rem; color: var(--brand-strong); margin: 2.2rem 0 10px; padding-left: 12px; border-left: 4px solid var(--brand); line-height: 1.35; }
+    h3 { font-size: 1.03rem; color: var(--text-secondary); margin: 1.4rem 0 8px; }
+    h4 { font-size: 0.96rem; color: var(--text-secondary); margin: 1.1rem 0 6px; }
+    p { margin: 10px 0; }
+    .meta-block { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 18px; margin: 18px 0 24px; font-size: 0.93rem; line-height: 1.85; }
+    .meta-block p { margin: 2px 0; }
+    .notice-block { background: #fefce8; border: 1px solid #fde047; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; color: #713f12; }
+    .toc { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px 14px 34px; margin: 18px 0 28px; font-size: 0.92rem; }
+    .toc li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; background: var(--bg-card); }
+    thead th { background: var(--brand-strong); color: #ffffff; padding: 10px 13px; text-align: left; font-weight: 600; border: 1px solid var(--brand-strong); }
+    tbody td { padding: 9px 13px; border: 1px solid var(--border-subtle); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--brand-surface); }
+    tbody tr:hover td { background: var(--brand-hover); }
+    code { background: var(--code-inline-bg); border: 1px solid var(--code-inline-border); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.86em; color: var(--brand-strong); }
+    thead th code { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.35); color: #ffffff; }
+    pre { background: var(--code-block-bg); color: var(--code-block-text); border-radius: 6px; padding: 14px 18px; margin: 14px 0; overflow-x: auto; border: 1px solid #1e293b; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: 0.85rem; line-height: 1.6; }
+    ul, ol { padding-left: 1.5em; margin: 10px 0; }
+    li { margin: 5px 0; }
+    ul.check { list-style: none; padding-left: 4px; }
+    ul.check li { margin: 7px 0; display: flex; align-items: baseline; gap: 8px; }
+    ul.check input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+    blockquote { border-left: 4px solid var(--brand); background: var(--brand-surface); margin: 14px 0; padding: 12px 18px; color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); }
+    a { color: var(--brand-strong); text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+    a:hover { color: var(--brand); }
+    a:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+    .badge-rbac { display: inline-block; background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-status { display: inline-block; background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    .badge-http { display: inline-block; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 7px; font-size: 0.78em; font-family: var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-tabela { display: inline-block; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 7px; font-size: 0.8em; font-family: var(--font-mono); font-weight: 600; }
+    @media print {
+      body { background: #ffffff; max-width: 100%; margin: 0; padding: 12mm; font-size: 10.5pt; }
+      pre, blockquote, table, .meta-block, .notice-block { break-inside: avoid; }
+      thead th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+    }
+    code { overflow-wrap: anywhere; }
+    .tableContainer { overflow-x: auto; max-width: 100%; }
+    .tableContainer table { min-width: 640px; }
+    @media (max-width: 600px) { body { margin: 18px auto; padding: 0 16px 36px; } h1 { font-size: 1.35rem; } }
+    @media print { .tableContainer { overflow: visible; } .tableContainer table { min-width: 0; } }
+  </style>
+</head>
+<body>
+
+<h1>SDD — ARATU: Estabilização local, interface e viagens diretas</h1>
+
+<div class="meta-block">
+  <p><strong>Tarefa / História:</strong> <code>ARATU</code> — Estabilização local, interface e viagens diretas</p>
+  <p><strong>Branch sugerida (ainda não criada):</strong> <code>fix/estabilizacao-local-interface</code> (criar a partir de <code>develop</code> atualizada → PR para <code>develop</code>)</p>
+  <p><strong>Contexto Operacional:</strong> Fundação de Saúde Parreiras Horta (FSPH) / Serviço de Verificação de Óbito (SVO)</p>
+  <p><strong>Módulos:</strong> VIAGENS, SVO, FROTA, MOTORISTAS, MANUTENCOES e AUTENTICACAO_RBAC.</p>
+  <p><strong>Perfis RBAC Impactados:</strong> <code>SOLICITANTE, GESTOR, MOTORISTA, ATENDENTE_SVO, EQUIPE_SVO, ADMINISTRADOR</code></p>
+  <p><strong>Base analisada:</strong> <code>develop</code>, commit <code>7371b5b</code>. Dois HTMLs preexistentes não rastreados foram preservados.</p>
+  <p><strong>Data:</strong> 2026-11-24</p>
+</div>
+
+<ol class="toc">
+  <li><a href="#s1">Contexto, Objetivo e Escopo</a></li>
+  <li><a href="#s2">Requisitos e Regras de Negócio (Casos de Borda)</a></li>
+  <li><a href="#s3">Estrutura de Arquivos</a></li>
+  <li><a href="#s4">Banco de Dados e Migrações (PostgreSQL 18)</a></li>
+  <li><a href="#s5">Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</a></li>
+  <li><a href="#s6">Front-end — Telas, Componentes React 19 e Estados Visuais</a></li>
+  <li><a href="#s7">Acessibilidade (WCAG 2.2 Nível AA)</a></li>
+  <li><a href="#s8">Escopo de Impacto, RBAC e Configuração</a></li>
+  <li><a href="#s9">Casos de Teste e Verificação</a></li>
+  <li><a href="#s10">Checklist Pré-PR</a></li>
+  <li><a href="#s11">Atualização da Documentação do Módulo</a></li>
+  <li><a href="#s12">Princípios de Desenvolvimento e Restrições de Implementação</a></li>
+</ol>
+
+<hr>
+
+<h2 id="s1">1. Contexto, Objetivo e Escopo</h2>
+
+<p><strong>Objetivo:</strong> restabelecer as solicitações institucionais e o SVO no ambiente local, uniformizar os cabeçalhos e filtros e permitir ao gestor criar e alocar uma viagem sem solicitação prévia.</p>
+<div class="notice-block"><strong>Estado da entrega:</strong> análise e planejamento. Nenhum código de aplicação ou registro do banco operacional foi corrigido nesta etapa. A investigação consultou a API e os metadados do PostgreSQL local; as escritas dos testes ocorreram em base de testes separada.</div>
+<h3>Decisões confirmadas pelo usuário</h3>
+<ul><li>Os erros ocorrem no ambiente local.</li><li>Remover a trilha textual de navegação, como “Início / Veículos”, e padronizar as telas.</li><li>Corrigir o rótulo ausente e o espaço vazio na borda do filtro de usuários.</li><li>O solicitante informa a necessidade e os dados da demanda; o gestor analisa e aloca veículo e motorista.</li><li>O gestor também pode criar a viagem diretamente, sem solicitação de outro usuário. A criação usa o estado inicial existente <code>SCHEDULED</code>, com recursos alocados; início físico, hodômetro e execução seguem o fluxo existente do motorista. Não é necessário inventar uma solicitação ou uma aprovação para esse caso.</li></ul>
+<h3>Diagnóstico com evidências de 24/11/2026</h3>
+<div class="tableContainer"><table><thead><tr><th scope="col">Prioridade / achado</th><th scope="col">Evidência</th><th scope="col">Correção planejada</th></tr></thead><tbody>
+<tr><td>P0 — banco local desatualizado</td><td>PostgreSQL 18.6; 19 migrações registradas e 24 no pacote. <code>GET /health/ready</code> retorna 503. Faltam cinco migrações, discriminadas na seção 4.</td><td>Aplicar as migrações existentes com preservação dos dados; integrar sua execução ao fluxo local antes da API.</td></tr>
+<tr><td>P0 — solicitações retornam 500</td><td><code>GET /requests</code> falhou para SOLICITANTE, GESTOR e ADMINISTRADOR. <code>RequestsRepository.list</code>: SQLSTATE <code>42703</code>, <code>column r.special_requirements does not exist</code>.</td><td>Aplicar <code>202611240001</code>; validar criação, listagem, devolução, reenvio e agendamento.</td></tr>
+<tr><td>P0 — ocorrências e equipes SVO retornam 500</td><td><code>GET /svo/occurrences</code>: SQLSTATE <code>42703</code>, <code>column o.dispatch_requested_at does not exist</code>. <code>GET /svo/teams</code>: 500; a tabela <code>svo.team_shifts</code> está ausente, SQLSTATE <code>42P01</code>.</td><td>Aplicar <code>202611240002</code>; validar triagem, plantões, despacho, fila e execução.</td></tr>
+<tr><td>P1 — cadastro de multas exposto à mesma incompatibilidade</td><td>A listagem retorna 200, mas <code>fleet.fines.creation_key</code> não existe (42703). <code>FinesService.create</code> consulta esse campo antes da escrita.</td><td>Aplicar <code>202611080001</code> e testar cadastro/reenvio em base fictícia. Não foi criado registro no banco operacional para reproduzir a falha.</td></tr>
+<tr><td>P1 — viagem direta não é suportada</td><td><code>TripsService.scheduleTrip</code> exige <code>requestId</code> e solicitação APPROVED; <code>trip.trips.request_id</code> é NOT NULL UNIQUE. Agenda, motorista e relatório de execução usam INNER JOIN com solicitações.</td><td>Adicionar criação direta e contexto próprio da viagem, preservando o caminho atual.</td></tr>
+<tr><td>P1 — filtro com rótulo oculto e recorte vazio</td><td><code>UserManagementPage</code> passa <code>hideLabel</code>; <code>FormField</code> oculta o InputLabel, mas força <code>shrink: true</code>. O TextField instalado transfere shrink para notched. O padrão também ocorre em filtros de motoristas e selects.</td><td>Rótulos visíveis nos filtros e tratamento correto da variante com rótulo oculto no componente compartilhado.</td></tr>
+<tr><td>P2 — cabeçalhos inconsistentes</td><td>Nove páginas passam <code>breadcrumbs</code> a <code>components/ui/PageHeader.tsx</code>; as demais não exibem a trilha.</td><td>Remover a trilha do contrato e dos nove consumidores.</td></tr>
+<tr><td>P1 — dependências locais do frontend incompletas</td><td><code>@mui/x-charts</code> consta no package.json e lockfile (9.18.1), mas não está no node_modules do checkout usado para a análise no host. A instalação dentro do container é independente. <code>npm run build</code> falha em BarChart/PieChart e produz erros de tipos derivados.</td><td>Reinstalar pelo lockfile e repetir o build antes de classificar os erros derivados como defeitos no código.</td></tr>
+<tr><td>P2 — estilos de login fora do padrão</td><td>A auditoria estática identifica <code>:global(.Mui...)</code> e classes em português no CSS Module do login.</td><td>Transferir os overrides necessários a sx/tema, preservando aparência e comportamento; tratar em alteração separada.</td></tr>
+</tbody></table></div>
+<h3>Ordem de execução</h3>
+<ol><li><strong>Estabilização local:</strong> cópia de segurança, migrações, dependências e conferência das rotas que falham.</li><li><strong>Prevenção de recorrência:</strong> prontidão do banco, etapa de migração no Compose e documentação de atualização.</li><li><strong>Interface:</strong> cabeçalhos e campos compartilhados, com verificação visual.</li><li><strong>Viagem direta:</strong> migração aditiva, backend, consumidores e interface coordenados.</li><li><strong>Homologação:</strong> regressão por módulo/perfil, documentação e PRs para develop.</li></ol>
+<p>Separar os ajustes de infraestrutura/interface da funcionalidade de viagem direta em commits e PRs focados. Não incluir troca de stack, redesign geral, atribuição automática de motorista, novos perfis ou alterações clínicas do SVO.</p>
+
+
+<hr>
+
+<h2 id="s2">2. Requisitos e Regras de Negócio (Casos de Borda)</h2>
+
+<div class="tableContainer"><table><thead><tr><th scope="col">Caso</th><th scope="col">Dado / Quando / Então</th></tr></thead><tbody>
+<tr><td>RF01 — ambiente atualizado</td><td>Dado um banco com migrações pendentes, quando o fluxo local for atualizado, então as migrações terminam antes da disponibilização da API; uma falha interrompe essa etapa e não libera prontidão.</td></tr>
+<tr><td>RF02 — solicitações</td><td>Dado um solicitante ativo, quando cria/consulta uma demanda válida, então obtém 201/200 e somente os registros permitidos; devolução e reenvio mantêm versões e auditoria.</td></tr>
+<tr><td>RF03 — SVO</td><td>Dado um atendente, quando confirma a triagem administrativa, então o despacho usa equipe/plantão e viatura elegíveis; a ausência de recursos deixa a ocorrência na fila, sem erro 500 ou duplicação de ordens.</td></tr>
+<tr><td>RF04 — fluxo com solicitação</td><td>Dada uma solicitação aprovada, quando o gestor agenda, então a solicitação fica SCHEDULED e a viagem mantém seu vínculo, snapshot, recursos e histórico. O solicitante não escolhe nem aloca recursos.</td></tr>
+<tr><td>RF05 — fluxo direto</td><td>Dado um gestor ativo, quando informa serviço, origem, destino, finalidade, passageiros, período, veículo e motorista válidos, então cria uma viagem SCHEDULED sem requestId e sem inserir linha em trip.requests.</td></tr>
+<tr><td>RF06 — proteções comuns</td><td>Dado qualquer origem de viagem, quando houver veículo incompatível, capacidade insuficiente, manutenção, conflito, motorista afastado, CNH vencida ou conta de motorista indisponível, então a operação falha com 409/422 orientador, sem efeitos parciais.</td></tr>
+<tr><td>RF07 — necessidades especiais</td><td>Dado um contexto com necessidades especiais, quando o gestor tenta alocar, então são exigidas a conferência explícita e a evidência já usadas no agendamento existente.</td></tr>
+<tr><td>RF08 — concorrência e reenvio</td><td>Dadas requisições concorrentes ou resposta perdida, quando a criação direta é repetida com a mesma chave e mesmo conteúdo, então retorna a viagem original; mesma chave com conteúdo diferente retorna 409. Duas demandas que disputam o mesmo recurso não são agendadas em sobreposição.</td></tr>
+<tr><td>RF09 — propagação</td><td>Dada uma viagem direta, quando o motorista consulta suas viagens, o gestor abre agenda/conferência ou gera relatório, então a viagem aparece com trajeto e recursos. A origem é apresentada como “Criada pelo gestor”, nunca “Solicitação #null”.</td></tr>
+<tr><td>RF10 — cabeçalho</td><td>Dada qualquer tela interna, quando aberta, então apresenta h1 e ações no padrão PageHeader, sem a trilha “Início / …”. Descrições úteis, indicadores e dados operacionais não são removidos por serem textos secundários.</td></tr>
+<tr><td>RF11 — filtros</td><td>Dado um filtro de usuários/motoristas, quando vazio, preenchido, focado ou com erro, então o rótulo é legível e associado ao controle, sem lacuna vazia no contorno.</td></tr>
+</tbody></table></div>
+<p><strong>Requisitos não funcionais:</strong> preservar contratos do fluxo atual; PostgreSQL com queries parametrizadas, transações curtas e locks; histórico append-only e snapshots imutáveis; seis perfis reais; WCAG 2.2 AA; fuso operacional existente; mensagens sem SQL ou dados sensíveis.</p>
+
+
+<hr>
+
+<h2 id="s3">3. Estrutura de Arquivos</h2>
+
+<div class="tableContainer"><table><thead><tr><th scope="col">Entrega</th><th scope="col">Arquivos / pontos de intervenção</th></tr></thead><tbody>
+<tr><td>Ambiente</td><td><code>docker-compose.yml</code>, <code>backend/Dockerfile</code>, <code>docs/manuais/ambiente-desenvolvimento.md</code>. Reusar <code>backend/src/database/migrator.ts</code>, <code>database/scripts/migrate.ts</code>, <code>services/health.service.ts</code> e <code>repositories/health.repository.ts</code>.</td></tr>
+<tr><td>Cabeçalhos</td><td><code>frontend/src/components/ui/PageHeader.tsx</code>; <code>pages/AuditLogsPage.tsx</code>; <code>pages/driversPage/DriversPage.tsx</code>; <code>pages/fuelingsPage/FuelingsPage.tsx</code>; <code>pages/tripConfirmationPage/TripConfirmationPage.tsx</code>; em <code>pages/gestor/</code>: <code>servicePage/ServicesPage.tsx</code>, <code>vehiclesPage/VehiclesPage.tsx</code>, <code>ManuPage/ManutencaoPage.tsx</code>, <code>schedulingPage/ScheduleTripPage.tsx</code>, <code>gestorPage/DashboardPage.tsx</code>.</td></tr>
+<tr><td>Campos</td><td><code>frontend/src/components/ui/FormField.tsx</code> (FormField/FormSelect), <code>pages/userManagementPage/UserManagementPage.tsx</code>, <code>pages/driversPage/DriversPage.tsx</code>. Conferir demais usos de hideLabel, inclusive formulários com rótulo externo.</td></tr>
+<tr><td>Viagem direta — banco</td><td>Novo par de migrações <code>backend/src/database/migrations/&lt;versao-livre&gt;_allow_direct_trips.sql</code> e <code>.down.sql</code>, com versão posterior às já existentes. Não reescrever migrações aplicadas.</td></tr>
+<tr><td>Viagem direta — backend</td><td><code>backend/src/types/trip.types.ts</code>, <code>routes/trips.routes.ts</code>, <code>controllers/trips.controller.ts</code>, <code>services/trips.service.ts</code>, <code>repositories/trips.repository.ts</code>; tipos/service/repository de disponibilidade; <code>repositories/reports/trips.queries.ts</code>. Revisar indicadores do dashboard e histórico que leem viagens.</td></tr>
+<tr><td>Viagem direta — frontend</td><td><code>frontend/src/pages/gestor/schedulingPage/ScheduleTripPage.tsx</code>; novo <code>DirectTripFields.tsx</code> no mesmo diretório; <code>services/tripsService.ts</code>, <code>services/schedulingService.ts</code>, <code>services/tripAgendaService.ts</code>; o cliente de conferência também está em <code>services/tripsService.ts</code>; <code>trips/tripTypes.ts</code>, <code>tripAgendaTypes.ts</code>, <code>tripConfirmationTypes.ts</code>; páginas de agenda, conferência e Minhas viagens.</td></tr>
+<tr><td>Login</td><td><code>frontend/src/pages/loginPage/LoginPage.tsx</code>, <code>LoginPage.module.css</code> e tema somente onde houver regra compartilhada.</td></tr>
+<tr><td>Testes</td><td>Estender os testes existentes de health, requests, SVO, trips-scheduling, trips-execution, trips-confirmation, reports e dashboard. Novo teste de integração de viagem direta; testes de renderização dos campos e cabeçalho compartilhados.</td></tr>
+</tbody></table></div>
+<p>As referências arquiteturais são <code>.agents/skills/principios/</code>, <code>docs/manuais/padroes-projeto.md</code> e os componentes efetivamente existentes em <code>frontend/src/components/ui/</code>. O checkout atual usa PageHeader nesse diretório; não criar um segundo componente em layout.</p>
+
+
+<hr>
+
+<h2 id="s4">4. Banco de Dados e Migrações (PostgreSQL 18)</h2>
+
+<h3>4.1 Recuperação do banco local existente</h3>
+<div class="tableContainer"><table><thead><tr><th scope="col">Migração pendente</th><th scope="col">Impacto observado</th></tr></thead><tbody>
+<tr><td><code>202611080001_add_fine_creation_key.sql</code></td><td>Chave de idempotência ausente no cadastro de multas.</td></tr>
+<tr><td><code>202611160001_add_reports_period_indexes.sql</code></td><td>Índices de relatórios ausentes; nenhuma falha de consulta foi atribuída a eles.</td></tr>
+<tr><td><code>202611180001_add_dashboard_indexes.sql</code></td><td>Índices de indicadores ausentes; o dashboard consultado retornou 200.</td></tr>
+<tr><td><code>202611240001_extend_trip_requests_for_corrections.sql</code></td><td>Campos de solicitações e viagens, estados e eventos de devolução/reenvio.</td></tr>
+<tr><td><code>202611240002_svo_automatic_dispatch.sql</code></td><td>Plantões, intenção/fila de despacho e vínculo da ordem ao plantão.</td></tr>
+</tbody></table></div>
+<ol><li>Identificar a base operacional e gerar backup fora do Git, com acesso restrito. Não substituir o volume por um banco vazio.</li><li>Executar o runner existente no banco de testes e depois no ambiente local correto: <code>docker compose exec -T backend npm run db:migrate</code>.</li><li>Executar novamente para confirmar que todas as versões são skipped; comparar schema_migrations com os arquivos do pacote.</li><li>Conferir as colunas/tabela anteriormente ausentes, prontidão 200 e os endpoints que retornavam 500.</li></ol>
+<p>O runner usa uma transação por migração. Se uma versão falhar, as anteriores já concluídas permanecem aplicadas; corrigir a causa e reexecutar, sem registrar versões manualmente. As migrações existentes não serão aplicadas ao banco operacional durante esta etapa de planejamento.</p>
+<h3>4.2 Modelagem aditiva da viagem direta</h3>
+<p>Manter <code>trip.trips</code> como entidade de viagem. Tornar <code>request_id</code> anulável, preservando sua FK e unicidade para solicitações existentes. O vínculo nulo identifica a origem direta, sem uma flag redundante ou solicitação artificial.</p>
+<pre><code>BEGIN;
+ALTER TABLE trip.trips ALTER COLUMN request_id DROP NOT NULL;
+ALTER TABLE trip.trips
+  ADD COLUMN service_id BIGINT REFERENCES fleet.services(id) ON DELETE RESTRICT,
+  ADD COLUMN context_snapshot JSONB,
+  ADD COLUMN created_by BIGINT REFERENCES auth.users(id) ON DELETE RESTRICT,
+  ADD COLUMN creation_key UUID,
+  ADD COLUMN creation_payload JSONB,
+  ADD CONSTRAINT trip_trips_direct_context_required CHECK (
+    request_id IS NOT NULL OR (
+      service_id IS NOT NULL AND context_snapshot IS NOT NULL
+      AND created_by IS NOT NULL AND creation_key IS NOT NULL
+      AND creation_payload IS NOT NULL
+      AND jsonb_typeof(context_snapshot) = 'object'
+      AND jsonb_typeof(creation_payload) = 'object'
+      AND context_snapshot ?&amp; ARRAY[
+        'serviceId', 'serviceName', 'origin', 'destination',
+        'purpose', 'passengers', 'specialRequirements', 'notes'
+      ]
+    )
+  );
+CREATE UNIQUE INDEX trip_trips_creation_key
+  ON trip.trips(created_by, creation_key)
+  WHERE creation_key IS NOT NULL;
+COMMIT;</code></pre>
+<p><strong>Contexto:</strong> snapshot validado e congelado de serviço, trajeto, finalidade, passageiros, necessidades e observações. Os campos obrigatórios não aceitam texto vazio; passageiros seguem a regra existente de inteiro positivo. <code>creation_payload</code> guarda a entrada normalizada original para comparação de reenvios. Autoria, antes/depois, razão e instantes também são registrados no evento SCHEDULED e na auditoria da mesma transação. As estruturas de snapshot de veículo/motorista já existentes são reutilizadas.</p>
+<p><strong>Legado:</strong> as novas colunas permanecem nulas nas viagens anteriores. Não fabricar um snapshot histórico com dados cadastrais atuais. Leitores usam o novo contexto quando existir, depois o request_snapshot original, depois o vínculo legado com a solicitação. Preservar eventos, leituras, solicitações e snapshots já gravados.</p>
+<p><strong>Índices:</strong> reutilizar os índices de período e de viagem em andamento. O novo índice serve exclusivamente ao reenvio da criação direta. Índices adicionais só após evidência por EXPLAIN, sem otimização especulativa.</p>
+<h3>4.3 Rollback</h3>
+<ul><li>Antes de dados diretos: migration down transacional verifica ausência de request_id nulo, remove índice/constraint/colunas novas e restabelece NOT NULL.</li><li>Depois de existir viagem direta: o down deve abortar antes de alterar o schema. Preservar os dados e os leitores compatíveis; reverter apenas a entrada da funcionalidade ou aplicar correção progressiva. Não apagar viagens nem criar solicitações fictícias para viabilizar rollback.</li><li>Na recuperação das cinco versões pendentes, evitar down após uso das novas funções. Usar backup validado e plano de recuperação que preserve os eventos produzidos após a atualização.</li></ul>
+
+
+<hr>
+
+<h2 id="s5">5. Back-end — Contratos REST e Detalhamento por Arquivo (Express 5 / TS)</h2>
+
+<h3>5.1 Contratos REST</h3>
+<div class="tableContainer"><table><thead><tr><th scope="col">Rota</th><th scope="col">Contrato</th><th scope="col">Respostas</th></tr></thead><tbody>
+<tr><td><code>GET /health/live</code><br><code>GET /health/ready</code></td><td>Reusar os endpoints existentes. Ready confirma todas as versões do pacote; live apenas o processo.</td><td>200; ready 503 se banco/migrações indisponíveis. <code>/health</code> sozinho não é uma rota de saúde e seu 404 não é defeito.</td></tr>
+<tr><td><code>POST /trips</code></td><td>Contrato atual de agendamento com requestId aprovado, veículo, motorista e período. Mantido.</td><td>201; 400/401/403/404/409/422 conforme validações existentes.</td></tr>
+<tr><td><code>POST /trips/direct</code></td><td>Novo endpoint, exclusivo GESTOR. Cabeçalho <code>Idempotency-Key: UUID</code>. Corpo abaixo, sem requestId, status ou autoria fornecidos pelo cliente.</td><td>201 na criação; 200 no replay da mesma chave/conteúdo; 400 entrada/chave inválida; 401/403 acesso; 404 referência ausente; 409 conflito/chave reutilizada; 422 impedimento operacional.</td></tr>
+<tr><td><code>GET /vehicles/available</code></td><td>Reusar período e serviceId sem requestId para criação direta. Acrescentar parâmetro opcional passengers validado para filtrar capacidade. Com requestId, os dados da solicitação são a fonte; rejeitar divergência se enviados parâmetros conflitantes.</td><td>200 com available/reasons; 400 parâmetros; 404 referência. Revalidar no POST sob locks.</td></tr>
+<tr><td><code>GET /drivers/available</code></td><td>Já aceita consulta por período sem solicitação. Reusar.</td><td>200 e códigos de validação atuais.</td></tr>
+<tr><td><code>GET /trips</code>, <code>GET /trips/mine</code>, ações de execução/conferência</td><td>Incluir viagens diretas. Onde houver requestId, tipo passa a string ou null; respostas do fluxo antigo mantêm string. Novos dados de contexto são coordenados com todos os parsers.</td><td>Códigos e permissões existentes; nenhuma rota de execução é liberada a outro perfil por efeito desta mudança.</td></tr>
+</tbody></table></div>
+<pre><code>{
+  "serviceId": "1",
+  "origin": "Unidade Fictícia A",
+  "destination": "Unidade Fictícia B",
+  "purpose": "Deslocamento de equipe fictícia",
+  "passengers": 2,
+  "scheduledStart": "2026-12-02T08:00:00-03:00",
+  "scheduledEnd": "2026-12-02T11:00:00-03:00",
+  "vehicleId": "10",
+  "driverId": "20",
+  "specialRequirements": null,
+  "notes": null,
+  "specialRequirementsAcknowledged": false,
+  "evidenceDescription": null
+}</code></pre>
+<p>O motivo opcional pode reutilizar a convenção existente de agendamento; o service define o texto padrão e o ator vem da conta autenticada. IDs do exemplo são fictícios e não representam registros locais.</p>
+<h3>5.2 Responsabilidade por camada</h3>
+<ul><li><strong>Routes/controller:</strong> autenticação, revalidação da conta e autorização de GESTOR; receber o cabeçalho de idempotência, traduzir erros e status HTTP. Registrar /direct explicitamente no roteador existente.</li><li><strong>Types:</strong> DTO próprio <code>CreateDirectTripInput</code>, contexto de planejamento tipado e requestId anulável somente nos tipos de viagem que podem representar a nova origem. A solicitação continua tendo identificador obrigatório.</li><li><strong>TripsService:</strong> método de criação direta que valida campos e serviço ativo; reutiliza a avaliação de recursos, período, capacidade e necessidades especiais do fluxo existente, sem invocar RequestsService para criar um pedido artificial.</li><li><strong>Transação:</strong> validar/revalidar ator e serviço; travar veículo e motorista na ordem usada pelo agendamento; conferir idempotência, disponibilidade e capacidade; criar viagem SCHEDULED, snapshots, evento e auditoria; commit. Falha em qualquer etapa causa rollback e release no finally.</li><li><strong>Reenvio:</strong> consulta por usuário + chave, comparação da entrada normalizada com creation_payload imutável e tratamento específico do índice de idempotência após disputa concorrente. Não traduzir qualquer 23505 como “solicitação já agendada”.</li><li><strong>TripsRepository:</strong> SQL parametrizado, persistência do contexto e consultas de replay. Nos leitores, trocar INNER JOIN por LEFT JOIN para solicitações e projetar o contexto em uma expressão compartilhada. Não perder viagens diretas em listDriverTrips/listTrips.</li><li><strong>Relatórios/dashboard:</strong> atualizar <code>trips-executions</code> para incluir viagens diretas e usar snapshots. O relatório de solicitações e indicadores de pedidos continuam contando apenas solicitações reais. Conferir totais de viagens/km sem multiplicação por joins.</li><li><strong>Erros 500:</strong> resolver primeiro o schema ausente. Não suprimir exceções retornando listas vazias, remover campos da consulta ou mudar erros inesperados para 200.</li></ul>
+<h3>5.3 Fluxo local</h3>
+<p>Adicionar healthcheck do PostgreSQL no Compose e etapa explícita de migração que depende de banco saudável; o backend depende da conclusão bem-sucedida dessa etapa. Reusar o runner e a prontidão existentes. Usar instalação reproduzível pelo lockfile na imagem; documentar a atualização das dependências dos volumes após mudanças nos manifests. Conferir o ciclo de atualização de containers já em execução, além de uma instalação nova.</p>
+
+
+<hr>
+
+<h2 id="s6">6. Front-end — Telas, Componentes React 19 e Estados Visuais</h2>
+
+<h3>6.1 Cabeçalhos</h3>
+<p>Remover a renderização de Breadcrumbs, os tipos/props <code>breadcrumbs</code>/<code>breadcrumbsSx</code> e imports sem uso de PageHeader. Retirar os argumentos dos nove consumidores listados na seção 3. Preservar h1, document.title, descrições operacionais, ações e navegação pelo menu; não ocultar com CSS um elemento que continua ocupando espaço.</p>
+<h3>6.2 Campos e filtros</h3>
+<p>Nos filtros de usuários e motoristas, usar rótulo visível e persistente em busca/perfil/situação. Não corrigir o problema pintando o label de branco ou cobrindo o recorte com um bloco. FormField/FormSelect devem tratar hideLabel como uma variante completa: rótulo acessível, contorno sem notch vazio e vínculo correto com o controle. Nos formulários que já possuem rótulo externo, manter um único nome acessível e evitar rótulos duplicados. Reusar useId, ajuda/erro associados e os tokens do tema; conferir os estados normal, foco, erro e desabilitado.</p>
+<h3>6.3 Criação direta</h3>
+<ol><li>A agenda do gestor oferece ação “Nova viagem”, abrindo <code>/agendar-viagem?mode=direct</code>. O fluxo atual por requestId continua disponível.</li><li>Na modalidade direta, o gestor informa os dados da demanda e o período; depois consulta e escolhe veículo/motorista. Mostrar os impedimentos de cada recurso e a capacidade, reutilizando a apresentação do agendamento.</li><li>O modo direto não depende de carregar solicitações aprovadas. O campo requestId não é obrigatório nem enviado; a seleção de modo não pode misturar dados de uma solicitação com o contexto direto.</li><li>Manter uma chave de idempotência por tentativa lógica e conservá-la no reenvio após timeout. Mostrar estado de resultado incerto e opção de conferir a agenda; não gerar outra chave automaticamente para repetir um resultado ainda desconhecido.</li><li>Após sucesso, indicar a viagem e o acesso à agenda. Nas demais telas, mostrar “Criada pelo gestor” quando requestId for nulo. Minhas viagens usa o contexto congelado para o trajeto.</li></ol>
+<p>Extrair apenas os campos necessários ao reuso em DirectTripFields; não duplicar um segundo formulário completo de alocação ou um segundo cliente HTTP. Se houver extração estrutural maior, fazê-la separadamente e com paridade de comportamento.</p>
+<h3>6.4 Cinco estados visuais</h3>
+<div class="tableContainer"><table><thead><tr><th scope="col">Estado</th><th scope="col">Comportamento</th></tr></thead><tbody>
+<tr><td>Ideal</td><td>Dados, recursos, impedimentos e ações coerentes com o perfil e a modalidade.</td></tr>
+<tr><td>Carregando</td><td>StateFeedback/skeleton, aria-busy e ação de criação bloqueada durante envio.</td></tr>
+<tr><td>Vazio</td><td>Ausência de solicitações não bloqueia viagem direta. Sem serviço ou recurso elegível, explicar a pendência e oferecer recarga.</td></tr>
+<tr><td>Erro</td><td>Mensagem orientadora, preservação do preenchimento e retry. Não expor SQL, nome de tabela ou stacktrace.</td></tr>
+<tr><td>Parcial</td><td>Se veículos carregarem e motoristas falharem, preservar o resultado válido, identificar o que falhou e impedir salvar até obter os dois recursos válidos.</td></tr>
+</tbody></table></div>
+<p><strong>Dependências:</strong> restaurar o node_modules do host com npm ci usando o lockfile existente; conferir separadamente as dependências do container. Confirmar BarChart/PieChart e repetir build; só então corrigir eventuais erros remanescentes no dashboard. Não atualizar versões para tentar contornar uma instalação incompleta.</p>
+
+
+<hr>
+
+<h2 id="s7">7. Acessibilidade (WCAG 2.2 Nível AA)</h2>
+
+<ul class="check">
+<li><input type="checkbox" aria-label="Verificar rótulos"> Rótulos visíveis nos filtros afetados; nome acessível associado por id/htmlFor ou ARIA na variante oculta. Placeholder não substitui label.</li>
+<li><input type="checkbox" aria-label="Verificar contraste"> Contraste mínimo 4,5:1 para texto normal e 3:1 para componentes/grandes textos. Não atribuir a causa do recorte vazio a uma cor sem verificar o estilo computado.</li>
+<li><input type="checkbox" aria-label="Verificar teclado"> Fluxo completo por Tab, Shift+Tab, Enter e Esc; foco visível e não encoberto; retorno ao acionador após diálogos.</li>
+<li><input type="checkbox" aria-label="Verificar mensagens"> Erros com aria-invalid e texto associado; confirmação/carregamento/resultado parcial anunciados com role=status ou aria-live.</li>
+<li><input type="checkbox" aria-label="Verificar toque"> Alvos de 44×44px nas telas operacionais e controles utilizáveis em celular.</li>
+<li><input type="checkbox" aria-label="Verificar estrutura"> Um h1 de página; título da aba mantido; remoção dos breadcrumbs não remove a navegação principal nem deixa espaçamento vazio.</li>
+<li><input type="checkbox" aria-label="Verificar responsividade"> Conferir 320px, 360×800, 390×844, 768×1024, 1024×768 (4:3), 1280×800 (16:10), 1366×768 e 1920×1080, além de zoom 200%. Rolagem horizontal restrita a tabelas quando necessária.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="s8">8. Escopo de Impacto, RBAC e Configuração</h2>
+
+<div class="tableContainer"><table><thead><tr><th scope="col">Perfil real</th><th scope="col">Impacto / permissão preservada</th></tr></thead><tbody>
+<tr><td>SOLICITANTE</td><td>Criar, acompanhar e corrigir suas demandas; não alocar recursos nem criar viagem direta. Remoção da trilha no layout compartilhado quando aplicável.</td></tr>
+<tr><td>GESTOR</td><td>Analisar solicitações, alocar recursos, criar viagem direta, consultar agenda e conferir; gerir equipes/plantões e fila SVO.</td></tr>
+<tr><td>MOTORISTA</td><td>Consultar e executar somente viagens atribuídas, incluindo as diretas. Revalidação de conta ativa e vínculo continuam obrigatórias.</td></tr>
+<tr><td>ATENDENTE_SVO</td><td>Receber e triar ocorrências; sem gestão de equipes/plantões e sem criação de viagem institucional direta.</td></tr>
+<tr><td>EQUIPE_SVO</td><td>Executar ordens das equipes às quais pertence; sem permissão nova sobre viagens institucionais.</td></tr>
+<tr><td>ADMINISTRADOR</td><td>Gestão de usuários/perfis, consulta e supervisão conforme RBAC atual. Não recebe automaticamente a permissão de criar viagem direta, hoje reservada ao gestor no agendamento.</td></tr>
+</tbody></table></div>
+<p>Não criar feature flags, segredos ou variáveis de regra de negócio. Reusar as configurações existentes. A viagem direta é distinguida pelo vínculo real requestId; todo controle de permissão deve existir também no backend.</p>
+<p>Os resultados do ambiente operacional vieram das quatro categorias com conta ativa encontradas: ADMINISTRADOR, ATENDENTE_SVO, GESTOR e SOLICITANTE. MOTORISTA e EQUIPE_SVO foram cobertos com usuários fictícios nas integrações. Não criar contas operacionais automaticamente para preencher essa diferença.</p>
+
+
+<hr>
+
+<h2 id="s9">9. Casos de Teste e Verificação</h2>
+
+<h3>9.1 Verificações efetivamente executadas nesta análise</h3>
+<div class="tableContainer"><table><thead><tr><th scope="col">Verificação</th><th scope="col">Resultado / limite</th></tr></thead><tbody>
+<tr><td>Pré-auditoria estática</td><td><code>node docs/scripts/aratu-check.mjs --all</code>: 334 arquivos. Backend sem erros de tipos; lint frontend aprovado; build/tipos frontend bloqueados pela instalação incompleta de x-charts.</td></tr>
+<tr><td>Serviços e rotas backend</td><td>206 testes aprovados: <code>node --import tsx --test tests/*.service.test.ts tests/auth.test.ts tests/health.test.ts tests/vehicles.routes.test.ts</code>, executado em backend com permissão de abrir as portas locais de teste.</td></tr>
+<tr><td>Integrações PostgreSQL</td><td>23 arquivos, 313 testes aprovados em <code>aratu_system_audit_20261124_test</code>, com concorrência entre arquivos igual a 1. Incluem autenticação/RBAC, requests, análise, disponibilidade, agendamento/execução/conferência, SVO, frota, manutenção, abastecimento, documentos, multas, relatórios, dashboard e auditoria.</td></tr>
+<tr><td>Exclusão explícita</td><td><code>fueling-migrations.integration.test.ts</code> não foi executado: ele força um nome fixo de outra base de teste. Não é necessário ampliar esse teste para diagnosticar os erros relatados.</td></tr>
+<tr><td>Frontend</td><td><code>npm run test:ci</code>: 49 arquivos aprovados, zero falhas. Build falha com módulos de gráficos ausentes. Passar testes com fixtures não substitui integrar o banco operacional atualizado.</td></tr>
+<tr><td>Interface no navegador</td><td>A tela de login local abriu. As páginas internas não foram percorridas em uma sessão interativa autenticada nesta análise; a origem dos problemas de cabeçalho e label foi identificada no código e nos componentes instalados.</td></tr>
+</tbody></table></div>
+<p>A pré-auditoria sinalizou “SQL em Services” em chamadas que apenas registram <code>operation: 'UPDATE'</code>. A inspeção dos pontos confirmou falsos positivos dessa expressão regular; não mover regras nem refatorar services com base nesses alertas. Os overrides CSS do login são ocorrências reais.</p>
+<h3>9.2 Matriz HTTP local observada</h3>
+<div class="tableContainer"><table><thead><tr><th scope="col">Grupo / consulta</th><th scope="col">Resultado</th></tr></thead><tbody>
+<tr><td>Prontidão</td><td><code>/health/ready</code> → 503.</td></tr>
+<tr><td>Solicitações</td><td><code>/requests</code> → 500 para solicitante/gestor/admin; 403 para atendente SVO.</td></tr>
+<tr><td>Ocorrências</td><td><code>/svo/occurrences</code> → 500 para atendente/gestor/admin; 403 para solicitante.</td></tr>
+<tr><td>Equipes/plantões</td><td><code>/svo/teams</code> → 500 para gestor/admin; 403 para solicitante/atendente.</td></tr>
+<tr><td>Consultas de gestão</td><td>200 em veículos, motoristas, serviços, viagens, ordens SVO, abastecimentos, manutenções, documentos, multas, dashboard/summary, dashboard/indicators, reports/catalog e audit-logs.</td></tr>
+<tr><td>Administração</td><td>200 em users e profiles com perfil ADMINISTRADOR.</td></tr>
+</tbody></table></div>
+<p>200 em uma listagem não comprova seu cadastro/edição nem todas as combinações de filtros; essas operações foram exercitadas na base fictícia pela integração. Não foram executados cadastros, despachos, cancelamentos ou exportações no banco operacional.</p>
+<h3>9.3 Testes de aceite das correções</h3>
+<ol>
+<li><strong>Migrações:</strong> partir de schema antigo em base fictícia, aplicar todas, reexecutar e conferir skipped; simular falha transacional e recuperar; conferir preservação de registros, versões e eventos.</li>
+<li><strong>Solicitante:</strong> criar, consultar lista/detalhe, devolver pelo gestor, corrigir/reenviar pelo autor e agendar pelo gestor. Validar outro solicitante sem acesso ao pedido.</li>
+<li><strong>SVO:</strong> receber/confirmar com atendente; equipe e plantão válidos; sem equipe/sem viatura; reprocessamento; duas confirmações concorrentes; ordem única; execução/resultados somente pela equipe vinculada.</li>
+<li><strong>Multas:</strong> cadastro e reenvio com Idempotency-Key após a migração, sem duplicação.</li>
+<li><strong>Viagem direta válida:</strong> GESTOR cria SCHEDULED com requestId nulo; nenhuma solicitação/evento de solicitação novo; contexto, evento e auditoria com autoria correta.</li>
+<li><strong>Viagem direta inválida:</strong> serviço inativo, campo vazio, período inválido/passado, capacidade insuficiente, manutenção, CNH, afastamento e conta sem vínculo. Nenhuma escrita parcial.</li>
+<li><strong>Concorrência:</strong> disputa entre viagem direta e com solicitação pelo mesmo recurso; mesma chave simultânea; replay com payload diferente; falha de evento/auditoria com rollback. Contagem e snapshots devem confirmar um único efeito.</li>
+<li><strong>Consumidores:</strong> viagem direta em Minhas viagens, agenda, início/término com hodômetro, conferência, histórico e relatório de execução. Contagens de pedidos não aumentam. Legado continua visível e não muda seus snapshots.</li>
+<li><strong>RBAC:</strong> todos os cinco perfis diferentes de GESTOR recebem 403 na criação direta; conta desativada ou token antigo não conserva acesso.</li>
+<li><strong>Interface:</strong> nenhuma trilha “Início / …”; um h1; labels de filtros legíveis; variante oculta sem notch; busca e filtros mantêm comportamento; teclado, foco, zoom e tamanhos da seção 7.</li>
+<li><strong>Dependências/build:</strong> npm ci, build e lint do frontend, tipos/build backend e suites adequadas. Reavaliar erros do dashboard somente com as dependências restauradas.</li>
+</ol>
+<p>Os cenários acima são critérios para a implementação, não resultados já obtidos da funcionalidade nova. Usar somente dados fictícios; nunca imprimir tokens, senhas ou conteúdo pessoal dos chamados nas evidências.</p>
+
+
+<hr>
+
+<h2 id="s10">10. Checklist Pré-PR</h2>
+
+<ul class="check">
+  <li><label><input type="checkbox"> Branch da tarefa criada a partir de <code>develop</code> atualizada (<code>feat/&lt;nome-da-tarefa&gt;</code>, <code>feature/&lt;nome-da-tarefa&gt;</code> ou <code>fix/&lt;nome-da-tarefa&gt;</code>), com PR direcionado para <code>develop</code></label></li>
+  <li><label><input type="checkbox"> Commits atômicos seguindo Conventional Commits identificando a entrega (<code>tipo(escopo): descrição curta</code>; acrescentar chave Jira apenas quando houver)</label></li>
+  <li><label><input type="checkbox"> Diff focado (muda comportamento <strong>ou</strong> estrutura, nunca os dois juntos) e dividido em entregas focadas e revisáveis</label></li>
+  <li><label><input type="checkbox"> Código, métodos, classes, endpoints e enums em inglês; tabelas no plural e colunas PostgreSQL no padrão de Schemas Nativos de Domínio (<code>&lt;schema&gt;.&lt;plural_entity&gt;</code>: <code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>)</label></li>
+  <li><label><input type="checkbox"> Métodos públicos de Services, Middlewares e Props de componentes documentados com TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code></label></li>
+  <li><label><input type="checkbox"> <code>npx tsc --noEmit</code> (backend) e <code>npm run lint &amp;&amp; npm run build</code> (frontend) executando com zero erros</label></li>
+  <li><label><input type="checkbox"> Sem valores mágicos, sem uso de <code>any</code> e sem <code>console.log</code> de depuração</label></li>
+  <li><label><input type="checkbox"> Queries SQL parametrizadas (<code>$1, $2</code>), sem <code>SELECT *</code>, e conexões de transação liberadas no <code>finally</code></label></li>
+  <li><label><input type="checkbox"> Checklist de acessibilidade WCAG 2.2 Nível AA (seção 7) 100% atendida</label></li>
+  <li><label><input type="checkbox"> Zero dados pessoais reais de motoristas, servidores da FSPH ou registros do SVO (LGPD)</label></li>
+</ul>
+
+<hr>
+
+<h2 id="s11">11. Atualização da Documentação do Módulo</h2>
+
+<p>Atualizar <code>docs/modulos/VIAGENS.html</code> com a segunda origem de viagem, requestId anulável, contexto, idempotência, alocação, consumidores e RBAC. Atualizar <code>docs/modulos/SVO.html</code> e <code>docs/manuais/modulos.md</code> após a validação real das migrações, removendo indicações de pendência somente quando resolvidas.</p>
+<p>Atualizar <code>docs/modulos/AUTENTICACAO_RBAC.html</code> quanto aos campos/cabeçalhos afetados e <code>docs/modulos/FROTA.html</code> quanto à verificação da criação de multas. Em <code>docs/manuais/ambiente-desenvolvimento.md</code>, documentar aplicação/checagem de migrações, backup sem descarte do volume, dependências dos containers e os seis perfis reais.</p>
+<p>Registrar resultados de homologação com dados anonimizados e diferenciar evidências locais de testes em base isolada. A demanda foi informada nesta conversa; nenhuma issue Jira foi inventada ou vinculada sem informação do usuário.</p>
+
+
+<hr>
+
+<h2 id="s12">12. Princípios de Desenvolvimento e Restrições de Implementação</h2>
+
+<blockquote>Seção obrigatória em todo plano técnico do Sistema Aratu (conforme <code>.agents/skills/principios/references/planejamento.md</code>).</blockquote>
+
+<p>A implementação deste plano segue estritamente a ordem de precedência da skill canônica <code>principios</code>:</p>
+<ol>
+  <li><strong>Padrões do Projeto Aratu:</strong> camadas Node.js/Express 5 (<code>routes</code> → <code>controllers</code> → <code>services</code> → <code>repositories</code>), Padrões de Projeto conforme <code>docs/manuais/padroes-projeto.md</code>, React 19 (<code>pages</code>, <code>components/ui</code>, <code>services</code>) e PostgreSQL 18 em Schemas Nativos de Domínio em inglês (<code>auth</code>, <code>fleet</code>, <code>trip</code>, <code>svo</code>, <code>audit</code>).</li>
+  <li><strong>Escopo de Impacto:</strong> controle por dado de domínio e perfis RBAC (<code>ADMINISTRADOR</code>, <code>GESTOR</code>, <code>SOLICITANTE</code>, <code>MOTORISTA</code>, <code>ATENDENTE_SVO</code>, <code>EQUIPE_SVO</code>).</li>
+  <li><strong>Compatibilidade de Dados e Contratos:</strong> preservação dos contratos JSON e integridade dos registros já gravados.</li>
+  <li><strong>Idempotência e Atomicidade:</strong> transações explícitas no pool <code>pg</code> com <code>SELECT ... FOR UPDATE</code> em alocações concorrentes.</li>
+  <li><strong>YAGNI:</strong> sem parâmetros, tabelas ou abstrações especulativas.</li>
+  <li><strong>DRY:</strong> regra de negócio em um único <code>Service</code> e componentes visuais reutilizados de <code>components/ui/</code>.</li>
+  <li><strong>SOLID e KISS:</strong> responsabilidade única, baixo acoplamento e solução mais simples e legível.</li>
+  <li><strong>Clean Code e TypeScript Estrito:</strong> código em inglês, zero <code>any</code>, zero valores mágicos, e TSDoc semântico em português conforme <code>docs/manuais/padroes-docblocks.md</code>.</li>
+</ol>
+
+<ul>
+  <li><strong>Regra Inegociável da Dúvida na Implementação:</strong> Qualquer divergência encontrada entre este plano e a base de código real interrompe o trabalho e vira pergunta objetiva ao usuário. É terminantemente proibido improvisar ou assumir premissas.</li>
+  <li><strong>Proteção de Dados (LGPD / SVO):</strong> Nenhum dado pessoal real de motoristas, servidores ou falecidos entra em seeds, testes, fixtures ou commits.</li>
+</ul>
+
+</body>
+</html>

@@ -202,7 +202,6 @@ export default function DriversPage() {
     <Box className={styles.page}>
       <PageHeader
         title="Motoristas"
-        breadcrumbs={['Início', 'Motoristas']}
         actions={canWrite
           ? (
               <Button
@@ -234,7 +233,6 @@ export default function DriversPage() {
               <Box sx={{ flex: '1 1 240px', minWidth: { xs: '100%', sm: 240 } }}>
                 <FormField
                   label="Buscar motoristas por nome ou CNH"
-                  hideLabel
                   value={search}
                   onChange={(value) => { setSearch(value); setPage(1) }}
                   placeholder="Nome ou CNH..."
@@ -243,7 +241,6 @@ export default function DriversPage() {
               <Box sx={{ width: { xs: '100%', sm: 190 } }}>
                 <FormSelect
                   label="Filtrar por situação"
-                  hideLabel
                   value={statusFilter}
                   onChange={(value) => { setStatusFilter(value as DriverStatus | ''); setPage(1); setLoading(true); setLoadError('') }}
                   options={DRIVER_STATUS_OPTIONS}
@@ -254,7 +251,6 @@ export default function DriversPage() {
               <Box sx={{ width: { xs: '100%', sm: 150 } }}>
                 <FormSelect
                   label="Filtrar por categoria da CNH"
-                  hideLabel
                   value={categoryFilter}
                   onChange={(value) => { setCategoryFilter(value); setPage(1) }}
                   options={CATEGORY_OPTIONS}

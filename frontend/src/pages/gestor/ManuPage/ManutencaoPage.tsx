@@ -87,8 +87,7 @@ export default function MaintenancePage() {
   return (
     <Box sx={{ minWidth: 0, ...accessibleControls }}>
       <PageHeader 
-        title="Manutenção da Frota" 
-        breadcrumbs={['Início', 'Manutenção']}
+        title="Manutenção da Frota"
         description="Registre a manutenção e acompanhe orçamento, execução e disponibilidade dos veículos."
         actions={allowed ? <Button variant="contained" onClick={() => setForm({})} disabled={state.vehicles.length === 0 || Boolean(state.vehiclesError)}>Registrar Manutenção</Button> : undefined} 
       />

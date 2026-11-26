@@ -133,7 +133,6 @@ export default function ServicesPage() {
     <Box>
       <PageHeader
         title="Tipos de serviço"
-        breadcrumbs={['Início', 'Tipos de serviço']}
         description="Cadastre e mantenha os tipos de serviço disponíveis para associação aos veículos."
         actions={allowed ? (
           <Button

@@ -173,7 +173,6 @@ export default function FuelingsPage() {
     <Box>
       <PageHeader
         title="Abastecimentos"
-        breadcrumbs={['Início', 'Abastecimentos']}
         actions={allowed ? <Button variant="contained" startIcon={<AddIcon aria-hidden="true" />} onClick={() => setFormOpen(true)} disabled={optionsLoading || Boolean(vehiclesError) || vehicles.length === 0} sx={{ minHeight: 48 }}>Registrar Abastecimento</Button> : undefined}
       />
 

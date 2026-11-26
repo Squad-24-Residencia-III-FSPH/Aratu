@@ -15,7 +15,8 @@ function nullableIsoDate(value: unknown): value is string | null {
 }
 
 function parseTrip(value: unknown): TripAgendaItem {
-  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.requestId !== 'string'
+  if (!isRecord(value) || typeof value.id !== 'string'
+    || !(value.requestId === null || typeof value.requestId === 'string')
     || !TRIP_AGENDA_STATUSES.includes(value.status as TripAgendaItem['status'])
     || !isIsoDate(value.scheduledStart) || !isIsoDate(value.scheduledEnd)
     || !nullableIsoDate(value.startedAt) || !nullableIsoDate(value.finishedAt)

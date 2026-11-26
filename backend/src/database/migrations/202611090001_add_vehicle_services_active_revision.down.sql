@@ -1,6 +1,6 @@
 BEGIN;
 
-DROP INDEX IF EXISTS fleet_vehicle_services_by_active_service;
+DROP INDEX IF EXISTS fleet.fleet_vehicle_services_by_active_service;
 
 ALTER TABLE fleet.vehicle_services
   DROP COLUMN IF EXISTS revision,

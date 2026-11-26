@@ -217,7 +217,6 @@ export default function VehiclesPage() {
     <Box>
       <PageHeader
         title="Veículos da Frota"
-        breadcrumbs={['Início', 'Veículos']}
         description="Consulte, cadastre e mantenha a situação dos veículos da FSPH e do SVO."
         actions={canWrite
           ? (
