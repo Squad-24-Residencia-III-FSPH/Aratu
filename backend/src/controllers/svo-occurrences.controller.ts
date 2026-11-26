@@ -5,7 +5,7 @@ import type { SvoOccurrencesService } from '../services/svo-occurrences.service'
 export function createSvoOccurrencesController(service: SvoOccurrencesService) {
   return {
     async create(req: Request, res: Response): Promise<void> {
-      res.status(201).json(await service.createOccurrence(req.body, req.usuario!.id))
+      res.status(201).json(await service.createOccurrence(req.body, req.usuario!.id, req.usuario?.permissions ?? []))
     },
     async list(req: Request, res: Response): Promise<void> {
       res.json(await service.listOccurrences(req.query))
@@ -14,7 +14,7 @@ export function createSvoOccurrencesController(service: SvoOccurrencesService) {
       res.json(await service.getOccurrence(req.params.id))
     },
     async confirm(req: Request, res: Response): Promise<void> {
-      res.json(await service.confirmOccurrence(req.params.id, req.body, req.usuario!.id))
+      res.json(await service.confirmOccurrence(req.params.id, req.body, req.usuario!.id, req.usuario?.permissions ?? []))
     },
   }
 }

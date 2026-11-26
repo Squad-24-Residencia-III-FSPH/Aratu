@@ -74,7 +74,7 @@
   <p><strong>Camadas Backend (Express 5 / TS):</strong> <code>backend/src/routes/trips.routes.ts</code>, <code>backend/src/routes/availability.routes.ts</code>, <code>backend/src/controllers/trips.controller.ts</code>, <code>backend/src/controllers/availability.controller.ts</code>, <code>backend/src/services/trips.service.ts</code>, <code>backend/src/services/availability.service.ts</code>, <code>backend/src/repositories/trips.repository.ts</code>, <code>backend/src/repositories/availability.repository.ts</code></p>
   <p><strong>Camadas Frontend (React 19 / TS):</strong> <code>frontend/src/pages/MyTripsPage.tsx</code>, <code>frontend/src/pages/myTripsPage/TripExecutionDialog.tsx</code>, <code>frontend/src/components/ui/EntityCard.tsx</code>, <code>frontend/src/hooks/useMyTrips.ts</code>, <code>frontend/src/services/tripsService.ts</code>, <code>frontend/src/trips/tripTypes.ts</code>, <code>frontend/src/trips/tripPresentation.ts</code></p>
   <p><strong>Banco de Dados:</strong> <code>PostgreSQL 18</code> (schema nativo <code>trip</code>, integrado a <code>fleet</code>, <code>auth</code> e <code>audit</code>)</p>
-  <p><strong>Versão da documentação:</strong> 2026-11-10 (inclui <code>FROTA-96</code>, <code>FROTA-97</code>, <code>FROTA-99</code>, <code>FROTA-100</code>, <code>FROTA-101</code>, <code>FROTA-106</code> e <code>FROTA-107</code>; <code>FROTA-102</code> foi absorvida e entregue pela <code>FROTA-99</code>)</p>
+  <p><strong>Versão da documentação:</strong> 2026-11-26 (inclui <code>FROTA-96</code>, <code>FROTA-97</code>, <code>FROTA-99</code>, <code>FROTA-100</code>, <code>FROTA-101</code>, <code>FROTA-106</code> e <code>FROTA-107</code>; <code>FROTA-102</code> foi absorvida e entregue pela <code>FROTA-99</code>)</p>
 </div>
 
 <ol class="toc">
@@ -540,5 +540,17 @@
 <p>Os cenários usam somente nomes, unidades e finalidades fictícios. Executar com <code>npx tsx --test --test-concurrency=1 tests/requests.integration.test.ts</code> ou incluir no <code>npm test</code>.</p>
 
 <section id="implementation-update-2026-11-24"><h2>Atualização de implementação — 24/11/2026</h2><p>O solicitante cria e consulta pedidos persistidos. O gestor distingue devolver para correção (com observação e versões preservadas) de recusar definitivamente; o solicitante pode editar os dados da viagem e reenviar sem limite artificial. A agenda do gestor consulta viagens por situação e período, incluindo estados finais. A alocação verifica capacidade e exige conta ativa vinculada ao motorista; requisitos especiais ficam sujeitos à conferência explícita do gestor até existir catálogo de adaptações.</p><p>A migration <code>202611240001_extend_trip_requests_for_corrections.sql</code> precisa ser aplicada e validada antes da homologação no banco.</p></section>
+<section id="implementation-update-2026-11-26">
+<h2>Atualização de implementação — 26/11/2026</h2>
+<p>O formulário do Solicitante registra a finalidade e os demais dados do transporte, sem selecionar tipo de serviço. A migration <code>202611260001_defer_request_service_to_scheduling.sql</code> permite <code>trip.requests.service_id</code> nulo para pedidos novos e acrescenta <code>trip.trips.service_snapshot</code>; pedidos e viagens antigos permanecem preservados, sem reconstrução de snapshots a partir do cadastro atual.</p>
+<ul>
+<li><code>POST /trips</code> recebe <code>requestId</code>, <code>expectedRevision</code>, <code>serviceId</code>, <code>vehicleId</code>, <code>driverId</code>, <code>scheduledStart</code> e <code>scheduledEnd</code>, além do cabeçalho <code>Idempotency-Key</code>. Em uma transação, <code>TripsService::scheduleTrip</code> classifica o pedido, aprova o pedido PENDING, valida serviço e recursos, grava viagem e snapshots, marca SCHEDULED e registra eventos e auditoria. Pedido legado APPROVED também pode ser agendado, preservando sua aprovação anterior.</li>
+<li>Fechar o formulário ou falhar validação deixa o pedido no estado inicial. Reenvio da mesma chave e conteúdo retorna a viagem existente; conteúdo diferente para a chave retorna conflito. Não há aprovação separada.</li>
+<li>A seleção no gestor começa pelo serviço ativo; a consulta de disponibilidade recebe <code>serviceId</code> e restringe veículos aos vínculos ativos de <code>fleet.vehicle_services</code>, além de disponibilidade, capacidade e período. A relação existente permite mais de um tipo por veículo.</li>
+<li>A lista de análise reúne pedidos pendentes e pedidos APPROVED legados sem viagem. A solicitação permanece consultável após o agendamento, com a viagem e classificação no detalhe.</li>
+</ul>
+<p>Auditoria de registro fica centralizada em <code>/auditoria</code>; o histórico é obtido por <code>GET /audit-logs/records/trip-request/:recordId/history</code> e respeita grants e escopo do domínio. A área separa histórico por registro e operações, sem repetir um botão de histórico em cada linha.</p>
+<p>Arquivos principais: <code>requests.service.ts</code>, <code>trips.service.ts</code>, <code>availability.service.ts</code>, <code>ScheduleTripPage.tsx</code>, <code>SolicitacaoPage.tsx</code> e <code>RequestAnalysisPage.tsx</code>. O container PostgreSQL não estava acessível para introspecção durante a atualização; o modelo acima foi conferido nas migrations e repositories.</p>
+</section>
 </body>
 </html>

@@ -22,36 +22,31 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditNoteIcon from '@mui/icons-material/EditNote'
-import HistoryIcon from '@mui/icons-material/History'
 import PageHeader from '../../components/ui/PageHeader'
 import StateFeedback from '../../components/ui/StateFeedback'
 import StatusChip from '../../components/ui/StatusChip'
-import { FormField, FormSelect } from '../../components/ui/FormField'
+import { FormField } from '../../components/ui/FormField'
 import { useAuth } from '../../auth/useAuth'
-import { listFleetServices } from '../../services/fleetServicesService'
-import type { FleetService } from '../../services/fleetServicesService'
+import { hasPermission } from '../../auth/access'
 import {
   createRequest,
   getRequest,
-  getRequestHistory,
   listRequests,
   resubmitRequest,
 } from '../../services/requestsService'
 import type {
-  PaginatedRequestHistory,
   PaginatedRequests,
   RequestDetail,
-  RequestHistoryItem,
   RequestStatus,
   RequestSubmission,
   RequestSummary,
 } from '../../requests/requestTypes'
 import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONES } from '../../requests/requestPresentation'
-import { formatCalendarDate, formatDateTime } from '../../utils/dates'
+import { formatCalendarDate } from '../../utils/dates'
 
 const PAGE_SIZE = 10
 const EMPTY_FORM: RequestSubmission = {
-  requestedDate: '', requestedTime: '', origin: '', destination: '', purpose: '', serviceId: '',
+  requestedDate: '', requestedTime: '', origin: '', destination: '', purpose: '',
   passengers: 1, specialRequirements: null, notes: null,
 }
 
@@ -68,7 +63,6 @@ function formValues(request?: RequestDetail | null): FormValues {
     origin: request.origin,
     destination: request.destination,
     purpose: request.purpose,
-    serviceId: request.serviceId,
     passengers: request.passengers,
     specialRequirements: request.specialRequirements ?? '',
     notes: request.notes ?? '',
@@ -90,14 +84,14 @@ function isOpenNewRequestState(value: unknown): boolean {
 
 /** Lista e registra solicitações reais, com correção disponível após devolução do Gestor. */
 export default function SolicitacaoPage() {
-  const { api } = useAuth()
+  const { api, session } = useAuth()
+  const canCreate = hasPermission(session, 'requests:create')
+  const canResubmit = hasPermission(session, 'requests:resubmit:own')
   const theme = useTheme()
   const mobileViewport = useMediaQuery(theme.breakpoints.down('sm'))
   const location = useLocation()
   const navigate = useNavigate()
   const routeRequestsNewForm = isOpenNewRequestState(location.state)
-  const [servicesState, setServicesState] = useState<{ data?: FleetService[]; error?: string }>({})
-  const [serviceReload, setServiceReload] = useState(0)
   const [listState, setListState] = useState<{ key: string; data?: PaginatedRequests; error?: string } | null>(null)
   const [statusFilter, setStatusFilter] = useState<RequestStatus | ''>('')
   const [page, setPage] = useState(0)
@@ -109,9 +103,8 @@ export default function SolicitacaoPage() {
   const [formError, setFormError] = useState('')
   const [notice, setNotice] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [detailState, setDetailState] = useState<{ id: string; request?: RequestDetail; history?: PaginatedRequestHistory; error?: string } | null>(null)
+  const [detailState, setDetailState] = useState<{ id: string; request?: RequestDetail; error?: string } | null>(null)
   const [detailReload, setDetailReload] = useState(0)
-  const [historyPage, setHistoryPage] = useState(1)
 
   const filters = useMemo(() => ({
     ...(statusFilter ? { status: statusFilter } : {}), page: page + 1, pageSize: PAGE_SIZE,
@@ -120,18 +113,6 @@ export default function SolicitacaoPage() {
   const currentList = listState?.key === queryKey ? listState : null
   const rows = currentList?.data?.requests ?? []
   const dialogOpen = createOpen || editingRequest !== null || routeRequestsNewForm
-  const activeServices = (servicesState.data ?? []).filter(service => service.active)
-
-  useEffect(() => {
-    let current = true
-    void listFleetServices(api)
-      .then(data => { if (current) setServicesState({ data }) })
-      .catch((failure: unknown) => {
-        if (current) setServicesState({ error: failure instanceof Error ? failure.message : 'Não foi possível carregar os tipos de serviço.' })
-      })
-    return () => { current = false }
-  }, [api, serviceReload])
-
   useEffect(() => {
     let current = true
     void listRequests(api, filters)
@@ -146,17 +127,14 @@ export default function SolicitacaoPage() {
   useEffect(() => {
     if (!selectedId) return
     let current = true
-    void Promise.all([
-      getRequest(api, selectedId),
-      getRequestHistory(api, selectedId, historyPage),
-    ]).then(([request, history]) => {
-      if (current) setDetailState({ id: selectedId, request, history })
+    void getRequest(api, selectedId).then(request => {
+      if (current) setDetailState({ id: selectedId, request })
     }).catch((failure: unknown) => {
       if (current) setDetailState({ id: selectedId,
         error: failure instanceof Error ? failure.message : 'Não foi possível carregar os detalhes.' })
     })
     return () => { current = false }
-  }, [api, selectedId, detailReload, historyPage])
+  }, [api, selectedId, detailReload])
 
   function clearRouteAction() {
     if (routeRequestsNewForm) navigate(location.pathname, { replace: true, state: null })
@@ -215,7 +193,6 @@ export default function SolicitacaoPage() {
 
   function openDetails(request: RequestSummary) {
     setDetailState(null)
-    setHistoryPage(1)
     setSelectedId(request.id)
   }
 
@@ -231,14 +208,12 @@ export default function SolicitacaoPage() {
       <PageHeader
         title="Minhas solicitações"
         description="Acompanhe seus pedidos e atualize os dados quando o Gestor solicitar correções."
-        actions={<Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ minHeight: 48 }}>
+        actions={canCreate ? <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ minHeight: 48 }}>
           Nova solicitação
-        </Button>}
+        </Button> : undefined}
       />
 
       {notice && <Alert severity="success" role="status" sx={{ mb: 2 }}>{notice}</Alert>}
-      {servicesState.error && <StateFeedback kind="error" title="Não foi possível carregar os tipos de serviço."
-        description={servicesState.error} actionLabel="Tentar novamente" onAction={() => setServiceReload(value => value + 1)} />}
       {currentList?.error && <StateFeedback kind={notice ? 'partial' : 'error'}
         title={notice ? 'A solicitação foi gravada, mas a lista pode estar desatualizada.' : 'Não foi possível carregar suas solicitações.'}
         description={currentList.error} actionLabel="Tentar novamente" onAction={() => setReload(value => value + 1)} />}
@@ -282,16 +257,11 @@ export default function SolicitacaoPage() {
               <strong>Observação do Gestor:</strong> {editingRequest.decisionReason}
             </Alert>}
             {formError && <Alert severity="error" role="alert" sx={{ mb: 2 }}>{formError}</Alert>}
-            {servicesState.error && <Alert severity="error" sx={{ mb: 2 }}>{servicesState.error}</Alert>}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 2 }}>
               <FormField label="Data da viagem" type="date" value={values.requestedDate}
                 onChange={value => update('requestedDate', value)} required />
               <FormField label="Horário" type="time" value={values.requestedTime}
                 onChange={value => update('requestedTime', value)} required />
-              <FormSelect label="Tipo de serviço" value={values.serviceId}
-                onChange={value => update('serviceId', value)} required
-                options={activeServices.map(service => ({ value: service.id, label: service.name }))}
-                disabled={!servicesState.data || activeServices.length === 0} />
               <FormField label="Passageiros" type="number" inputMode="numeric" value={String(values.passengers)}
                 onChange={value => update('passengers', Number(value))} required />
               <FormField label="Origem" value={values.origin} onChange={value => update('origin', value)} required />
@@ -306,7 +276,7 @@ export default function SolicitacaoPage() {
           </DialogContent>
           <DialogActions sx={{ p: 2, pb: 'max(16px, env(safe-area-inset-bottom))' }}>
             <Button onClick={closeForm} disabled={saving} sx={{ minHeight: 48 }}>Cancelar</Button>
-            <Button type="submit" variant="contained" disabled={saving || !servicesState.data || activeServices.length === 0}
+            <Button type="submit" variant="contained" disabled={saving}
               aria-busy={saving} sx={{ minHeight: 48 }}>
               {saving ? 'Enviando…' : editingRequest ? 'Reenviar para análise' : 'Enviar solicitação'}
             </Button>
@@ -316,22 +286,17 @@ export default function SolicitacaoPage() {
 
       <Dialog open={selectedId !== null} onClose={() => setSelectedId(null)} fullWidth maxWidth="sm" fullScreen={mobileViewport}
         sx={{ '& .MuiDialog-paper': { m: { xs: 0, sm: 3 }, width: { xs: '100%', sm: undefined }, maxHeight: { xs: '100dvh', sm: 'calc(100% - 64px)' }, borderRadius: { xs: 0, sm: 2 } } }}>
-        <DialogTitle>Detalhes e histórico</DialogTitle>
+        <DialogTitle>Detalhes da solicitação</DialogTitle>
         <DialogContent dividers>
-          {!detail && <StateFeedback kind="loading" title="Carregando detalhes e histórico..." />}
+          {!detail && <StateFeedback kind="loading" title="Carregando detalhes..." />}
           {detail?.error && <StateFeedback kind="error" title="Não foi possível carregar os detalhes."
             description={detail.error} actionLabel="Tentar novamente" onAction={() => setDetailReload(value => value + 1)} />}
-          {detail?.request && <RequestDetailContent request={detail.request} history={detail.history?.items ?? []} />}
-          {detail?.request?.status === 'RETURNED' && (
+          {detail?.request && <RequestDetailContent request={detail.request} />}
+          {canResubmit && detail?.request?.status === 'RETURNED' && (
             <Button variant="contained" startIcon={<EditNoteIcon />} onClick={() => editReturnedRequest(detail.request!)}
               sx={{ mt: 2, minHeight: 48, width: { xs: '100%', sm: 'auto' } }}>
               Corrigir e reenviar
             </Button>
-          )}
-          {detail?.history && detail.history.totalPages > 1 && (
-            <TablePagination component="div" count={detail.history.total} page={historyPage - 1} rowsPerPage={20}
-              rowsPerPageOptions={[20]} onPageChange={(_event, nextPage) => setHistoryPage(nextPage + 1)}
-              labelRowsPerPage="Eventos por página:" labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`} />
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2, pb: 'max(16px, env(safe-area-inset-bottom))' }}>
@@ -352,21 +317,23 @@ function RequestCard({ request, onDetails }: { request: RequestSummary; onDetail
         </Stack>
         <Typography variant="body2" color="text.secondary">{formatCalendarDate(request.requestedDate)} às {request.requestedTime}</Typography>
         <Typography sx={{ mt: 1, overflowWrap: 'anywhere' }}><strong>{request.origin}</strong> → <strong>{request.destination}</strong></Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{request.serviceName} · {request.passengers} passageiros</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          {request.serviceName ?? 'Serviço a definir no agendamento'} · {request.passengers} passageiros
+        </Typography>
       </CardContent>
       <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end' }}>
-        <Button onClick={onDetails} startIcon={<HistoryIcon />} sx={{ minHeight: 44 }}>Ver detalhes e histórico</Button>
+        <Button onClick={onDetails} sx={{ minHeight: 44 }}>Ver detalhes</Button>
       </CardActions>
     </Card>
   )
 }
 
-function RequestDetailContent({ request, history }: { request: RequestDetail; history: readonly RequestHistoryItem[] }) {
+function RequestDetailContent({ request }: { request: RequestDetail }) {
   return (
     <Stack spacing={2}>
       <StatusChip label={REQUEST_STATUS_LABELS[request.status]} tone={REQUEST_STATUS_TONES[request.status]} />
       <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
-        <Detail label="Tipo de serviço" value={request.serviceName} />
+        <Detail label="Tipo de serviço" value={request.serviceName ?? 'A definir no agendamento'} />
         <Detail label="Data e horário" value={`${formatCalendarDate(request.requestedDate)} às ${request.requestedTime}`} />
         <Detail label="Origem" value={request.origin} />
         <Detail label="Destino" value={request.destination} />
@@ -378,32 +345,11 @@ function RequestDetailContent({ request, history }: { request: RequestDetail; hi
       {request.decisionReason && <Alert severity={request.status === 'RETURNED' ? 'warning' : 'info'}>
         <strong>{request.status === 'RETURNED' ? 'Observação para correção:' : 'Motivo da decisão:'}</strong> {request.decisionReason}
       </Alert>}
-      <Box>
-        <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Histórico</Typography>
-        {history.length === 0 ? <Typography color="text.secondary">Nenhum evento registrado.</Typography> : (
-          <Stack component="ol" spacing={1.5} sx={{ m: 0, pl: 2.5 }}>
-            {history.map(event => <Box component="li" key={event.id}>
-              <Typography sx={{ fontWeight: 600 }}>{historyEventLabel(event.eventType)}</Typography>
-              <Typography variant="body2" color="text.secondary">{formatDateTime(event.occurredAt)} · {event.reportedBy}</Typography>
-              <Typography variant="body2">{event.reason}</Typography>
-            </Box>)}
-          </Stack>
-        )}
-      </Box>
     </Stack>
   )
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+function Detail({ label, value }: { label: string; value: string | null }) {
   return <Box><Typography component="dt" variant="body2" color="text.secondary">{label}</Typography>
     <Typography component="dd" sx={{ m: 0, overflowWrap: 'anywhere' }}>{value}</Typography></Box>
-}
-
-function historyEventLabel(eventType: string): string {
-  const labels: Record<string, string> = {
-    CREATED: 'Solicitação enviada', RETURNED: 'Devolvida para correção', RESUBMITTED: 'Solicitação reenviada',
-    APPROVED: 'Aprovada', REJECTED: 'Recusada definitivamente', SCHEDULED: 'Viagem agendada',
-    CANCELED: 'Cancelada', UPDATED: 'Dados atualizados',
-  }
-  return labels[eventType] ?? 'Atualização registrada'
 }

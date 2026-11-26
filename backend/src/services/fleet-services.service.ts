@@ -1,11 +1,11 @@
 import type { PoolClient } from 'pg'
 import type { AuditActorSnapshot, AuditLogger } from '../types/audit.types'
 import type { UserRole } from '../types/auth'
+import { LEGACY_ROLE_PERMISSIONS } from '../types/permission.types'
 import { VEHICLE_CATEGORIES } from '../types/vehicle.types'
 import type { Vehicle, VehicleCategory } from '../types/vehicle.types'
 import {
   SERVICE_AUDIT_OPERATIONS,
-  SERVICE_MANAGER_ROLES,
   FleetServiceError,
 } from '../types/fleet-service.types'
 import type {
@@ -16,6 +16,7 @@ import type {
   FleetServiceActorSnapshot,
   FleetServiceAttributes,
   FleetServiceFilters,
+  FleetServiceListResult,
   NormalizedFleetServiceAttributes,
   ReplaceCompatibleVehiclesInput,
   UpdateFleetServiceInput,
@@ -38,8 +39,14 @@ function isCategory(value: unknown): value is VehicleCategory {
   return typeof value === 'string' && VEHICLE_CATEGORIES.some((category) => category === value)
 }
 
-function isManager(role: UserRole | undefined): boolean {
-  return SERVICE_MANAGER_ROLES.some((managerRole) => managerRole === role)
+type ServiceViewer = UserRole | readonly string[] | undefined
+
+function permissionsOf(viewer: ServiceViewer): readonly string[] {
+  return typeof viewer === 'string' ? LEGACY_ROLE_PERMISSIONS[viewer] ?? [] : viewer ?? []
+}
+
+function canArchiveServices(viewer: ServiceViewer): boolean {
+  return permissionsOf(viewer).includes('services:archive')
 }
 
 function optionalFlag(value: unknown, fieldName: string): boolean {
@@ -82,12 +89,30 @@ export class FleetServicesService {
    *
    * @throws {FleetServiceError} 400 quando um não gestor tenta filtrar inativos.
    */
-  async listServices(filters: FleetServiceFilters, viewerRole: UserRole | undefined): Promise<FleetService[]> {
-    if (isManager(viewerRole)) return this.repository.list(filters)
-    if (filters.active === false) {
-      throw new FleetServiceError(400, 'Somente Gestor ou Administrador consultam tipos de serviço inativos.')
+  async listServices(filters: FleetServiceFilters, viewer: ServiceViewer): Promise<FleetServiceListResult> {
+    const search = filters.search?.trim()
+    if (search && search.length > 120) throw new FleetServiceError(400, 'A busca deve ter até 120 caracteres.')
+    const canArchive = canArchiveServices(viewer)
+    const hasPagination = filters.page !== undefined || filters.pageSize !== undefined
+    if (!canArchive && filters.active === false) {
+      throw new FleetServiceError(400, 'Seu perfil não pode consultar tipos de serviço arquivados.')
     }
-    return this.repository.list({ active: true })
+    const page = filters.page ?? 1
+    const pageSize = filters.pageSize ?? 20
+    if (hasPagination && (!Number.isInteger(page) || page < 1 || page > 1_000_000)) {
+      throw new FleetServiceError(400, 'page deve ser um inteiro positivo.')
+    }
+    if (hasPagination && (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100)) {
+      throw new FleetServiceError(400, 'pageSize deve ser um inteiro entre 1 e 100.')
+    }
+    const { search: _rawSearch, ...filtersWithoutSearch } = filters
+    const visibleFilters = canArchive ? filtersWithoutSearch : { active: true }
+    const normalizedFilters = { ...visibleFilters, ...(search ? { search } : {}) }
+    if (hasPagination) {
+      if (!this.repository.listPaged) throw new FleetServiceError(501, 'A paginação dos tipos de serviço não está disponível.')
+      return this.repository.listPaged({ ...normalizedFilters, page, pageSize })
+    }
+    return this.repository.list(normalizedFilters)
   }
 
   /**
@@ -95,10 +120,10 @@ export class FleetServicesService {
    *
    * @throws {FleetServiceError} 400 para id malformado e 404 quando não existe ou não é visível.
    */
-  async getService(id: string, viewerRole: UserRole | undefined): Promise<FleetService> {
+  async getService(id: string, viewer: ServiceViewer): Promise<FleetService> {
     this.validateId(id)
     const service = await this.repository.findById(id)
-    if (!service || (!service.active && !isManager(viewerRole))) {
+    if (!service || (!service.active && !canArchiveServices(viewer))) {
       throw new FleetServiceError(404, NOT_FOUND_MESSAGE)
     }
     return service

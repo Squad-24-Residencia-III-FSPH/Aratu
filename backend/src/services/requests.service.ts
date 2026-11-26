@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg'
 import type { AuditLogger } from '../types/audit.types'
 import type { RequestsRepositoryContract } from '../repositories/requests.repository'
 import { INITIAL_REQUEST_STATUS, REQUEST_STATUSES, RequestServiceError } from '../types/request.types'
+import { LEGACY_ROLE_PERMISSIONS } from '../types/permission.types'
 import type {
   CreateRequestBody,
   CreateRequestInput,
@@ -78,10 +79,8 @@ function assertDateIsNotPast(requestedDate: string, requestedTime: string): void
 function validateInput(body: CreateRequestBody): CreateRequestInput {
   const requestedDate = requiredText(body.requestedDate, 'requestedDate')
   const requestedTime = requiredText(body.requestedTime, 'requestedTime')
-  const serviceId = requiredText(body.serviceId, 'serviceId')
   if (!isValidCalendarDate(requestedDate)) throw new RequestServiceError(400, 'requestedDate deve usar uma data válida no formato YYYY-MM-DD.')
   if (!TIME_PATTERN.test(requestedTime)) throw new RequestServiceError(400, 'requestedTime deve usar o formato HH:mm.')
-  if (!ID_PATTERN.test(serviceId)) throw new RequestServiceError(400, 'serviceId deve ser um identificador positivo.')
   const passengers = body.passengers === undefined ? DEFAULT_PASSENGERS : body.passengers
   if (typeof passengers !== 'number' || !Number.isSafeInteger(passengers) || passengers < 1) {
     throw new RequestServiceError(400, 'Informe uma quantidade válida de passageiros.')
@@ -89,7 +88,7 @@ function validateInput(body: CreateRequestBody): CreateRequestInput {
   return {
     requestedDate,
     requestedTime,
-    serviceId,
+    serviceId: null,
     origin: requiredText(body.origin, 'origin'),
     destination: requiredText(body.destination, 'destination'),
     purpose: requiredText(body.purpose, 'purpose'),
@@ -127,10 +126,10 @@ export class RequestsService {
   ) {}
 
   /**
-   * Registra uma solicitação futura para um serviço ativo e grava estado, evento e auditoria juntos.
+   * Registra uma necessidade de transporte sem classificar o serviço antes da decisão do Gestor.
    * O estado e a autoria sempre vêm do domínio e da sessão validada, nunca de campos forjados no corpo.
    *
-   * @throws {RequestServiceError} 400 para entrada ou serviço inválidos, 401 para conta indisponível e 422 para data passada.
+   * @throws {RequestServiceError} 400 para entrada inválida, 401 para conta indisponível e 422 para data passada.
    */
   async createRequest(body: CreateRequestBody, requesterId: string): Promise<Pick<TripRequest, 'id' | 'status'>> {
     const input = validateInput(body)
@@ -139,11 +138,9 @@ export class RequestsService {
     return this.repository.withTransaction(async (client: PoolClient) => {
       const actor = await this.repository.findActorSnapshot(requesterId, client)
       if (!actor) throw new RequestServiceError(401, 'Sua conta não está ativa. Entre novamente ou procure a administração.')
-      const service = await this.repository.findActiveServiceForUpdate(input.serviceId, client)
-      if (!service) throw new RequestServiceError(400, 'Tipo de serviço inexistente ou inativo.')
       assertDateIsNotPast(input.requestedDate, input.requestedTime)
 
-      const request = await this.repository.create(input, actor, service, client)
+      const request = await this.repository.create(input, actor, null, client)
       await this.repository.createEvent({
         requestId: request.id,
         reportedBy: actor.name,
@@ -185,6 +182,10 @@ export class RequestsService {
     if (filters.status !== undefined && !isRequestStatus(filters.status)) {
       throw new RequestServiceError(400, 'Situação da solicitação inválida.')
     }
+    if (filters.statuses !== undefined
+      && (filters.statuses.length === 0 || filters.statuses.some((status) => !isRequestStatus(status)))) {
+      throw new RequestServiceError(400, 'As situações da solicitação são inválidas.')
+    }
 
     if (filters.from !== undefined && !isValidCalendarDate(filters.from)) {
       throw new RequestServiceError(400, 'Data inicial inválida.')
@@ -215,7 +216,7 @@ export class RequestsService {
       throw new RequestServiceError(400, `O tamanho da página deve estar entre 1 e ${MAX_PAGE_SIZE}.`)
     }
 
-    const requesterId = actor.role === 'SOLICITANTE' ? actor.id : undefined
+    const requesterId = this.requesterScope(actor, 'requests:read:own', 'requests:read:all')
 
     return this.repository.list({
       ...filters,
@@ -244,7 +245,7 @@ export class RequestsService {
       throw new RequestServiceError(400, 'Identificador de solicitação inválido.')
     }
 
-    const requesterId = actor.role === 'SOLICITANTE' ? actor.id : undefined
+    const requesterId = this.requesterScope(actor, 'requests:read:own', 'requests:read:all')
     const request = await this.repository.findById(id, requesterId)
 
     if (!request) {
@@ -277,11 +278,9 @@ export class RequestsService {
       }
       const actor = await this.repository.findActorSnapshot(requesterId, client)
       if (!actor) throw new RequestServiceError(401, 'Sua conta não está ativa. Entre novamente ou procure a administração.')
-      const service = await this.repository.findActiveServiceForUpdate(input.serviceId, client)
-      if (!service) throw new RequestServiceError(422, 'O tipo de serviço selecionado não existe ou está inativo.')
       assertDateIsNotPast(input.requestedDate, input.requestedTime)
 
-      const after = await this.repository.resubmit(id, body.expectedRevision, input, actor, service, client)
+      const after = await this.repository.resubmit(id, body.expectedRevision, input, actor, client)
       if (!after) throw new RequestServiceError(409, 'A solicitação mudou desde a última consulta. Atualize os dados antes de reenviar.')
       await this.repository.createLifecycleEvent({
         requestId: id,
@@ -321,7 +320,19 @@ export class RequestsService {
     if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
       throw new RequestServiceError(400, `O tamanho da página deve estar entre 1 e ${MAX_PAGE_SIZE}.`)
     }
-    await this.getRequest(id, actor)
+    if (!ID_PATTERN.test(id)) throw new RequestServiceError(400, 'Identificador de solicitação inválido.')
+    const requesterId = this.requesterScope(actor, 'requests:history:read:own', 'requests:history:read:all')
+    if (!await this.repository.findById(id, requesterId)) {
+      throw new RequestServiceError(404, 'Solicitação não encontrada.')
+    }
     return this.repository.listHistory(id, page, pageSize)
+  }
+
+  /** Resolve escopo próprio/todos pelas permissões efetivas da sessão, sem confiar no código do perfil. */
+  private requesterScope(actor: RequestActor, ownPermission: string, allPermission: string): string | undefined {
+    const grants = actor.permissions ?? LEGACY_ROLE_PERMISSIONS[actor.role] ?? []
+    if (grants.includes(allPermission)) return undefined
+    if (grants.includes(ownPermission)) return actor.id
+    throw new RequestServiceError(403, 'Seu perfil não permite consultar esta solicitação.')
   }
 }

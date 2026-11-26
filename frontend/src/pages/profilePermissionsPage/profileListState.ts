@@ -1,15 +1,15 @@
-import type { ProfileSummary } from '../../services/profileService'
+import type { ProfileOption } from '../../services/profileService'
 
 export type ProfileListState =
   | { status: 'loading' }
-  | { status: 'success'; profiles: ProfileSummary[] }
+  | { status: 'success'; profiles: ProfileOption[] }
   | { status: 'empty' }
   | { status: 'forbidden' }
   | { status: 'error' }
 
 export type ProfileListAction =
   | { type: 'loading' }
-  | { type: 'loaded'; profiles: ProfileSummary[] }
+  | { type: 'loaded'; profiles: ProfileOption[] }
   | { type: 'failed'; reason: 'forbidden' | 'unavailable' }
 
 /** Converte respostas da consulta em estados de interface explícitos. */

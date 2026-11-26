@@ -19,9 +19,11 @@ interface MaintenanceDetailDialogProps {
   onEdit: () => void
   onSaved: (order: MaintenanceOrder) => void
   onReload: () => void
+  canUpdate: boolean
+  canClose: boolean
 }
 /** Mantém execução separada do orçamento e exige confirmação explícita da baixa da OS. */
-export default function MaintenanceDetailDialog({ order, api, onClose, onEdit, onSaved, onReload }: MaintenanceDetailDialogProps) {
+export default function MaintenanceDetailDialog({ order, api, onClose, onEdit, onSaved, onReload, canUpdate, canClose }: MaintenanceDetailDialogProps) {
   const id = useId()
   const [closing, setClosing] = useState(false)
   const [mode, setMode] = useState(order.estimateItems === null ? 'actual' : 'estimate')
@@ -97,8 +99,8 @@ export default function MaintenanceDetailDialog({ order, api, onClose, onEdit, o
       <DialogActions sx={{ p: 2, flexWrap: 'wrap', gap: 1 }}>
         <Button onClick={onClose} color="inherit" disabled={busy}>Fechar</Button>
         {isActiveOrder(order) && !closing && <>
-          <Button variant="outlined" onClick={onEdit}>Editar orçamento / ordem</Button>
-          <Button variant="contained" onClick={() => setClosing(true)}>Encerrar manutenção</Button>
+          {canUpdate && <Button variant="outlined" onClick={onEdit}>Editar ordem</Button>}
+          {canClose && <Button variant="contained" onClick={() => setClosing(true)}>Encerrar manutenção</Button>}
         </>}
         {closing && <Button type="submit" form={`${id}-close`} variant="contained" disabled={busy || conflict}>Revisar encerramento</Button>}
       </DialogActions>

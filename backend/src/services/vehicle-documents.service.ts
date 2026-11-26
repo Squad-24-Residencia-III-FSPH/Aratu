@@ -5,7 +5,6 @@ import type { AuditLogger } from '../types/audit.types'
 import type { Vehicle, VehicleActorSnapshot } from '../types/vehicle.types'
 import {
   VEHICLE_DOCUMENT_STATUSES,
-  VEHICLE_DOCUMENT_MANAGER_ROLES,
   VEHICLE_DOCUMENT_TYPES,
   VehicleDocumentServiceError,
 } from '../types/vehicle-document.types'
@@ -591,12 +590,6 @@ export class VehicleDocumentsService {
       throw new VehicleDocumentServiceError(
         401,
         'Sua conta não está ativa. Entre novamente ou procure a administração.',
-      )
-    }
-    if (!VEHICLE_DOCUMENT_MANAGER_ROLES.some((role) => role === actor.role)) {
-      throw new VehicleDocumentServiceError(
-        403,
-        'Acesso negado: perfil de usuário não autorizado para esta operação.',
       )
     }
     return actor

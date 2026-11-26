@@ -66,7 +66,14 @@ export interface ChangeDriverStatusInput extends DriverChangeMetadata {
 export interface DriverFilters {
   name?: string
   status?: DriverStatus
+  cnhCategory?: CnhCategory
+  search?: string
+  view?: ActivityView
+  page?: number
+  pageSize?: number
 }
+
+export type DriverListResult = Driver[] | PaginatedResult<Driver>
 
 /** Atributos já validados e normalizados, prontos para persistência. */
 export interface NormalizedDriverAttributes {
@@ -82,8 +89,8 @@ export interface NormalizedDriverAttributes {
 /** Conta de usuário candidata ao vínculo com o motorista. */
 export interface DriverUserAccount {
   id: string
-  role: string
   active: boolean
+  canExecuteTrips: boolean
 }
 
 /** Snapshot público do ator autenticado preservado no histórico. */
@@ -122,3 +129,4 @@ export class DriverServiceError extends Error {
     this.statusCode = statusCode
   }
 }
+import type { ActivityView, PaginatedResult } from './pagination.types'

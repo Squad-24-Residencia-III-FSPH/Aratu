@@ -52,7 +52,11 @@ function requireActor(request: Request): RequestActor {
   if (!usuario) {
     throw new RequestServiceError(401, 'Autenticação necessária.')
   }
-  return { id: usuario.id, role: usuario.perfil }
+  return {
+    id: usuario.id,
+    role: usuario.perfil,
+    ...(usuario.permissions === undefined ? {} : { permissions: usuario.permissions }),
+  }
 }
 
 async function respondWithDomainErrors<T>(
@@ -89,6 +93,7 @@ export function createRequestsController(service: RequestsService) {
     list(req: Request, res: Response, next: NextFunction): Promise<void> {
       return respondWithDomainErrors(res, next, () => {
         const status = queryText(req.query.status)
+        const statuses = queryText(req.query.statuses)
         const from = queryText(req.query.from)
         const to = queryText(req.query.to)
         const requester = queryText(req.query.requester)
@@ -97,6 +102,7 @@ export function createRequestsController(service: RequestsService) {
         const pageSize = queryNumber(req.query.pageSize)
         const filters: RequestListFilters = {
           ...(status !== undefined ? { status: status as RequestStatus } : {}),
+          ...(statuses !== undefined ? { statuses: statuses.split(',') as RequestStatus[] } : {}),
           ...(from !== undefined ? { from } : {}),
           ...(to !== undefined ? { to } : {}),
           ...(requester !== undefined ? { requester } : {}),

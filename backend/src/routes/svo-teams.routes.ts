@@ -2,28 +2,27 @@ import { Router } from 'express'
 import type { NextFunction, Request, Response } from 'express'
 import { createSvoTeamsController } from '../controllers/svo-teams.controller'
 import { createAuthMiddleware, createCurrentUserMiddleware } from '../middlewares/auth.middleware'
-import { authorizeRoles } from '../middlewares/rbac.middleware'
+import { authorizePermissions } from '../middlewares/rbac.middleware'
 import type { UsersRepositoryContract } from '../repositories/users.repository'
 import type { SvoTeamsService } from '../services/svo-teams.service'
 import type { JwtConfig } from '../types/auth'
 import { SvoTeamServiceError } from '../types/svo-team.types'
 
 const STATUS = { INVALID_INPUT: 400, ACCOUNT_UNAVAILABLE: 401, ACCESS_DENIED: 403, NOT_FOUND: 404, CONFLICT: 409 } as const
-const MANAGERS = ['GESTOR', 'ADMINISTRADOR'] as const
-
 export function createSvoTeamsRouter(service: SvoTeamsService, jwt: JwtConfig, users: Pick<UsersRepositoryContract, 'findById'>): Router {
   const router = Router()
-  router.use(createAuthMiddleware(jwt.secret), createCurrentUserMiddleware(users), authorizeRoles(MANAGERS))
+  const authenticate = createAuthMiddleware(jwt.secret)
+  const currentUser = createCurrentUserMiddleware(users)
   const controller = createSvoTeamsController(service)
-  router.get('/eligible-members', controller.eligibleMembers)
-  router.get('/', controller.list)
-  router.post('/', controller.create)
-  router.put('/:id', controller.update)
-  router.post('/:id/members', controller.addMember)
-  router.delete('/:id/members/:userId', controller.removeMember)
-  router.post('/:id/shifts', controller.createShift)
-  router.put('/:id/shifts/:shiftId', controller.updateShift)
-  router.patch('/:id/shifts/:shiftId/cancel', controller.cancelShift)
+  router.get('/eligible-members', authenticate, currentUser, authorizePermissions('svo:teams:manage'), controller.eligibleMembers)
+  router.get('/', authenticate, currentUser, authorizePermissions('svo:teams:read'), controller.list)
+  router.post('/', authenticate, currentUser, authorizePermissions('svo:teams:manage'), controller.create)
+  router.put('/:id', authenticate, currentUser, authorizePermissions('svo:teams:manage'), controller.update)
+  router.post('/:id/members', authenticate, currentUser, authorizePermissions('svo:teams:manage'), controller.addMember)
+  router.delete('/:id/members/:userId', authenticate, currentUser, authorizePermissions('svo:teams:manage'), controller.removeMember)
+  router.post('/:id/shifts', authenticate, currentUser, authorizePermissions('svo:teams:manage'), controller.createShift)
+  router.put('/:id/shifts/:shiftId', authenticate, currentUser, authorizePermissions('svo:teams:manage'), controller.updateShift)
+  router.patch('/:id/shifts/:shiftId/cancel', authenticate, currentUser, authorizePermissions('svo:teams:manage'), controller.cancelShift)
   return router
 }
 

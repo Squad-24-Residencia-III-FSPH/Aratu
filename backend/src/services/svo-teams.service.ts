@@ -3,11 +3,12 @@ import type { AuditLogger } from '../types/audit.types'
 import type { SvoTeamsRepositoryContract } from '../repositories/svo-teams.repository'
 import type { SvoActorSnapshot } from '../types/svo-occurrence.types'
 import { SvoTeamServiceError } from '../types/svo-team.types'
-import type { SvoTeam, SvoTeamEventInput, SvoTeamShift } from '../types/svo-team.types'
+import type { SvoTeam, SvoTeamEventInput, SvoTeamListFilters, SvoTeamPageFilters, SvoTeamShift } from '../types/svo-team.types'
+import type { PaginatedResult } from '../types/pagination.types'
 
 const MAX_BIGINT = 9223372036854775807n
-const MANAGER_ROLES = ['GESTOR', 'ADMINISTRADOR']
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/
+const PAGE_SIZE_DEFAULT = 20
 
 function invalid(message: string): never { throw new SvoTeamServiceError('INVALID_INPUT', message) }
 function record(value: unknown, allowed: readonly string[]): Record<string, unknown> {
@@ -22,6 +23,10 @@ function id(value: unknown, field: string): string {
 }
 function revision(value: unknown): number {
   if (!Number.isSafeInteger(value) || Number(value) < 1) invalid('A revisão deve ser um inteiro positivo.')
+  return Number(value)
+}
+function positiveInteger(value: unknown, field: string, maximum: number): number {
+  if (!Number.isInteger(value) || Number(value) < 1 || Number(value) > maximum) invalid(`${field} deve ser um inteiro entre 1 e ${maximum}.`)
   return Number(value)
 }
 function text(value: unknown, field: string, max = 500): string {
@@ -39,22 +44,37 @@ function instant(value: unknown, field: string): Date {
 export class SvoTeamsService {
   constructor(private readonly repository: SvoTeamsRepositoryContract, private readonly audit: AuditLogger) {}
 
-  async listTeams(userId: string): Promise<SvoTeam[]> {
-    await this.readActor(userId)
+  /** Valida o acesso e consulta equipes com os filtros e a paginação recebidos. */
+  async listTeams(
+    userId: string,
+    permissions: readonly string[],
+    query: { view?: unknown; search?: unknown; page?: unknown; pageSize?: unknown } = {},
+  ): Promise<SvoTeam[] | PaginatedResult<SvoTeam>> {
+    await this.readActor(userId, permissions, 'svo:teams:read')
+    const filters = this.normalizeListFilters(query)
+    if (query.page !== undefined || query.pageSize !== undefined) {
+      const page = query.page === undefined ? 1 : positiveInteger(query.page, 'page', 1_000_000)
+      const pageSize = query.pageSize === undefined ? PAGE_SIZE_DEFAULT : positiveInteger(query.pageSize, 'pageSize', 100)
+      if (!this.repository.listPaged) throw new SvoTeamServiceError('INVALID_INPUT', 'A paginação de equipes SVO não está disponível.')
+      return this.repository.listPaged({ ...filters, view: filters.view ?? 'operational', page, pageSize })
+    }
+    if (query.view !== undefined || query.search !== undefined) {
+      return this.repository.list({ ...filters, view: filters.view ?? 'operational' })
+    }
     return this.repository.list()
   }
 
-  async listEligibleMembers(userId: string) {
-    await this.readActor(userId)
+  async listEligibleMembers(userId: string, permissions: readonly string[]) {
+    await this.readActor(userId, permissions, 'svo:teams:manage')
     return this.repository.listEligibleMembers()
   }
 
-  async createTeam(body: unknown, userId: string): Promise<SvoTeam> {
+  async createTeam(body: unknown, userId: string, permissions: readonly string[]): Promise<SvoTeam> {
     const input = record(body, ['name'])
     const name = text(input.name, 'o nome da equipe', 120)
     try {
       return await this.repository.withTransaction(async (client) => {
-        const actor = await this.requireManager(userId, client)
+        const actor = await this.requirePermission(userId, permissions, 'svo:teams:manage', client)
         const now = await this.repository.currentTime(client)
         const team = await this.repository.createTeam(name, client)
         await this.writeEvent({ teamId: team.id, eventType: 'CREATED', actor, occurredAt: now, reason: 'Equipe SVO cadastrada.', beforeState: null, afterState: team }, client)
@@ -67,7 +87,7 @@ export class SvoTeamsService {
     }
   }
 
-  async updateTeam(teamIdValue: unknown, body: unknown, userId: string): Promise<SvoTeam> {
+  async updateTeam(teamIdValue: unknown, body: unknown, userId: string, permissions: readonly string[]): Promise<SvoTeam> {
     const teamId = id(teamIdValue, 'o identificador da equipe')
     const input = record(body, ['expectedRevision', 'name', 'active', 'reason'])
     const expectedRevision = revision(input.expectedRevision)
@@ -76,7 +96,7 @@ export class SvoTeamsService {
     if (typeof active !== 'boolean') invalid('Informe se a equipe está ativa.')
     const reason = text(input.reason, 'o motivo da alteração')
     await this.repository.withTransaction(async (client) => {
-      const actor = await this.requireManager(userId, client)
+      const actor = await this.requirePermission(userId, permissions, 'svo:teams:manage', client)
       const before = await this.repository.findTeamForUpdate(teamId, client)
       if (!before) throw new SvoTeamServiceError('NOT_FOUND', 'Equipe SVO não encontrada.')
       if (before.revision !== expectedRevision) throw new SvoTeamServiceError('CONFLICT', 'A equipe foi alterada. Atualize os dados antes de salvar.')
@@ -94,15 +114,15 @@ export class SvoTeamsService {
     return result
   }
 
-  async addMember(teamIdValue: unknown, body: unknown, userId: string) {
+  async addMember(teamIdValue: unknown, body: unknown, userId: string, permissions: readonly string[]) {
     const teamId = id(teamIdValue, 'o identificador da equipe')
     const input = record(body, ['userId'])
     const userToAdd = id(input.userId, 'o identificador do integrante')
     await this.repository.withTransaction(async (client) => {
-      const actor = await this.requireManager(userId, client)
+      const actor = await this.requirePermission(userId, permissions, 'svo:teams:manage', client)
       const team = await this.repository.findTeamForUpdate(teamId, client)
       if (!team) throw new SvoTeamServiceError('NOT_FOUND', 'Equipe SVO não encontrada.')
-      if (!team.active) throw new SvoTeamServiceError('CONFLICT', 'Ative a equipe antes de incluir integrantes.')
+      if (!team.active) throw new SvoTeamServiceError('CONFLICT', 'Restaure a equipe antes de incluir integrantes.')
       if (!await this.repository.isEligibleMember(userToAdd, client)) throw new SvoTeamServiceError('INVALID_INPUT', 'Selecione uma conta ativa com perfil de equipe SVO.')
       const previous = await this.repository.findMemberForUpdate(teamId, userToAdd, client)
       if (previous?.active) throw new SvoTeamServiceError('CONFLICT', 'Este integrante já pertence à equipe.')
@@ -118,13 +138,13 @@ export class SvoTeamsService {
     })
   }
 
-  async removeMember(teamIdValue: unknown, memberIdValue: unknown, body: unknown, userId: string) {
+  async removeMember(teamIdValue: unknown, memberIdValue: unknown, body: unknown, userId: string, permissions: readonly string[]) {
     const teamId = id(teamIdValue, 'o identificador da equipe')
     const memberId = id(memberIdValue, 'o identificador do integrante')
     const input = record(body, ['reason'])
     const reason = text(input.reason, 'o motivo da remoção')
     await this.repository.withTransaction(async (client) => {
-      const actor = await this.requireManager(userId, client)
+      const actor = await this.requirePermission(userId, permissions, 'svo:teams:manage', client)
       const team = await this.repository.findTeamForUpdate(teamId, client)
       if (!team) throw new SvoTeamServiceError('NOT_FOUND', 'Equipe SVO não encontrada.')
       const before = await this.repository.findMemberForUpdate(teamId, memberId, client)
@@ -141,17 +161,17 @@ export class SvoTeamsService {
     })
   }
 
-  async createShift(teamIdValue: unknown, body: unknown, userId: string): Promise<SvoTeamShift> {
+  async createShift(teamIdValue: unknown, body: unknown, userId: string, permissions: readonly string[]): Promise<SvoTeamShift> {
     const teamId = id(teamIdValue, 'o identificador da equipe')
     const input = record(body, ['startsAt', 'endsAt'])
     const startsAt = instant(input.startsAt, 'o início do plantão')
     const endsAt = instant(input.endsAt, 'o fim do plantão')
     if (endsAt <= startsAt) invalid('O fim do plantão deve ser posterior ao início.')
     return this.repository.withTransaction(async (client) => {
-      const actor = await this.requireManager(userId, client)
+      const actor = await this.requirePermission(userId, permissions, 'svo:teams:manage', client)
       const team = await this.repository.findTeamForUpdate(teamId, client)
       if (!team) throw new SvoTeamServiceError('NOT_FOUND', 'Equipe SVO não encontrada.')
-      if (!team.active) throw new SvoTeamServiceError('CONFLICT', 'Ative a equipe antes de cadastrar um plantão.')
+      if (!team.active) throw new SvoTeamServiceError('CONFLICT', 'Restaure a equipe antes de cadastrar um plantão.')
       if (await this.repository.hasOverlappingShift(teamId, startsAt, endsAt, null, client)) throw new SvoTeamServiceError('CONFLICT', 'O horário sobrepõe outro plantão não cancelado da equipe.')
       const now = await this.repository.currentTime(client)
       const shift = await this.repository.createShift(teamId, startsAt, endsAt, actor.id, now, client)
@@ -162,7 +182,7 @@ export class SvoTeamsService {
     })
   }
 
-  async updateShift(teamIdValue: unknown, shiftIdValue: unknown, body: unknown, userId: string): Promise<SvoTeamShift> {
+  async updateShift(teamIdValue: unknown, shiftIdValue: unknown, body: unknown, userId: string, permissions: readonly string[]): Promise<SvoTeamShift> {
     const teamId = id(teamIdValue, 'o identificador da equipe')
     const shiftId = id(shiftIdValue, 'o identificador do plantão')
     const input = record(body, ['expectedRevision', 'startsAt', 'endsAt', 'reason'])
@@ -172,7 +192,7 @@ export class SvoTeamsService {
     if (endsAt <= startsAt) invalid('O fim do plantão deve ser posterior ao início.')
     const reason = text(input.reason, 'o motivo da alteração')
     return this.repository.withTransaction(async (client) => {
-      const actor = await this.requireManager(userId, client)
+      const actor = await this.requirePermission(userId, permissions, 'svo:teams:manage', client)
       if (!await this.repository.findTeamForUpdate(teamId, client)) throw new SvoTeamServiceError('NOT_FOUND', 'Equipe SVO não encontrada.')
       const before = await this.repository.findShiftForUpdate(teamId, shiftId, client)
       if (!before) throw new SvoTeamServiceError('NOT_FOUND', 'Plantão SVO não encontrado.')
@@ -187,14 +207,14 @@ export class SvoTeamsService {
     })
   }
 
-  async cancelShift(teamIdValue: unknown, shiftIdValue: unknown, body: unknown, userId: string): Promise<SvoTeamShift> {
+  async cancelShift(teamIdValue: unknown, shiftIdValue: unknown, body: unknown, userId: string, permissions: readonly string[]): Promise<SvoTeamShift> {
     const teamId = id(teamIdValue, 'o identificador da equipe')
     const shiftId = id(shiftIdValue, 'o identificador do plantão')
     const input = record(body, ['expectedRevision', 'reason'])
     const expectedRevision = revision(input.expectedRevision)
     const reason = text(input.reason, 'o motivo do cancelamento')
     return this.repository.withTransaction(async (client) => {
-      const actor = await this.requireManager(userId, client)
+      const actor = await this.requirePermission(userId, permissions, 'svo:teams:manage', client)
       if (!await this.repository.findTeamForUpdate(teamId, client)) throw new SvoTeamServiceError('NOT_FOUND', 'Equipe SVO não encontrada.')
       const before = await this.repository.findShiftForUpdate(teamId, shiftId, client)
       if (!before) throw new SvoTeamServiceError('NOT_FOUND', 'Plantão SVO não encontrado.')
@@ -208,14 +228,36 @@ export class SvoTeamsService {
     })
   }
 
-  private async readActor(userId: string): Promise<SvoActorSnapshot> {
-    return this.repository.withTransaction((client) => this.requireManager(userId, client))
+  private normalizeListFilters(query: { view?: unknown; search?: unknown }): SvoTeamListFilters {
+    let view: SvoTeamListFilters['view']
+    if (query.view !== undefined) {
+      if (query.view !== 'operational' && query.view !== 'archived' && query.view !== 'all') {
+        invalid('Filtro de atividade inválido.')
+      }
+      view = query.view
+    }
+    let search: string | undefined
+    if (query.search !== undefined) {
+      if (typeof query.search !== 'string') invalid('A busca por equipe é inválida.')
+      search = query.search.trim()
+      if (search.length > 120) invalid('A busca deve ter até 120 caracteres.')
+    }
+    return { ...(view ? { view } : {}), ...(search ? { search } : {}) }
   }
 
-  private async requireManager(userId: string, client: PoolClient): Promise<SvoActorSnapshot> {
+  private async readActor(userId: string, permissions: readonly string[], permission: string): Promise<SvoActorSnapshot> {
+    return this.repository.withTransaction((client) => this.requirePermission(userId, permissions, permission, client))
+  }
+
+  private async requirePermission(
+    userId: string,
+    permissions: readonly string[],
+    permission: string,
+    client: PoolClient,
+  ): Promise<SvoActorSnapshot> {
     const actor = await this.repository.findActor(userId, client)
     if (!actor) throw new SvoTeamServiceError('ACCOUNT_UNAVAILABLE', 'Sua conta não está ativa. Entre novamente ou procure a administração.')
-    if (!MANAGER_ROLES.includes(actor.role)) throw new SvoTeamServiceError('ACCESS_DENIED', 'Somente o gestor de frota pode administrar equipes e plantões SVO.')
+    if (!permissions.includes(permission)) throw new SvoTeamServiceError('ACCESS_DENIED', 'Seu perfil não tem permissão para esta ação nas equipes SVO.')
     return actor
   }
 

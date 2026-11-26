@@ -41,7 +41,7 @@ export interface CreateRequestInput {
   origin: string
   destination: string
   purpose: string
-  serviceId: string
+  serviceId: string | null
   passengers: number
   specialRequirements: string | null
   notes: string | null
@@ -68,7 +68,7 @@ export interface RequestServiceSnapshot {
 export interface TripRequest {
   id: string
   requesterId: string
-  serviceId: string
+  serviceId: string | null
   requestedDate: string
   requestedTime: string
   origin: string
@@ -80,7 +80,7 @@ export interface TripRequest {
   status: RequestStatus
   revision: number
   requesterSnapshot: RequestActorSnapshot
-  serviceSnapshot: RequestServiceSnapshot
+  serviceSnapshot: RequestServiceSnapshot | null
 }
 
 /** Evento imutável que registra a abertura da solicitação. */
@@ -106,6 +106,8 @@ export interface RequestVersionState extends TripRequest {}
 export interface RequestListFilters {
   /** Situação desejada; quando ausente, todas são consideradas. */
   status?: RequestStatus
+  /** Situações combinadas para filas que também atendem registros legados. */
+  statuses?: RequestStatus[]
   /** Data inicial inclusiva no formato `YYYY-MM-DD`. */
   from?: string
   /** Data final inclusiva no formato `YYYY-MM-DD`. */
@@ -126,6 +128,8 @@ export interface RequestActor {
   id: string
   /** Perfil RBAC vigente na sessão. */
   role: UserRole
+  /** Grants carregados pelo middleware para aplicar o mesmo escopo dentro do domínio. */
+  permissions?: readonly string[]
 }
 
 /** Resumo de uma solicitação exibido na listagem. */
@@ -133,8 +137,8 @@ export interface RequestSummary {
   id: string
   requesterId: string
   requesterName: string
-  serviceId: string
-  serviceName: string
+  serviceId: string | null
+  serviceName: string | null
   requestedDate: string
   requestedTime: string
   origin: string

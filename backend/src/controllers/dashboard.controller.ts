@@ -19,12 +19,12 @@ export function createDashboardController(service: DashboardService) {
   return {
     summary(req: Request, res: Response, next: NextFunction): Promise<void> {
       const { vehicleId } = req.query
-      return respondWithDomainErrors(res, next, () => service.getSummary(req.usuario?.perfil, vehicleId))
+      return respondWithDomainErrors(res, next, () => service.getSummary(req.usuario?.permissions, vehicleId))
     },
 
     indicators(req: Request, res: Response, next: NextFunction): Promise<void> {
       const { from, to, vehicleId } = req.query
-      return respondWithDomainErrors(res, next, () => service.getIndicators({ from, to, vehicleId }, req.usuario?.perfil))
+      return respondWithDomainErrors(res, next, () => service.getIndicators({ from, to, vehicleId }, req.usuario?.permissions))
     },
   }
 }

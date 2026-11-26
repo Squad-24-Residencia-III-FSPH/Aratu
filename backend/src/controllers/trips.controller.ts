@@ -30,7 +30,18 @@ export function createTripsController(service: TripsService) {
   return {
     schedule(req: Request, res: Response, next: NextFunction): Promise<void> {
       const input = bodyRecord(req.body) as ScheduleTripInput
-      return respondWithDomainErrors(res, next, () => service.scheduleTrip(input, req.usuario?.id ?? ''), 201)
+      return (async () => {
+        try {
+          const result = await service.scheduleTrip(input, req.usuario?.id ?? '', req.get('Idempotency-Key'))
+          res.status(result.replayed ? 200 : 201).json(result.trip)
+        } catch (error) {
+          if (error instanceof TripServiceError) {
+            res.status(error.statusCode).json({ erro: error.message, ...(error.code ? { codigo: error.code } : {}) })
+            return
+          }
+          next(error)
+        }
+      })()
     },
 
     createDirect(req: Request, res: Response, next: NextFunction): Promise<void> {

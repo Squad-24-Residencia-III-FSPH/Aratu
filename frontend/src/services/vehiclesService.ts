@@ -13,6 +13,7 @@ import type {
   Vehicle,
   VehicleCategory,
   VehicleFilters,
+  VehiclePage,
   VehicleOperationType,
   VehicleOwnership,
   VehicleStatus,
@@ -139,6 +140,10 @@ export function buildVehiclesQuery(filters: VehicleFilters): string {
   if (filters.status) params.set('status', filters.status)
   if (filters.category) params.set('category', filters.category)
   if (filters.operationType) params.set('operationType', filters.operationType)
+  if (filters.view) params.set('view', filters.view)
+  if (filters.search?.trim()) params.set('search', filters.search.trim())
+  if (filters.page !== undefined) params.set('page', String(filters.page))
+  if (filters.pageSize !== undefined) params.set('pageSize', String(filters.pageSize))
   const serialized = params.toString()
   return serialized ? `?${serialized}` : ''
 }
@@ -150,6 +155,26 @@ export async function listVehicles(api: ApiRequest, filters: VehicleFilters = {}
   const body: unknown = await response.json().catch(() => null)
   if (!Array.isArray(body)) throw new Error(INVALID_RESPONSE_MESSAGE)
   return body.map(parseVehicle)
+}
+
+/** Consulta uma página real de veículos; contagem e filtros vêm do conjunto no servidor. */
+export async function listVehiclePage(api: ApiRequest, filters: VehicleFilters): Promise<VehiclePage> {
+  const response = await api(`/vehicles${buildVehiclesQuery(filters)}`)
+  if (!response.ok) await throwRequestError(response, UNAVAILABLE_MESSAGE)
+  const body: unknown = await response.json().catch(() => null)
+  if (!isRecord(body) || !Array.isArray(body.items)
+    || !Number.isSafeInteger(body.total) || Number(body.total) < 0
+    || body.page !== filters.page || body.pageSize !== filters.pageSize
+    || !Number.isSafeInteger(body.totalPages) || Number(body.totalPages) < 0) {
+    throw new Error(INVALID_RESPONSE_MESSAGE)
+  }
+  return {
+    items: body.items.map(parseVehicle),
+    total: Number(body.total),
+    page: Number(body.page),
+    pageSize: Number(body.pageSize),
+    totalPages: Number(body.totalPages),
+  }
 }
 
 /** Cadastra um veículo e devolve o registro persistido. */

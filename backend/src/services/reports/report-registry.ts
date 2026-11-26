@@ -15,6 +15,8 @@ export class ReportRegistry {
   }
   /** Localiza a definição versionada sem aceitar SQL ou projeções enviados pelo cliente. */
   get(key: string): ReportDefinition | undefined { return this.definitions.get(key) }
+  /** Retorna o catálogo fechado para filtragem pela matriz de permissões vigente. */
+  all(): readonly ReportDefinition[] { return [...this.definitions.values()] }
   /** Omite do catálogo os relatórios não autorizados para o perfil cadastral vigente. */
   forRole(role: UserRole): readonly ReportDefinition[] { return [...this.definitions.values()].filter(definition => definition.allowedRoles.includes(role)) }
 }

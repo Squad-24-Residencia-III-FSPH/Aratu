@@ -68,7 +68,7 @@ export interface AvailabilityQuery {
 /** Dados confirmados da solicitação usados para filtrar candidatos à alocação. */
 export interface AvailabilityRequest {
   id: string
-  serviceId: string
+  serviceId: string | null
   status: string
   passengers: number
   specialRequirements: string | null

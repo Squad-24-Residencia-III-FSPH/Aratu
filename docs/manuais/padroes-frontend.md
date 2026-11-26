@@ -147,3 +147,12 @@ Toda tela ou listagem que consome dados assíncronos da API deve implementar exp
 
 A interface adota formalmente os padrões **Custom Hooks** (para isolamento de efeitos assíncronos e I/O de rede) e **Compound Components** (para componentes visuais acessíveis e compostos com Context). Consulte os exemplos em:
 👉 **[`docs/manuais/padroes-projeto.md`](padroes-projeto.md)**
+
+
+## 7. Consultas compactas e auditoria central
+
+- Em listas operacionais, priorize colunas que apoiam a decisão imediata. Use detalhes progressivos para atributos secundários e <code>RowActionsMenu</code> para agrupar ações raras; cada botão mantém nome acessível por registro e alvo mínimo do tema.
+- Arquive e restaure cadastros usando o estado de atividade existente e filtros explícitos para operação, arquivados e todos. Não use exclusão física para limpar listagens e não aplique arquivamento genérico a fatos operacionais.
+- Mantenha trilhas completas em <code>/auditoria</code>, com filtro por entidade/registro e autorização pela permissão central e pelo escopo do domínio. Telas de rotina mostram apenas o contexto necessário à ação atual.
+- Use tons semânticos e neutros do tema; não aplique a cor primária a todos os ícones. Cor não é o único meio de comunicar seleção, situação ou erro. Foco, contraste e alvos de toque permanecem requisitos WCAG 2.2 AA.
+- A navegação pode agrupar itens por área (por exemplo, SVO) e encurtar rótulos, desde que cada destino continue claro e só apareça quando a sessão tiver a permissão correspondente.

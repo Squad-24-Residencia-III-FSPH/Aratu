@@ -6,8 +6,8 @@ export interface RequestSummary {
   id: string
   requesterId: string
   requesterName: string
-  serviceId: string
-  serviceName: string
+  serviceId: string | null
+  serviceName: string | null
   requestedDate: string
   requestedTime: string
   origin: string
@@ -45,7 +45,6 @@ export interface RequestSubmission {
   origin: string
   destination: string
   purpose: string
-  serviceId: string
   passengers: number
   specialRequirements: string | null
   notes: string | null
@@ -74,6 +73,7 @@ export interface PaginatedRequestHistory {
 
 export interface RequestListFilters {
   status?: RequestStatus
+  statuses?: RequestStatus[]
   from?: string
   to?: string
   requester?: string

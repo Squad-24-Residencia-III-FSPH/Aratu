@@ -1,26 +1,28 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
-import { Alert, Box, Button } from '@mui/material'
+import AutorenewIcon from '@mui/icons-material/Autorenew'
+import { Alert, Box, Button, Stack, Typography } from '@mui/material'
 import { useAuth } from '../../../auth/useAuth'
-import { resolveProfile } from '../../../auth/profiles'
+import { hasPermission } from '../../../auth/access'
 import DataTable from '../../../components/ui/DataTable'
 import type { DataTableColumn } from '../../../components/ui/DataTable'
 import FilterBar from '../../../components/ui/FilterBar'
-import { FormField } from '../../../components/ui/FormField'
+import { FormField, FormSelect } from '../../../components/ui/FormField'
 import PageHeader from '../../../components/ui/PageHeader'
 import StateFeedback from '../../../components/ui/StateFeedback'
+import RowActionsMenu from '../../../components/ui/RowActionsMenu'
+import type { RowActionItem } from '../../../components/ui/RowActionsMenu'
 import StatusChip from '../../../components/ui/StatusChip'
 import ConfirmDialog from '../../../components/ui/ConfirmDialog'
-import { canManageServiceTypes } from '../../../services/fleetServicesAccess'
 import {
   createFleetService,
   FleetServiceRequestError,
-  listFleetServices,
+  listFleetServicePage,
   setFleetServiceActive,
   updateFleetService,
 } from '../../../services/fleetServicesService'
-import type { FleetService } from '../../../services/fleetServicesService'
+import type { FleetService, FleetServicePage } from '../../../services/fleetServicesService'
 import { VEHICLE_CATEGORY_LABELS } from '../../../vehicles/vehicleTypes'
 
 interface ServiceRow {
@@ -34,6 +36,12 @@ interface ServiceFormValue {
 }
 
 const EMPTY_FORM: ServiceFormValue = { name: '', description: '', reason: '' }
+const PAGE_SIZE = 20
+const VIEW_OPTIONS = [
+  { value: 'operational', label: 'Em operação' },
+  { value: 'archived', label: 'Arquivados' },
+  { value: 'all', label: 'Todos' },
+]
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
@@ -74,12 +82,17 @@ const SERVICE_COLUMNS: readonly DataTableColumn<ServiceRow>[] = [
 /** Gerencia o catálogo independente de tipos de serviço. */
 export default function ServicesPage() {
   const { api, session } = useAuth()
-  const profile = session ? resolveProfile(session.perfil) : null
-  const allowed = canManageServiceTypes(profile)
+  const allowed = hasPermission(session, 'services:read')
+  const canCreate = hasPermission(session, 'services:create')
+  const canUpdate = hasPermission(session, 'services:update')
+  const canArchive = hasPermission(session, 'services:archive')
+  const canManage = canCreate || canUpdate || canArchive
   const forbidden = !allowed
 
-  const [rows, setRows] = useState<ServiceRow[]>([])
+  const [servicePage, setServicePage] = useState<FleetServicePage | null>(null)
   const [query, setQuery] = useState('')
+  const [view, setView] = useState<'operational' | 'archived' | 'all'>('operational')
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [refreshCount, setRefreshCount] = useState(0)
@@ -91,10 +104,15 @@ export default function ServicesPage() {
     if (!allowed) return
 
     let current = true
-    listFleetServices(api)
-      .then((services) => {
+    listFleetServicePage(api, {
+      active: view === 'all' ? undefined : view === 'operational',
+      search: query,
+      page,
+      pageSize: PAGE_SIZE,
+    })
+      .then((result) => {
         if (!current) return
-        setRows(services.map((service) => ({ service })))
+        setServicePage(result)
         setLoading(false)
       })
       .catch((error: unknown) => {
@@ -106,18 +124,12 @@ export default function ServicesPage() {
         setLoadError(errorMessage(error, 'Não foi possível carregar os tipos de serviço.'))
       })
     return () => { current = false }
-  }, [api, allowed, refreshCount])
-
-  const filteredRows = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR')
-    if (!normalizedQuery) return rows
-    return rows.filter(({ service }) => `${service.name} ${service.description ?? ''}`
-      .toLocaleLowerCase('pt-BR').includes(normalizedQuery))
-  }, [query, rows])
+  }, [api, allowed, refreshCount, query, view, page])
 
   function reload() {
     setLoading(true)
     setLoadError(null)
+    setPage(1)
     setRefreshCount((count) => count + 1)
   }
 
@@ -129,12 +141,27 @@ export default function ServicesPage() {
   }
 
   const columns = SERVICE_COLUMNS
+  const emptyStateTitle = query.trim()
+    ? 'Nenhum tipo encontrado'
+    : view === 'operational'
+      ? 'Nenhum tipo em operação'
+      : view === 'archived'
+        ? 'Nenhum tipo arquivado'
+        : 'Nenhum tipo de serviço cadastrado'
+  const emptyStateDescription = query.trim()
+    ? 'Ajuste a pesquisa para encontrar outros tipos de serviço.'
+    : view === 'operational'
+      ? 'Consulte Arquivados ou Todos, ou cadastre um tipo de serviço.'
+      : view === 'archived'
+        ? 'Não há tipos arquivados neste momento.'
+        : canCreate ? 'Use “Novo tipo” para cadastrar o primeiro serviço.' : 'Não há tipos de serviço cadastrados.'
+  const activityOptions = canArchive ? VIEW_OPTIONS : VIEW_OPTIONS.filter((option) => option.value === 'operational')
   return (
     <Box>
       <PageHeader
-        title="Tipos de serviço"
+        title="Serviços"
         description="Cadastre e mantenha os tipos de serviço disponíveis para associação aos veículos."
-        actions={allowed ? (
+        actions={canCreate ? (
           <Button
             variant="contained"
             startIcon={<AddIcon aria-hidden="true" />}
@@ -159,15 +186,19 @@ export default function ServicesPage() {
               <strong>Alteração salva: </strong>{feedback}
             </Alert>
           )}
+          {!canManage && <Alert severity="info" sx={{ mb: 2 }}>Seu perfil permite apenas consultar tipos de serviço.</Alert>}
 
           <FilterBar label="Pesquisar tipos de serviço" sx={{ mb: 2 }}>
-            <Box sx={{ width: { xs: '100%', sm: 320 } }}>
+            <Box sx={{ flex: '1 1 280px', minWidth: { xs: '100%', sm: 260 } }}>
               <FormField
                 label="Pesquisar tipo de serviço"
                 value={query}
-                onChange={setQuery}
+                onChange={(value) => { setQuery(value); setPage(1); setLoading(true); setLoadError(null) }}
                 placeholder="Nome ou descrição"
               />
+            </Box>
+            <Box sx={{ width: { xs: '100%', sm: 190 } }}>
+            <FormSelect label="Atividade" value={view} onChange={(value) => { setView(value as typeof view); setPage(1); setLoading(true); setLoadError(null) }} options={activityOptions} />
             </Box>
           </FilterBar>
 
@@ -176,51 +207,46 @@ export default function ServicesPage() {
               actionLabel="Tentar novamente" onAction={reload} />
           ) : loading ? (
             <StateFeedback kind="loading" title="Carregando tipos de serviço..." />
-          ) : (
+          ) : servicePage && (
+            <>
             <DataTable
               caption="Tipos de serviço cadastrados"
               columns={columns}
-              rows={filteredRows}
+              rows={servicePage.items.map((service) => ({ service }))}
               rowKey={(row) => row.service.id}
               minWidth={560}
-              renderActions={(row) => (
-                <Box sx={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                  <Button
-                    size="small"
-                    startIcon={<EditIcon aria-hidden="true" />}
-                    onClick={() => { setFeedback(null); setFormTarget(row) }}
-                    aria-label={`Editar tipo de serviço ${row.service.name}`}
-                    sx={{ minHeight: 44 }}
-                  >
-                    Editar
-                  </Button>
-                  <Button
-                    size="small"
-                    onClick={() => { setFeedback(null); setStatusTarget(row.service) }}
-                    aria-label={`${row.service.active ? 'Inativar' : 'Ativar'} tipo de serviço ${row.service.name}`}
-                    sx={{ minHeight: 44 }}
-                  >
-                    {row.service.active ? 'Inativar' : 'Ativar'}
-                  </Button>
-                </Box>
-              )}
+              actionsWidth={64}
+              renderActions={canUpdate || canArchive ? (row) => {
+                const actions: RowActionItem[] = [
+                  ...(canUpdate ? [{ key: 'edit', label: 'Editar cadastro', icon: <EditIcon fontSize="small" />, onSelect: () => { setFeedback(null); setFormTarget(row) } }] : []),
+                  ...(canArchive ? [{ key: 'activity', label: row.service.active ? 'Arquivar' : 'Restaurar', icon: <AutorenewIcon fontSize="small" />, danger: row.service.active, onSelect: () => { setFeedback(null); setStatusTarget(row.service) } }] : []),
+                ]
+                return actions.length > 0 ? <RowActionsMenu label={`Ações do tipo de serviço ${row.service.name}`} actions={actions} /> : null
+              } : undefined}
               busy={loading}
               emptyContent={(
                 <StateFeedback
                   kind="empty"
-                  title={rows.length === 0 ? 'Nenhum tipo de serviço cadastrado' : 'Nenhum tipo encontrado'}
-                  description={rows.length === 0
-                    ? 'Use “Novo tipo” para cadastrar o primeiro serviço.'
-                    : 'Ajuste a pesquisa para encontrar outros tipos de serviço.'}
+                  title={emptyStateTitle}
+                  description={emptyStateDescription}
                   centered
                 />
               )}
             />
+            <Stack component="nav" aria-label="Paginação de tipos de serviço" direction="row" sx={{ mt: 2, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="body2" color="text.secondary">{servicePage.total} tipo(s) de serviço</Typography>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <Button color="inherit" disabled={servicePage.page <= 1 || loading} onClick={() => { setPage((current) => Math.max(1, current - 1)); setLoading(true) }} sx={{ minHeight: 44 }}>Anterior</Button>
+                <Typography role="status">Página {servicePage.page} de {Math.max(1, servicePage.totalPages)}</Typography>
+                <Button color="inherit" disabled={servicePage.page >= servicePage.totalPages || loading} onClick={() => { setPage((current) => current + 1); setLoading(true) }} sx={{ minHeight: 44 }}>Próxima</Button>
+              </Stack>
+            </Stack>
+            </>
           )}
         </>
       )}
 
-      {formTarget && (
+      {formTarget && (canCreate || canUpdate) && (
         <ServiceFormDialog
           key={formTarget === 'new' ? 'new' : formTarget.service.id}
           api={api}
@@ -234,7 +260,7 @@ export default function ServicesPage() {
           key={statusTarget.id}
           api={api}
           service={statusTarget}
-          onSaved={(service) => handleSaved(`Tipo de serviço “${service.name}” ${service.active ? 'ativado' : 'inativado'}.`)}
+          onSaved={(service) => handleSaved(`Tipo de serviço “${service.name}” ${service.active ? 'restaurado' : 'arquivado'}.`)}
           onCancel={() => setStatusTarget(null)}
         />
       )}
@@ -375,11 +401,11 @@ function ServiceStatusDialog({ api, service, onSaved, onCancel }: ServiceStatusD
   return (
     <ConfirmDialog
       open
-      title={`${nextActive ? 'Ativar' : 'Inativar'} tipo de serviço`}
+      title={`${nextActive ? 'Restaurar' : 'Arquivar'} tipo de serviço`}
       description={nextActive
-        ? `Deseja ativar “${service.name}”? O tipo ficará disponível para novas solicitações.`
-        : `Deseja inativar “${service.name}”? O tipo deixará de aparecer em novas solicitações; registros existentes serão preservados.`}
-      confirmLabel={nextActive ? 'Ativar tipo' : 'Inativar tipo'}
+        ? `Deseja restaurar “${service.name}”? O tipo ficará disponível para novas operações.`
+        : `Deseja arquivar “${service.name}”? O tipo deixará de aparecer nas consultas operacionais; vínculos e registros existentes serão preservados.`}
+      confirmLabel={nextActive ? 'Restaurar tipo' : 'Arquivar tipo'}
       danger={!nextActive}
       onConfirm={handleConfirm}
       onCancel={onCancel}

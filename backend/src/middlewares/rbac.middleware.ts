@@ -1,5 +1,28 @@
 import type { Request, Response, NextFunction } from 'express'
 import type { UserRole } from '../types/auth'
+import type { AuthenticatedUser } from '../types/auth'
+
+/** Verifica uma permissão ativa já carregada do perfil da sessão corrente. */
+export function hasPermission(user: AuthenticatedUser | undefined, permission: string): boolean {
+  return user?.permissions?.includes(permission) ?? false
+}
+
+/** Exige uma ou várias concessões atuais, sem confiar no nome legível do perfil. */
+export function authorizePermissions(
+  required: string | readonly string[],
+  mode: 'any' | 'all' = 'all',
+) {
+  const permissions = typeof required === 'string' ? [required] : required
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const granted = permissions.map((permission) => hasPermission(req.usuario, permission))
+    const allowed = mode === 'all' ? granted.every(Boolean) : granted.some(Boolean)
+    if (!allowed) {
+      res.status(403).json({ erro: 'Acesso negado: seu perfil não possui a permissão necessária para esta ação.' })
+      return
+    }
+    next()
+  }
+}
 
 /**
  * Middleware de autorização que restringe o acesso a rotas específicas com base

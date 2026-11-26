@@ -6,7 +6,7 @@ export const tripsReportQueries: Readonly<Record<string, ReportQuerySpec>> = {
     dateExpression: 'r.requested_date',
     dateOnly: true,
     orderBy: 'r.requested_date DESC, r.id DESC',
-    source: 'trip.requests r JOIN auth.users u ON u.id = r.requester_id JOIN fleet.services s ON s.id = r.service_id',
+    source: 'trip.requests r JOIN auth.users u ON u.id = r.requester_id LEFT JOIN fleet.services s ON s.id = r.service_id',
     expressions: { id: 'r.id::text', requestedDate: 'r.requested_date::text', requesterName: "COALESCE(NULLIF(r.requester_snapshot->>'name', ''), u.name)", serviceName: "COALESCE(NULLIF(r.service_snapshot->>'name', ''), s.name)", origin: 'r.origin', destination: 'r.destination', passengers: 'r.passengers', status: 'r.status', purpose: 'r.purpose', decidedAt: 'r.decided_at', decisionReason: 'r.decision_reason' },
     filterExpressions: { status: 'r.status' }
   },

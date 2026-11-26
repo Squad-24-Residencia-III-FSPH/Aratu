@@ -17,6 +17,7 @@ import {
   useTheme,
 } from '@mui/material'
 import { useAuth } from '../auth/useAuth'
+import { hasPermission } from '../auth/access'
 import { useSvoOccurrences } from '../hooks/useSvoOccurrences'
 import DataTable from '../components/ui/DataTable'
 import FilterBar from '../components/ui/FilterBar'
@@ -118,8 +119,8 @@ export default function SvoOccurrencesPage() {
   const [filterDraft, setFilterDraft] = useState<SvoOccurrenceFilters>(EMPTY_FILTERS)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
-  const canWrite = session?.perfil === 'ATENDENTE_SVO' || session?.perfil === 'ADMINISTRADOR'
-  const canManageDispatch = session?.perfil === 'GESTOR' || session?.perfil === 'ADMINISTRADOR'
+  const canWrite = hasPermission(session, 'svo:occurrences:create')
+  const canManageDispatch = hasPermission(session, 'svo:orders:manage')
 
   function updateForm(field: keyof OccurrenceFormValues, value: string): void {
     setFormValues((current) => ({ ...current, [field]: value }))
@@ -196,7 +197,7 @@ export default function SvoOccurrencesPage() {
   return (
     <Box>
       <PageHeader
-        title="Solicitações SVO"
+        title="Solicitações"
         description="Registre solicitações recebidas externamente, confira os dados e acompanhe a situação."
         actions={canWrite ? <Button variant="contained" onClick={openNewOccurrence} sx={{ minHeight: 44 }}>Nova solicitação</Button> : undefined}
       />

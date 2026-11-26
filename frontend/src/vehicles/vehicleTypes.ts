@@ -37,6 +37,18 @@ export interface VehicleFilters {
   status?: VehicleStatus
   category?: VehicleCategory
   operationType?: VehicleOperationType
+  view?: 'operational' | 'archived' | 'all'
+  search?: string
+  page?: number
+  pageSize?: number
+}
+
+export interface VehiclePage {
+  items: Vehicle[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 /** Atributos editáveis enviados na criação e na edição. */

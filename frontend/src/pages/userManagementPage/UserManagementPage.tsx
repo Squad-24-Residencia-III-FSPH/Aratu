@@ -16,9 +16,11 @@ import {
 import PersonAddAlt1 from '@mui/icons-material/PersonAddAlt1'
 import Search from '@mui/icons-material/Search'
 import PeopleAlt from '@mui/icons-material/PeopleAlt'
+import EditOutlined from '@mui/icons-material/EditOutlined'
+import ArchiveOutlined from '@mui/icons-material/ArchiveOutlined'
+import UnarchiveOutlined from '@mui/icons-material/UnarchiveOutlined'
 import { useAuth } from '../../auth/useAuth'
-import { PROFILE_HOMES } from '../../auth/profiles'
-import type { Profile } from '../../auth/profiles'
+import { hasPermission } from '../../auth/access'
 import { tokenUserId } from '../../auth/token'
 import { listProfiles } from '../../services/profileService'
 import type { ProfileOption } from '../../services/profileService'
@@ -30,12 +32,12 @@ import { FormField, FormSelect } from '../../components/ui/FormField'
 import PageHeader from '../../components/ui/PageHeader'
 import StateFeedback from '../../components/ui/StateFeedback'
 import StatusChip from '../../components/ui/StatusChip'
+import RowActionsMenu from '../../components/ui/RowActionsMenu'
 import {
   activateUser,
   createUser,
   deactivateUser,
   listUsers,
-  toProfile,
   updateUser,
 } from '../../services/usersService'
 import type { ManagedUser } from '../../users/userTypes'
@@ -99,12 +101,8 @@ const fieldSx = {
 type FormMode = 'create' | 'edit'
 
 interface PendingStatus {
-  kind: 'deactivate' | 'activate'
+  kind: 'archive' | 'restore'
   user: ManagedUser
-}
-
-function profileLabel(profile: Profile): string {
-  return PROFILE_HOMES[profile].label
 }
 
 const USER_COLUMNS: readonly DataTableColumn<ManagedUser>[] = [
@@ -124,7 +122,7 @@ const USER_COLUMNS: readonly DataTableColumn<ManagedUser>[] = [
     key: 'role',
     header: 'Perfil',
     width: 180,
-    render: (user) => <Typography sx={{ color: colors.text }}>{profileLabel(user.role)}</Typography>,
+    render: (user) => <Typography sx={{ color: colors.text }}>{user.roleDisplayName ?? user.role}</Typography>,
   },
   {
     key: 'status',
@@ -132,7 +130,7 @@ const USER_COLUMNS: readonly DataTableColumn<ManagedUser>[] = [
     width: 110,
     render: (user) => (
       <StatusChip
-        label={user.active ? 'Ativo' : 'Inativo'}
+        label={user.active ? 'Ativo' : 'Arquivado'}
         tone={user.active ? 'success' : 'neutral'}
       />
     ),
@@ -147,10 +145,16 @@ export default function UserManagementPage() {
   const { api, session } = useAuth()
   const id = useId()
   const currentUserId = session ? tokenUserId(session.token) : null
+  const canRead = hasPermission(session, 'users:read')
+  const canCreate = hasPermission(session, 'users:create')
+  const canUpdate = hasPermission(session, 'users:update')
+  const canArchive = hasPermission(session, 'users:archive')
+  const canManageUsers = canCreate || canUpdate
 
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'active' | 'archived' | 'all'>('active')
+  const visibleStatusFilter = canArchive ? statusFilter : 'active'
   const [page, setPage] = useState(1)
   const [profiles, setProfiles] = useState<ProfileOption[]>([])
   const [profilesLoading, setProfilesLoading] = useState(true)
@@ -175,11 +179,16 @@ export default function UserManagementPage() {
   const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
+    if (!canManageUsers) {
+      setProfiles([])
+      setProfilesLoading(false)
+      return
+    }
     let active = true
 
     listProfiles(api)
       .then((result) => {
-        if (active) setProfiles(result)
+        if (active) setProfiles(result.filter((profile) => profile.active))
       })
       .catch((error: unknown) => {
         if (active) setProfilesError(messageFrom(error, 'Não foi possível carregar os perfis de acesso.'))
@@ -191,19 +200,20 @@ export default function UserManagementPage() {
     return () => {
       active = false
     }
-  }, [api])
+  }, [api, canManageUsers])
 
   const loadProfiles = useCallback(async () => {
+    if (!canManageUsers) return
     setProfilesLoading(true)
     setProfilesError('')
     try {
-      setProfiles(await listProfiles(api))
+      setProfiles((await listProfiles(api)).filter((profile) => profile.active))
     } catch (error) {
       setProfilesError(messageFrom(error, 'Não foi possível carregar os perfis de acesso.'))
     } finally {
       setProfilesLoading(false)
     }
-  }, [api])
+  }, [api, canManageUsers])
 
   function beginListRequest() {
     setListLoading(true)
@@ -212,12 +222,17 @@ export default function UserManagementPage() {
 
   useEffect(() => {
     let active = true
-    const role = roleFilter ? toProfile(roleFilter) : null
-
+    if (!canRead) {
+      setUsers([])
+      setTotal(0)
+      setTotalPages(0)
+      setListLoading(false)
+      return () => { active = false }
+    }
     listUsers(api, {
       ...(search.trim() ? { name: search.trim() } : {}),
-      ...(role ? { role } : {}),
-      ...(statusFilter ? { active: statusFilter === 'active' } : {}),
+      ...(roleFilter ? { role: roleFilter } : {}),
+      ...(visibleStatusFilter !== 'all' ? { active: visibleStatusFilter === 'active' } : {}),
       page,
       pageSize,
     })
@@ -239,7 +254,7 @@ export default function UserManagementPage() {
     return () => {
       active = false
     }
-  }, [api, roleFilter, search, statusFilter, page, reloadKey])
+  }, [api, canRead, roleFilter, search, visibleStatusFilter, page, reloadKey])
 
   function updateSearch(value: string) {
     beginListRequest()
@@ -255,7 +270,7 @@ export default function UserManagementPage() {
 
   function updateStatusFilter(value: string) {
     beginListRequest()
-    setStatusFilter(value)
+    setStatusFilter(value as 'active' | 'archived' | 'all')
     setPage(1)
   }
 
@@ -263,7 +278,7 @@ export default function UserManagementPage() {
     beginListRequest()
     setSearch('')
     setRoleFilter('')
-    setStatusFilter('')
+    setStatusFilter('active')
     setPage(1)
   }
 
@@ -382,12 +397,12 @@ export default function UserManagementPage() {
     setConfirming(true)
     setActionError('')
     try {
-      if (pendingStatus.kind === 'deactivate') {
+      if (pendingStatus.kind === 'archive') {
         await deactivateUser(api, pendingStatus.user.id)
-        setSuccessNotice(`Usuário ${pendingStatus.user.name} inativado com sucesso.`)
+        setSuccessNotice(`Usuário ${pendingStatus.user.name} arquivado com sucesso.`)
       } else {
         await activateUser(api, pendingStatus.user.id)
-        setSuccessNotice(`Usuário ${pendingStatus.user.name} reativado com sucesso.`)
+        setSuccessNotice(`Usuário ${pendingStatus.user.name} restaurado com sucesso.`)
       }
       setPendingStatus(null)
       beginListRequest()
@@ -400,7 +415,7 @@ export default function UserManagementPage() {
     }
   }
 
-  const hasFilters = Boolean(search.trim() || roleFilter || statusFilter)
+  const hasFilters = Boolean(search.trim() || roleFilter || visibleStatusFilter !== 'active')
   const selectedProfile = profiles.find(({ id: profileId }) => profileId === formValues.roleId)
   const emptyContent = (
     <StateFeedback
@@ -454,7 +469,7 @@ export default function UserManagementPage() {
         description="Cadastre, edite e controle a situação das contas e seus perfis de acesso."
         descriptionSx={{ color: colors.secondary, mt: 0.5 }}
         sx={{ mb: 3 }}
-        actions={(
+        actions={canCreate ? (
           <Button
               variant="contained"
               startIcon={<PersonAddAlt1 />}
@@ -468,7 +483,7 @@ export default function UserManagementPage() {
             >
               Cadastrar usuário
           </Button>
-        )}
+        ) : undefined}
       />
 
       {successNotice && (
@@ -483,7 +498,9 @@ export default function UserManagementPage() {
         </Alert>
       )}
 
-      <Paper
+      {!canRead && <StateFeedback kind="forbidden" title="Acesso restrito" description="Seu perfil não pode consultar usuários." />}
+
+      {canRead && <Paper
         elevation={0}
         sx={{
           borderRadius: 2,
@@ -524,7 +541,7 @@ export default function UserManagementPage() {
               onChange={updateRoleFilter}
               options={profiles.map((profile) => ({
                 value: profile.name,
-                label: profileLabel(profile.name),
+                label: profile.displayName,
               }))}
               emptyLabel="Todos os perfis"
               displayEmpty
@@ -535,13 +552,16 @@ export default function UserManagementPage() {
           <Box sx={{ width: { xs: '100%', sm: 150 } }}>
             <FormSelect
               label="Filtrar por situação"
-              value={statusFilter}
+              value={visibleStatusFilter}
               onChange={updateStatusFilter}
               options={[
                 { value: 'active', label: 'Ativo' },
-                { value: 'inactive', label: 'Inativo' },
+                ...(canArchive ? [
+                  { value: 'archived', label: 'Arquivado' },
+                  { value: 'all', label: 'Todos' },
+                ] : []),
               ]}
-              emptyLabel="Todos os status"
+              emptyLabel="Todos"
               displayEmpty
               sx={fieldSx}
             />
@@ -611,39 +631,22 @@ export default function UserManagementPage() {
           }}
           renderActions={(user) => {
             const ownAccount = user.id === currentUserId
+            const actions = [
+              ...(canUpdate ? [{
+                key: 'edit', label: 'Editar', icon: <EditOutlined fontSize="small" />,
+                onSelect: () => openEditForm(user),
+              }] : []),
+              ...(canArchive && user.active && !ownAccount ? [{
+                key: 'archive', label: 'Arquivar', icon: <ArchiveOutlined fontSize="small" />,
+                danger: true, onSelect: () => setPendingStatus({ kind: 'archive', user }),
+              }] : []),
+              ...(canArchive && !user.active ? [{
+                key: 'restore', label: 'Restaurar', icon: <UnarchiveOutlined fontSize="small" />,
+                onSelect: () => setPendingStatus({ kind: 'restore', user }),
+              }] : []),
+            ]
             return (
-              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                <Button
-                  size="small"
-                  onClick={() => openEditForm(user)}
-                  aria-label={`Editar ${user.name}`}
-                  sx={{ ...buttonSx, color: colors.primary }}
-                >
-                  Editar
-                </Button>
-                {user.active && !ownAccount && (
-                  <Button
-                    size="small"
-                    color="error"
-                    onClick={() => setPendingStatus({ kind: 'deactivate', user })}
-                    aria-label={`Inativar ${user.name}`}
-                    sx={buttonSx}
-                  >
-                    Inativar
-                  </Button>
-                )}
-                {!user.active && (
-                  <Button
-                    size="small"
-                    color="success"
-                    onClick={() => setPendingStatus({ kind: 'activate', user })}
-                    aria-label={`Reativar ${user.name}`}
-                    sx={buttonSx}
-                  >
-                    Reativar
-                  </Button>
-                )}
-              </Box>
+              actions.length > 0 ? <RowActionsMenu label={`Ações de ${user.name}`} actions={actions} /> : null
             )
           }}
         />}
@@ -693,7 +696,7 @@ export default function UserManagementPage() {
             </Button>
           </Box>
         </Box>}
-      </Paper>
+      </Paper>}
 
       <Dialog
         open={formOpen}
@@ -745,7 +748,7 @@ export default function UserManagementPage() {
                 onChange={(value) => updateFormValue('roleId', value)}
                 options={profiles.map((profile) => ({
                   value: profile.id,
-                  label: profileLabel(profile.name),
+                  label: profile.displayName,
                 }))}
                 emptyLabel="Selecione o perfil de acesso"
                 emptyOptionDisabled
@@ -833,7 +836,7 @@ export default function UserManagementPage() {
         description={(
           <Typography variant="body2" sx={{ color: colors.text, lineHeight: 1.7 }}>
             {editingUser && (
-              <>Confirme a alteração do perfil de {editingUser.name} de {profileLabel(editingUser.role)} para {selectedProfile ? profileLabel(selectedProfile.name) : 'perfil selecionado'}. A mudança será enviada à API ao confirmar.</>
+              <>Confirme a alteração do perfil de {editingUser.name} de {editingUser.roleDisplayName ?? editingUser.role} para {selectedProfile?.displayName ?? 'perfil selecionado'}. A mudança será enviada à API ao confirmar.</>
             )}
           </Typography>
         )}
@@ -855,21 +858,21 @@ export default function UserManagementPage() {
 
       <ConfirmDialog
         open={Boolean(pendingStatus)}
-        title={pendingStatus?.kind === 'deactivate' ? 'Inativar usuário' : 'Reativar usuário'}
+        title={pendingStatus?.kind === 'archive' ? 'Arquivar usuário' : 'Restaurar usuário'}
         description={(
           <Typography variant="body2" sx={{ color: colors.text, lineHeight: 1.7 }}>
-            {pendingStatus?.kind === 'deactivate'
-              ? `Ao inativar ${pendingStatus.user.name}, o acesso ao sistema será bloqueado imediatamente. O histórico é preservado.`
-              : `Reativar ${pendingStatus?.user.name} devolverá o acesso ao sistema com o mesmo perfil.`}
+            {pendingStatus?.kind === 'archive'
+              ? `Ao arquivar ${pendingStatus.user.name}, o acesso ao sistema será bloqueado imediatamente. O histórico é preservado.`
+              : `Restaurar ${pendingStatus?.user.name} devolverá o acesso ao sistema com o mesmo perfil.`}
           </Typography>
         )}
-        confirmLabel={pendingStatus?.kind === 'deactivate' ? 'Inativar' : 'Reativar'}
+        confirmLabel={pendingStatus?.kind === 'archive' ? 'Arquivar' : 'Restaurar'}
         loadingLabel="Aguarde..."
         onCancel={() => setPendingStatus(null)}
         onConfirm={() => void handleConfirmStatus()}
         loading={confirming}
-        danger={pendingStatus?.kind === 'deactivate'}
-        confirmColor={pendingStatus?.kind === 'activate' ? 'success' : undefined}
+        danger={pendingStatus?.kind === 'archive'}
+        confirmColor={pendingStatus?.kind === 'restore' ? 'success' : undefined}
         paperSx={{ borderRadius: 2 }}
         actionsSx={{ p: 2.5, pt: 1, gap: 1 }}
         cancelSx={{ ...buttonSx, color: colors.text }}

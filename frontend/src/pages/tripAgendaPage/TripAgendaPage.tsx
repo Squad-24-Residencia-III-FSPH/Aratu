@@ -123,7 +123,7 @@ export default function TripAgendaPage() {
 
   return (
     <Box sx={{ minWidth: 0 }}>
-      <PageHeader title="Agenda de viagens" description="Consulte viagens agendadas, em execução, concluídas, conferidas ou canceladas." actions={(
+      <PageHeader title="Agenda" description="Consulte viagens agendadas, em execução, concluídas, conferidas ou canceladas." actions={(
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button component={RouterLink} to={`${TRIP_SCHEDULING_PATH}?mode=direct`} variant="contained" sx={{ minHeight: 48, width: { xs: '100%', sm: 'auto' } }}>Criar viagem</Button>
           <Button component={RouterLink} to={TRIP_CONFIRMATION_PATH} variant="outlined" sx={{ minHeight: 48, width: { xs: '100%', sm: 'auto' } }}>Conferir finalizadas</Button>

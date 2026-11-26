@@ -39,8 +39,8 @@ export interface Trip {
 /** Solicitação aprovada que pode ser selecionada no fluxo de agendamento. */
 export interface ApprovedRequestSummary {
   id: string
-  serviceId: string
-  serviceName: string
+  serviceId: string | null
+  serviceName: string | null
   requestedDate: string
   requestedTime: string
   origin: string
@@ -49,7 +49,7 @@ export interface ApprovedRequestSummary {
   passengers: number
   specialRequirements: string | null
   revision: number
-  status: 'APPROVED'
+  status: 'PENDING' | 'APPROVED'
 }
 
 export interface VehicleAvailability {
@@ -77,6 +77,8 @@ export interface DriverAvailability {
 
 export interface ScheduleTripInput {
   requestId: string
+  expectedRevision: number
+  serviceId: string
   vehicleId: string
   driverId: string
   scheduledStart: string

@@ -31,6 +31,19 @@ export interface SvoTeamRecord {
 }
 
 export interface SvoEligibleMemberRecord { id: string; name: string; email: string }
+export interface SvoTeamFilters {
+  view: 'operational' | 'archived' | 'all'
+  search?: string
+  page: number
+  pageSize: number
+}
+export interface SvoTeamPage {
+  items: SvoTeamRecord[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
 
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const string = (value: unknown): value is string => typeof value === 'string'
@@ -82,6 +95,25 @@ export async function listSvoTeams(api: ApiRequest): Promise<SvoTeamRecord[]> {
   const value = await request(api, '/svo/teams')
   if (!Array.isArray(value)) throw invalid()
   return value.map(parseTeam)
+}
+
+/** Busca uma página calculada pelo servidor com recorte de atividade e busca por nome. */
+export async function listSvoTeamPage(api: ApiRequest, filters: SvoTeamFilters): Promise<SvoTeamPage> {
+  const params = new URLSearchParams({ view: filters.view, page: String(filters.page), pageSize: String(filters.pageSize) })
+  if (filters.search?.trim()) params.set('search', filters.search.trim())
+  const value = await request(api, `/svo/teams?${params.toString()}`)
+  if (!record(value) || !Array.isArray(value.items) || !Number.isSafeInteger(value.total) || Number(value.total) < 0
+    || !Number.isSafeInteger(value.page) || Number(value.page) !== filters.page
+    || !Number.isSafeInteger(value.pageSize) || Number(value.pageSize) !== filters.pageSize
+    || !Number.isSafeInteger(value.totalPages) || Number(value.totalPages) < 0
+    || Number(value.totalPages) !== Math.ceil(Number(value.total) / filters.pageSize)) throw invalid()
+  return {
+    items: value.items.map(parseTeam),
+    total: Number(value.total),
+    page: Number(value.page),
+    pageSize: Number(value.pageSize),
+    totalPages: Number(value.totalPages),
+  }
 }
 
 export async function listEligibleSvoMembers(api: ApiRequest): Promise<SvoEligibleMemberRecord[]> {

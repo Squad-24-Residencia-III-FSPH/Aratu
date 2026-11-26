@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardActions, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Stack, useMediaQuery, useTheme, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import EditOutlined from '@mui/icons-material/EditOutlined'
-import HistoryOutlined from '@mui/icons-material/HistoryOutlined'
-import Autorenew from '@mui/icons-material/Autorenew'
-import BlockOutlined from '@mui/icons-material/BlockOutlined'
 import { useAuth } from '../../auth/useAuth'
-import { resolveProfile } from '../../auth/profiles'
+import { hasPermission } from '../../auth/access'
 import DataTable from '../../components/ui/DataTable'
 import type { DataTableColumn } from '../../components/ui/DataTable'
+import RowActionsMenu from '../../components/ui/RowActionsMenu'
+import type { RowActionItem } from '../../components/ui/RowActionsMenu'
 import FilterBar from '../../components/ui/FilterBar'
 import { FormField, FormSelect } from '../../components/ui/FormField'
 import PageHeader from '../../components/ui/PageHeader'
@@ -18,15 +16,14 @@ import type { StatusTone } from '../../components/ui/StatusChip'
 import type { Vehicle } from '../../vehicles/vehicleTypes'
 import { listVehicles } from '../../services/vehiclesService'
 import {
-  annulVehicleDocument, createVehicleDocument, getVehicleDocument, listExpiringVehicleDocuments,
+  annulVehicleDocument, createVehicleDocument, listExpiringVehicleDocuments,
   listVehicleDocuments, updateVehicleDocument,
 } from '../../services/vehicleDocumentsService'
-import type { VehicleDocument, VehicleDocumentDetail, VehicleDocumentFilters, VehicleDocumentStatus, VehicleDocumentType } from '../../vehicleDocuments/vehicleDocumentTypes'
-import { canManageVehicleDocuments, VEHICLE_DOCUMENT_STATUS_LABELS, VEHICLE_DOCUMENT_STATUSES, VEHICLE_DOCUMENT_TYPE_LABELS, VEHICLE_DOCUMENT_TYPES } from '../../vehicleDocuments/vehicleDocumentTypes'
+import type { VehicleDocument, VehicleDocumentFilters, VehicleDocumentStatus, VehicleDocumentType } from '../../vehicleDocuments/vehicleDocumentTypes'
+import { VEHICLE_DOCUMENT_STATUS_LABELS, VEHICLE_DOCUMENT_STATUSES, VEHICLE_DOCUMENT_TYPE_LABELS, VEHICLE_DOCUMENT_TYPES } from '../../vehicleDocuments/vehicleDocumentTypes'
 
 type FormMode = { kind: 'create' } | { kind: 'renew'; previous: VehicleDocument } | { kind: 'edit'; document: VehicleDocument }
 const STATUS_TONE: Record<VehicleDocumentStatus, StatusTone> = { VALID: 'success', EXPIRING: 'warning', EXPIRED: 'warning', RENEWED: 'info', ANNULLED: 'neutral' }
-const EVENT_LABELS = { REGISTERED: 'Cadastrado', RENEWED: 'Renovado', UPDATED: 'Corrigido', ANNULLED: 'Anulado' }
 const DATE_FORMAT = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' })
 
 function displayDate(value: string | null): string { return value ? DATE_FORMAT.format(new Date(`${value.slice(0, 10)}T12:00:00`)) : 'Não informado' }
@@ -38,8 +35,10 @@ function freshDraft(document?: VehicleDocument) {
 /** Consulta, renova e mantém a história dos documentos da frota usando a API existente. */
 export default function VehicleDocumentsPage() {
   const { api, session } = useAuth()
-  const profile = session ? resolveProfile(session.perfil) : null
-  const allowed = canManageVehicleDocuments(profile)
+  const allowed = hasPermission(session, 'vehicle-documents:read')
+  const canCreate = hasPermission(session, 'vehicle-documents:create')
+  const canUpdate = hasPermission(session, 'vehicle-documents:update')
+  const canAnnul = hasPermission(session, 'vehicle-documents:annul')
   const theme = useTheme()
   const smallScreen = useMediaQuery(theme.breakpoints.down('sm'))
   const [items, setItems] = useState<VehicleDocument[] | null>(null)
@@ -57,7 +56,6 @@ export default function VehicleDocumentsPage() {
   const [form, setForm] = useState<FormMode | null>(null)
   const [draft, setDraft] = useState(freshDraft())
   const [saving, setSaving] = useState(false)
-  const [details, setDetails] = useState<{ item: VehicleDocumentDetail | null; error: string; loading: boolean } | null>(null)
   const [annul, setAnnul] = useState<VehicleDocument | null>(null)
   const [annulReason, setAnnulReason] = useState('')
 
@@ -83,12 +81,6 @@ export default function VehicleDocumentsPage() {
   function openCreate(): void { setDraft(freshDraft()); setForm({ kind: 'create' }); setError('') }
   function openRenew(item: VehicleDocument): void { setDraft(freshDraft(item)); setForm({ kind: 'renew', previous: item }); setError('') }
   function openEdit(item: VehicleDocument): void { setDraft(freshDraft(item)); setForm({ kind: 'edit', document: item }); setError('') }
-  async function openDetails(item: VehicleDocument): Promise<void> {
-    setDetails({ item: null, error: '', loading: true })
-    try { setDetails({ item: await getVehicleDocument(api, item.id), error: '', loading: false }) }
-    catch (requestError) { setDetails({ item: null, error: requestError instanceof Error ? requestError.message : 'Não foi possível consultar o histórico.', loading: false }) }
-  }
-
   async function saveDocument(): Promise<void> {
     if (!form || saving) return
     setSaving(true); setError('')
@@ -121,6 +113,22 @@ export default function VehicleDocumentsPage() {
     finally { setSaving(false) }
   }
 
+  function actionsFor(item: VehicleDocument): RowActionItem[] {
+    const actions: RowActionItem[] = []
+    if (canCreate) actions.push({
+      key: 'renew', label: 'Renovar', onSelect: () => openRenew(item),
+      disabled: item.status === 'ANNULLED' || item.status === 'RENEWED',
+    })
+    if (canUpdate) actions.push({
+      key: 'correct', label: 'Corrigir', onSelect: () => openEdit(item), disabled: item.status === 'ANNULLED',
+    })
+    if (canAnnul) actions.push({
+      key: 'annul', label: 'Anular', onSelect: () => { setAnnul(item); setAnnulReason('') },
+      disabled: item.status === 'ANNULLED', danger: true,
+    })
+    return actions
+  }
+
   const columns: readonly DataTableColumn<VehicleDocument>[] = [
     { key: 'vehicle', header: 'Veículo', width: 165, render: (item) => `${item.vehicle.licensePlate}${item.vehicle.model ? ` · ${item.vehicle.model}` : ''}` },
     { key: 'type', header: 'Documento', width: 180, render: (item) => VEHICLE_DOCUMENT_TYPE_LABELS[item.documentType] },
@@ -130,7 +138,7 @@ export default function VehicleDocumentsPage() {
   ]
 
   return <Box>
-    <PageHeader title="Documentos de veículos" description="Consulte vencimentos, registre renovações e mantenha a trilha de correções." actions={allowed ? <Button variant="contained" startIcon={<AddIcon aria-hidden="true" />} onClick={openCreate} disabled={vehiclesLoading || Boolean(vehiclesError) || vehicles.length === 0} sx={{ minHeight: 48 }}>Novo documento</Button> : undefined} />
+    <PageHeader title="Documentos" description="Consulte vencimentos e regularize os documentos da frota." actions={canCreate ? <Button variant="contained" startIcon={<AddIcon aria-hidden="true" />} onClick={openCreate} disabled={vehiclesLoading || Boolean(vehiclesError) || vehicles.length === 0} sx={{ minHeight: 48 }}>Novo documento</Button> : undefined} />
     {!allowed && <StateFeedback kind="forbidden" title="Acesso restrito" description="Somente gestor de frota e administrador podem consultar documentos de veículos." />}
     {allowed && <>
       {notice && <Alert severity="success" role="status" sx={{ mb: 2 }}>{notice}</Alert>}
@@ -146,18 +154,13 @@ export default function VehicleDocumentsPage() {
       {smallScreen ? <Stack spacing={1.5}>
         {loading ? <StateFeedback kind="loading" title="Carregando documentos..." /> : items?.length ? items.map((item) => <Card key={item.id} variant="outlined"><CardContent>
           <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}><Box><Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{item.vehicle.licensePlate}</Typography><Typography variant="body2" color="text.secondary">{VEHICLE_DOCUMENT_TYPE_LABELS[item.documentType]} · vence {displayDate(item.expiresAt)}</Typography></Box><StatusChip label={VEHICLE_DOCUMENT_STATUS_LABELS[item.status]} tone={STATUS_TONE[item.status]} /></Stack>
-          <Typography variant="body2" sx={{ mt: 1 }}>Número: {item.documentNumber || 'Não informado'} · revisão {item.revision}</Typography>
-        </CardContent><CardActions sx={{ px: 2, pb: 2, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-          <Button onClick={() => { void openDetails(item) }} sx={{ minHeight: 48 }} startIcon={<HistoryOutlined aria-hidden="true" />}>Histórico</Button>
-          <Button onClick={() => openRenew(item)} disabled={item.status === 'ANNULLED' || item.status === 'RENEWED'} sx={{ minHeight: 48 }} startIcon={<Autorenew aria-hidden="true" />}>Renovar</Button>
-          <Button onClick={() => openEdit(item)} disabled={item.status === 'ANNULLED'} sx={{ minHeight: 48 }} startIcon={<EditOutlined aria-hidden="true" />}>Corrigir</Button>
-          <Button color="error" onClick={() => { setAnnul(item); setAnnulReason('') }} disabled={item.status === 'ANNULLED'} sx={{ minHeight: 48 }} startIcon={<BlockOutlined aria-hidden="true" />}>Anular</Button>
-        </CardActions></Card>) : <StateFeedback kind="empty" title="Nenhum documento encontrado" description="Ajuste os filtros ou cadastre um documento." />}
-      </Stack> : <DataTable caption="Documentos de veículos" columns={columns} rows={items ?? []} rowKey={(item) => item.id} busy={loading} minWidth={930}
+          <Typography variant="body2" sx={{ mt: 1 }}>Número: {item.documentNumber || 'Não informado'}</Typography>
+        </CardContent>{actionsFor(item).length > 0 && <CardActions sx={{ px: 1, pb: 1, justifyContent: 'flex-end' }}>
+          <RowActionsMenu label={`Ações do documento ${item.id}`} actions={actionsFor(item)} />
+        </CardActions>}</Card>) : <StateFeedback kind="empty" title="Nenhum documento encontrado" description="Ajuste os filtros ou cadastre um documento." />}
+      </Stack> : <DataTable caption="Documentos de veículos" columns={columns} rows={items ?? []} rowKey={(item) => item.id} busy={loading} minWidth={840}
         loadingContent={<StateFeedback kind="loading" title="Carregando documentos..." />} emptyContent={<StateFeedback kind="empty" title="Nenhum documento encontrado" description="Ajuste os filtros ou cadastre um documento." />}
-        renderActions={(item) => <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
-          <Button onClick={() => { void openDetails(item) }} sx={{ minHeight: 44 }}>Histórico</Button><Button onClick={() => openRenew(item)} disabled={item.status === 'ANNULLED' || item.status === 'RENEWED'} sx={{ minHeight: 44 }}>Renovar</Button><Button onClick={() => openEdit(item)} disabled={item.status === 'ANNULLED'} sx={{ minHeight: 44 }}>Corrigir</Button><Button color="error" onClick={() => { setAnnul(item); setAnnulReason('') }} disabled={item.status === 'ANNULLED'} sx={{ minHeight: 44 }}>Anular</Button>
-        </Stack>} />}
+        renderActions={canCreate || canUpdate || canAnnul ? (item) => <RowActionsMenu label={`Ações do documento ${item.id}`} actions={actionsFor(item)} /> : undefined} />}
     </>}
 
     <Dialog open={Boolean(form)} onClose={() => !saving && setForm(null)} fullScreen={smallScreen} fullWidth maxWidth="sm" aria-labelledby="vehicle-document-form-title">
@@ -173,20 +176,6 @@ export default function VehicleDocumentsPage() {
         <FormField label="Motivo do cadastro ou alteração" value={draft.reason} onChange={(value) => setDraft((current) => ({ ...current, reason: value }))} required multiline minRows={2} maxLength={500} />
       </Stack></DialogContent>
       <DialogActions sx={{ p: 2 }}><Button onClick={() => setForm(null)} disabled={saving} sx={{ minHeight: 48 }}>Cancelar</Button><Button variant="contained" onClick={() => { void saveDocument() }} disabled={saving || !draft.expiresAt || !draft.reason.trim() || ((form?.kind === 'create') && !draft.vehicleId)} sx={{ minHeight: 48 }}>Salvar</Button></DialogActions>
-    </Dialog>
-    <Dialog open={Boolean(details)} onClose={() => setDetails(null)} fullScreen={smallScreen} fullWidth maxWidth="md" aria-labelledby="vehicle-document-history-title">
-      <DialogTitle id="vehicle-document-history-title">Histórico do documento</DialogTitle><DialogContent>
-        {details?.loading && <StateFeedback kind="loading" title="Carregando histórico..." />}{details?.error && <Alert severity="error">{details.error}</Alert>}
-        {details?.item && <Stack spacing={1.5}>
-          <Typography variant="h6">{details.item.vehicle.licensePlate} · {VEHICLE_DOCUMENT_TYPE_LABELS[details.item.documentType]}</Typography>
-          <Typography variant="body2">Vencimento {displayDate(details.item.expiresAt)} · situação {VEHICLE_DOCUMENT_STATUS_LABELS[details.item.status]} · revisão {details.item.revision}</Typography>
-          {details.item.events.map((event) => <Card key={event.id} variant="outlined"><CardContent>
-            <Typography sx={{ fontWeight: 700 }}>{EVENT_LABELS[event.eventType]} · {displayDate(event.occurredAt)}</Typography>
-            <Typography variant="body2" color="text.secondary">Registrado por {event.actor.name} ({event.actor.role}) · {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.registeredAt))}</Typography>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>{event.reason} — {event.reportedBy}</Typography>
-          </CardContent></Card>)}
-        </Stack>}
-      </DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setDetails(null)} sx={{ minHeight: 48 }}>Fechar</Button></DialogActions>
     </Dialog>
     <Dialog open={Boolean(annul)} onClose={() => !saving && setAnnul(null)} fullScreen={smallScreen} fullWidth maxWidth="sm" aria-labelledby="vehicle-document-annul-title">
       <DialogTitle id="vehicle-document-annul-title">Anular documento</DialogTitle><DialogContent><Alert severity="warning" sx={{ mb: 2 }}>A anulação é permanente no histórico. Cadastre um novo documento se o registro correto precisar substituir este.</Alert><FormField label="Motivo da anulação" value={annulReason} onChange={setAnnulReason} required multiline minRows={3} /></DialogContent><DialogActions sx={{ p: 2 }}><Button onClick={() => setAnnul(null)} disabled={saving} sx={{ minHeight: 48 }}>Cancelar</Button><Button color="error" variant="contained" onClick={() => { void annulDocument() }} disabled={saving || !annulReason.trim()} sx={{ minHeight: 48 }}>Anular documento</Button></DialogActions>

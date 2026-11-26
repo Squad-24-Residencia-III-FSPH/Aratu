@@ -31,14 +31,14 @@ function isStringArray(value: unknown): value is string[] {
 }
 
 function parseApprovedRequest(value: unknown): ApprovedRequestSummary {
-  if (!isRecord(value) || !isString(value.id) || !isString(value.serviceId)
-    || !isString(value.serviceName) || !isString(value.requestedDate)
+  if (!isRecord(value) || !isString(value.id) || !isNullableString(value.serviceId)
+    || !isNullableString(value.serviceName) || !isString(value.requestedDate)
     || !isString(value.requestedTime) || !isString(value.origin)
     || !isString(value.destination) || !isString(value.purpose)
     || typeof value.passengers !== 'number' || !Number.isInteger(value.passengers)
     || !isNullableString(value.specialRequirements)
     || typeof value.revision !== 'number' || !Number.isInteger(value.revision)
-    || value.status !== 'APPROVED') throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
+    || (value.status !== 'PENDING' && value.status !== 'APPROVED')) throw new TripRequestError('invalidResponse', INVALID_RESPONSE)
   return {
     id: value.id,
     serviceId: value.serviceId,
@@ -51,7 +51,7 @@ function parseApprovedRequest(value: unknown): ApprovedRequestSummary {
     passengers: value.passengers,
     specialRequirements: value.specialRequirements,
     revision: value.revision,
-    status: 'APPROVED',
+    status: value.status,
   }
 }
 
@@ -133,34 +133,34 @@ async function getJson<T>(api: ApiRequest, path: string, fallback: string,
 }
 
 /**
- * Lista as solicitações aprovadas liberadas para agendamento ao Gestor.
+ * Lista solicitações pendentes e aprovações legadas que ainda não receberam viagem.
  *
  * Consome a consulta paginada `GET /requests?status=APPROVED` (FROTA-82) e
  * percorre todas as páginas para que nenhuma solicitação deixe de aparecer no
  * seletor da tela de agendamento.
  */
 export async function listApprovedRequests(api: ApiRequest): Promise<ApprovedRequestSummary[]> {
-  const approved: ApprovedRequestSummary[] = []
+  const schedulable: ApprovedRequestSummary[] = []
 
   for (let page = 1; ; page += 1) {
     const query = new URLSearchParams({
-      status: 'APPROVED',
+      statuses: 'PENDING,APPROVED',
       page: String(page),
       pageSize: String(APPROVED_PAGE_SIZE),
     })
     const current = await getJson(
       api,
       `/requests?${query}`,
-      'Não foi possível carregar as solicitações aprovadas.',
+      'Não foi possível carregar as solicitações pendentes.',
       parseRequestsPage,
     )
-    approved.push(...current.requests.map(parseApprovedRequest))
+    schedulable.push(...current.requests.map(parseApprovedRequest))
     // Uma página vazia encerra a leitura mesmo que `totalPages` divirja do
     // conteúdo, evitando uma sequência de requisições sem fim.
     if (current.requests.length === 0 || page >= current.totalPages) break
   }
 
-  return approved
+  return schedulable
 }
 
 /** Consulta candidatos de veículo, mantendo os motivos de compatibilidade e agenda da API. */

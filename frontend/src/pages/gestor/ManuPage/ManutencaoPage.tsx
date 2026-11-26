@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Typography } from '@mui/material'
 import { useAuth } from '../../../auth/useAuth'
-import { resolveProfile } from '../../../auth/profiles'
+import { hasPermission } from '../../../auth/access'
 import DataTable from '../../../components/ui/DataTable'
 import type { DataTableColumn } from '../../../components/ui/DataTable'
 import FilterBar from '../../../components/ui/FilterBar'
@@ -11,7 +11,7 @@ import StateFeedback from '../../../components/ui/StateFeedback'
 import StatusChip from '../../../components/ui/StatusChip'
 import { useMaintenance } from '../../../hooks/useMaintenance'
 import {
-  canManageMaintenance, formatCivilDate, formatInstant, formatMoney, isActiveOrder,
+  formatCivilDate, formatInstant, formatMoney, isActiveOrder,
   MAINTENANCE_TYPES, MAINTENANCE_STATUSES, TYPE_LABELS, STATUS_LABELS,
 } from '../../../maintenance/maintenanceTypes'
 import type { MaintenanceFilters, MaintenanceOrder, MaintenanceStatus, MaintenanceType } from '../../../maintenance/maintenanceTypes'
@@ -37,7 +37,10 @@ const COLUMNS: readonly DataTableColumn<MaintenanceOrder>[] = [
 /** Lista ordens por entrada e gastos por encerramento, preservando os totais da API. */
 export default function MaintenancePage() {
   const { api, session } = useAuth()
-  const allowed = canManageMaintenance(session ? resolveProfile(session.perfil) : null)
+  const allowed = hasPermission(session, 'maintenance:read')
+  const canCreate = hasPermission(session, 'maintenance:create')
+  const canUpdate = hasPermission(session, 'maintenance:update')
+  const canClose = hasPermission(session, 'maintenance:close')
   const [values, setValues] = useState({ vehicleId: '', type: '', status: '', from: '', to: '' })
   const [filters, setFilters] = useState<MaintenanceFilters>({})
   const [filterError, setFilterError] = useState('')
@@ -45,7 +48,7 @@ export default function MaintenancePage() {
   const [feedback, setFeedback] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const state = useMaintenance(api, filters)
-  
+
   useEffect(() => {
     const previous = document.title
     document.title = 'Manutenção da Frota — Aratu'
@@ -67,18 +70,18 @@ export default function MaintenancePage() {
       setFilterError('O início do período deve anteceder o fim.'); return
     }
     setFilterError('')
-    setFilters({ 
+    setFilters({
       ...(values.vehicleId ? { vehicleId: values.vehicleId } : {}),
       ...(values.type ? { type: values.type as MaintenanceType } : {}),
       ...(values.status ? { status: values.status as MaintenanceStatus } : {}),
       ...(values.from ? { from: new Date(values.from).toISOString() } : {}),
-      ...(values.to ? { to: new Date(values.to).toISOString() } : {}) 
+      ...(values.to ? { to: new Date(values.to).toISOString() } : {})
     })
     state.reload()
   }
 
   function select(id: string) { setSelectedId(id); void state.select(id) }
-  
+
   function saved(order: MaintenanceOrder) {
     setForm(null); setSelectedId(order.id); state.saved(order)
     setFeedback(`Ordem #${order.id} ${order.status === 'DONE' ? 'encerrada' : 'salva'} com sucesso.`)
@@ -86,10 +89,10 @@ export default function MaintenancePage() {
 
   return (
     <Box sx={{ minWidth: 0, ...accessibleControls }}>
-      <PageHeader 
+      <PageHeader
         title="Manutenção da Frota"
         description="Registre a manutenção e acompanhe orçamento, execução e disponibilidade dos veículos."
-        actions={allowed ? <Button variant="contained" onClick={() => setForm({})} disabled={state.vehicles.length === 0 || Boolean(state.vehiclesError)}>Registrar Manutenção</Button> : undefined} 
+        actions={canCreate ? <Button variant="contained" onClick={() => setForm({})} disabled={state.vehicles.length === 0 || Boolean(state.vehiclesError)}>Registrar manutenção</Button> : undefined}
       />
 
       {!allowed ? (
@@ -97,49 +100,49 @@ export default function MaintenancePage() {
       ) : (
         <>
           {feedback && <Alert severity="success" role="status" sx={{ mb: 2 }}>{feedback}</Alert>}
-          
+
           <FilterBar label="Filtros de manutenções">
             <Box sx={{ flex: { xs: 'none', md: '1 1 200px' }, minWidth: 0 }}>
-              <FormSelect 
-                label="Veículo" 
-                value={values.vehicleId} 
+              <FormSelect
+                label="Veículo"
+                value={values.vehicleId}
                 emptyLabel="Todos os veículos"
-                options={state.vehicles.map(vehicle => ({ value: vehicle.id, label: vehicle.licensePlate }))} 
-                onChange={vehicleId => setValues({ ...values, vehicleId })} 
+                options={state.vehicles.map(vehicle => ({ value: vehicle.id, label: vehicle.licensePlate }))}
+                onChange={vehicleId => setValues({ ...values, vehicleId })}
               />
             </Box>
             <Box sx={{ flex: { xs: 'none', md: '1 1 160px' }, minWidth: 0 }}>
-              <FormSelect 
-                label="Tipo" 
-                value={values.type} 
+              <FormSelect
+                label="Tipo"
+                value={values.type}
                 emptyLabel="Todos os tipos"
-                options={MAINTENANCE_TYPES.map(value => ({ value, label: TYPE_LABELS[value] }))} 
-                onChange={type => setValues({ ...values, type })} 
+                options={MAINTENANCE_TYPES.map(value => ({ value, label: TYPE_LABELS[value] }))}
+                onChange={type => setValues({ ...values, type })}
               />
             </Box>
             <Box sx={{ flex: { xs: 'none', md: '1 1 170px' }, minWidth: 0 }}>
-              <FormSelect 
-                label="Situação" 
-                value={values.status} 
+              <FormSelect
+                label="Situação"
+                value={values.status}
                 emptyLabel="Todas as situações"
-                options={MAINTENANCE_STATUSES.map(value => ({ value, label: STATUS_LABELS[value] }))} 
-                onChange={status => setValues({ ...values, status })} 
+                options={MAINTENANCE_STATUSES.map(value => ({ value, label: STATUS_LABELS[value] }))}
+                onChange={status => setValues({ ...values, status })}
               />
             </Box>
             <Box sx={{ flex: { xs: 'none', md: '1 1 220px' }, minWidth: 0 }}>
-              <FormField 
-                label="Início do período" 
-                type="datetime-local" 
+              <FormField
+                label="Início do período"
+                type="datetime-local"
                 value={values.from}
-                onChange={from => setValues({ ...values, from })} 
+                onChange={from => setValues({ ...values, from })}
               />
             </Box>
             <Box sx={{ flex: { xs: 'none', md: '1 1 220px' }, minWidth: 0 }}>
-              <FormField 
-                label="Fim do período" 
-                type="datetime-local" 
+              <FormField
+                label="Fim do período"
+                type="datetime-local"
                 value={values.to}
-                onChange={to => setValues({ ...values, to })} 
+                onChange={to => setValues({ ...values, to })}
               />
             </Box>
             <Button variant="contained" onClick={applyFilters}>Aplicar filtros</Button>
@@ -151,12 +154,12 @@ export default function MaintenancePage() {
           {state.vehiclesError && <StateFeedback kind="partial" title={state.vehiclesError} actionLabel="Tentar novamente" onAction={state.reload} />}
           {state.loading && <StateFeedback kind="loading" title="Carregando manutenções..." />}
           {state.error && (
-            <StateFeedback 
-              kind={state.data ? 'partial' : 'error'} 
+            <StateFeedback
+              kind={state.data ? 'partial' : 'error'}
               title={state.data ? 'Os dados exibidos podem estar desatualizados.' : state.error}
-              description={state.data ? state.error : undefined} 
-              actionLabel="Tentar novamente" 
-              onAction={state.reload} 
+              description={state.data ? state.error : undefined}
+              actionLabel="Tentar novamente"
+              onAction={state.reload}
             />
           )}
 
@@ -178,57 +181,59 @@ export default function MaintenancePage() {
               {state.data.items.length === 0 ? (
                 <StateFeedback kind="empty" title="Nenhuma manutenção encontrada com os filtros atuais." />
               ) : (
-                <DataTable 
-                  caption="Registros de manutenção — ordens abertas no período" 
-                  columns={COLUMNS} 
-                  rows={state.data.items} 
-                  rowKey={order => order.id} 
+                <DataTable
+                  caption="Registros de manutenção — ordens abertas no período"
+                  columns={COLUMNS}
+                  rows={state.data.items}
+                  rowKey={order => order.id}
                   busy={state.loading}
                   renderActions={order => (
-                    <Button 
-                      variant="outlined" 
-                      onClick={() => select(order.id)} 
+                    <Button
+                      variant="outlined"
+                      onClick={() => select(order.id)}
                       aria-label={`Ver ordem ${order.id} do veículo ${order.vehicleSnapshot?.licensePlate ?? order.vehicleId}`}
                     >
-                      Ver orçamento / ordem
+                      Consultar
                     </Button>
-                  )} 
+                  )}
                 />
               )}
             </>
           )}
 
           {form && (
-            <MaintenanceFormDialog 
-              api={api} 
-              order={form.order} 
-              vehicles={state.vehicles} 
-              onClose={() => setForm(null)} 
+            <MaintenanceFormDialog
+              api={api}
+              order={form.order}
+              vehicles={state.vehicles}
+              onClose={() => setForm(null)}
               onSaved={saved}
-              onConflict={() => { const order = form.order; setForm(null); if (order) select(order.id) }} 
+              onConflict={() => { const order = form.order; setForm(null); if (order) select(order.id) }}
             />
           )}
 
           {state.selection && !form && (
             state.selection.order ? (
-              <MaintenanceDetailDialog 
+              <MaintenanceDetailDialog
                 key={`${state.selection.order.id}-${state.selection.order.revision}`}
-                order={state.selection.order} 
-                api={api} 
-                onClose={state.dismiss} 
+                order={state.selection.order}
+                api={api}
+                onClose={state.dismiss}
                 onEdit={() => setForm({ order: state.selection!.order! })}
-                onSaved={saved} 
-                onReload={() => { if (selectedId) select(selectedId) }} 
+                onSaved={saved}
+                onReload={() => { if (selectedId) select(selectedId) }}
+                canUpdate={canUpdate}
+                canClose={canClose}
               />
             ) : (
               <Dialog open onClose={state.dismiss} fullWidth aria-labelledby="maintenance-detail-title">
                 <DialogTitle id="maintenance-detail-title">Consultar manutenção</DialogTitle>
                 <DialogContent>
-                  <StateFeedback 
-                    kind={state.selection.loading ? 'loading' : 'error'} 
+                  <StateFeedback
+                    kind={state.selection.loading ? 'loading' : 'error'}
                     title={state.selection.loading ? 'Carregando ordem...' : state.selection.error}
-                    actionLabel={state.selection.loading ? undefined : 'Tentar novamente'} 
-                    onAction={state.selection.loading ? undefined : () => { if (selectedId) select(selectedId) }} 
+                    actionLabel={state.selection.loading ? undefined : 'Tentar novamente'}
+                    onAction={state.selection.loading ? undefined : () => { if (selectedId) select(selectedId) }}
                   />
                 </DialogContent>
                 <DialogActions>

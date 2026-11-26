@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Box, Button, Stack, Typography } from '@mui/material'
 import { useAuth } from '../../auth/useAuth'
-import { resolveProfile } from '../../auth/profiles'
+import { hasPermission } from '../../auth/access'
 import { tokenUserId } from '../../auth/token'
 import PageHeader from '../../components/ui/PageHeader'
 import FilterBar from '../../components/ui/FilterBar'
@@ -9,7 +9,6 @@ import { FormField, FormSelect } from '../../components/ui/FormField'
 import DataTable from '../../components/ui/DataTable'
 import StateFeedback from '../../components/ui/StateFeedback'
 import StatusChip from '../../components/ui/StatusChip'
-import { canAccessReports } from '../../reports/reportAccess'
 import { formatReportCell } from '../../reports/reportPresentation'
 import { REPORT_MODULE_LABELS } from '../../reports/reportTypes'
 import { useReports } from '../../hooks/useReports'
@@ -20,13 +19,19 @@ import styles from './ReportsPage.module.css'
 /** Orquestra o catálogo modular, os filtros e a conferência dos relatórios operacionais. */
 export default function ReportsPage() {
   const { api, session } = useAuth()
-  const allowed = canAccessReports(session ? resolveProfile(session.perfil) : null)
-  const state = useReports(api, session ? tokenUserId(session.token) : null, allowed, session?.perfil ?? '')
+  const allowed = Boolean(session?.permissions?.some((permission) => permission.startsWith('reports:read:')))
+  const accessRevision = `${session?.profile?.id ?? session?.perfil ?? ''}:${session?.profile?.revision ?? 0}`
+  const state = useReports(api, session ? tokenUserId(session.token) : null, allowed, accessRevision)
   useEffect(() => { document.title = 'Relatórios Operacionais — Aratu' }, [])
   if (!allowed) return <StateFeedback kind="forbidden" title="Seu perfil não tem permissão para gerar relatórios." />
   const { report, selection, preview } = state
   const busy = state.loading || state.exporting
   const canGenerate = Boolean(report && !state.validation && !busy)
+  const exportModule = report?.module === 'VIAGENS' ? 'trips'
+    : report?.module === 'MANUTENCOES' ? 'maintenance'
+      : report?.module === 'SVO' ? 'svo'
+        : report?.module === 'AUTENTICACAO_RBAC' ? 'auth' : 'fleet'
+  const canExport = hasPermission(session, `reports:export:${exportModule}`)
   const totals = preview && <Stack role="status" aria-live="polite" spacing={1}>
     <Typography>{preview.totalCount} registros encontrados.</Typography>
     {preview.columns.filter(column => preview.totals[column.key] !== undefined).map(column => <Typography key={column.key} sx={{ fontWeight: 700 }}>{column.label} — total: {formatReportCell(preview.totals[column.key], column)}</Typography>)}
@@ -38,9 +43,9 @@ export default function ReportsPage() {
     '& .MuiCheckbox-root.Mui-checked, & .MuiInputLabel-root.Mui-focused': { color: 'primary.dark' },
     '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.dark' },
   }}>
-    <PageHeader title="Relatórios Operacionais" description="Escolha o módulo, ajuste o período e as colunas e confira os dados antes de exportar."
-      actions={<><Button variant="outlined" disabled={!canGenerate} aria-busy={state.exporting} onClick={() => void state.exportResult('csv')}>Exportar CSV</Button>
-        <Button variant="outlined" disabled={!canGenerate} aria-busy={state.exporting} onClick={() => void state.exportResult('print')}>Imprimir relatório</Button></>} />
+    <PageHeader title="Relatórios" description="Escolha o módulo, ajuste o período e as colunas e confira os dados antes de exportar."
+      actions={<><Button variant="outlined" disabled={!canGenerate || !canExport} aria-busy={state.exporting} onClick={() => void state.exportResult('csv')}>Exportar CSV</Button>
+        <Button variant="outlined" disabled={!canGenerate || !canExport} aria-busy={state.exporting} onClick={() => void state.exportResult('print')}>Imprimir relatório</Button></>} />
     {state.catalogLoading ? <StateFeedback kind="loading" title="Carregando catálogo de relatórios..." /> : state.catalogError
       ? <StateFeedback kind="error" title={state.catalogError} actionLabel="Tentar novamente" onAction={state.retryCatalog} />
       : !state.catalog.length ? <StateFeedback kind="empty" title="Nenhum relatório disponível para seu perfil." /> : <>

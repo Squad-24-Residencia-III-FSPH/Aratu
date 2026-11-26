@@ -2,12 +2,11 @@ import { Router } from 'express'
 import type { Request, Response, NextFunction } from 'express'
 import { createSvoOrdersController } from '../controllers/svo-orders.controller'
 import { createAuthMiddleware, createCurrentUserMiddleware } from '../middlewares/auth.middleware'
-import { authorizeRoles } from '../middlewares/rbac.middleware'
+import { authorizePermissions } from '../middlewares/rbac.middleware'
 import type { UsersRepositoryContract } from '../repositories/users.repository'
 import type { SvoOrdersService } from '../services/svo-orders.service'
 import type { JwtConfig } from '../types/auth'
-import { SVO_MAINTAIN_ROLES } from '../types/svo-occurrence.types'
-import { SVO_ORDER_READ_ROLES, SVO_ORDER_UPDATE_ROLES, SvoOrderServiceError } from '../types/svo-order.types'
+import { SvoOrderServiceError } from '../types/svo-order.types'
 import type { SvoOrderErrorCode } from '../types/svo-order.types'
 
 const ERROR_STATUS: Record<SvoOrderErrorCode, number> = {
@@ -22,12 +21,13 @@ export function createSvoOrdersRouter(service: SvoOrdersService, jwt: JwtConfig,
   const router = Router()
   router.use(createAuthMiddleware(jwt.secret), createCurrentUserMiddleware(users))
   const controller = createSvoOrdersController(service)
-  router.get('/', authorizeRoles(SVO_ORDER_READ_ROLES), controller.list)
-  router.get('/:id', authorizeRoles(SVO_ORDER_READ_ROLES), controller.detail)
-  router.patch('/:id/status', authorizeRoles(SVO_ORDER_UPDATE_ROLES), controller.updateStatus)
-  router.post('/:id/result', authorizeRoles(SVO_ORDER_UPDATE_ROLES), controller.recordResult)
-  router.post('/dispatch/:occurrenceId', authorizeRoles(SVO_MAINTAIN_ROLES), controller.retryDispatch)
-  router.post('/', authorizeRoles(SVO_MAINTAIN_ROLES), controller.create)
+  const readOrders = authorizePermissions(['svo:orders:read:assigned', 'svo:orders:read:all'], 'any')
+  router.get('/', readOrders, controller.list)
+  router.get('/:id', readOrders, controller.detail)
+  router.patch('/:id/status', authorizePermissions('svo:orders:update:assigned'), controller.updateStatus)
+  router.post('/:id/result', authorizePermissions('svo:orders:result:assigned'), controller.recordResult)
+  router.post('/dispatch/:occurrenceId', authorizePermissions('svo:orders:manage'), controller.retryDispatch)
+  router.post('/', authorizePermissions('svo:orders:manage'), controller.create)
   return router
 }
 

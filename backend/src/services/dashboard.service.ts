@@ -1,4 +1,3 @@
-import type { UserRole } from '../types/auth'
 import {
   DASHBOARD_MAX_PERIOD_DAYS,
   DashboardError,
@@ -12,7 +11,6 @@ import type {
   VehicleIndicatorMeasures,
 } from '../types/dashboard.types'
 import type { DashboardRepositoryContract } from '../repositories/dashboard.repository'
-import { SVO_REPORT_ROLES } from './reports/definitions/report-definition'
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const ID_PATTERN = /^[1-9]\d{0,18}$/
@@ -41,9 +39,9 @@ function parseDate(value: unknown, field: string): string {
   return value
 }
 
-/** Indica se o perfil pode ver os indicadores do SVO (mesma regra dos relatórios do SVO). */
-export function canSeeSvo(role: UserRole | undefined): boolean {
-  return SVO_REPORT_ROLES.some((allowed) => allowed === role)
+/** Indica se a concessão atual permite consultar indicadores SVO. */
+export function canSeeSvo(permissions: readonly string[] | undefined): boolean {
+  return permissions?.includes('dashboard:svo:read') ?? false
 }
 
 /** Indicadores do dashboard gerencial (US21), conforme a definição da FROTA-128. */
@@ -59,7 +57,7 @@ export class DashboardService {
   /**
    * Retrato atual da operação (sem período); o bloco do SVO só é calculado para perfis com acesso ao SVO.
    */
-  async getSummary(role: UserRole | undefined, vehicleIdValue?: unknown): Promise<DashboardSummary> {
+  async getSummary(permissions: readonly string[] | undefined, vehicleIdValue?: unknown): Promise<DashboardSummary> {
     const vehicleId = await this.validateVehicle(vehicleIdValue)
     const counts = await this.repository.summary(this.alertDays, vehicleId)
     const summary: DashboardSummary = {
@@ -67,7 +65,7 @@ export class DashboardService {
       ...counts,
       documents: { ...counts.documents, alertDays: this.alertDays },
     }
-    if (canSeeSvo(role)) summary.svo = await this.repository.svoSummary(vehicleId)
+    if (canSeeSvo(permissions)) summary.svo = await this.repository.svoSummary(vehicleId)
     return summary
   }
 
@@ -79,7 +77,7 @@ export class DashboardService {
    *
    * @throws {DashboardError} 400 período ou veículo inválido; 404 veículo inexistente.
    */
-  async getIndicators(query: DashboardIndicatorsQuery, role: UserRole | undefined): Promise<DashboardIndicators> {
+  async getIndicators(query: DashboardIndicatorsQuery, permissions: readonly string[] | undefined): Promise<DashboardIndicators> {
     const period = this.validatePeriod(query.from, query.to)
     const vehicleId = await this.validateVehicle(query.vehicleId)
     const days = (Date.parse(period.to) - Date.parse(period.from)) / DAY_MS
@@ -96,7 +94,7 @@ export class DashboardService {
       totals: rows[0]?.totals ?? EMPTY_TOTALS,
       pendingValidation: [PENDING_VALIDATION_INDICATORS.averageConsumption],
     }
-    if (canSeeSvo(role)) {
+    if (canSeeSvo(permissions)) {
       indicators.svo = await this.repository.svoIndicators(period, vehicleId)
       indicators.pendingValidation.push(PENDING_VALIDATION_INDICATORS.svoTimeToCollection)
     }

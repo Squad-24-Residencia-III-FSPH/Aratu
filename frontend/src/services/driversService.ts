@@ -6,6 +6,7 @@ import type {
   CreateDriverInput,
   Driver,
   DriverFilters,
+  DriverPage,
   DriverStatus,
   UpdateDriverInput,
 } from '../drivers/driverTypes.ts'
@@ -83,8 +84,33 @@ export function buildDriversQuery(filters: DriverFilters = {}): string {
   const params = new URLSearchParams()
   if (filters.name?.trim()) params.set('name', filters.name.trim())
   if (filters.status) params.set('status', filters.status)
+  if (filters.cnhCategory) params.set('cnhCategory', filters.cnhCategory)
+  if (filters.view) params.set('view', filters.view)
+  if (filters.search?.trim()) params.set('search', filters.search.trim())
+  if (filters.page !== undefined) params.set('page', String(filters.page))
+  if (filters.pageSize !== undefined) params.set('pageSize', String(filters.pageSize))
   const query = params.toString()
   return query ? `?${query}` : ''
+}
+
+/** Carrega uma página server-side de motoristas com filtros e total do conjunto. */
+export async function listDriverPage(api: ApiRequest, filters: DriverFilters): Promise<DriverPage> {
+  const response = await api(`/drivers${buildDriversQuery(filters)}`)
+  if (!response.ok) await throwRequestError(response, 'Não foi possível carregar os motoristas.')
+  const body: unknown = await response.json().catch(() => null)
+  if (!isRecord(body) || !Array.isArray(body.items)
+    || !Number.isSafeInteger(body.total) || Number(body.total) < 0
+    || body.page !== filters.page || body.pageSize !== filters.pageSize
+    || !Number.isSafeInteger(body.totalPages) || Number(body.totalPages) < 0) {
+    throw new Error(INVALID_RESPONSE_MESSAGE)
+  }
+  return {
+    items: body.items.map(parseDriver),
+    total: Number(body.total),
+    page: Number(body.page),
+    pageSize: Number(body.pageSize),
+    totalPages: Number(body.totalPages),
+  }
 }
 
 /** Lista todos os motoristas; a API FROTA-49 não pagina o resultado. */

@@ -30,7 +30,10 @@ export function createAuthRouter(
 
   router.post('/login', controller.login)
   router.post('/logout', authenticate, ...(currentUser ? [currentUser] : []), controller.logout)
-  if (currentUser) router.get('/me', authenticate, currentUser, controller.me)
+  if (currentUser) {
+    router.get('/me', authenticate, currentUser, controller.session)
+    router.get('/session', authenticate, currentUser, controller.session)
+  }
 
   return router
 }

@@ -7,11 +7,13 @@ import type {
   NormalizedFleetServiceAttributes,
 } from '../types/fleet-service.types'
 import type { Vehicle } from '../types/vehicle.types'
+import type { PaginatedResult } from '../types/pagination.types'
 
 /** Contrato de persistência usado pelos casos de uso e testes isolados do service. */
 export interface ServicesRepositoryContract {
   withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T>
   list(filters: FleetServiceFilters): Promise<FleetService[]>
+  listPaged?(filters: FleetServiceFilters): Promise<PaginatedResult<FleetService>>
   findById(id: string, client?: PoolClient): Promise<FleetService | null>
   findByIdForUpdate(id: string, client: PoolClient): Promise<FleetService | null>
   findByName(name: string, client?: PoolClient): Promise<FleetService | null>
@@ -70,6 +72,7 @@ export class ServicesRepository implements ServicesRepositoryContract {
 
   /** Lista tipos de serviço ordenados por nome, opcionalmente filtrando por ativo. */
   async list(filters: FleetServiceFilters): Promise<FleetService[]> {
+    const search = filters.search?.trim()
     const result = await this.pool.query<FleetService>(
       `SELECT id::text AS id, name, description, categories,
               requires_triage AS "requiresTriage", requires_weight AS "requiresWeight",
@@ -77,10 +80,36 @@ export class ServicesRepository implements ServicesRepositoryContract {
               created_at AS "createdAt", updated_at AS "updatedAt"
          FROM fleet.services
         WHERE ($1::boolean IS NULL OR active = $1)
+          AND ($2::text IS NULL OR name ILIKE $2 ESCAPE '\\' OR description ILIKE $2 ESCAPE '\\')
         ORDER BY name ASC, id ASC`,
-      [filters.active ?? null],
+      [filters.active ?? null, search ? `${search.replace(/[\\%_]/g, (character) => `\\${character}`)}%` : null],
     )
     return result.rows
+  }
+
+  /** Pesquisa, conta e pagina o catálogo no banco para manter números globais coerentes. */
+  async listPaged(filters: FleetServiceFilters): Promise<PaginatedResult<FleetService>> {
+    const search = filters.search?.trim()
+    const pattern = search ? `${search.replace(/[\\%_]/g, (character) => `\\${character}`)}%` : null
+    const values = [filters.active ?? null, pattern]
+    const where = `WHERE ($1::boolean IS NULL OR active = $1)
+          AND ($2::text IS NULL OR name ILIKE $2 ESCAPE '\\' OR description ILIKE $2 ESCAPE '\\')`
+    const [count, result] = await Promise.all([
+      this.pool.query<{ total: string }>(`SELECT count(*)::text AS total FROM fleet.services ${where}`, values),
+      this.pool.query<FleetService>(
+        `SELECT id::text AS id, name, description, categories,
+                requires_triage AS "requiresTriage", requires_weight AS "requiresWeight",
+                requires_identification AS "requiresIdentification", active, revision,
+                created_at AS "createdAt", updated_at AS "updatedAt"
+           FROM fleet.services ${where}
+          ORDER BY name ASC, id ASC LIMIT $3 OFFSET $4`,
+        [...values, filters.pageSize ?? 20, ((filters.page ?? 1) - 1) * (filters.pageSize ?? 20)],
+      ),
+    ])
+    const total = Number(count.rows[0]?.total ?? 0)
+    const page = filters.page ?? 1
+    const pageSize = filters.pageSize ?? 20
+    return { items: result.rows, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
   }
 
   /** Busca um tipo de serviço pelo identificador. */
