@@ -8,7 +8,7 @@ BEGIN
 END;
 $$;
 
-DROP INDEX trip_trips_creation_key;
+DROP INDEX trip.trip_trips_creation_key;
 ALTER TABLE trip.trips
   DROP CONSTRAINT trip_trips_direct_context_required,
   DROP COLUMN creation_payload,
